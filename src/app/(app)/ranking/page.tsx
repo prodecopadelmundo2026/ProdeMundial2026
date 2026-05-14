@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { hasSupabaseConfig } from '@/lib/supabase/env'
 import type { RankingEntry } from '@/types'
 import clsx from 'clsx'
 
@@ -11,10 +11,25 @@ function RankIcon({ rank }: { rank: number }) {
 }
 
 export default async function RankingPage() {
+  if (!hasSupabaseConfig()) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900">Ranking</h1>
+        <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-5">
+          <p className="font-semibold text-yellow-800">
+            Modo local sin base de datos
+          </p>
+          <p className="mt-1 text-sm text-yellow-700">
+            El ranking se va a cargar cuando conectes Supabase.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-  const currentUserId = user.id
+  const currentUserId = user?.id ?? null
 
   const { data: ranking } = await supabase
     .from('ranking_entries')

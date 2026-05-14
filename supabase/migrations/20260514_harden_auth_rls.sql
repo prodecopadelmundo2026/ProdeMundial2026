@@ -1,25 +1,37 @@
 -- =============================================================
--- PRODE MUNDIAL 2026 - Schema canonico
--- Ejecutar en Supabase SQL Editor para una base nueva.
+-- Hardening MVP: Google + codigo, RLS estricto y RPCs seguras
 -- =============================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- -------------------------------------------------------------
--- 1. Tablas
+-- Columnas/tablas nuevas
 -- -------------------------------------------------------------
 
-CREATE TABLE public.profiles (
-  id          uuid        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email       text        NOT NULL,
-  name        text        NOT NULL DEFAULT 'Jugador',
-  avatar_url  text,
-  is_admin    boolean     NOT NULL DEFAULT false,
-  created_at  timestamptz NOT NULL DEFAULT now(),
-  updated_at  timestamptz NOT NULL DEFAULT now()
-);
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS is_admin boolean NOT NULL DEFAULT false;
 
-CREATE TABLE public.access_codes (
+ALTER TABLE public.matches
+  ADD CONSTRAINT matches_home_score_range
+  CHECK (home_score IS NULL OR home_score BETWEEN 0 AND 30) NOT VALID;
+
+ALTER TABLE public.matches
+  ADD CONSTRAINT matches_away_score_range
+  CHECK (away_score IS NULL OR away_score BETWEEN 0 AND 30) NOT VALID;
+
+ALTER TABLE public.predictions
+  ADD CONSTRAINT predictions_home_score_range
+  CHECK (home_score BETWEEN 0 AND 30) NOT VALID;
+
+ALTER TABLE public.predictions
+  ADD CONSTRAINT predictions_away_score_range
+  CHECK (away_score BETWEEN 0 AND 30) NOT VALID;
+
+ALTER TABLE public.predictions
+  ADD CONSTRAINT predictions_points_valid
+  CHECK (points IS NULL OR points IN (0, 1, 3)) NOT VALID;
+
+CREATE TABLE IF NOT EXISTS public.access_codes (
   code       text        PRIMARY KEY CHECK (code ~ '^[A-Z0-9-]{4,32}$'),
   label      text,
   expires_at timestamptz,
@@ -28,34 +40,8 @@ CREATE TABLE public.access_codes (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.matches (
-  id           uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  home_team    text        NOT NULL,
-  away_team    text        NOT NULL,
-  home_score   int         CHECK (home_score IS NULL OR home_score BETWEEN 0 AND 30),
-  away_score   int         CHECK (away_score IS NULL OR away_score BETWEEN 0 AND 30),
-  scheduled_at timestamptz NOT NULL,
-  locked_at    timestamptz NOT NULL,
-  stage        text        NOT NULL CHECK (stage IN ('group','round_of_16','quarter','semi','final')),
-  "group"      text,
-  status       text        NOT NULL DEFAULT 'upcoming' CHECK (status IN ('upcoming','live','finished')),
-  created_at   timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE TABLE public.predictions (
-  id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     uuid        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  match_id    uuid        NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,
-  home_score  int         NOT NULL CHECK (home_score BETWEEN 0 AND 30),
-  away_score  int         NOT NULL CHECK (away_score BETWEEN 0 AND 30),
-  points      int         CHECK (points IS NULL OR points IN (0, 1, 3)),
-  created_at  timestamptz NOT NULL DEFAULT now(),
-  updated_at  timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (user_id, match_id)
-);
-
 -- -------------------------------------------------------------
--- 2. Helpers y triggers
+-- Helpers y triggers
 -- -------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.set_updated_at()
@@ -67,10 +53,12 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_profiles_updated_at ON public.profiles;
 CREATE TRIGGER trg_profiles_updated_at
 BEFORE UPDATE ON public.profiles
 FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_predictions_updated_at ON public.predictions;
 CREATE TRIGGER trg_predictions_updated_at
 BEFORE UPDATE ON public.predictions
 FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
@@ -79,12 +67,19 @@ CREATE OR REPLACE FUNCTION public.set_match_locked_at()
 RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
-  -- MVP: cada partido cierra exactamente en su horario oficial.
   NEW.locked_at := NEW.scheduled_at;
   RETURN NEW;
 END;
 $$;
 
+UPDATE public.matches
+SET locked_at = scheduled_at
+WHERE scheduled_at IS NOT NULL;
+
+ALTER TABLE public.matches
+  ALTER COLUMN locked_at SET NOT NULL;
+
+DROP TRIGGER IF EXISTS trg_match_locked_at ON public.matches;
 CREATE TRIGGER trg_match_locked_at
 BEFORE INSERT OR UPDATE OF scheduled_at ON public.matches
 FOR EACH ROW EXECUTE FUNCTION public.set_match_locked_at();
@@ -143,6 +138,8 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_match_result_points ON public.matches;
+DROP TRIGGER IF EXISTS on_match_result_updated ON public.matches;
 CREATE TRIGGER trg_match_result_points
 AFTER UPDATE OF home_score, away_score, status ON public.matches
 FOR EACH ROW EXECUTE FUNCTION public.update_prediction_points();
@@ -163,7 +160,7 @@ AS $$
 $$;
 
 -- -------------------------------------------------------------
--- 3. RPCs seguras
+-- RPCs seguras
 -- -------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.claim_access_code(
@@ -248,20 +245,8 @@ BEGIN
     RAISE EXCEPTION 'Las predicciones para este partido ya cerraron';
   END IF;
 
-  INSERT INTO public.predictions (
-    user_id,
-    match_id,
-    home_score,
-    away_score,
-    points
-  )
-  VALUES (
-    v_user_id,
-    p_match_id,
-    p_home_score,
-    p_away_score,
-    NULL
-  )
+  INSERT INTO public.predictions (user_id, match_id, home_score, away_score, points)
+  VALUES (v_user_id, p_match_id, p_home_score, p_away_score, NULL)
   ON CONFLICT (user_id, match_id) DO UPDATE
   SET
     home_score = excluded.home_score,
@@ -299,10 +284,11 @@ END;
 $$;
 
 -- -------------------------------------------------------------
--- 4. Ranking publico
+-- Ranking publico
 -- -------------------------------------------------------------
 
-CREATE OR REPLACE VIEW public.ranking_entries
+DROP VIEW IF EXISTS public.ranking_entries;
+CREATE VIEW public.ranking_entries
 WITH (security_invoker = false) AS
 SELECT
   pr.id AS user_id,
@@ -321,13 +307,34 @@ LEFT JOIN public.predictions p ON p.user_id = pr.id
 GROUP BY pr.id, pr.name, pr.avatar_url, pr.created_at;
 
 -- -------------------------------------------------------------
--- 5. RLS
+-- RLS y politicas finales
 -- -------------------------------------------------------------
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.access_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.predictions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "profiles: read all" ON public.profiles;
+DROP POLICY IF EXISTS "profiles: insert own" ON public.profiles;
+DROP POLICY IF EXISTS "profiles: update own" ON public.profiles;
+DROP POLICY IF EXISTS profiles_select_authenticated ON public.profiles;
+DROP POLICY IF EXISTS profiles_update_own ON public.profiles;
+
+DROP POLICY IF EXISTS "matches: read all" ON public.matches;
+DROP POLICY IF EXISTS matches_select_authenticated ON public.matches;
+DROP POLICY IF EXISTS matches_admin_write ON public.matches;
+DROP POLICY IF EXISTS matches_admin_update ON public.matches;
+
+DROP POLICY IF EXISTS "predictions: read all" ON public.predictions;
+DROP POLICY IF EXISTS "predictions: read own" ON public.predictions;
+DROP POLICY IF EXISTS "predictions: insert own" ON public.predictions;
+DROP POLICY IF EXISTS "predictions: update own" ON public.predictions;
+DROP POLICY IF EXISTS predictions_select_own ON public.predictions;
+DROP POLICY IF EXISTS predictions_insert_own ON public.predictions;
+DROP POLICY IF EXISTS predictions_update_own ON public.predictions;
+DROP POLICY IF EXISTS predictions_insert_own_open_match ON public.predictions;
+DROP POLICY IF EXISTS predictions_update_own_open_match ON public.predictions;
 
 CREATE POLICY profiles_select_authenticated
   ON public.profiles FOR SELECT
@@ -388,10 +395,8 @@ CREATE POLICY predictions_update_own_open_match
     )
   );
 
--- Sin politicas para access_codes: se consume solo via claim_access_code().
-
 -- -------------------------------------------------------------
--- 6. Grants minimos para PostgREST/Supabase Auth
+-- Grants minimos
 -- -------------------------------------------------------------
 
 REVOKE ALL ON public.profiles FROM anon, authenticated;
@@ -408,10 +413,3 @@ GRANT SELECT ON public.ranking_entries TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_access_code(text, text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.save_prediction(uuid, int, int) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.save_predictions(jsonb) TO authenticated;
-
--- Crear codigos de acceso manualmente:
--- INSERT INTO public.access_codes (code, label, expires_at)
--- VALUES ('MUNDIAL-2026', 'Invitados iniciales', '2026-06-11 19:00:00+00');
-
--- Hacer admin a un usuario ya registrado:
--- UPDATE public.profiles SET is_admin = true WHERE email = 'tu@email.com';

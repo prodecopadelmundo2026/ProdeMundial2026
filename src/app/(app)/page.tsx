@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/server'
+import { hasSupabaseConfig } from '@/lib/supabase/env'
 import { StatusBadge } from '@/components/StatusBadge'
 import type { Match, RankingEntry } from '@/types'
 
@@ -24,6 +25,30 @@ function StatCard({
 }
 
 export default async function DashboardPage() {
+  if (!hasSupabaseConfig()) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Prode Mundial 2026
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Modo local sin base de datos
+          </p>
+        </div>
+
+        <section className="rounded-xl border border-yellow-200 bg-yellow-50 p-5">
+          <p className="font-semibold text-yellow-800">
+            Todavia no esta conectado Supabase.
+          </p>
+          <p className="mt-1 text-sm text-yellow-700">
+            Podes revisar las pantallas publicas: Login, Reglas y Ranking.
+          </p>
+        </section>
+      </div>
+    )
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')

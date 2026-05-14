@@ -1,119 +1,78 @@
-'use client'
-
-import { useState } from 'react'
 import { Trophy } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { signInWithGoogle } from './actions'
+import { SubmitButton } from './SubmitButton'
 
-export default function LoginPage() {
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [sent, setSent] = useState(false)
+const ERROR_MESSAGES: Record<string, string> = {
+  invalid_access_code: 'El codigo debe tener 4 a 32 caracteres.',
+  missing_access_code: 'Necesitas un codigo de acceso para entrar.',
+  access_code_invalid: 'El codigo no existe, vencio o ya fue usado por otra cuenta.',
+  auth_callback_error: 'No pudimos completar el login con Google.',
+  oauth_start_failed: 'No pudimos iniciar el login con Google.',
+  local_no_db: 'Modo local sin base: podes revisar la UI, pero login y datos requieren Supabase.',
+}
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        data: { name },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
-
-    if (error) {
-      setError(error.message)
-    } else {
-      setSent(true)
-    }
-    setLoading(false)
-  }
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ error?: string }>
+}) {
+  const params = await searchParams
+  const error = params?.error ? ERROR_MESSAGES[params.error] : null
 
   return (
-    <main
-      className="min-h-screen flex items-center justify-center px-4"
-      style={{ backgroundColor: '#0a3d1f' }}
-    >
+    <main className="flex min-h-screen items-center justify-center bg-[#0a3d1f] px-4 py-10">
       <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="flex flex-col items-center mb-10">
+        <div className="mb-8 flex flex-col items-center text-center">
           <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-yellow-400/10">
-            <Trophy size={44} className="text-yellow-400" />
+            <Trophy size={44} className="text-yellow-400" aria-hidden="true" />
           </div>
-          <h1 className="text-4xl font-bold text-white tracking-tight">
+          <h1 className="text-4xl font-bold tracking-tight text-white">
             Prode Mundial 2026
           </h1>
-          <p className="text-green-400 mt-2 text-sm tracking-wide">
-            USA · Canadá · México
+          <p className="mt-2 text-sm tracking-wide text-green-200">
+            Login con Google y codigo unico
           </p>
         </div>
 
-        {/* Card */}
-        <div className="rounded-2xl bg-white p-8 shadow-2xl">
-          {sent ? (
-            <div className="text-center py-4">
-              <div className="mb-4 text-4xl">📬</div>
-              <p className="text-gray-900 text-lg font-semibold">
-                ¡Revisá tu email!
-              </p>
-              <p className="text-gray-500 mt-2 text-sm">
-                Te mandamos un link de acceso a{' '}
-                <span className="font-medium text-gray-700">{email}</span>
-              </p>
+        <section className="rounded-xl bg-white p-6 shadow-2xl sm:p-8">
+          <h2 className="text-xl font-semibold text-gray-900">
+            Entrar al prode
+          </h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Usa el codigo que te paso el organizador. Se asocia a una sola cuenta.
+          </p>
+
+          <form action={signInWithGoogle} className="mt-6 space-y-4">
+            <div>
+              <label
+                htmlFor="access_code"
+                className="mb-1.5 block text-sm font-medium text-gray-700"
+              >
+                Codigo de acceso
+              </label>
+              <input
+                id="access_code"
+                name="access_code"
+                type="text"
+                required
+                autoComplete="one-time-code"
+                inputMode="text"
+                minLength={4}
+                maxLength={32}
+                placeholder="MUNDIAL-2026"
+                className="min-h-12 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-base font-semibold uppercase tracking-wide text-gray-900 placeholder:text-gray-400 focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/20"
+              />
             </div>
-          ) : (
-            <>
-              <h2 className="text-gray-900 font-semibold text-xl mb-6">
-                Ingresá para jugar
-              </h2>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-gray-600 text-sm font-medium mb-1.5">
-                    Tu nombre
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    placeholder="Lionel"
-                    className="w-full px-4 py-3 rounded-lg bg-gray-50 text-gray-900 placeholder-gray-400 border border-gray-200 focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-600 text-sm font-medium mb-1.5">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    placeholder="tu@email.com"
-                    className="w-full px-4 py-3 rounded-lg bg-gray-50 text-gray-900 placeholder-gray-400 border border-gray-200 focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 transition"
-                  />
-                </div>
 
-                {error && (
-                  <p className="text-red-500 text-sm">{error}</p>
-                )}
+            {error && (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {error}
+              </p>
+            )}
 
-                <button
-                  type="submit"
-                  disabled={loading || !name.trim() || !email.trim()}
-                  className="w-full py-3 rounded-lg font-bold text-base transition mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: '#0a3d1f', color: 'white' }}
-                >
-                  {loading ? 'Enviando...' : 'Recibir link de acceso'}
-                </button>
-              </form>
-            </>
-          )}
-        </div>
+            <SubmitButton />
+          </form>
+        </section>
       </div>
     </main>
   )

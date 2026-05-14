@@ -1,18 +1,22 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useActionState, useState } from 'react'
+import { useFormStatus } from 'react-dom'
+import { useForm, type FieldValues, type UseFormRegister } from 'react-hook-form'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Check, Loader2 } from 'lucide-react'
+import { Check, Loader2, Lock } from 'lucide-react'
 import clsx from 'clsx'
 import type { Match } from '@/types'
 import { StatusBadge } from '@/components/StatusBadge'
-import { upsertPrediction } from './actions'
+import { savePredictions } from './actions'
 
 type PredictionMap = Record<string, { home_score: number; away_score: number }>
 type GroupedMatches = Record<string, Match[]>
+type SaveState = Awaited<ReturnType<typeof savePredictions>>
 
 const KNOCKOUT_ORDER = ['Octavos', 'Cuartos', 'Semifinal', 'Final']
+const initialSaveState: SaveState = { ok: false, message: null }
 
 function sortTabs(keys: string[]) {
   const groups = keys.filter((k) => k.startsWith('Grupo')).sort()
@@ -24,102 +28,73 @@ function isMatchOpen(match: Match) {
   return match.status === 'upcoming' && new Date() < new Date(match.locked_at)
 }
 
-function PredictionForm({
+function SaveButton({ disabled }: { disabled: boolean }) {
+  const { pending } = useFormStatus()
+
+  return (
+    <button
+      type="submit"
+      disabled={disabled || pending}
+      className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#0a3d1f] px-4 py-3 text-base font-bold text-white transition hover:bg-[#0f4f2a] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 sm:w-auto"
+    >
+      {pending ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+      Guardar
+    </button>
+  )
+}
+
+function PredictionFields({
   match,
   existing,
+  register,
 }: {
   match: Match
   existing: { home_score: number; away_score: number } | null
+  register: UseFormRegister<FieldValues>
 }) {
   const open = isMatchOpen(match)
-  const [home, setHome] = useState(existing?.home_score?.toString() ?? '')
-  const [away, setAway] = useState(existing?.away_score?.toString() ?? '')
-  const [saved, setSaved] = useState(!!existing)
-  const [isPending, startTransition] = useTransition()
 
-  const isDirty =
-    home !== (existing?.home_score?.toString() ?? '') ||
-    away !== (existing?.away_score?.toString() ?? '')
-
-  const canSave =
-    open &&
-    home !== '' &&
-    away !== '' &&
-    !isNaN(Number(home)) &&
-    !isNaN(Number(away)) &&
-    Number(home) >= 0 &&
-    Number(away) >= 0 &&
-    (isDirty || !saved)
-
-  function handleSave() {
-    startTransition(async () => {
-      await upsertPrediction(match.id, Number(home), Number(away))
-      setSaved(true)
-    })
-  }
-
-  if (!open && !existing) {
+  if (!open) {
     return (
-      <p className="text-xs text-gray-300 mt-3 text-right">Sin predicción</p>
+      <div className="mt-3 flex items-center justify-between border-t border-gray-50 pt-3 text-sm">
+        <span className="flex items-center gap-1.5 text-gray-400">
+          <Lock size={14} />
+          Cerrado
+        </span>
+        <span className="font-semibold tabular-nums text-gray-700">
+          {existing ? `${existing.home_score} - ${existing.away_score}` : 'Sin pronostico'}
+        </span>
+      </div>
     )
   }
 
   return (
-    <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between gap-3">
-      <span className="text-xs text-gray-400 shrink-0">Tu predicción</span>
+    <div className="mt-3 flex items-center justify-between gap-3 border-t border-gray-50 pt-3">
+      <input type="hidden" name="match_id" value={match.id} />
+      <span className="text-xs text-gray-400">Tu pronostico</span>
 
       <div className="flex items-center gap-2">
-        {open ? (
-          <>
-            <input
-              type="number"
-              min={0}
-              max={20}
-              value={home}
-              onChange={(e) => { setHome(e.target.value); setSaved(false) }}
-              className="w-10 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:border-green-500 tabular-nums"
-              placeholder="—"
-            />
-            <span className="text-gray-300 font-light">—</span>
-            <input
-              type="number"
-              min={0}
-              max={20}
-              value={away}
-              onChange={(e) => { setAway(e.target.value); setSaved(false) }}
-              className="w-10 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1 focus:outline-none focus:border-green-500 tabular-nums"
-              placeholder="—"
-            />
-            <button
-              onClick={handleSave}
-              disabled={!canSave || isPending}
-              className={clsx(
-                'flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition',
-                saved && !isDirty
-                  ? 'bg-green-50 text-green-600'
-                  : canSave
-                  ? 'text-white'
-                  : 'bg-gray-100 text-gray-300 cursor-not-allowed'
-              )}
-              style={canSave && !(saved && !isDirty) ? { backgroundColor: '#0a3d1f' } : {}}
-            >
-              {isPending ? (
-                <Loader2 size={12} className="animate-spin" />
-              ) : saved && !isDirty ? (
-                <>
-                  <Check size={12} />
-                  Guardado
-                </>
-              ) : (
-                'Guardar'
-              )}
-            </button>
-          </>
-        ) : (
-          <span className="text-sm font-semibold text-gray-700 tabular-nums">
-            {existing ? `${existing.home_score} — ${existing.away_score}` : '—'}
-          </span>
-        )}
+        <input
+          type="number"
+          min={0}
+          max={30}
+          inputMode="numeric"
+          defaultValue={existing?.home_score ?? ''}
+          {...register(`home_${match.id}`, { min: 0, max: 30 })}
+          className="h-11 w-14 rounded-lg border border-gray-200 text-center text-base font-semibold tabular-nums focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/10"
+          aria-label={`Goles de ${match.home_team}`}
+        />
+        <span className="text-gray-300">-</span>
+        <input
+          type="number"
+          min={0}
+          max={30}
+          inputMode="numeric"
+          defaultValue={existing?.away_score ?? ''}
+          {...register(`away_${match.id}`, { min: 0, max: 30 })}
+          className="h-11 w-14 rounded-lg border border-gray-200 text-center text-base font-semibold tabular-nums focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/10"
+          aria-label={`Goles de ${match.away_team}`}
+        />
       </div>
     </div>
   )
@@ -128,40 +103,42 @@ function PredictionForm({
 function MatchCard({
   match,
   prediction,
+  register,
 }: {
   match: Match
   prediction: { home_score: number; away_score: number } | null
+  register: UseFormRegister<FieldValues>
 }) {
   const isFinished = match.status === 'finished'
 
   return (
-    <div className="bg-white rounded-xl px-5 py-4 shadow-sm border border-gray-100">
-      <div className="flex items-center justify-between mb-3">
+    <div className="rounded-xl border border-gray-100 bg-white px-4 py-4 shadow-sm sm:px-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <StatusBadge match={match} />
         <span className="text-xs text-gray-400">
-          {format(new Date(match.scheduled_at), 'd MMM · HH:mm', { locale: es })}
+          {format(new Date(match.scheduled_at), 'd MMM - HH:mm', { locale: es })}
         </span>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 font-semibold text-gray-800">
-          <span>{match.home_team}</span>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 text-sm font-semibold text-gray-800 sm:text-base">
+          <span className="break-words">{match.home_team}</span>
           {isFinished ? (
-            <span className="text-gray-900 font-bold tabular-nums px-2">
+            <span className="px-2 font-bold tabular-nums text-gray-900">
               {match.home_score} - {match.away_score}
             </span>
           ) : (
-            <span className="text-gray-300 font-normal text-sm">vs</span>
+            <span className="px-2 text-sm font-normal text-gray-300">vs</span>
           )}
-          <span>{match.away_team}</span>
+          <span className="break-words">{match.away_team}</span>
         </div>
 
         {!isFinished && match.status !== 'live' && match.group && (
-          <span className="text-xs text-gray-300">Grupo {match.group}</span>
+          <span className="shrink-0 text-xs text-gray-300">Grupo {match.group}</span>
         )}
       </div>
 
-      <PredictionForm match={match} existing={prediction} />
+      <PredictionFields match={match} existing={prediction} register={register} />
     </div>
   )
 }
@@ -175,47 +152,64 @@ export function FixtureTabs({
 }) {
   const tabs = sortTabs(Object.keys(grouped))
   const [active, setActive] = useState(tabs[0] ?? '')
+  const [state, formAction] = useActionState(savePredictions, initialSaveState)
+  const { register } = useForm()
+  const activeMatches = grouped[active] ?? []
+  const hasOpenMatches = activeMatches.some(isMatchOpen)
 
   if (!tabs.length) {
     return (
-      <div className="text-center py-16 text-gray-400">
-        <p className="text-lg font-medium">El fixture se publicará próximamente.</p>
-        <p className="text-sm mt-1">Volvé a revisar cuando arranque el torneo.</p>
+      <div className="py-16 text-center text-gray-400">
+        <p className="text-lg font-medium">El fixture se publicara pronto.</p>
+        <p className="mt-1 text-sm">Volve a revisar cuando arranque el torneo.</p>
       </div>
     )
   }
 
   return (
     <div>
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-1.5 mb-6">
+      <div className="mb-6 flex gap-1.5 overflow-x-auto pb-1">
         {tabs.map((tab) => (
           <button
             key={tab}
+            type="button"
             onClick={() => setActive(tab)}
             className={clsx(
-              'px-3 py-1.5 rounded-lg text-sm font-medium transition',
+              'min-h-10 shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition',
               active === tab
-                ? 'text-white'
+                ? 'bg-[#0a3d1f] text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             )}
-            style={active === tab ? { backgroundColor: '#0a3d1f' } : {}}
           >
             {tab}
           </button>
         ))}
       </div>
 
-      {/* Matches */}
-      <div className="space-y-3">
-        {(grouped[active] ?? []).map((match) => (
+      <form action={formAction} className="space-y-3">
+        {activeMatches.map((match) => (
           <MatchCard
             key={match.id}
             match={match}
             prediction={predictions[match.id] ?? null}
+            register={register}
           />
         ))}
-      </div>
+
+        <div className="sticky bottom-0 -mx-4 border-t border-gray-100 bg-gray-50/95 px-4 py-4 backdrop-blur sm:static sm:mx-0 sm:flex sm:items-center sm:justify-between sm:border-0 sm:bg-transparent sm:px-0">
+          <p
+            className={clsx(
+              'mb-3 min-h-5 text-sm sm:mb-0',
+              state.message && state.ok && 'text-green-700',
+              state.message && !state.ok && 'text-red-600',
+              !state.message && 'text-gray-400'
+            )}
+          >
+            {state.message ?? (hasOpenMatches ? 'Carga tus resultados y guarda una vez.' : 'No hay partidos abiertos en esta seccion.')}
+          </p>
+          <SaveButton disabled={!hasOpenMatches} />
+        </div>
+      </form>
     </div>
   )
 }

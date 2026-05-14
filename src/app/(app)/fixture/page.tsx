@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { hasSupabaseConfig } from '@/lib/supabase/env'
 import type { Match, MatchStage, Prediction } from '@/types'
 import { FixtureTabs } from './FixtureTabs'
 
@@ -25,6 +26,22 @@ function groupMatches(matches: Match[]): Record<string, Match[]> {
 }
 
 export default async function FixturePage() {
+  if (!hasSupabaseConfig()) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900">Fixture</h1>
+        <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-5">
+          <p className="font-semibold text-yellow-800">
+            Fixture no disponible en modo local.
+          </p>
+          <p className="mt-1 text-sm text-yellow-700">
+            Conecta Supabase para cargar partidos y pronosticos.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
