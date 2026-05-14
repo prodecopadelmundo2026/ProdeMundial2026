@@ -1,0 +1,19 @@
+# Carpeta de dependencias (pesa mucho y se regenera sola)
+node_modules/
+
+# Carpeta de compilación de Next.js
+.next/
+out/
+
+# Archivos de configuración locales (¡NO SUBIR CONTRASEÑAS!)
+.env.local
+.env.*.local
+
+# IA y editores
+.claude/
+.vscode/
+.idea/
+.DS_Store
+
+# Archivos de información de tipos
+*.tsbuildinfo
