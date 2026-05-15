@@ -26,17 +26,6 @@ export async function setMatchResult(
 ) {
   const supabase = await requireAdmin()
 
-  if (
-    !Number.isInteger(homeScore) ||
-    !Number.isInteger(awayScore) ||
-    homeScore < 0 ||
-    awayScore < 0 ||
-    homeScore > 30 ||
-    awayScore > 30
-  ) {
-    throw new Error('Resultado invalido')
-  }
-
   const { error } = await supabase
     .from('matches')
     .update({

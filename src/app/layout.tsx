@@ -1,8 +1,22 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Archivo, Archivo_Black, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'] })
+const archivo = Archivo({
+  subsets: ['latin'],
+  variable: '--font-archivo',
+  weight: ['500', '600', '700', '800', '900'],
+})
+const archivoBlack = Archivo_Black({
+  subsets: ['latin'],
+  variable: '--font-archivo-black',
+  weight: '400',
+})
+const mono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains',
+  weight: ['500', '700'],
+})
 
 export const metadata: Metadata = {
   title: 'Prode Mundial 2026',
@@ -15,14 +29,13 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className="h-full">
-      <body className={`${inter.className} h-full bg-gray-50 antialiased`}>
+    <html
+      lang="es"
+      className={`h-full ${archivo.variable} ${archivoBlack.variable} ${mono.variable}`}
+    >
+      <body className="h-full bg-bg text-text font-sans antialiased">
         {children}
       </body>
     </html>

@@ -1,40 +1,27 @@
--- Normaliza locked_at como columna normal mantenida por trigger.
--- Idempotente: sirve tanto si locked_at era GENERATED como si ya era normal.
+-- Convierte locked_at de GENERATED ALWAYS AS a columna normal,
+-- y agrega un trigger que la mantiene actualizada.
 
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM pg_attribute
-    WHERE attrelid = 'public.matches'::regclass
-      AND attname = 'locked_at'
-      AND attgenerated <> ''
-  ) THEN
-    ALTER TABLE public.matches ALTER COLUMN locked_at DROP EXPRESSION;
-  END IF;
-END;
-$$;
+-- 1. Quitar el atributo GENERATED sin tocar la columna ni evaluar la expresión
+ALTER TABLE matches ALTER COLUMN locked_at DROP EXPRESSION;
 
-UPDATE public.matches
-SET locked_at = scheduled_at
+-- 2. Poblar filas existentes
+UPDATE matches
+SET locked_at = scheduled_at - interval '5 minutes'
 WHERE scheduled_at IS NOT NULL;
 
-ALTER TABLE public.matches
-  ALTER COLUMN locked_at SET NOT NULL;
-
-CREATE OR REPLACE FUNCTION public.set_match_locked_at()
+-- 3. Función del trigger
+CREATE OR REPLACE FUNCTION set_match_locked_at()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  NEW.locked_at := NEW.scheduled_at;
+  NEW.locked_at := NEW.scheduled_at - interval '5 minutes';
   RETURN NEW;
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_match_locked_at ON public.matches;
-
+-- 4. Trigger: dispara en INSERT y en UPDATE solo si cambia scheduled_at
 CREATE OR REPLACE TRIGGER trg_match_locked_at
-BEFORE INSERT OR UPDATE OF scheduled_at ON public.matches
+BEFORE INSERT OR UPDATE OF scheduled_at ON matches
 FOR EACH ROW
-EXECUTE FUNCTION public.set_match_locked_at();
+EXECUTE FUNCTION set_match_locked_at();

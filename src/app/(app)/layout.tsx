@@ -1,43 +1,105 @@
 import Link from 'next/link'
-import { Trophy } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
 import { NavLinks } from './NavLinks'
 
-export default function AppLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const [{ data: profile }, { data: rankRow }] = user
+    ? await Promise.all([
+        supabase.from('profiles').select('name').eq('id', user.id).maybeSingle(),
+        supabase
+          .from('ranking_entries')
+          .select('rank, total_points')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+      ])
+    : [{ data: null }, { data: null }]
+
+  const userName = profile?.name ?? 'U'
+  const entry = rankRow as { rank: number; total_points: number } | null
+  const initial = userName[0]?.toUpperCase() ?? 'U'
+
   return (
     <div className="min-h-full flex flex-col">
-      <nav
-        className="text-white shadow-lg sticky top-0 z-10"
-        style={{ backgroundColor: '#0a3d1f' }}
+      <header
+        className="sticky top-0 z-50 border-b"
+        style={{
+          background: 'rgba(10,10,10,0.78)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          borderColor: 'rgba(255,255,255,0.08)',
+        }}
       >
-        <div className="max-w-5xl mx-auto px-4 min-h-14 py-2 flex items-center justify-between gap-4">
+        <div className="max-w-[1280px] mx-auto px-5 h-[60px] flex items-center justify-between gap-[18px]">
+          {/* Brand */}
           <Link
             href="/"
-            className="flex items-center gap-2 font-bold text-lg shrink-0"
+            className="flex items-center gap-[10px] font-display text-[18px] tracking-[-0.02em] shrink-0"
           >
-            <Trophy size={20} className="text-yellow-400" />
-            <span>Prode 2026</span>
+            <span
+              className="w-9 h-9 rounded-[10px] bg-orange grid place-items-center text-[14px] leading-none text-bg font-display"
+              style={{ transform: 'rotate(-6deg)' }}
+            >
+              <span style={{ transform: 'rotate(6deg)', display: 'block' }}>26</span>
+            </span>
+            <span>
+              PRODE <b className="text-orange">26</b>
+            </span>
           </Link>
 
-          <div className="flex items-center gap-4 overflow-x-auto">
-            <NavLinks />
+          <NavLinks />
+
+          {/* Right side */}
+          <div className="flex items-center gap-[10px] shrink-0">
+            {user ? (
+              <>
+                {entry && (
+                  <div
+                    className="hidden min-[880px]:flex items-center gap-2 bg-panel px-3 py-2 rounded-full text-[13px] font-bold"
+                    style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-mint" style={{ animation: 'pulse-dot 1.6s infinite' }} />
+                    <span>
+                      {entry.total_points}{' '}
+                      <em className="not-italic text-muted font-semibold">pts</em>
+                    </span>
+                    <span className="text-muted">·</span>
+                    <span>#{entry.rank}</span>
+                  </div>
+                )}
+                <div
+                  className="w-9 h-9 rounded-full grid place-items-center font-bold text-[13px]"
+                  style={{
+                    background: 'linear-gradient(135deg, #5B2D8E, #1565C0)',
+                    border: '2px solid #2a2a2a',
+                  }}
+                  title={userName}
+                >
+                  {initial}
+                </div>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className="px-5 py-2 rounded-full font-extrabold text-[14px] tracking-[0.01em] transition-all duration-150"
+                style={{
+                  background: '#FF6B00',
+                  color: '#0A0A0A',
+                  boxShadow: '0 6px 18px -8px rgba(255,107,0,.6)',
+                }}
+              >
+                Entrar
+              </Link>
+            )}
           </div>
-
-          <Link
-            href="/login"
-            className="shrink-0 rounded-lg bg-white/10 px-3 py-2 text-sm font-medium text-green-100 hover:bg-white/15"
-          >
-            Entrar
-          </Link>
         </div>
-      </nav>
+      </header>
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8">
-        {children}
-      </main>
+      <main className="flex-1">{children}</main>
     </div>
   )
 }

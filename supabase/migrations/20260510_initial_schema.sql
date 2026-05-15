@@ -167,9 +167,9 @@ CREATE POLICY "profiles: update own"
 CREATE POLICY "matches: read all"
   ON matches FOR SELECT TO authenticated USING (true);
 
--- predictions: cada usuario lee/escribe/modifica solo las suyas
-CREATE POLICY "predictions: read own"
-  ON predictions FOR SELECT TO authenticated USING (user_id = auth.uid());
+-- predictions: todos leen; cada uno escribe/modifica las suyas
+CREATE POLICY "predictions: read all"
+  ON predictions FOR SELECT TO authenticated USING (true);
 
 CREATE POLICY "predictions: insert own"
   ON predictions FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());

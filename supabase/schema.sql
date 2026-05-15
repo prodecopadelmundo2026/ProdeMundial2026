@@ -1,13 +1,11 @@
 -- =============================================================
--- PRODE MUNDIAL 2026 - Schema canonico
--- Ejecutar en Supabase SQL Editor para una base nueva.
+-- PRODE MUNDIAL 2026 — Schema SQL
+-- Ejecutar en Supabase SQL Editor (una sola vez, en orden)
 -- =============================================================
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
--- -------------------------------------------------------------
--- 1. Tablas
--- -------------------------------------------------------------
+-- ---------------------------------------------------------------
+-- 1. TABLAS
+-- ---------------------------------------------------------------
 
 CREATE TABLE public.profiles (
   id          uuid        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -19,25 +17,16 @@ CREATE TABLE public.profiles (
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.access_codes (
-  code       text        PRIMARY KEY CHECK (code ~ '^[A-Z0-9-]{4,32}$'),
-  label      text,
-  expires_at timestamptz,
-  used_by    uuid        UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL,
-  used_at    timestamptz,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
 CREATE TABLE public.matches (
   id           uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   home_team    text        NOT NULL,
   away_team    text        NOT NULL,
-  home_score   int         CHECK (home_score IS NULL OR home_score BETWEEN 0 AND 30),
-  away_score   int         CHECK (away_score IS NULL OR away_score BETWEEN 0 AND 30),
+  home_score   int,
+  away_score   int,
   scheduled_at timestamptz NOT NULL,
-  locked_at    timestamptz NOT NULL,
+  locked_at    timestamptz NOT NULL,  -- cierre de predicciones (= scheduled_at en producción)
   stage        text        NOT NULL CHECK (stage IN ('group','round_of_16','quarter','semi','final')),
-  "group"      text,
+  "group"      text,                  -- solo para stage='group', ej: 'A', 'B', ...
   status       text        NOT NULL DEFAULT 'upcoming' CHECK (status IN ('upcoming','live','finished')),
   created_at   timestamptz NOT NULL DEFAULT now()
 );
@@ -46,372 +35,152 @@ CREATE TABLE public.predictions (
   id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     uuid        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   match_id    uuid        NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,
-  home_score  int         NOT NULL CHECK (home_score BETWEEN 0 AND 30),
-  away_score  int         NOT NULL CHECK (away_score BETWEEN 0 AND 30),
-  points      int         CHECK (points IS NULL OR points IN (0, 1, 3)),
+  home_score  int         NOT NULL CHECK (home_score >= 0),
+  away_score  int         NOT NULL CHECK (away_score >= 0),
+  points      int,                    -- null = partido no finalizado; 0/1/3 = calculado
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now(),
   UNIQUE (user_id, match_id)
 );
 
--- -------------------------------------------------------------
--- 2. Helpers y triggers
--- -------------------------------------------------------------
-
-CREATE OR REPLACE FUNCTION public.set_updated_at()
-RETURNS trigger
-LANGUAGE plpgsql AS $$
-BEGIN
-  NEW.updated_at := now();
-  RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_profiles_updated_at
-BEFORE UPDATE ON public.profiles
-FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
-
-CREATE TRIGGER trg_predictions_updated_at
-BEFORE UPDATE ON public.predictions
-FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
-
-CREATE OR REPLACE FUNCTION public.set_match_locked_at()
-RETURNS trigger
-LANGUAGE plpgsql AS $$
-BEGIN
-  -- MVP: cada partido cierra exactamente en su horario oficial.
-  NEW.locked_at := NEW.scheduled_at;
-  RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_match_locked_at
-BEFORE INSERT OR UPDATE OF scheduled_at ON public.matches
-FOR EACH ROW EXECUTE FUNCTION public.set_match_locked_at();
+-- ---------------------------------------------------------------
+-- 2. FUNCIÓN DE SCORING
+-- ---------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.calculate_prediction_points(
-  pred_home int,
-  pred_away int,
-  real_home int,
-  real_away int
+  pred_home int, pred_away int,
+  real_home int, real_away int
 ) RETURNS int
 LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE
+  pred_result text;
+  real_result text;
 BEGIN
-  IF real_home IS NULL OR real_away IS NULL THEN
-    RETURN NULL;
-  END IF;
-
-  IF pred_home = real_home AND pred_away = real_away THEN
-    RETURN 3;
-  END IF;
-
-  IF sign(pred_home - pred_away) = sign(real_home - real_away) THEN
-    RETURN 1;
-  END IF;
-
+  IF real_home IS NULL OR real_away IS NULL THEN RETURN NULL; END IF;
+  -- Exacto: 3 pts
+  IF pred_home = real_home AND pred_away = real_away THEN RETURN 3; END IF;
+  -- Resultado correcto: 1 pt
+  pred_result := CASE WHEN pred_home > pred_away THEN 'home'
+                      WHEN pred_home < pred_away THEN 'away'
+                      ELSE 'draw' END;
+  real_result := CASE WHEN real_home > real_away THEN 'home'
+                      WHEN real_home < real_away THEN 'away'
+                      ELSE 'draw' END;
+  IF pred_result = real_result THEN RETURN 1; END IF;
   RETURN 0;
 END;
 $$;
 
+-- ---------------------------------------------------------------
+-- 3. TRIGGER: actualizar puntos al cargar resultado
+-- ---------------------------------------------------------------
+
 CREATE OR REPLACE FUNCTION public.update_prediction_points()
 RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, auth
-AS $$
+LANGUAGE plpgsql SECURITY DEFINER AS $$  -- SECURITY DEFINER para bypassear RLS
 BEGIN
   IF NEW.status = 'finished'
      AND NEW.home_score IS NOT NULL
-     AND NEW.away_score IS NOT NULL THEN
+     AND NEW.away_score IS NOT NULL
+  THEN
     UPDATE public.predictions
     SET
-      points = public.calculate_prediction_points(
-        predictions.home_score,
-        predictions.away_score,
-        NEW.home_score,
-        NEW.away_score
-      ),
+      points     = public.calculate_prediction_points(
+                     predictions.home_score, predictions.away_score,
+                     NEW.home_score, NEW.away_score),
       updated_at = now()
     WHERE match_id = NEW.id;
-  ELSE
-    UPDATE public.predictions
-    SET points = NULL, updated_at = now()
-    WHERE match_id = NEW.id;
   END IF;
-
   RETURN NEW;
 END;
 $$;
 
-CREATE TRIGGER trg_match_result_points
-AFTER UPDATE OF home_score, away_score, status ON public.matches
-FOR EACH ROW EXECUTE FUNCTION public.update_prediction_points();
-
-CREATE OR REPLACE FUNCTION public.current_user_is_admin()
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public, auth
-AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.profiles
-    WHERE id = auth.uid()
-      AND is_admin = true
-  );
-$$;
-
--- -------------------------------------------------------------
--- 3. RPCs seguras
--- -------------------------------------------------------------
-
-CREATE OR REPLACE FUNCTION public.claim_access_code(
-  p_code text,
-  p_name text DEFAULT NULL,
-  p_avatar_url text DEFAULT NULL
-) RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, auth
-AS $$
-DECLARE
-  v_user_id uuid := auth.uid();
-  v_email text := NULLIF(auth.jwt() ->> 'email', '');
-  v_code text := upper(trim(coalesce(p_code, '')));
-  v_name text := left(coalesce(NULLIF(trim(p_name), ''), 'Jugador'), 80);
-  v_avatar_url text := NULLIF(trim(p_avatar_url), '');
-BEGIN
-  IF v_user_id IS NULL OR v_email IS NULL THEN
-    RAISE EXCEPTION 'No autenticado';
-  END IF;
-
-  IF v_code !~ '^[A-Z0-9-]{4,32}$' THEN
-    RAISE EXCEPTION 'Codigo de acceso invalido';
-  END IF;
-
-  UPDATE public.access_codes
-  SET
-    used_by = v_user_id,
-    used_at = coalesce(used_at, now())
-  WHERE code = v_code
-    AND (expires_at IS NULL OR expires_at > now())
-    AND (used_by IS NULL OR used_by = v_user_id);
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Codigo de acceso invalido o usado';
-  END IF;
-
-  INSERT INTO public.profiles (id, email, name, avatar_url)
-  VALUES (v_user_id, v_email, v_name, v_avatar_url)
-  ON CONFLICT (id) DO UPDATE
-  SET
-    email = excluded.email,
-    name = excluded.name,
-    avatar_url = excluded.avatar_url,
-    updated_at = now();
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION public.save_prediction(
-  p_match_id uuid,
-  p_home_score int,
-  p_away_score int
-) RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, auth
-AS $$
-DECLARE
-  v_user_id uuid := auth.uid();
-BEGIN
-  IF v_user_id IS NULL THEN
-    RAISE EXCEPTION 'No autenticado';
-  END IF;
-
-  IF p_home_score IS NULL
-     OR p_away_score IS NULL
-     OR p_home_score < 0
-     OR p_away_score < 0
-     OR p_home_score > 30
-     OR p_away_score > 30 THEN
-    RAISE EXCEPTION 'Resultado invalido';
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1
-    FROM public.matches
-    WHERE id = p_match_id
-      AND status = 'upcoming'
-      AND now() < locked_at
-  ) THEN
-    RAISE EXCEPTION 'Las predicciones para este partido ya cerraron';
-  END IF;
-
-  INSERT INTO public.predictions (
-    user_id,
-    match_id,
-    home_score,
-    away_score,
-    points
+CREATE TRIGGER on_match_result_updated
+  AFTER UPDATE ON public.matches
+  FOR EACH ROW
+  WHEN (
+    OLD.status IS DISTINCT FROM NEW.status
+    OR OLD.home_score IS DISTINCT FROM NEW.home_score
+    OR OLD.away_score IS DISTINCT FROM NEW.away_score
   )
-  VALUES (
-    v_user_id,
-    p_match_id,
-    p_home_score,
-    p_away_score,
-    NULL
-  )
-  ON CONFLICT (user_id, match_id) DO UPDATE
-  SET
-    home_score = excluded.home_score,
-    away_score = excluded.away_score,
-    points = NULL,
-    updated_at = now();
-END;
-$$;
+  EXECUTE FUNCTION public.update_prediction_points();
 
-CREATE OR REPLACE FUNCTION public.save_predictions(p_predictions jsonb)
-RETURNS int
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, auth
-AS $$
-DECLARE
-  item record;
-  saved_count int := 0;
-BEGIN
-  IF jsonb_typeof(p_predictions) <> 'array' THEN
-    RAISE EXCEPTION 'Formato invalido';
-  END IF;
+-- ---------------------------------------------------------------
+-- 4. VISTA: ranking_entries
+-- ---------------------------------------------------------------
 
-  FOR item IN
-    SELECT *
-    FROM jsonb_to_recordset(p_predictions)
-      AS x(match_id uuid, home_score int, away_score int)
-  LOOP
-    PERFORM public.save_prediction(item.match_id, item.home_score, item.away_score);
-    saved_count := saved_count + 1;
-  END LOOP;
-
-  RETURN saved_count;
-END;
-$$;
-
--- -------------------------------------------------------------
--- 4. Ranking publico
--- -------------------------------------------------------------
-
-CREATE OR REPLACE VIEW public.ranking_entries
-WITH (security_invoker = false) AS
+CREATE OR REPLACE VIEW public.ranking_entries AS
 SELECT
-  pr.id AS user_id,
+  pr.id                                                    AS user_id,
   pr.name,
   pr.avatar_url,
-  COALESCE(SUM(p.points), 0)::int AS total_points,
-  COUNT(*) FILTER (WHERE p.points = 3)::int AS exact_predictions,
-  COUNT(*) FILTER (WHERE p.points = 1)::int AS correct_result_predictions,
+  COALESCE(SUM(p.points), 0)                               AS total_points,
+  COUNT(*) FILTER (WHERE p.points = 3)                     AS exact_predictions,
+  COUNT(*) FILTER (WHERE p.points = 1)                     AS correct_result_predictions,
   RANK() OVER (
     ORDER BY COALESCE(SUM(p.points), 0) DESC,
-             COUNT(*) FILTER (WHERE p.points = 3) DESC,
-             pr.created_at ASC
-  )::int AS rank
+             COUNT(*) FILTER (WHERE p.points = 3) DESC
+  )                                                        AS rank
 FROM public.profiles pr
 LEFT JOIN public.predictions p ON p.user_id = pr.id
-GROUP BY pr.id, pr.name, pr.avatar_url, pr.created_at;
+GROUP BY pr.id, pr.name, pr.avatar_url;
 
--- -------------------------------------------------------------
--- 5. RLS
--- -------------------------------------------------------------
+-- ---------------------------------------------------------------
+-- 5. ROW LEVEL SECURITY
+-- ---------------------------------------------------------------
 
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.access_codes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.matches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.matches     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.predictions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY profiles_select_authenticated
+-- profiles: todo usuario autenticado puede leer perfiles (necesario para ranking)
+CREATE POLICY "profiles_select_authenticated"
   ON public.profiles FOR SELECT
-  TO authenticated
-  USING (true);
+  USING (auth.role() = 'authenticated');
 
-CREATE POLICY matches_select_authenticated
+-- profiles: cada usuario actualiza solo el suyo
+CREATE POLICY "profiles_update_own"
+  ON public.profiles FOR UPDATE
+  USING (auth.uid() = id);
+
+-- profiles: insert solo via callback (server-side) — no se permite desde cliente
+-- (el upsert en auth/callback/route.ts usa service_role implícitamente vía SSR key)
+
+-- matches: lectura pública para todos los autenticados
+CREATE POLICY "matches_select_authenticated"
   ON public.matches FOR SELECT
-  TO authenticated
-  USING (true);
+  USING (auth.role() = 'authenticated');
 
-CREATE POLICY matches_admin_update
-  ON public.matches FOR UPDATE
-  TO authenticated
-  USING (public.current_user_is_admin())
-  WITH CHECK (public.current_user_is_admin());
+-- matches: solo admins pueden crear/editar/borrar
+CREATE POLICY "matches_admin_write"
+  ON public.matches FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = auth.uid() AND is_admin = true
+    )
+  );
 
-CREATE POLICY predictions_select_own
+-- predictions: cada usuario lee/edita/inserta solo las suyas
+CREATE POLICY "predictions_select_own"
   ON public.predictions FOR SELECT
-  TO authenticated
   USING (auth.uid() = user_id);
 
-CREATE POLICY predictions_insert_own_open_match
+CREATE POLICY "predictions_insert_own"
   ON public.predictions FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    auth.uid() = user_id
-    AND EXISTS (
-      SELECT 1
-      FROM public.matches m
-      WHERE m.id = match_id
-        AND m.status = 'upcoming'
-        AND now() < m.locked_at
-    )
-  );
+  WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY predictions_update_own_open_match
+CREATE POLICY "predictions_update_own"
   ON public.predictions FOR UPDATE
-  TO authenticated
-  USING (
-    auth.uid() = user_id
-    AND EXISTS (
-      SELECT 1
-      FROM public.matches m
-      WHERE m.id = match_id
-        AND m.status = 'upcoming'
-        AND now() < m.locked_at
-    )
-  )
-  WITH CHECK (
-    auth.uid() = user_id
-    AND EXISTS (
-      SELECT 1
-      FROM public.matches m
-      WHERE m.id = match_id
-        AND m.status = 'upcoming'
-        AND now() < m.locked_at
-    )
-  );
+  USING (auth.uid() = user_id);
 
--- Sin politicas para access_codes: se consume solo via claim_access_code().
+-- ---------------------------------------------------------------
+-- 6. DATOS EJEMPLO — eliminar antes de producción
+-- ---------------------------------------------------------------
 
--- -------------------------------------------------------------
--- 6. Grants minimos para PostgREST/Supabase Auth
--- -------------------------------------------------------------
+-- INSERT INTO public.matches (home_team, away_team, scheduled_at, locked_at, stage, "group") VALUES
+-- ('Argentina', 'Canadá',   '2026-06-11 20:00:00+00', '2026-06-11 20:00:00+00', 'group', 'A'),
+-- ('México',    'Ecuador',  '2026-06-12 23:00:00+00', '2026-06-12 23:00:00+00', 'group', 'B');
 
-REVOKE ALL ON public.profiles FROM anon, authenticated;
-REVOKE ALL ON public.access_codes FROM anon, authenticated;
-REVOKE ALL ON public.matches FROM anon, authenticated;
-REVOKE ALL ON public.predictions FROM anon, authenticated;
-
-GRANT SELECT ON public.profiles TO authenticated;
-GRANT SELECT ON public.matches TO authenticated;
-GRANT UPDATE (home_score, away_score, status) ON public.matches TO authenticated;
-GRANT SELECT ON public.predictions TO authenticated;
-GRANT SELECT ON public.ranking_entries TO anon, authenticated;
-
-GRANT EXECUTE ON FUNCTION public.claim_access_code(text, text, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.save_prediction(uuid, int, int) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.save_predictions(jsonb) TO authenticated;
-
--- Crear codigos de acceso manualmente:
--- INSERT INTO public.access_codes (code, label, expires_at)
--- VALUES ('MUNDIAL-2026', 'Invitados iniciales', '2026-06-11 19:00:00+00');
-
--- Hacer admin a un usuario ya registrado:
+-- Para hacer admin a un usuario (reemplazar con UUID real de auth.users):
 -- UPDATE public.profiles SET is_admin = true WHERE email = 'tu@email.com';
