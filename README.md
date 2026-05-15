@@ -10,21 +10,33 @@ MVP Next.js + Supabase para jugar un prode simple: reglas, fixture, pronosticos,
 - Server Actions para mutaciones
 - Vercel para deploy automatico
 
+## Ambientes
+
+| Contexto | Rama | Vercel | Supabase |
+| --- | --- | --- | --- |
+| Produccion | `main` | Production | Supabase PROD |
+| Preview/desarrollo | `juani-dev`, `juli-dev`, `nico-dev`, futuras ramas dev | Preview | Supabase DEV |
+| Local | cualquier rama | `corepack pnpm dev` | `.env.local`, normalmente Supabase DEV |
+
+No trabajar directo sobre `main`: los cambios se prueban primero en ramas de desarrollo. No usar datos reales de produccion en DEV salvo que esten filtrados o anonimizados.
+
+El modo sin Supabase sirve solo para revisar UI publica/local. No sirve para auth ni datos reales.
+
+Ver el esquema completo de Production/Preview/Local en `docs/environments.md`.
+
 ## Variables de entorno
 
-Crear `.env.local`:
+Crear `.env.local` desde el template:
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL="https://xxx.supabase.co"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="..."
-NEXT_PUBLIC_SITE_URL="http://localhost:3000"
+Copy-Item .env.example .env.local
 ```
 
-En Vercel, `NEXT_PUBLIC_SITE_URL` debe ser la URL final `.vercel.app`.
+Completar `.env.local` con Supabase DEV para desarrollo local.
 
 ## Supabase
 
-1. Ejecutar `supabase/schema.sql` en SQL Editor para una base nueva.
+1. Para una base nueva se puede ejecutar `supabase/schema.sql` en SQL Editor. Los cambios nuevos de base deben quedar versionados como migrations.
 2. Crear codigos de acceso:
 
 ```sql
@@ -38,6 +50,8 @@ VALUES ('MUNDIAL-2026', 'Invitados iniciales', '2026-06-11 19:00:00+00');
 ```text
 http://localhost:3000/auth/callback
 https://TU-PROYECTO.vercel.app/auth/callback
+https://TU-PREVIEW.vercel.app/auth/callback
+https://*.vercel.app/auth/callback
 ```
 
 5. Luego del primer login, hacer admin a tu usuario:

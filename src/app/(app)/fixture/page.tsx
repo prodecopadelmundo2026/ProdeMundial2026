@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { hasSupabaseConfig } from '@/lib/supabase/env'
+import { isSupabaseConfigured } from '@/lib/supabase/env'
 import type { Match, MatchStage, Prediction } from '@/types'
 import { FixtureTabs } from './FixtureTabs'
 
@@ -26,7 +26,7 @@ function groupMatches(matches: Match[]): Record<string, Match[]> {
 }
 
 export default async function FixturePage() {
-  if (!hasSupabaseConfig()) {
+  if (!isSupabaseConfigured()) {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-gray-900">Fixture</h1>

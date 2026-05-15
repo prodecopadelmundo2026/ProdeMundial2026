@@ -2,12 +2,12 @@ import { redirect } from 'next/navigation'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/server'
-import { hasSupabaseConfig } from '@/lib/supabase/env'
+import { isSupabaseConfigured } from '@/lib/supabase/env'
 import type { Match } from '@/types'
 import { AdminMatchForm } from './AdminMatchForm'
 
 export default async function AdminPage() {
-  if (!hasSupabaseConfig()) {
+  if (!isSupabaseConfigured()) {
     redirect('/login?error=local_no_db')
   }
 

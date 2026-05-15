@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { hasSupabaseConfig } from '@/lib/supabase/env'
+import { isSupabaseConfigured } from '@/lib/supabase/env'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import clsx from 'clsx'
@@ -26,7 +26,7 @@ function PointsBadge({ points }: { points: number | null }) {
 }
 
 export default async function MiProdePage() {
-  if (!hasSupabaseConfig()) {
+  if (!isSupabaseConfigured()) {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-gray-900">Mi Prode</h1>

@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/server'
-import { hasSupabaseConfig } from '@/lib/supabase/env'
+import { isSupabaseConfigured } from '@/lib/supabase/env'
 import { StatusBadge } from '@/components/StatusBadge'
 import type { Match, RankingEntry } from '@/types'
 
@@ -25,7 +25,7 @@ function StatCard({
 }
 
 export default async function DashboardPage() {
-  if (!hasSupabaseConfig()) {
+  if (!isSupabaseConfigured()) {
     return (
       <div className="space-y-8">
         <div>
