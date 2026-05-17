@@ -24,7 +24,7 @@ CREATE TABLE matches (
   away_score int,
   scheduled_at timestamptz NOT NULL,
   locked_at    timestamptz,
-  stage      text NOT NULL CHECK (stage IN ('group','round_of_16','quarter','semi','final')),
+  stage      text NOT NULL CHECK (stage IN ('group','round_of_32','round_of_16','quarter','semi','third_place','final')),
   "group"    text,
   status     text NOT NULL DEFAULT 'upcoming' CHECK (status IN ('upcoming','live','finished')),
   created_at timestamptz NOT NULL DEFAULT now()

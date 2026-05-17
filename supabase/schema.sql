@@ -25,7 +25,7 @@ CREATE TABLE public.matches (
   away_score   int,
   scheduled_at timestamptz NOT NULL,
   locked_at    timestamptz NOT NULL,  -- cierre de predicciones (= scheduled_at en producción)
-  stage        text        NOT NULL CHECK (stage IN ('group','round_of_16','quarter','semi','final')),
+  stage        text        NOT NULL CHECK (stage IN ('group','round_of_32','round_of_16','quarter','semi','third_place','final')),
   "group"      text,                  -- solo para stage='group', ej: 'A', 'B', ...
   status       text        NOT NULL DEFAULT 'upcoming' CHECK (status IN ('upcoming','live','finished')),
   created_at   timestamptz NOT NULL DEFAULT now()
