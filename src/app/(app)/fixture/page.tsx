@@ -4,9 +4,11 @@ import { FixtureTabs } from './FixtureTabs'
 
 const STAGE_LABELS: Record<MatchStage, string> = {
   group: 'Grupos',
+  round_of_32: '32avos',
   round_of_16: 'Octavos',
   quarter: 'Cuartos',
   semi: 'Semifinal',
+  third_place: '3° Puesto',
   final: 'Final',
 }
 

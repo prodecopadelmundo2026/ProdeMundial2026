@@ -1,4 +1,4 @@
-export type MatchStage = 'group' | 'round_of_16' | 'quarter' | 'semi' | 'final'
+export type MatchStage = 'group' | 'round_of_32' | 'round_of_16' | 'quarter' | 'semi' | 'third_place' | 'final'
 export type MatchStatus = 'upcoming' | 'live' | 'finished'
 
 export type Match = {
