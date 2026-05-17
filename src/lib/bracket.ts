@@ -113,12 +113,15 @@ export function buildKnockoutMap(knockoutMatches: Match[]): Record<number, Match
   return result
 }
 
+type TiebreakerMap = Record<string, string>
+
 function resolveKnockout(
   pNum: number,
   type: 'winner' | 'loser',
   pMap: Record<number, Match>,
   standings: Record<string, string[]>,
   predMap: PredMap,
+  tiebreakerMap: TiebreakerMap,
   depth: number
 ): string {
   const fallback = type === 'winner' ? `Ganador P${pNum}` : `Perdedor P${pNum}`
@@ -130,8 +133,8 @@ function resolveKnockout(
   const fixture = KNOCKOUT_FIXTURES[pNum]
   if (!fixture) return fallback
 
-  const homeResolved = resolveTeamFull(fixture[0], standings, pMap, predMap, depth + 1)
-  const awayResolved = resolveTeamFull(fixture[1], standings, pMap, predMap, depth + 1)
+  const homeResolved = resolveTeamFull(fixture[0], standings, pMap, predMap, tiebreakerMap, depth + 1)
+  const awayResolved = resolveTeamFull(fixture[1], standings, pMap, predMap, tiebreakerMap, depth + 1)
 
   // Use actual result if available
   if (match.home_score != null && match.away_score != null) {
@@ -143,12 +146,25 @@ function resolveKnockout(
 
   // Fall back to user's prediction
   const pred = predMap[match.id]
-  if (!pred || pred.home_score === pred.away_score) return fallback
+  if (pred && pred.home_score !== pred.away_score) {
+    const homeWins = pred.home_score > pred.away_score
+    return type === 'winner'
+      ? (homeWins ? homeResolved : awayResolved)
+      : (homeWins ? awayResolved : homeResolved)
+  }
 
-  const homeWins = pred.home_score > pred.away_score
-  return type === 'winner'
-    ? (homeWins ? homeResolved : awayResolved)
-    : (homeWins ? awayResolved : homeResolved)
+  // Draw prediction → use tiebreaker choice if set
+  if (pred && pred.home_score === pred.away_score) {
+    const tb = tiebreakerMap[match.id]
+    if (tb) {
+      const homeWins = tb === homeResolved
+      return type === 'winner'
+        ? (homeWins ? homeResolved : awayResolved)
+        : (homeWins ? awayResolved : homeResolved)
+    }
+  }
+
+  return fallback
 }
 
 // Full recursive resolver: handles group stage positions AND knockout winners/losers
@@ -157,6 +173,7 @@ export function resolveTeamFull(
   standings: Record<string, string[]>,
   pMap: Record<number, Match>,
   predMap: PredMap,
+  tiebreakerMap: TiebreakerMap = {},
   depth = 0
 ): string {
   // "1° Grupo A", "2° Grupo B"
@@ -175,7 +192,7 @@ export function resolveTeamFull(
   if (m) {
     const type = m[1] === 'Ganador' ? 'winner' : 'loser'
     const pNum = Number(m[2])
-    return resolveKnockout(pNum, type, pMap, standings, predMap, depth)
+    return resolveKnockout(pNum, type, pMap, standings, predMap, tiebreakerMap, depth)
   }
 
   return placeholder

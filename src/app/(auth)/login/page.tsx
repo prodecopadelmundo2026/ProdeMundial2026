@@ -31,7 +31,12 @@ export default function LoginPage() {
     })
 
     if (error) {
-      setEmailError(error.message)
+      const msg = error.message.toLowerCase()
+      if (msg.includes('database error') || msg.includes('saving new user') || msg.includes('not authorized')) {
+        setEmailError('Aún no estás dado de alta, por favor contactarte con los organizadores.')
+      } else {
+        setEmailError(error.message)
+      }
     } else {
       setSent(true)
     }
@@ -66,7 +71,7 @@ export default function LoginPage() {
               <span style={{ transform: 'rotate(6deg)', display: 'block' }}>26</span>
             </span>
             <span>
-              PRODE <b style={{ color: '#FF6B00' }}>26</b>
+              PRODE <b style={{ color: '#FF6B00' }}>26'</b>
             </span>
           </Link>
 

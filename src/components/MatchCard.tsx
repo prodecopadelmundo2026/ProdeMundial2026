@@ -41,6 +41,10 @@ function PtsBadge({ pts, type }: { pts: 0 | 1 | 3; type: PtsType }) {
 type Props = {
   match: Match
   prediction?: Prediction | null
+  noAutosave?: boolean
+  initialHome?: string
+  initialAway?: string
+  onValuesChange?: (home: string, away: string) => void
 }
 
 const STRIP_COLOR: Record<string, string> = {
@@ -50,7 +54,7 @@ const STRIP_COLOR: Record<string, string> = {
   finished: '#3a3a3a',
 }
 
-export function MatchCard({ match, prediction }: Props) {
+export function MatchCard({ match, prediction, noAutosave, initialHome, initialAway, onValuesChange }: Props) {
   const now = new Date()
   const lockedAt = new Date(match.locked_at)
   const isOpen = match.status === 'upcoming' && now < lockedAt
@@ -60,10 +64,10 @@ export function MatchCard({ match, prediction }: Props) {
   const isScored = isLive || isFinished
   const stripKey = isOpen ? 'open' : isClosed ? 'closed' : match.status
 
-  const [home, setHome] = useState(prediction?.home_score?.toString() ?? '')
-  const [away, setAway] = useState(prediction?.away_score?.toString() ?? '')
+  const [home, setHome] = useState(initialHome ?? prediction?.home_score?.toString() ?? '')
+  const [away, setAway] = useState(initialAway ?? prediction?.away_score?.toString() ?? '')
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>(
-    prediction ? 'saved' : 'idle',
+    !noAutosave && prediction ? 'saved' : 'idle',
   )
   const [savedAt, setSavedAt] = useState<Date | null>(prediction ? new Date() : null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -104,6 +108,10 @@ export function MatchCard({ match, prediction }: Props) {
     else setAway(val)
     const h = field === 'home' ? val : home
     const a = field === 'away' ? val : away
+    if (noAutosave) {
+      onValuesChange?.(h, a)
+      return
+    }
     setSaveState('idle')
     if (timerRef.current) clearTimeout(timerRef.current)
     if (h !== '' && a !== '') {
@@ -286,22 +294,22 @@ export function MatchCard({ match, prediction }: Props) {
       <div className="mt-[14px] flex items-center justify-between gap-[10px] text-[12px]">
         {/* Left hint */}
         <span className="text-muted font-semibold">
-          {isOpen && saveState === 'idle' && !hasPrediction && (
+          {isOpen && !noAutosave && saveState === 'idle' && !hasPrediction && (
             <span className="text-orange">Falta cargar</span>
           )}
-          {isOpen && saveState === 'idle' && hasPrediction && (
+          {isOpen && !noAutosave && saveState === 'idle' && hasPrediction && (
             <span>Pronóstico cargado</span>
           )}
-          {isOpen && saveState === 'saving' && (
+          {isOpen && !noAutosave && saveState === 'saving' && (
             <span>Guardando...</span>
           )}
-          {isOpen && saveState === 'saved' && (
+          {isOpen && !noAutosave && saveState === 'saved' && (
             <span>
               Guardado{' '}
               <b className="text-mint">{savedMinsAgo()}</b>
             </span>
           )}
-          {isOpen && saveState === 'error' && (
+          {isOpen && !noAutosave && saveState === 'error' && (
             <span className="text-[#FF6B6B]">Error al guardar</span>
           )}
           {isClosed && <span>Pronóstico bloqueado</span>}

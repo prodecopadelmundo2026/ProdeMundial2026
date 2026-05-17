@@ -1,94 +1,52 @@
 import { createClient } from '@/lib/supabase/server'
-import type { Match, MatchStage, Prediction } from '@/types'
-import { FixtureTabs } from './FixtureTabs'
-
-const STAGE_LABELS: Record<MatchStage, string> = {
-  group: 'Grupos',
-  round_of_32: '32avos',
-  round_of_16: 'Octavos',
-  quarter: 'Cuartos',
-  semi: 'Semifinal',
-  third_place: '3° Puesto',
-  final: 'Final',
-}
-
-function groupMatches(matches: Match[]): Record<string, Match[]> {
-  const grouped: Record<string, Match[]> = {}
-  for (const match of matches) {
-    const key =
-      match.stage === 'group' && match.group
-        ? `Grupo ${match.group}`
-        : STAGE_LABELS[match.stage]
-    if (!grouped[key]) grouped[key] = []
-    grouped[key].push(match)
-  }
-  return grouped
-}
+import type { Match } from '@/types'
+import { FixtureList } from './FixtureList'
 
 export default async function FixturePage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  await supabase.auth.getUser() // ensure session is validated
 
   const matchesResult = await supabase
     .from('matches')
     .select('*')
     .order('scheduled_at', { ascending: true })
 
-  const predictionsResult = user
-    ? await supabase
-        .from('predictions')
-        .select('match_id, home_score, away_score')
-        .eq('user_id', user.id)
-    : { data: [] }
-
-  const matchesError = matchesResult.error
-  const matches = matchesResult.data
-  const predictions = predictionsResult.data
-
-  if (matchesError) {
+  if (matchesResult.error) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Fixture</h1>
-        <div className="bg-red-50 border border-red-200 rounded-xl p-5">
-          <p className="font-semibold text-red-700 mb-1">Error al cargar los partidos</p>
-          <p className="text-sm text-red-600 font-mono break-all">
-            {matchesError.message}
-          </p>
-          {matchesError.code && (
-            <p className="text-xs text-red-400 mt-1">Código: {matchesError.code}</p>
-          )}
+      <div className="max-w-[860px] mx-auto px-5 py-12">
+        <div
+          className="rounded-[20px] p-6"
+          style={{ background: 'rgba(255,90,90,0.07)', border: '1px solid rgba(255,90,90,0.2)' }}
+        >
+          <p className="font-bold text-[#FF5A5A] mb-1">Error al cargar los partidos</p>
+          <p className="text-sm text-muted font-mono break-all">{matchesResult.error.message}</p>
         </div>
       </div>
     )
   }
 
-  if (!matches || matches.length === 0) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Fixture</h1>
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-5">
-          <p className="font-semibold text-yellow-700 mb-1">El fixture se publicará próximamente</p>
-          <p className="text-sm text-yellow-600">
-            Volvé cuando arranque el torneo para empezar a predecir.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  const predictionMap: Record<string, { home_score: number; away_score: number }> =
-    Object.fromEntries(
-      ((predictions as Pick<Prediction, 'match_id' | 'home_score' | 'away_score'>[]) ?? []).map(
-        (p) => [p.match_id, { home_score: p.home_score!, away_score: p.away_score! }]
-      )
-    )
-
-  const grouped = groupMatches(matches as Match[])
+  const matches = (matchesResult.data ?? []) as Match[]
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Fixture</h1>
-      <FixtureTabs grouped={grouped} predictions={predictionMap} />
+    <div style={{ padding: '40px 20px 80px' }}>
+      <div className="max-w-[1280px] mx-auto">
+        <div className="mb-8">
+          <p className="text-[11px] font-extrabold tracking-[0.22em] uppercase text-muted mb-2">
+            FIFA · USA · Canadá · México
+          </p>
+          <h1
+            className="font-display uppercase leading-[0.9] tracking-[-0.03em]"
+            style={{ fontSize: 'clamp(36px, 6vw, 64px)' }}
+          >
+            Fixture <em className="italic text-orange">completo</em>
+          </h1>
+          <p className="text-muted text-[14px] mt-3">
+            {matches.length} partidos · resultados en tiempo real
+          </p>
+        </div>
+
+        <FixtureList matches={matches} />
+      </div>
     </div>
   )
 }

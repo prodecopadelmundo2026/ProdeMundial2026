@@ -8,6 +8,7 @@ type PredRow = {
   home_score: number
   away_score: number
   points: number | null
+  tiebreaker_team: string | null
   match: { status: string } | { status: string }[]
 }
 
@@ -20,7 +21,7 @@ export default async function MiProdePage() {
     supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
     supabase
       .from('predictions')
-      .select('match_id, home_score, away_score, points, match:matches(status)')
+      .select('match_id, home_score, away_score, points, tiebreaker_team, match:matches(status)')
       .eq('user_id', user.id),
   ])
 
@@ -35,6 +36,12 @@ export default async function MiProdePage() {
       p.match_id,
       { home_score: p.home_score, away_score: p.away_score },
     ])
+  )
+
+  const tiebreakerMap = Object.fromEntries(
+    userPredictions
+      .filter((p) => p.tiebreaker_team)
+      .map((p) => [p.match_id, p.tiebreaker_team!])
   )
 
   const totalPoints = userPredictions.reduce((sum, p) => sum + (p.points ?? 0), 0)
@@ -59,6 +66,7 @@ export default async function MiProdePage() {
         groupMatches={groupMatches}
         knockoutMatches={knockoutMatches}
         predMap={predMap}
+        tiebreakerMap={tiebreakerMap}
         totalPoints={totalPoints}
         totalPredictions={userPredictions.length}
         finishedCount={finishedCount}

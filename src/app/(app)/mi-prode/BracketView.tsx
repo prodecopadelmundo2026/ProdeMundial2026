@@ -1,21 +1,23 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
+import { useState } from 'react'
 import clsx from 'clsx'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
 import { StatusBadge } from '@/components/StatusBadge'
-import { upsertPrediction } from '@/app/(app)/fixture/actions'
+import { upsertPredictionsBatch } from '@/app/(app)/fixture/actions'
 import { computeAllStandings, buildKnockoutMap, resolveTeamFull } from '@/lib/bracket'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
+type LocalInputs = Record<string, { home: string; away: string }>
 
 interface Props {
   groupMatches: Match[]
   knockoutMatches: Match[]
   predMap: PredMap
+  initialTiebreakerMap?: Record<string, string>
 }
 
 const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'final'] as const
@@ -43,12 +45,20 @@ function BracketMatchCard({
   match,
   homeTeam,
   awayTeam,
-  pred,
+  initialHome,
+  initialAway,
+  tiebreaker,
+  onValuesChange,
+  onTiebreakerChange,
 }: {
   match: Match
   homeTeam: string
   awayTeam: string
-  pred?: { home_score: number; away_score: number }
+  initialHome: string
+  initialAway: string
+  tiebreaker?: string
+  onValuesChange: (home: string, away: string) => void
+  onTiebreakerChange: (team: string | null) => void
 }) {
   const now = new Date()
   const lockedAt = new Date(match.locked_at)
@@ -59,40 +69,16 @@ function BracketMatchCard({
   const isScored = isLive || isFinished
   const stripKey = isOpen ? 'open' : isClosed ? 'closed' : match.status
 
-  const [home, setHome] = useState(pred?.home_score?.toString() ?? '')
-  const [away, setAway] = useState(pred?.away_score?.toString() ?? '')
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>(
-    pred ? 'saved' : 'idle'
-  )
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [, startTransition] = useTransition()
-
-  function doSave(h: string, a: string) {
-    const hNum = parseInt(h, 10)
-    const aNum = parseInt(a, 10)
-    if (isNaN(hNum) || isNaN(aNum) || hNum < 0 || aNum < 0) return
-    setSaveState('saving')
-    startTransition(async () => {
-      try {
-        await upsertPrediction(match.id, hNum, aNum)
-        setSaveState('saved')
-      } catch {
-        setSaveState('error')
-      }
-    })
-  }
+  const [home, setHome] = useState(initialHome)
+  const [away, setAway] = useState(initialAway)
 
   function handleChange(field: 'home' | 'away', val: string) {
     if (!isOpen) return
-    if (field === 'home') setHome(val)
-    else setAway(val)
     const h = field === 'home' ? val : home
     const a = field === 'away' ? val : away
-    setSaveState('idle')
-    if (timerRef.current) clearTimeout(timerRef.current)
-    if (h !== '' && a !== '') {
-      timerRef.current = setTimeout(() => doSave(h, a), 500)
-    }
+    if (field === 'home') setHome(val)
+    else setAway(val)
+    onValuesChange(h, a)
   }
 
   const homeMeta = getTeam(homeTeam)
@@ -104,6 +90,7 @@ function BracketMatchCard({
   const kickoffStr = format(new Date(match.scheduled_at), 'EEE d MMM · HH:mm', { locale: es })
   const closeStr = format(lockedAt, 'HH:mm', { locale: es })
   const hasPrediction = home !== '' && away !== ''
+  const isDrawPred = hasPrediction && parseInt(home) === parseInt(away)
 
   return (
     <article
@@ -127,7 +114,7 @@ function BracketMatchCard({
       />
 
       {/* Top row */}
-      <div className="flex items-center justify-between mb-[18px] text-[12px]">
+      <div className="flex items-center justify-between mb-4 text-[12px]">
         <div className="flex items-center gap-[10px] text-muted font-bold tracking-[0.06em] uppercase text-[11px]">
           <span
             className="text-white text-[10px] px-2 py-1 rounded-[6px]"
@@ -142,7 +129,7 @@ function BracketMatchCard({
 
       {/* Teams */}
       <div
-        className="grid gap-[14px] items-center mb-[18px]"
+        className="grid gap-3 items-center mb-4"
         style={{ gridTemplateColumns: '1fr auto 1fr' }}
       >
         {/* Home */}
@@ -274,20 +261,40 @@ function BracketMatchCard({
         />
       </div>
 
+      {/* Tiebreaker: knockout draw → pick who advances */}
+      {isOpen && match.stage !== 'group' && hasPrediction && !homePH && !awayPH && isDrawPred && (
+        <div
+          className="mt-3 rounded-[14px] px-3 py-3"
+          style={{ background: '#0A0A0A', border: '1px solid rgba(255,107,0,0.35)' }}
+        >
+          <p className="text-[10px] font-extrabold tracking-[0.16em] uppercase text-orange mb-2">
+            Empate — ¿quién pasa?
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {[homeTeam, awayTeam].map((team) => (
+              <button
+                key={team}
+                onClick={() => onTiebreakerChange(tiebreaker === team ? null : team)}
+                className={clsx(
+                  'px-2 py-2 rounded-[8px] text-[11px] font-bold truncate transition-all duration-150',
+                  tiebreaker === team ? 'bg-orange text-bg' : 'text-muted hover:text-white'
+                )}
+                style={
+                  tiebreaker === team
+                    ? {}
+                    : { background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.08)' }
+                }
+              >
+                {team}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Bottom row */}
-      <div className="mt-[14px] flex items-center justify-between gap-[10px] text-[12px]">
+      <div className="mt-3 flex items-center justify-between gap-[10px] text-[12px]">
         <span className="text-muted font-semibold">
-          {isOpen && saveState === 'idle' && !hasPrediction && (
-            <span className="text-orange">Falta cargar</span>
-          )}
-          {isOpen && saveState === 'idle' && hasPrediction && (
-            <span>Pronóstico cargado</span>
-          )}
-          {isOpen && saveState === 'saving' && <span>Guardando...</span>}
-          {isOpen && saveState === 'saved' && <span>Guardado</span>}
-          {isOpen && saveState === 'error' && (
-            <span className="text-[#FF6B6B]">Error al guardar</span>
-          )}
           {isClosed && <span>Pronóstico bloqueado</span>}
           {isLive && match.home_score != null && (
             <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-muted">
@@ -314,9 +321,90 @@ function BracketMatchCard({
   )
 }
 
-export function BracketView({ groupMatches, knockoutMatches, predMap }: Props) {
+export function BracketView({ groupMatches, knockoutMatches, predMap, initialTiebreakerMap = {} }: Props) {
   const standings = computeAllStandings(groupMatches, predMap)
   const pMap = buildKnockoutMap(knockoutMatches)
+
+  // Local inputs: matchId → { home, away } (starts from predMap)
+  const [localInputs, setLocalInputs] = useState<LocalInputs>(() => {
+    const init: LocalInputs = {}
+    for (const m of knockoutMatches) {
+      const pred = predMap[m.id]
+      init[m.id] = {
+        home: pred?.home_score?.toString() ?? '',
+        away: pred?.away_score?.toString() ?? '',
+      }
+    }
+    return init
+  })
+
+  const [tiebreakerMap, setTiebreakerMap] = useState<Record<string, string>>(initialTiebreakerMap)
+  const [saveState, setSaveState] = useState<Record<string, 'idle' | 'saving' | 'saved' | 'error'>>({})
+
+  // Effective predMap merges saved predictions with locally entered values
+  const effectivePredMap: PredMap = { ...predMap }
+  for (const [matchId, { home, away }] of Object.entries(localInputs)) {
+    if (home !== '' && away !== '') {
+      const h = parseInt(home, 10)
+      const a = parseInt(away, 10)
+      if (!isNaN(h) && !isNaN(a)) {
+        effectivePredMap[matchId] = { home_score: h, away_score: a }
+      }
+    }
+  }
+
+  function handleValuesChange(matchId: string, home: string, away: string) {
+    setLocalInputs((prev) => ({ ...prev, [matchId]: { home, away } }))
+    const round = knockoutMatches.find((m) => m.id === matchId)?.stage
+    const key = round === 'third_place' ? 'final' : (round ?? '')
+    setSaveState((prev) => ({ ...prev, [key]: 'idle' }))
+  }
+
+  function handleTiebreaker(matchId: string, team: string | null) {
+    setTiebreakerMap((prev) => {
+      if (!team) {
+        const { [matchId]: _removed, ...rest } = prev
+        return rest
+      }
+      return { ...prev, [matchId]: team }
+    })
+    const round = knockoutMatches.find((m) => m.id === matchId)?.stage
+    const key = round === 'third_place' ? 'final' : (round ?? '')
+    setSaveState((prev) => ({ ...prev, [key]: 'idle' }))
+  }
+
+  async function handleSave(round: string) {
+    const roundMatches = knockoutMatches.filter((m) => {
+      const key = m.stage === 'third_place' ? 'final' : m.stage
+      return key === round
+    })
+
+    const predictions = roundMatches
+      .map((m) => {
+        const inp = localInputs[m.id]
+        if (!inp || inp.home === '' || inp.away === '') return null
+        const homeScore = parseInt(inp.home, 10)
+        const awayScore = parseInt(inp.away, 10)
+        if (isNaN(homeScore) || isNaN(awayScore) || homeScore < 0 || awayScore < 0) return null
+        return {
+          matchId: m.id,
+          homeScore,
+          awayScore,
+          tiebreakerTeam: tiebreakerMap[m.id] ?? null,
+        }
+      })
+      .filter(Boolean) as Array<{ matchId: string; homeScore: number; awayScore: number; tiebreakerTeam: string | null }>
+
+    if (!predictions.length) return
+
+    setSaveState((prev) => ({ ...prev, [round]: 'saving' }))
+    try {
+      await upsertPredictionsBatch(predictions)
+      setSaveState((prev) => ({ ...prev, [round]: 'saved' }))
+    } catch {
+      setSaveState((prev) => ({ ...prev, [round]: 'error' }))
+    }
+  }
 
   const byRound: Record<string, Match[]> = {}
   for (const m of knockoutMatches) {
@@ -329,6 +417,19 @@ export function BracketView({ groupMatches, knockoutMatches, predMap }: Props) {
   const [activeRound, setActiveRound] = useState(availableRounds[0] ?? 'round_of_32')
 
   const hasGroupPredictions = groupMatches.some((m) => predMap[m.id])
+
+  // Count open matches in active round
+  const now = new Date()
+  const roundMatches = byRound[activeRound] ?? []
+  const openMatches = roundMatches.filter(
+    (m) => m.status === 'upcoming' && now < new Date(m.locked_at)
+  )
+  const filledCount = openMatches.filter((m) => {
+    const inp = localInputs[m.id]
+    return inp && inp.home !== '' && inp.away !== ''
+  }).length
+  const totalOpen = openMatches.length
+  const roundSaveState = saveState[activeRound] ?? 'idle'
 
   return (
     <div className="space-y-6">
@@ -373,9 +474,13 @@ export function BracketView({ groupMatches, knockoutMatches, predMap }: Props) {
             <BracketMatchCard
               key={match.id}
               match={match}
-              homeTeam={resolveTeamFull(match.home_team, standings, pMap, predMap)}
-              awayTeam={resolveTeamFull(match.away_team, standings, pMap, predMap)}
-              pred={predMap[match.id]}
+              homeTeam={resolveTeamFull(match.home_team, standings, pMap, effectivePredMap, tiebreakerMap)}
+              awayTeam={resolveTeamFull(match.away_team, standings, pMap, effectivePredMap, tiebreakerMap)}
+              initialHome={localInputs[match.id]?.home ?? ''}
+              initialAway={localInputs[match.id]?.away ?? ''}
+              tiebreaker={tiebreakerMap[match.id]}
+              onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
+              onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
             />
           ))}
       </div>
@@ -391,12 +496,46 @@ export function BracketView({ groupMatches, knockoutMatches, predMap }: Props) {
                 <BracketMatchCard
                   key={match.id}
                   match={match}
-                  homeTeam={resolveTeamFull(match.home_team, standings, pMap, predMap)}
-                  awayTeam={resolveTeamFull(match.away_team, standings, pMap, predMap)}
-                  pred={predMap[match.id]}
+                  homeTeam={resolveTeamFull(match.home_team, standings, pMap, effectivePredMap, tiebreakerMap)}
+                  awayTeam={resolveTeamFull(match.away_team, standings, pMap, effectivePredMap, tiebreakerMap)}
+                  initialHome={localInputs[match.id]?.home ?? ''}
+                  initialAway={localInputs[match.id]?.away ?? ''}
+                  tiebreaker={tiebreakerMap[match.id]}
+                  onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
+                  onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
                 />
               ))}
           </div>
+        </div>
+      )}
+
+      {/* Save button */}
+      {totalOpen > 0 && (
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-[13px] text-muted font-semibold">
+            {filledCount}/{totalOpen} completados
+          </span>
+          <button
+            onClick={() => handleSave(activeRound)}
+            disabled={filledCount === 0 || roundSaveState === 'saving'}
+            className="px-6 py-2.5 rounded-full text-[13px] font-extrabold tracking-[0.06em] uppercase transition-all duration-150 disabled:opacity-40"
+            style={{
+              background: roundSaveState === 'saved' ? '#A8F0D8' : '#FF6B00',
+              color: roundSaveState === 'saved' ? '#0A0A0A' : '#fff',
+              boxShadow:
+                filledCount > 0 && roundSaveState !== 'saving'
+                  ? '0 6px 18px -8px rgba(255,107,0,.5)'
+                  : 'none',
+            }}
+          >
+            {roundSaveState === 'saving'
+              ? 'Guardando...'
+              : roundSaveState === 'saved'
+              ? 'Guardado'
+              : roundSaveState === 'error'
+              ? 'Error — reintentar'
+              : `Guardar ${ROUND_LABELS[activeRound]}`}
+          </button>
         </div>
       )}
     </div>

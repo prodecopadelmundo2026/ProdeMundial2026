@@ -135,7 +135,7 @@ export default async function HomePage() {
   } = await supabase.auth.getUser()
   const [
     { count: participantes },
-    { count: pronosticos },
+    { count: misPronosticos },
     { data: upcoming },
     { data: topRanking },
   ] = await Promise.all([
@@ -143,7 +143,7 @@ export default async function HomePage() {
       ? supabase.from('profiles').select('*', { count: 'exact', head: true })
       : Promise.resolve({ count: 0, data: null, error: null }),
     user
-      ? supabase.from('predictions').select('*', { count: 'exact', head: true })
+      ? supabase.from('predictions').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
       : Promise.resolve({ count: 0, data: null, error: null }),
     supabase
       .from('matches')
@@ -246,10 +246,10 @@ export default async function HomePage() {
 
             <div className="mt-8 flex flex-wrap gap-3 items-center">
               <Link
-                href="/fixture"
+                href="/mi-prode"
                 className="inline-flex items-center gap-[10px] px-[26px] py-[18px] rounded-full font-extrabold text-[15px] bg-orange text-bg transition-transform duration-150 hover:-translate-y-0.5 group shadow-[0_10px_28px_-10px_rgba(255,107,0,.6)] hover:shadow-[0_18px_36px_-10px_rgba(255,107,0,.8)]"
               >
-                Hacer mi prode
+                {user && (misPronosticos ?? 0) > 0 ? 'Ver mi prode' : 'Hacer mi prode'}
                 <svg
                   className="w-[18px] h-[18px] transition-transform duration-200 group-hover:translate-x-1"
                   viewBox="0 0 24 24"
@@ -322,7 +322,7 @@ export default async function HomePage() {
       >
         <div className="max-w-[1280px] mx-auto px-5 py-7 grid grid-cols-2 min-[780px]:grid-cols-4 gap-5">
           <StatItem num={participantes ?? 0} label="Participantes" live />
-          <StatItem num={pronosticos ?? 0} label="Pronósticos cargados" />
+          <StatItem num={misPronosticos ?? 0} label="Mis pronósticos" />
           <StatItem num={290} label="Puntos en juego" />
           <StatItem num={80} label="Partidos · 48 selecciones" />
         </div>
@@ -404,19 +404,19 @@ export default async function HomePage() {
                 pts="+3"
                 title="Resultado exacto"
                 color="#FFE040"
-                desc="Le pegaste al marcador completo. Mostrá esto en la cena familiar."
+                desc="Le pegaste al resultado completo."
               />
               <RuleCard
                 pts="+1"
-                title="Ganador o empate"
+                title="Ganador o Empate"
                 color="#A8F0D8"
-                desc="Acertaste quién la rompía aunque no el resultado exacto. Igual sumás."
+                desc="Le pegaste a quien pasaba pero no al resultado exacto. Igual sumás."
               />
               <RuleCard
                 pts="0"
                 title="Incorrecto"
                 color="#3a3a3a"
-                desc="El fútbol es así. Mañana viene otro partido. No se sufre, se juega."
+                desc="El fútbol siempre da revancha."
               />
             </div>
           </div>
@@ -437,19 +437,19 @@ export default async function HomePage() {
                 pts="+20"
                 title="Balón de Oro"
                 color="#FFE040"
-                desc="El mejor jugador del torneo. El más subjetivo de todos — por eso vale más."
+                desc="El mejor jugador del torneo."
               />
               <RuleCard
                 pts="+15"
                 title="Bota de Oro"
                 color="#FF6B00"
-                desc="El jugador con más goles al final del Mundial. El máximo artillero."
+                desc="El goleador del torneo."
               />
               <RuleCard
                 pts="+15"
                 title="Guante de Oro"
                 color="#1565C0"
-                desc="El mejor arquero del torneo. El que menos comió, el que más voló."
+                desc="El mejor arquero del torneo."
               />
             </div>
           </div>
@@ -542,7 +542,7 @@ export default async function HomePage() {
             <div className="font-display uppercase leading-[0.9] tracking-[-0.03em] text-[48px]">
               Prode
               <br />
-              <em className="italic text-orange">26.</em>
+              <em className="italic text-orange">26'</em>
             </div>
             <p className="mt-[10px] text-muted text-[13px] max-w-[340px] leading-relaxed">
               Pronósticos del Mundial 2026, hechos en Argentina. Sin apuestas, sin guita rara — solo

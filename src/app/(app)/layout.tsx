@@ -47,7 +47,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <span style={{ transform: 'rotate(6deg)', display: 'block' }}>26</span>
             </span>
             <span>
-              PRODE <b className="text-orange">26</b>
+              PRODE <b className="text-orange">26'</b>
             </span>
           </Link>
 

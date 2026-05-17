@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import type { Match } from '@/types'
-import { FixtureTabs } from '@/app/(app)/fixture/FixtureTabs'
+import { GroupBatchEditor } from './GroupBatchEditor'
 import { BracketView } from './BracketView'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
@@ -19,6 +19,7 @@ interface Props {
   groupMatches: Match[]
   knockoutMatches: Match[]
   predMap: PredMap
+  tiebreakerMap: Record<string, string>
   totalPoints: number
   totalPredictions: number
   finishedCount: number
@@ -28,6 +29,7 @@ export function MiProdeTabs({
   groupMatches,
   knockoutMatches,
   predMap,
+  tiebreakerMap,
   totalPoints,
   totalPredictions,
   finishedCount,
@@ -78,12 +80,13 @@ export function MiProdeTabs({
 
       {/* Tab content */}
       {activeTab === 'grupos' ? (
-        <FixtureTabs grouped={groupedByGroup} predictions={predMap} />
+        <GroupBatchEditor grouped={groupedByGroup} predMap={predMap} />
       ) : (
         <BracketView
           groupMatches={groupMatches}
           knockoutMatches={knockoutMatches}
           predMap={predMap}
+          initialTiebreakerMap={tiebreakerMap}
         />
       )}
     </div>
