@@ -1,9 +1,15 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import type { Match, Prediction } from '@/types'
+import type { Match } from '@/types'
 import { MiProdeTabs } from './MiProdeTabs'
 
-type PredictionWithMatch = Prediction & { match: Match }
+type PredRow = {
+  match_id: string
+  home_score: number
+  away_score: number
+  points: number | null
+  match: { status: string } | { status: string }[]
+}
 
 export default async function MiProdePage() {
   const supabase = await createClient()
@@ -14,13 +20,12 @@ export default async function MiProdePage() {
     supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
     supabase
       .from('predictions')
-      .select('*, match:matches(*)')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: true }),
+      .select('match_id, home_score, away_score, points, match:matches(status)')
+      .eq('user_id', user.id),
   ])
 
   const matches = (allMatches ?? []) as Match[]
-  const userPredictions = (predictions ?? []) as PredictionWithMatch[]
+  const userPredictions = (predictions ?? []) as PredRow[]
 
   const groupMatches = matches.filter((m) => m.stage === 'group')
   const knockoutMatches = matches.filter((m) => m.stage !== 'group')
@@ -33,7 +38,10 @@ export default async function MiProdePage() {
   )
 
   const totalPoints = userPredictions.reduce((sum, p) => sum + (p.points ?? 0), 0)
-  const finishedCount = userPredictions.filter((p) => p.match.status === 'finished').length
+  const finishedCount = userPredictions.filter((p) => {
+    const m = Array.isArray(p.match) ? p.match[0] : p.match
+    return m?.status === 'finished'
+  }).length
 
   return (
     <div className="space-y-8">
@@ -47,22 +55,14 @@ export default async function MiProdePage() {
         </h1>
       </div>
 
-      {userPredictions.length === 0 ? (
-        <div className="text-center py-16 text-[#7a7266]">
-          <p className="text-lg font-medium">Todavía no hiciste ninguna predicción.</p>
-          <p className="text-sm mt-1">Entrá al Fixture para predecir resultados.</p>
-        </div>
-      ) : (
-        <MiProdeTabs
-          groupMatches={groupMatches}
-          knockoutMatches={knockoutMatches}
-          predictions={userPredictions}
-          predMap={predMap}
-          totalPoints={totalPoints}
-          totalPredictions={userPredictions.length}
-          finishedCount={finishedCount}
-        />
-      )}
+      <MiProdeTabs
+        groupMatches={groupMatches}
+        knockoutMatches={knockoutMatches}
+        predMap={predMap}
+        totalPoints={totalPoints}
+        totalPredictions={userPredictions.length}
+        finishedCount={finishedCount}
+      />
     </div>
   )
 }
