@@ -4,7 +4,7 @@ import { useRef, useState, useTransition, useEffect } from 'react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { StatusBadge } from './StatusBadge'
-import { getTeam } from '@/lib/teams'
+import { getTeam, flagUrl } from '@/lib/teams'
 import { upsertPrediction } from '@/app/(app)/fixture/actions'
 import type { Match } from '@/types'
 
@@ -172,10 +172,18 @@ export function MatchCard({ match, prediction }: Props) {
         {/* Home */}
         <div className="flex flex-col items-center gap-[10px] text-center">
           <div
-            className="w-14 h-14 rounded-full grid place-items-center text-[28px]"
+            className="w-14 h-14 rounded-full grid place-items-center overflow-hidden"
             style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}
           >
-            {homeTeam.flag}
+            {homeTeam.iso2 ? (
+              <img
+                src={flagUrl(homeTeam.iso2)}
+                alt={match.home_team}
+                style={{ width: '38px', height: '26px', objectFit: 'contain' }}
+              />
+            ) : (
+              <span className="text-[28px]">{homeTeam.flag}</span>
+            )}
           </div>
           <div>
             <div className="font-extrabold text-[15px] tracking-[-0.01em]">{match.home_team}</div>
@@ -193,10 +201,18 @@ export function MatchCard({ match, prediction }: Props) {
         {/* Away */}
         <div className="flex flex-col items-center gap-[10px] text-center">
           <div
-            className="w-14 h-14 rounded-full grid place-items-center text-[28px]"
+            className="w-14 h-14 rounded-full grid place-items-center overflow-hidden"
             style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}
           >
-            {awayTeam.flag}
+            {awayTeam.iso2 ? (
+              <img
+                src={flagUrl(awayTeam.iso2)}
+                alt={match.away_team}
+                style={{ width: '38px', height: '26px', objectFit: 'contain' }}
+              />
+            ) : (
+              <span className="text-[28px]">{awayTeam.flag}</span>
+            )}
           </div>
           <div>
             <div className="font-extrabold text-[15px] tracking-[-0.01em]">{match.away_team}</div>
