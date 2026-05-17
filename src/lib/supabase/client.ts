@@ -1,7 +1,9 @@
 import { createBrowserClient } from '@supabase/ssr'
+import { getSupabaseConfig } from './env'
 
-export const createClient = () =>
-  createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+export const createClient = () => {
+  // Cliente browser: usa configuracion centralizada y anon key publica.
+  const { url, anonKey } = getSupabaseConfig()
+
+  return createBrowserClient(url, anonKey)
+}

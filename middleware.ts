@@ -1,42 +1,53 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { getSupabaseConfig, isSupabaseConfigured } from './src/lib/supabase/env'
 
-const PUBLIC_PATHS = ['/', '/login', '/auth/', '/ranking', '/fixture']
+const PUBLIC_PATHS = ['/', '/login', '/auth/', '/ranking', '/reglas']
 
 function isPublic(pathname: string) {
-  return PUBLIC_PATHS.some((p) => pathname === p || (p.endsWith('/') && pathname.startsWith(p)))
+  return PUBLIC_PATHS.some((path) =>
+    path === '/' ? pathname === '/' : pathname.startsWith(path)
+  )
 }
 
 export async function middleware(request: NextRequest) {
+  if (isPublic(request.nextUrl.pathname)) {
+    return NextResponse.next()
+  }
+
+  if (!isSupabaseConfigured()) {
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    loginUrl.searchParams.set('error', 'local_no_db')
+    return NextResponse.redirect(loginUrl)
+  }
+
   let supabaseResponse = NextResponse.next({ request })
+  const { url, anonKey } = getSupabaseConfig()
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          )
-          supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
       },
-    }
-  )
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) =>
+          request.cookies.set(name, value)
+        )
+        supabaseResponse = NextResponse.next({ request })
+        cookiesToSet.forEach(({ name, value, options }) =>
+          supabaseResponse.cookies.set(name, value, options)
+        )
+      },
+    },
+  })
 
-  // Refresca la sesión — no usar getSession() acá, usar getUser()
+  // Refresca la sesion: usar getUser(), no getSession().
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user && !isPublic(request.nextUrl.pathname)) {
+  if (!user) {
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
     return NextResponse.redirect(loginUrl)
@@ -47,6 +58,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|json)$).*)',
   ],
 }
