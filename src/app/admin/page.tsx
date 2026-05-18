@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -26,9 +27,18 @@ export default async function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-3xl mx-auto space-y-6">
-        <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
           <h1 className="text-2xl font-bold text-gray-900">Panel Admin</h1>
           <p className="text-gray-500 text-sm mt-1">Carga de resultados — Prode Mundial 2026</p>
+          </div>
+          <Link
+            href="/admin/whitelist"
+            className="inline-flex min-h-10 items-center rounded-lg px-4 text-sm font-bold text-white"
+            style={{ backgroundColor: '#0a3d1f' }}
+          >
+            Lista blanca
+          </Link>
         </div>
 
         {!matches?.length ? (

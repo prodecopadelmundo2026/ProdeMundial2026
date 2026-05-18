@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-async function requireAdmin() {
+export async function requireAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
@@ -41,4 +41,33 @@ export async function setMatchResult(
   revalidatePath('/ranking')
   revalidatePath('/mi-prode')
   revalidatePath('/')
+}
+
+export async function upsertAuthorizedEmail(formData: FormData) {
+  const supabase = await requireAdmin()
+  const email = String(formData.get('email') ?? '')
+  const label = String(formData.get('label') ?? '')
+  const active = formData.get('active') === 'on'
+
+  const { error } = await supabase.rpc('admin_upsert_authorized_email', {
+    p_email: email,
+    p_label: label,
+    p_active: active,
+  })
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/admin/whitelist')
+}
+
+export async function setAuthorizedEmailActive(email: string, active: boolean) {
+  const supabase = await requireAdmin()
+  const { error } = await supabase.rpc('admin_set_authorized_email_active', {
+    p_email: email,
+    p_active: active,
+  })
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/admin/whitelist')
 }
