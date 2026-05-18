@@ -268,7 +268,7 @@ function BracketMatchCard({
           style={{ background: '#0A0A0A', border: '1px solid rgba(255,107,0,0.35)' }}
         >
           <p className="text-[10px] font-extrabold tracking-[0.16em] uppercase text-orange mb-2">
-            Empate — ¿quién pasa?
+            ¿Quién pasa?
           </p>
           <div className="grid grid-cols-2 gap-2">
             {[homeTeam, awayTeam].map((team) => (

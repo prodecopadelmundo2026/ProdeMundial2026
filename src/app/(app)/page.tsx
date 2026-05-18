@@ -139,9 +139,7 @@ export default async function HomePage() {
     { data: upcoming },
     { data: topRanking },
   ] = await Promise.all([
-    user
-      ? supabase.from('profiles').select('*', { count: 'exact', head: true })
-      : Promise.resolve({ count: 0, data: null, error: null }),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
     user
       ? supabase.from('predictions').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
       : Promise.resolve({ count: 0, data: null, error: null }),
@@ -355,6 +353,7 @@ export default async function HomePage() {
 
       {/* ─── PRIZES ─────────────────────────────────────────────── */}
       <section
+        id="premios"
         style={{
           padding: '80px 20px',
           background: 'linear-gradient(180deg, #0a0a0a 0%, #0e0a18 100%)',
@@ -392,7 +391,7 @@ export default async function HomePage() {
           </div>
 
           {/* Points rules */}
-          <div className="mt-16">
+          <div className="mt-16" id="reglas">
             <h3
               className="font-display uppercase tracking-[-0.02em] leading-none mb-[22px]"
               style={{ fontSize: 'clamp(24px, 3.4vw, 32px)' }}
@@ -545,8 +544,7 @@ export default async function HomePage() {
               <em className="italic text-orange">26'</em>
             </div>
             <p className="mt-[10px] text-muted text-[13px] max-w-[340px] leading-relaxed">
-              Pronósticos del Mundial 2026, hechos en Argentina. Sin apuestas, sin guita rara — solo
-              gloria.
+              Pronósticos del Mundial 2026.
             </p>
           </div>
           <div>

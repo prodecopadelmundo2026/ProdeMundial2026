@@ -76,27 +76,20 @@ export default function LoginPage() {
           </Link>
 
           <nav className="hidden min-[880px]:flex gap-7 font-semibold text-[14px]">
-            {['Inicio', 'Mi Prode', 'Ranking', 'Premios', 'Reglas'].map((label) => (
+            {[
+              { label: 'Inicio', href: '/' },
+              { label: 'Premios', href: '/#premios' },
+              { label: 'Reglas', href: '/#reglas' },
+            ].map(({ label, href }) => (
               <a
                 key={label}
-                href="/"
+                href={href}
                 className="text-[#cfcfcf] hover:text-white transition-colors duration-150"
               >
                 {label}
               </a>
             ))}
           </nav>
-
-          <span
-            className="px-5 py-2.5 rounded-full font-extrabold text-[14px] tracking-[0.01em]"
-            style={{
-              background: '#141414',
-              color: '#fff',
-              border: '1px solid rgba(255,255,255,0.08)',
-            }}
-          >
-            Entrar
-          </span>
         </div>
       </header>
 
@@ -194,7 +187,7 @@ export default function LoginPage() {
                   Entrá<br/>al <em className="not-italic" style={{ color: '#FF6B00' }}>Prode</em>
                 </h1>
                 <p className="mt-3 text-[#bdbdbd] text-[15px] leading-relaxed font-medium">
-                  Cargá tu nombre y mail. Si estás en la lista de inscriptos, te dejamos pasar.
+                  Cargá tu nombre y mail. Si estás en la lista de inscriptos, entrás a la cancha.
                 </p>
               </div>
 

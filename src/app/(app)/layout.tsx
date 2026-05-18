@@ -51,7 +51,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </span>
           </Link>
 
-          <NavLinks />
+          <NavLinks isLoggedIn={!!user} />
 
           {/* Right side */}
           <div className="flex items-center gap-[10px] shrink-0">
