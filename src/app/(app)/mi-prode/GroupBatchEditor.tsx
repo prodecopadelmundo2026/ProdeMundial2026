@@ -533,6 +533,8 @@ export function GroupBatchEditor({ grouped, predMap }: Props) {
                 key={match.id}
                 match={match}
                 prediction={predMap[match.id] ?? null}
+                initialHome={currentGroupPreds[match.id]?.home}
+                initialAway={currentGroupPreds[match.id]?.away}
                 onValuesChange={(home, away) =>
                   handleValuesChange(activeGroup, match.id, home, away)
                 }
