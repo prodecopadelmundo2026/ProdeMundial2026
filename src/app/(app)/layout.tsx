@@ -38,17 +38,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {/* Brand */}
           <Link
             href="/"
-            className="flex items-center gap-[10px] font-display text-[18px] tracking-[-0.02em] shrink-0"
+            className="flex items-center font-display text-[18px] tracking-[-0.02em] shrink-0"
           >
-            <span
-              className="w-9 h-9 rounded-[10px] bg-orange grid place-items-center text-[14px] leading-none text-bg font-display"
-              style={{ transform: 'rotate(-6deg)' }}
-            >
-              <span style={{ transform: 'rotate(6deg)', display: 'block' }}>26</span>
-            </span>
-            <span>
-              PRODE <b className="text-orange">26'</b>
-            </span>
+            PRODE <b className="text-orange ml-[6px]">26'</b>
           </Link>
 
           <NavLinks isLoggedIn={!!user} />

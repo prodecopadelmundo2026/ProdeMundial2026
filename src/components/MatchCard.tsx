@@ -45,6 +45,7 @@ type Props = {
   initialHome?: string
   initialAway?: string
   onValuesChange?: (home: string, away: string) => void
+  readOnly?: boolean
 }
 
 const STRIP_COLOR: Record<string, string> = {
@@ -54,7 +55,7 @@ const STRIP_COLOR: Record<string, string> = {
   finished: '#3a3a3a',
 }
 
-export function MatchCard({ match, prediction, noAutosave, initialHome, initialAway, onValuesChange }: Props) {
+export function MatchCard({ match, prediction, noAutosave, initialHome, initialAway, onValuesChange, readOnly }: Props) {
   const now = new Date()
   const lockedAt = new Date(match.locked_at)
   const isOpen = match.status === 'upcoming' && now < lockedAt
@@ -227,7 +228,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
         </div>
       </div>
 
-      {/* Score row */}
+      {/* Score row — hidden entirely for read-only upcoming matches */}
       {isScored ? (
         <div
           style={{
@@ -266,7 +267,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
             </div>
           )}
         </div>
-      ) : (
+      ) : !readOnly ? (
         <div
           className="grid items-center"
           style={{
@@ -326,39 +327,35 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
             }}
           />
         </div>
+      ) : null}
+
+      {/* Bottom row — hidden for read-only cards */}
+      {!readOnly && (
+        <div className="mt-[14px] flex items-center justify-between gap-[10px] text-[12px]">
+          <span className="text-muted font-semibold">
+            {isOpen && !noAutosave && saveState === 'idle' && !hasPrediction && (
+              <span className="text-orange">Falta cargar</span>
+            )}
+            {isOpen && !noAutosave && saveState === 'idle' && hasPrediction && (
+              <span>Pronóstico cargado</span>
+            )}
+            {isOpen && !noAutosave && saveState === 'saving' && (
+              <span>Guardando...</span>
+            )}
+            {isOpen && !noAutosave && saveState === 'saved' && (
+              <span>
+                Guardado{' '}
+                <b className="text-mint">{savedMinsAgo()}</b>
+              </span>
+            )}
+            {isOpen && !noAutosave && saveState === 'error' && (
+              <span className="text-[#FF6B6B]">Error al guardar</span>
+            )}
+            {isClosed && <span>Pronóstico bloqueado</span>}
+          </span>
+          {ptsBadge && <PtsBadge pts={ptsBadge.pts} type={ptsBadge.type} />}
+        </div>
       )}
-
-      {/* Bottom row */}
-      <div className="mt-[14px] flex items-center justify-between gap-[10px] text-[12px]">
-        {/* Left hint */}
-        <span className="text-muted font-semibold">
-          {isOpen && !noAutosave && saveState === 'idle' && !hasPrediction && (
-            <span className="text-orange">Falta cargar</span>
-          )}
-          {isOpen && !noAutosave && saveState === 'idle' && hasPrediction && (
-            <span>Pronóstico cargado</span>
-          )}
-          {isOpen && !noAutosave && saveState === 'saving' && (
-            <span>Guardando...</span>
-          )}
-          {isOpen && !noAutosave && saveState === 'saved' && (
-            <span>
-              Guardado{' '}
-              <b className="text-mint">{savedMinsAgo()}</b>
-            </span>
-          )}
-          {isOpen && !noAutosave && saveState === 'error' && (
-            <span className="text-[#FF6B6B]">Error al guardar</span>
-          )}
-          {isClosed && <span>Pronóstico bloqueado</span>}
-        </span>
-
-        {/* Right: close time or pts badge */}
-        {isOpen && (
-          <span className="text-muted font-semibold shrink-0">Cierra {closeStr}</span>
-        )}
-        {ptsBadge && <PtsBadge pts={ptsBadge.pts} type={ptsBadge.type} />}
-      </div>
     </article>
   )
 }

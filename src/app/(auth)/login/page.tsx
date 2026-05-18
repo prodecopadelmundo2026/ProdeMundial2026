@@ -58,28 +58,22 @@ export default function LoginPage() {
           borderColor: 'rgba(255,255,255,0.08)',
         }}
       >
-        <div className="max-w-[1280px] mx-auto px-5 h-[60px] flex items-center justify-between gap-[18px]">
+        <div className="relative max-w-[1280px] mx-auto px-5 h-[60px] flex items-center">
+          {/* Brand */}
           <Link
             href="/"
-            className="flex items-center gap-[10px] text-[18px] tracking-[-0.02em] shrink-0"
+            className="flex items-center text-[18px] tracking-[-0.02em] shrink-0"
             style={{ fontFamily: 'var(--font-archivo-black, system-ui, sans-serif)' }}
           >
-            <span
-              className="w-9 h-9 rounded-[10px] grid place-items-center text-[14px] leading-none text-[#0A0A0A]"
-              style={{ background: '#FF6B00', transform: 'rotate(-6deg)', fontFamily: 'var(--font-archivo-black, system-ui, sans-serif)' }}
-            >
-              <span style={{ transform: 'rotate(6deg)', display: 'block' }}>26</span>
-            </span>
-            <span>
-              PRODE <b style={{ color: '#FF6B00' }}>26'</b>
-            </span>
+            PRODE <b style={{ color: '#FF6B00', marginLeft: '6px' }}>26'</b>
           </Link>
 
-          <nav className="hidden min-[880px]:flex gap-7 font-semibold text-[14px]">
+          {/* Nav — centered absolutely */}
+          <nav className="absolute left-1/2 -translate-x-1/2 hidden min-[880px]:flex gap-7 font-semibold text-[14px]">
             {[
               { label: 'Inicio', href: '/' },
               { label: 'Premios', href: '/#premios' },
-              { label: 'Reglas', href: '/#reglas' },
+              { label: 'Reglas', href: '/reglas' },
             ].map(({ label, href }) => (
               <a
                 key={label}

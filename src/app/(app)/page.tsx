@@ -148,7 +148,7 @@ export default async function HomePage() {
       .select('*')
       .in('status', ['upcoming', 'live'])
       .order('scheduled_at', { ascending: true })
-      .limit(6),
+      .limit(16),
     supabase
       .from('ranking_entries')
       .select('user_id, name, total_points, rank, exact_predictions, correct_result_predictions')
@@ -156,7 +156,14 @@ export default async function HomePage() {
       .limit(10),
   ])
 
-  const matches = (upcoming ?? []) as Match[]
+  const allUpcoming = (upcoming ?? []) as Match[]
+  // Only show matches from the first scheduled day
+  const firstDay = allUpcoming[0]
+    ? new Date(allUpcoming[0].scheduled_at).toDateString()
+    : null
+  const matches = firstDay
+    ? allUpcoming.filter((m) => new Date(m.scheduled_at).toDateString() === firstDay)
+    : []
 
   const predictionMap: Record<string, { home_score: number; away_score: number }> = {}
   if (user && matches.length > 0) {
@@ -289,7 +296,7 @@ export default async function HomePage() {
                   className="font-display leading-[0.82] tracking-[-0.07em]"
                   style={{ fontSize: 'clamp(120px, 14vw, 200px)' }}
                 >
-                  26
+                  26'
                 </div>
                 <div className="font-sans font-black tracking-[0.42em] mt-2 text-[clamp(13px,1.6vw,22px)]">
                   PRODE
@@ -344,6 +351,7 @@ export default async function HomePage() {
                   key={match.id}
                   match={match}
                   prediction={predictionMap[match.id] ?? null}
+                  readOnly={!user}
                 />
               ))}
             </div>
@@ -363,7 +371,6 @@ export default async function HomePage() {
           <SectionHead
             title="Podio de"
             orange="premios"
-            link={{ href: '/reglas', label: 'Ver reglas completas' }}
           />
 
           {/* Pozo dinámico */}
@@ -555,7 +562,7 @@ export default async function HomePage() {
               {[
                 { href: '/mi-prode', label: 'Mi Prode' },
                 { href: '/ranking', label: 'Ranking en vivo' },
-                { href: '/reglas', label: 'Reglas y premios' },
+                { href: '/reglas', label: 'Reglas generales' },
               ].map(({ href, label }) => (
                 <li key={label}>
                   <Link
@@ -574,7 +581,7 @@ export default async function HomePage() {
             </h5>
             <ul className="flex flex-col gap-[10px]">
               {[
-                { href: '/reglas', label: 'Reglas y puntaje' },
+                { href: '/reglas', label: 'Reglas generales' },
                 { href: '/reglas', label: 'Preguntas frecuentes' },
               ].map(({ href, label }) => (
                 <li key={label}>

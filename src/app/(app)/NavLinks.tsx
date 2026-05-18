@@ -7,7 +7,7 @@ import clsx from 'clsx'
 const PUBLIC_LINKS = [
   { href: '/', label: 'Inicio', exact: true, anchor: false },
   { href: '/#premios', label: 'Premios', exact: false, anchor: true },
-  { href: '/#reglas', label: 'Reglas', exact: false, anchor: true },
+  { href: '/reglas', label: 'Reglas', exact: false, anchor: false },
 ]
 
 const AUTH_LINKS = [
