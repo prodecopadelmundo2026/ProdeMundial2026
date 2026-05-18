@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import clsx from 'clsx'
 
 const PUBLIC_LINKS = [
   { href: '/', label: 'Inicio', exact: true, anchor: false },
-  { href: '/#premios', label: 'Premios', exact: false, anchor: true },
+  { href: '/premios', label: 'Premios', exact: false, anchor: false },
   { href: '/reglas', label: 'Reglas', exact: false, anchor: false },
 ]
 
@@ -22,15 +23,23 @@ interface Props {
 export function NavLinks({ isLoggedIn }: Props) {
   const pathname = usePathname()
   const links = isLoggedIn ? [...PUBLIC_LINKS, ...AUTH_LINKS] : PUBLIC_LINKS
+  const [activeAnchor, setActiveAnchor] = useState<string | null>(null)
+
+  useEffect(() => {
+    setActiveAnchor(null)
+  }, [pathname])
 
   return (
     <nav className="hidden min-[880px]:flex gap-7 text-[14px] font-semibold tracking-[0.01em]">
       {links.map(({ href, label, exact, anchor }) => {
-        const active = anchor ? false : exact ? pathname === href : pathname.startsWith(href)
+        const active = anchor
+          ? activeAnchor === href
+          : exact ? pathname === href : pathname.startsWith(href)
         return (
           <Link
             key={href}
             href={href}
+            onClick={anchor ? () => setActiveAnchor(href) : undefined}
             className={clsx(
               'relative py-1.5 transition-colors duration-150',
               active
