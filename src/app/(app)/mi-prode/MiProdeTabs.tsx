@@ -1,13 +1,16 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useTransition } from 'react'
 import type { Match } from '@/types'
 import { GroupBatchEditor } from './GroupBatchEditor'
 import { BracketView } from './BracketView'
+import { deleteGroupPredictions } from '@/app/(app)/fixture/actions'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 
 type TabId = 'grupos' | 'eliminatoria'
+
+const LOCAL_STORAGE_KEY = 'prode_group_preds'
 
 interface Props {
   groupMatches: Match[]
@@ -23,6 +26,9 @@ export function MiProdeTabs({
   tiebreakerMap,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('grupos')
+  const [bracketKey, setBracketKey] = useState(0)
+  const [deleteState, setDeleteState] = useState<'idle' | 'confirm' | 'deleting'>('idle')
+  const [, startTransition] = useTransition()
 
   const groupedByGroup: Record<string, Match[]> = {}
   for (const m of groupMatches) {
@@ -47,6 +53,31 @@ export function MiProdeTabs({
     return init
   })
 
+  // Restore unsaved inputs from localStorage on mount (client only)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(LOCAL_STORAGE_KEY)
+      if (!stored) return
+      const parsed = JSON.parse(stored) as Record<string, { home: string; away: string }>
+      const validMatchIds = new Set(groupMatches.map((m) => m.id))
+      setLocalGroupPreds((prev) => {
+        const next = { ...prev }
+        for (const [matchId, val] of Object.entries(parsed)) {
+          if (validMatchIds.has(matchId)) next[matchId] = val
+        }
+        return next
+      })
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Persist to localStorage whenever group preds change
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(localGroupPreds))
+    } catch {}
+  }, [localGroupPreds])
+
   function handleGroupPredChange(matchId: string, home: string, away: string) {
     setLocalGroupPreds((prev) => ({ ...prev, [matchId]: { home, away } }))
   }
@@ -63,6 +94,32 @@ export function MiProdeTabs({
     }
     return merged
   }, [predMap, localGroupPreds])
+
+  // All group matches have a valid prediction (server or local)
+  const allGroupsFilled =
+    groupMatches.length > 0 &&
+    groupMatches.every((m) => effectivePredMap[m.id])
+
+  function handleDeleteGroups() {
+    if (deleteState === 'idle') {
+      setDeleteState('confirm')
+      return
+    }
+    setDeleteState('deleting')
+    startTransition(async () => {
+      try {
+        await deleteGroupPredictions()
+        // Clear localStorage
+        try { localStorage.removeItem(LOCAL_STORAGE_KEY) } catch {}
+        // Reset local state
+        setLocalGroupPreds({})
+        // Force BracketView remount so localInputs starts fresh
+        setBracketKey((k) => k + 1)
+      } finally {
+        setDeleteState('idle')
+      }
+    })
+  }
 
   return (
     <div>
@@ -111,9 +168,40 @@ export function MiProdeTabs({
           localGroupPreds={localGroupPreds}
           onGroupPredChange={handleGroupPredChange}
         />
+
+        {/* Delete button — only once all groups are complete */}
+        {allGroupsFilled && (
+          <div className="flex items-center justify-end gap-3 mt-8 pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+            {deleteState === 'confirm' && (
+              <span className="text-[13px] font-semibold" style={{ color: '#FF6B6B' }}>
+                ¿Seguro? Se borran todos los pronósticos de grupos.
+              </span>
+            )}
+            <button
+              onClick={handleDeleteGroups}
+              disabled={deleteState === 'deleting'}
+              className="px-5 py-2.5 rounded-full text-[12px] font-extrabold tracking-[0.06em] uppercase transition-all duration-150 disabled:opacity-40"
+              style={
+                deleteState === 'confirm'
+                  ? { background: '#FF3B3B', color: '#fff' }
+                  : { background: 'rgba(255,59,59,0.12)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.25)' }
+              }
+              onMouseLeave={() => {
+                if (deleteState === 'confirm') setDeleteState('idle')
+              }}
+            >
+              {deleteState === 'deleting'
+                ? 'Borrando...'
+                : deleteState === 'confirm'
+                ? 'Confirmar borrado'
+                : 'Borrar predicciones'}
+            </button>
+          </div>
+        )}
       </div>
       <div style={{ display: activeTab === 'eliminatoria' ? undefined : 'none' }}>
         <BracketView
+          key={bracketKey}
           groupMatches={groupMatches}
           knockoutMatches={knockoutMatches}
           predMap={effectivePredMap}

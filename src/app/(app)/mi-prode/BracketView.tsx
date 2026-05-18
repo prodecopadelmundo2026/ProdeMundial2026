@@ -8,7 +8,7 @@ import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
 import { StatusBadge } from '@/components/StatusBadge'
 import { upsertPredictionsBatch } from '@/app/(app)/fixture/actions'
-import { computeAllStandings, buildKnockoutMap, resolveTeamFull } from '@/lib/bracket'
+import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups } from '@/lib/bracket'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type LocalInputs = Record<string, { home: string; away: string }>
@@ -324,6 +324,7 @@ function BracketMatchCard({
 export function BracketView({ groupMatches, knockoutMatches, predMap, initialTiebreakerMap = {} }: Props) {
   const standings = computeAllStandings(groupMatches, predMap)
   const pMap = buildKnockoutMap(knockoutMatches)
+  const bestThirdsGroups = computeBestThirdsGroups(groupMatches, predMap)
 
   // Local inputs: matchId → { home, away } (starts from predMap)
   const [localInputs, setLocalInputs] = useState<LocalInputs>(() => {
@@ -474,8 +475,8 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
             <BracketMatchCard
               key={match.id}
               match={match}
-              homeTeam={resolveTeamFull(match.home_team, standings, pMap, effectivePredMap, tiebreakerMap)}
-              awayTeam={resolveTeamFull(match.away_team, standings, pMap, effectivePredMap, tiebreakerMap)}
+              homeTeam={resolveTeamFull(match.home_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups)}
+              awayTeam={resolveTeamFull(match.away_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups)}
               initialHome={localInputs[match.id]?.home ?? ''}
               initialAway={localInputs[match.id]?.away ?? ''}
               tiebreaker={tiebreakerMap[match.id]}
@@ -496,8 +497,8 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
                 <BracketMatchCard
                   key={match.id}
                   match={match}
-                  homeTeam={resolveTeamFull(match.home_team, standings, pMap, effectivePredMap, tiebreakerMap)}
-                  awayTeam={resolveTeamFull(match.away_team, standings, pMap, effectivePredMap, tiebreakerMap)}
+                  homeTeam={resolveTeamFull(match.home_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups)}
+                  awayTeam={resolveTeamFull(match.away_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups)}
                   initialHome={localInputs[match.id]?.home ?? ''}
                   initialAway={localInputs[match.id]?.away ?? ''}
                   tiebreaker={tiebreakerMap[match.id]}

@@ -122,7 +122,8 @@ function resolveKnockout(
   standings: Record<string, string[]>,
   predMap: PredMap,
   tiebreakerMap: TiebreakerMap,
-  depth: number
+  depth: number,
+  bestThirdsGroups?: Set<string>
 ): string {
   const fallback = type === 'winner' ? `Ganador P${pNum}` : `Perdedor P${pNum}`
   if (depth > 8) return fallback
@@ -133,8 +134,8 @@ function resolveKnockout(
   const fixture = KNOCKOUT_FIXTURES[pNum]
   if (!fixture) return fallback
 
-  const homeResolved = resolveTeamFull(fixture[0], standings, pMap, predMap, tiebreakerMap, depth + 1)
-  const awayResolved = resolveTeamFull(fixture[1], standings, pMap, predMap, tiebreakerMap, depth + 1)
+  const homeResolved = resolveTeamFull(fixture[0], standings, pMap, predMap, tiebreakerMap, depth + 1, bestThirdsGroups)
+  const awayResolved = resolveTeamFull(fixture[1], standings, pMap, predMap, tiebreakerMap, depth + 1, bestThirdsGroups)
 
   // Use actual result if available
   if (match.home_score != null && match.away_score != null) {
@@ -174,7 +175,8 @@ export function resolveTeamFull(
   pMap: Record<number, Match>,
   predMap: PredMap,
   tiebreakerMap: TiebreakerMap = {},
-  depth = 0
+  depth = 0,
+  bestThirdsGroups?: Set<string>
 ): string {
   // "1° Grupo A", "2° Grupo B"
   const direct = placeholder.match(/^(\d)°\s+Grupo\s+([A-L])$/)
@@ -184,18 +186,87 @@ export function resolveTeamFull(
     return standings[group]?.[pos] ?? placeholder
   }
 
-  // "3° Grupo X/Y/Z/..." — best third, can't resolve to one team
-  if (/^3°\s+Grupo\s+[A-L]/.test(placeholder)) return 'Mejor 3°'
+  // "3° Grupo X/Y/Z/..." — best third: resolve if exactly one qualifying group matches this slot
+  const thirdMatch = placeholder.match(/^3°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
+  if (thirdMatch) {
+    if (bestThirdsGroups && bestThirdsGroups.size > 0) {
+      const allowedGroups = thirdMatch[1].split('/')
+      const qualifying = allowedGroups.filter((g) => bestThirdsGroups.has(g))
+      if (qualifying.length === 1) {
+        return standings[qualifying[0]]?.[2] ?? 'Mejor 3°'
+      }
+    }
+    return 'Mejor 3°'
+  }
 
   // "Ganador P74" / "Perdedor P101"
   const m = placeholder.match(/^(Ganador|Perdedor)\s+P(\d+)$/)
   if (m) {
     const type = m[1] === 'Ganador' ? 'winner' : 'loser'
     const pNum = Number(m[2])
-    return resolveKnockout(pNum, type, pMap, standings, predMap, tiebreakerMap, depth)
+    return resolveKnockout(pNum, type, pMap, standings, predMap, tiebreakerMap, depth, bestThirdsGroups)
   }
 
   return placeholder
+}
+
+// Computes which 8 group letters have the best third-place teams based on predictions
+export function computeBestThirdsGroups(
+  allGroupMatches: Match[],
+  predMap: PredMap
+): Set<string> {
+  const byGroup: Record<string, Match[]> = {}
+  for (const m of allGroupMatches) {
+    if (!m.group) continue
+    if (!byGroup[m.group]) byGroup[m.group] = []
+    byGroup[m.group].push(m)
+  }
+
+  const thirds: { group: string; pts: number; gd: number; gf: number }[] = []
+  for (const [group, matches] of Object.entries(byGroup)) {
+    const stats: Record<string, { pts: number; gf: number; ga: number; played: number }> = {}
+    for (const m of matches) {
+      if (!stats[m.home_team]) stats[m.home_team] = { pts: 0, gf: 0, ga: 0, played: 0 }
+      if (!stats[m.away_team]) stats[m.away_team] = { pts: 0, gf: 0, ga: 0, played: 0 }
+    }
+    for (const m of matches) {
+      const pred = predMap[m.id]
+      if (!pred) continue
+      stats[m.home_team].gf += pred.home_score
+      stats[m.home_team].ga += pred.away_score
+      stats[m.home_team].played++
+      stats[m.away_team].gf += pred.away_score
+      stats[m.away_team].ga += pred.home_score
+      stats[m.away_team].played++
+      if (pred.home_score > pred.away_score) {
+        stats[m.home_team].pts += 3
+      } else if (pred.home_score === pred.away_score) {
+        stats[m.home_team].pts += 1
+        stats[m.away_team].pts += 1
+      } else {
+        stats[m.away_team].pts += 3
+      }
+    }
+    const sorted = Object.values(stats).sort((a, b) => {
+      if (b.pts !== a.pts) return b.pts - a.pts
+      const gdB = b.gf - b.ga, gdA = a.gf - a.ga
+      if (gdB !== gdA) return gdB - gdA
+      return b.gf - a.gf
+    })
+    const third = sorted[2]
+    if (third && third.played > 0) {
+      thirds.push({ group, pts: third.pts, gd: third.gf - third.ga, gf: third.gf })
+    }
+  }
+
+  thirds.sort((a, b) => {
+    if (b.pts !== a.pts) return b.pts - a.pts
+    if (b.gd !== a.gd) return b.gd - a.gd
+    if (b.gf !== a.gf) return b.gf - a.gf
+    return a.group.localeCompare(b.group)
+  })
+
+  return new Set(thirds.slice(0, 8).map((t) => t.group))
 }
 
 // Legacy shim — kept for any callers that use only group stage resolution

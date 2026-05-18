@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useMemo, useEffect, useTransition } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { Match } from '@/types'
 import { MatchCard } from '@/components/MatchCard'
 import { getTeam, flagUrl } from '@/lib/teams'
-import { upsertPredictionsBatch } from '@/app/(app)/fixture/actions'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type LocalPred = { home: string; away: string }
@@ -444,12 +443,6 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
   const tabs = sortTabs(Object.keys(grouped))
   const [activeGroup, setActiveGroup] = useState(tabs[0] ?? '')
   const [tiebreakers, setTiebreakers] = useState<Record<string, string>>({})
-  const [groupSaveState, setGroupSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const [, startTransition] = useTransition()
-
-  useEffect(() => {
-    setGroupSaveState('idle')
-  }, [activeGroup])
 
   function handleTiebreaker(key: string, team: string | null) {
     setTiebreakers((prev) => {
@@ -502,38 +495,6 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
         return a.name.localeCompare(b.name)
       })
   }, [tabs, grouped, localGroupPreds])
-
-  // Count filled predictions for save button
-  const filledCount = currentGroupMatches.filter((m) => {
-    const p = currentGroupPreds[m.id]
-    if (!p || p.home === '' || p.away === '') return false
-    return !isNaN(parseInt(p.home, 10)) && !isNaN(parseInt(p.away, 10))
-  }).length
-
-  function handleGroupSave() {
-    const predictions = currentGroupMatches
-      .map((m) => {
-        const p = currentGroupPreds[m.id]
-        if (!p || p.home === '' || p.away === '') return null
-        const homeScore = parseInt(p.home, 10)
-        const awayScore = parseInt(p.away, 10)
-        if (isNaN(homeScore) || isNaN(awayScore) || homeScore < 0 || awayScore < 0) return null
-        return { matchId: m.id, homeScore, awayScore }
-      })
-      .filter(Boolean) as Array<{ matchId: string; homeScore: number; awayScore: number }>
-
-    if (!predictions.length) return
-
-    setGroupSaveState('saving')
-    startTransition(async () => {
-      try {
-        await upsertPredictionsBatch(predictions)
-        setGroupSaveState('saved')
-      } catch {
-        setGroupSaveState('error')
-      }
-    })
-  }
 
   if (!tabs.length) {
     return (
@@ -644,35 +605,6 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
             groupKey={activeGroup}
           />
 
-          {/* Save button */}
-          {filledCount > 0 && (
-            <div className="flex items-center justify-between gap-4 mt-6">
-              <span className="text-[13px] text-muted font-semibold">
-                {filledCount}/{currentGroupMatches.length} completados
-              </span>
-              <button
-                onClick={handleGroupSave}
-                disabled={groupSaveState === 'saving'}
-                className="px-6 py-2.5 rounded-full text-[13px] font-extrabold tracking-[0.06em] uppercase transition-all duration-150 disabled:opacity-40"
-                style={{
-                  background: groupSaveState === 'saved' ? '#A8F0D8' : '#FF6B00',
-                  color: groupSaveState === 'saved' ? '#0A0A0A' : '#fff',
-                  boxShadow:
-                    groupSaveState !== 'saving'
-                      ? '0 6px 18px -8px rgba(255,107,0,.5)'
-                      : 'none',
-                }}
-              >
-                {groupSaveState === 'saving'
-                  ? 'Guardando...'
-                  : groupSaveState === 'saved'
-                  ? 'Guardado'
-                  : groupSaveState === 'error'
-                  ? 'Error — reintentar'
-                  : `Guardar ${activeGroup}`}
-              </button>
-            </div>
-          )}
         </>
       )}
     </div>
