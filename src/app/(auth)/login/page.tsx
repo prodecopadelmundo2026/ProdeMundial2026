@@ -18,7 +18,8 @@ export default function LoginPage() {
     setNameError(false)
 
     if (!name.trim()) { setNameError(true); return }
-    if (!email.trim() || !email.includes('@')) { setEmailError('Email inválido.'); return }
+    if (!email.trim()) { setEmailError('Ingresá el mail con el que te registraste'); return }
+    if (!email.includes('@')) { setEmailError('Email inválido'); return }
 
     setLoading(true)
     const supabase = createClient()

@@ -351,7 +351,7 @@ export default async function HomePage() {
                   key={match.id}
                   match={match}
                   prediction={predictionMap[match.id] ?? null}
-                  readOnly={!user}
+                  readOnly
                 />
               ))}
             </div>

@@ -277,7 +277,20 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
         </div>
       )}
 
-      {/* Sección de pronóstico — solo visible cuando no es readOnly */}
+      {/* Pronóstico read-only (home page, vista pública) */}
+      {readOnly && prediction && (
+        <div
+          className="flex items-center justify-between mt-1 px-3 py-2.5 rounded-[12px] text-[11px] font-bold"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
+        >
+          <span className="text-muted tracking-[0.12em] uppercase text-[10px] font-extrabold">Tu pronóstico</span>
+          <span className="font-mono text-white text-[13px]">
+            {prediction.home_score} — {prediction.away_score}
+          </span>
+        </div>
+      )}
+
+      {/* Sección de pronóstico editable — solo visible cuando no es readOnly */}
       {!readOnly && (
         <>
           {/* pred-label: "Tu pronóstico" + copy contextual a la derecha */}
