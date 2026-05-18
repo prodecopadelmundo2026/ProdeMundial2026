@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { NavLinks } from './NavLinks'
+import { UserMenu } from '@/components/UserMenu'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -63,16 +64,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                     <span>#{entry.rank}</span>
                   </div>
                 )}
-                <div
-                  className="w-9 h-9 rounded-full grid place-items-center font-bold text-[13px]"
-                  style={{
-                    background: 'linear-gradient(135deg, #5B2D8E, #1565C0)',
-                    border: '2px solid #2a2a2a',
-                  }}
-                  title={userName}
-                >
-                  {initial}
-                </div>
+                <UserMenu
+                  initial={initial}
+                  name={userName}
+                  pts={entry?.total_points}
+                  rank={entry?.rank}
+                />
               </>
             ) : (
               <Link

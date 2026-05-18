@@ -32,8 +32,8 @@ export function StatusBadge({ match, liveMinute }: Props) {
 
   if (now >= lockedAt) {
     return (
-      <span className={base} style={{ background: 'rgba(255,107,0,0.16)', color: '#FF6B00' }}>
-        <span className={dot} style={{ background: '#FF6B00' }} />
+      <span className={base} style={{ background: 'rgba(123,92,210,0.18)', color: '#A892E8' }}>
+        <span className={dot} style={{ background: '#A892E8' }} />
         Cerrado
       </span>
     )

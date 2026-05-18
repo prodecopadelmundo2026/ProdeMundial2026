@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @theme {
+  /* ---------- COLORS ---------- */
   /* Brand */
   --color-orange:  #FF6B00;
   --color-purple:  #5B2D8E;
@@ -12,33 +13,48 @@
   --color-bg:      #0A0A0A;
   --color-panel:   #141414;
   --color-panel-2: #1C1C1C;
+  --color-line:    rgba(255, 255, 255, 0.08);
 
   /* Text */
   --color-text:    #FFFFFF;
   --color-muted:   #8A8A8A;
 
-  /* Status strips */
+  /* Status */
   --color-status-open:     #FF6B00;
   --color-status-closed:   #7A5BC9;
   --color-status-live:     #FF3B3B;
   --color-status-live-fg:  #FF6B6B;
   --color-status-finished: #3A3A3A;
 
-  /* Fonts — vars set by next/font on <html> */
+  /* Errors */
+  --color-danger: #FF5A5A;
+
+  /* ---------- FONTS ---------- */
   --font-sans:    var(--font-archivo), system-ui, sans-serif;
   --font-display: var(--font-archivo-black), system-ui, sans-serif;
   --font-mono:    var(--font-jetbrains), ui-monospace, monospace;
 
-  /* Radii */
+  /* ---------- RADII ---------- */
   --radius-card: 24px;
   --radius-chip: 14px;
 
-  /* Shadows */
+  /* ---------- LETTER SPACING ---------- */
+  --tracking-tightest: -0.04em;
+  --tracking-wider2:   0.18em;
+  --tracking-wider3:   0.22em;
+
+  /* ---------- SHADOWS ---------- */
   --shadow-cta:       0 10px 28px -10px rgba(255, 107, 0, 0.6);
   --shadow-cta-hover: 0 18px 36px -10px rgba(255, 107, 0, 0.8);
   --shadow-tile:      0 30px 80px -20px rgba(0, 0, 0, 0.5);
+
+  /* ---------- ANIMATIONS ---------- */
+  --animate-float:     float 22s ease-in-out infinite;
+  --animate-blink:     blink 1.2s infinite;
+  --animate-pulse-dot: pulse-dot 1.6s infinite;
 }
 
+/* Keyframes */
 @keyframes float {
   0%, 100% { transform: translate(0, 0) rotate(0deg); }
   50%      { transform: translate(20px, -30px) rotate(8deg); }
@@ -65,7 +81,30 @@
     overflow-x: hidden;
   }
 
-  /* Hide spinners on score inputs */
+  /* A11y: focus visible global */
+  :focus { outline: none; }
+  :focus-visible {
+    outline: 2px solid var(--color-orange);
+    outline-offset: 3px;
+    border-radius: 8px;
+  }
+  /* Score inputs and text inputs manage their own focus ring */
+  input[type='number'].score:focus-visible,
+  input[type='text']:focus-visible,
+  input[type='email']:focus-visible {
+    outline: none;
+  }
+
+  /* A11y: respetar prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Tabular numbers + hide spinners en score inputs */
   input[type='number'].score {
     font-variant-numeric: tabular-nums;
     -moz-appearance: textfield;
@@ -77,7 +116,69 @@
   }
 }
 
+@layer components {
+  /* Login form inputs */
+  .login-input {
+    @apply w-full text-white text-[16px] font-semibold outline-none
+           transition-[border-color,background,box-shadow] duration-150
+           placeholder:text-[#555] placeholder:font-medium;
+    background: #0A0A0A;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 16px 18px;
+    border-radius: 14px;
+  }
+  .login-input:focus {
+    border-color: #FF6B00;
+    background: #0d0d0d;
+    box-shadow: 0 0 0 4px rgba(255, 107, 0, 0.12);
+  }
+  .login-input.has-error {
+    border-color: #FF5A5A;
+    background: rgba(255, 90, 90, 0.06);
+  }
+  .login-input.has-error:focus {
+    box-shadow: 0 0 0 4px rgba(255, 90, 90, 0.14);
+  }
+
+  /* Submit button naranja */
+  .submit-btn {
+    @apply mt-2 inline-flex items-center justify-center gap-2.5
+           font-extrabold text-[15px] tracking-[0.02em]
+           transition-[transform,box-shadow] duration-150
+           disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0;
+    background: #FF6B00;
+    color: #0A0A0A;
+    padding: 18px 24px;
+    border-radius: 14px;
+    box-shadow: 0 10px 28px -10px rgba(255, 107, 0, 0.6);
+  }
+  .submit-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 36px -10px rgba(255, 107, 0, 0.85);
+  }
+
+  /* Botón Google placeholder */
+  .google-btn {
+    @apply w-full inline-flex items-center justify-center flex-wrap gap-3
+           font-bold text-[14px] cursor-not-allowed;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #9a9a9a;
+    padding: 16px 18px;
+    border-radius: 14px;
+  }
+
+  /* Pill "PRÓXIMAMENTE" */
+  .pill-soon {
+    @apply text-[9px] font-extrabold tracking-[0.18em] px-2 py-1 rounded-[6px] shrink-0;
+    background: #1C1C1C;
+    color: #8A8A8A;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+}
+
 @layer utilities {
+  /* Grain overlay para el hero */
   .bg-grain {
     background-image: repeating-linear-gradient(
       0deg,
@@ -87,6 +188,7 @@
     mix-blend-mode: overlay;
   }
 
+  /* Vignette radial del hero */
   .bg-hero-vignette {
     background: radial-gradient(
       60% 50% at 50% 50%,
@@ -96,10 +198,12 @@
     );
   }
 
+  /* Border-radius "petal" para blobs */
   .rounded-petal-1 { border-radius: 50% 0 50% 0; }
   .rounded-petal-2 { border-radius: 0 50% 0 50%; }
   .rounded-petal-3 { border-radius: 50% 50% 0 50%; }
 
+  /* Cinta diagonal para el premio "Campeón" */
   .ribbon-corner {
     position: absolute;
     top: 14px;

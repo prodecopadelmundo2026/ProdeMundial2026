@@ -1,19 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import clsx from 'clsx'
 import type { Match } from '@/types'
 import { GroupBatchEditor } from './GroupBatchEditor'
 import { BracketView } from './BracketView'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 
-const TABS = [
-  { id: 'grupos', label: 'Grupos' },
-  { id: 'eliminatoria', label: 'Fase Eliminatoria' },
-] as const
-
-type TabId = (typeof TABS)[number]['id']
+type TabId = 'grupos' | 'eliminatoria'
 
 interface Props {
   groupMatches: Match[]
@@ -23,6 +17,11 @@ interface Props {
   totalPoints: number
   totalPredictions: number
   finishedCount: number
+}
+
+const COMBO_META: Record<TabId, string> = {
+  grupos:      '6 partidos · 11–22 jun',
+  eliminatoria: '16 partidos · 28 jun – 02 jul',
 }
 
 export function MiProdeTabs({
@@ -36,7 +35,6 @@ export function MiProdeTabs({
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('grupos')
 
-  // Agrupa los partidos de fase de grupos por "Grupo X" para pasarlos a FixtureTabs
   const groupedByGroup: Record<string, Match[]> = {}
   for (const m of groupMatches) {
     if (!m.group) continue
@@ -46,39 +44,53 @@ export function MiProdeTabs({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Stats strip */}
-      {totalPredictions > 0 && (
-        <p className="text-sm text-[#7a7266]">
-          {totalPredictions} predicciones
-          {finishedCount > 0 && (
-            <>
-              {' '}·{' '}
-              <span className="font-bold text-[#c8a84a]">{totalPoints} pts</span>
-            </>
-          )}
-        </p>
-      )}
+    <div>
+      {/* Header: h1 + phase tabs inline */}
+      <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
+        <h1
+          className="font-display uppercase leading-[0.94] tracking-[-0.03em]"
+          style={{ fontSize: 'clamp(28px, 4.5vw, 40px)' }}
+        >
+          Mi <em className="italic text-orange">Prode</em>
+        </h1>
 
-      {/* Main tabs */}
-      <div className="flex gap-2 border-b border-[#272727] pb-0">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={clsx(
-              'px-1 pb-3 text-sm font-semibold tracking-wide transition-colors duration-150 border-b-2 -mb-px',
-              activeTab === tab.id
-                ? 'border-[#c8a84a] text-[#c8a84a]'
-                : 'border-transparent text-[#7a7266] hover:text-[#ede8dc]'
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
+        {/* Pill tabs */}
+        <div
+          className="inline-flex items-center gap-1 p-[5px] rounded-full"
+          style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          {(['grupos', 'eliminatoria'] as TabId[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className="px-[18px] py-[10px] rounded-full font-extrabold text-[13px] transition-all duration-150"
+              style={
+                activeTab === tab
+                  ? { background: '#FF6B00', color: '#0A0A0A' }
+                  : { color: '#8A8A8A' }
+              }
+              onMouseEnter={(e) => {
+                if (activeTab !== tab) e.currentTarget.style.color = '#fff'
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== tab) e.currentTarget.style.color = '#8A8A8A'
+              }}
+            >
+              {tab === 'grupos' ? 'Grupos' : 'Eliminatorias'}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Tab content */}
+      {/* Combo meta (leyenda inline debajo del header) */}
+      <p className="text-[13px] text-muted font-semibold mb-6">
+        {COMBO_META[activeTab]}
+        {totalPredictions > 0 && finishedCount > 0 && (
+          <> · <span className="font-bold text-white">{totalPoints} pts</span></>
+        )}
+      </p>
+
+      {/* Contenido según tab */}
       {activeTab === 'grupos' ? (
         <GroupBatchEditor grouped={groupedByGroup} predMap={predMap} />
       ) : (

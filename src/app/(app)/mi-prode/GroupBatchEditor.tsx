@@ -464,33 +464,58 @@ export function GroupBatchEditor({ grouped, predMap }: Props) {
 
   return (
     <div>
-      {/* Dropdown filter */}
-      <div className="mb-8">
-        <select
-          value={activeGroup}
-          onChange={(e) => setActiveGroup(e.target.value)}
-          className="text-[13px] font-extrabold tracking-[0.04em] outline-none cursor-pointer"
+      {/* Combo dropdown — estilo del diseño */}
+      <div className="mb-8 max-w-[340px]">
+        <label className="block text-[11px] font-extrabold tracking-[0.22em] uppercase text-muted mb-1.5">
+          Seleccioná el grupo
+        </label>
+        <div
+          className="relative transition-[border-color,background] duration-150"
           style={{
             background: '#141414',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: '12px',
-            padding: '10px 16px',
-            minWidth: '180px',
-            appearance: 'none',
-            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236a6a6a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
-            backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'right 12px center',
-            paddingRight: '36px',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '14px',
+          }}
+          onMouseEnter={(e) => {
+            const el = e.currentTarget as HTMLElement
+            el.style.borderColor = 'rgba(255,255,255,.18)'
+            el.style.background = '#1C1C1C'
+          }}
+          onMouseLeave={(e) => {
+            const el = e.currentTarget as HTMLElement
+            el.style.borderColor = 'rgba(255,255,255,.08)'
+            el.style.background = '#141414'
           }}
         >
-          {tabs.map((tab) => (
-            <option key={tab} value={tab}>
-              {tab}
+          <select
+            value={activeGroup}
+            onChange={(e) => setActiveGroup(e.target.value)}
+            className="w-full bg-transparent text-white font-extrabold text-[16px] outline-none cursor-pointer"
+            style={{
+              appearance: 'none',
+              WebkitAppearance: 'none',
+              padding: '16px 50px 16px 18px',
+              border: 'none',
+            }}
+          >
+            {tabs.map((tab) => (
+              <option key={tab} value={tab} style={{ background: '#000', color: '#fff', fontWeight: 700 }}>
+                {tab}
+              </option>
+            ))}
+            <option value={BEST_THIRDS_VIEW} style={{ background: '#000', color: '#fff', fontWeight: 700 }}>
+              Mejores Terceros
             </option>
-          ))}
-          <option value={BEST_THIRDS_VIEW}>Mejores Terceros</option>
-        </select>
+          </select>
+          {/* Chevron icon */}
+          <svg
+            className="absolute right-[18px] top-1/2 -translate-y-1/2 pointer-events-none text-muted"
+            width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </div>
       </div>
 
       {activeGroup === BEST_THIRDS_VIEW ? (
