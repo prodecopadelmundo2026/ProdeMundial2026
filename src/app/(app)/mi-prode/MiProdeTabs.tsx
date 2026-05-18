@@ -14,14 +14,6 @@ interface Props {
   knockoutMatches: Match[]
   predMap: PredMap
   tiebreakerMap: Record<string, string>
-  totalPoints: number
-  totalPredictions: number
-  finishedCount: number
-}
-
-const COMBO_META: Record<TabId, string> = {
-  grupos:      '6 partidos · 11–22 jun',
-  eliminatoria: '16 partidos · 28 jun – 02 jul',
 }
 
 export function MiProdeTabs({
@@ -29,9 +21,6 @@ export function MiProdeTabs({
   knockoutMatches,
   predMap,
   tiebreakerMap,
-  totalPoints,
-  totalPredictions,
-  finishedCount,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('grupos')
 
@@ -81,14 +70,6 @@ export function MiProdeTabs({
           ))}
         </div>
       </div>
-
-      {/* Combo meta (leyenda inline debajo del header) */}
-      <p className="text-[13px] text-muted font-semibold mb-6">
-        {COMBO_META[activeTab]}
-        {totalPredictions > 0 && finishedCount > 0 && (
-          <> · <span className="font-bold text-white">{totalPoints} pts</span></>
-        )}
-      </p>
 
       {/* Contenido según tab */}
       {activeTab === 'grupos' ? (

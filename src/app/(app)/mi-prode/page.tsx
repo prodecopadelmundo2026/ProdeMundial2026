@@ -45,12 +45,6 @@ export default async function MiProdePage() {
       .map((p) => [p.match_id, p.tiebreaker_team!])
   )
 
-  const totalPoints = userPredictions.reduce((sum, p) => sum + (p.points ?? 0), 0)
-  const finishedCount = userPredictions.filter((p) => {
-    const m = Array.isArray(p.match) ? p.match[0] : p.match
-    return m?.status === 'finished'
-  }).length
-
   return (
     <div style={{ padding: '32px 20px 100px' }}>
       <div className="max-w-[1280px] mx-auto">
@@ -61,9 +55,6 @@ export default async function MiProdePage() {
           knockoutMatches={knockoutMatches}
           predMap={predMap}
           tiebreakerMap={tiebreakerMap}
-          totalPoints={totalPoints}
-          totalPredictions={userPredictions.length}
-          finishedCount={finishedCount}
         />
       </div>
     </div>

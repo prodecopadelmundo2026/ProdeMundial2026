@@ -49,28 +49,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {/* Right side */}
           <div className="flex items-center gap-[10px] shrink-0">
             {user ? (
-              <>
-                {entry && (
-                  <div
-                    className="hidden min-[880px]:flex items-center gap-2 bg-panel px-3 py-2 rounded-full text-[13px] font-bold"
-                    style={{ border: '1px solid rgba(255,255,255,0.08)' }}
-                  >
-                    <span className="w-2 h-2 rounded-full bg-mint" style={{ animation: 'pulse-dot 1.6s infinite' }} />
-                    <span>
-                      {entry.total_points}{' '}
-                      <em className="not-italic text-muted font-semibold">pts</em>
-                    </span>
-                    <span className="text-muted">·</span>
-                    <span>#{entry.rank}</span>
-                  </div>
-                )}
-                <UserMenu
-                  initial={initial}
-                  name={userName}
-                  pts={entry?.total_points}
-                  rank={entry?.rank}
-                />
-              </>
+              <UserMenu
+                initial={initial}
+                name={userName}
+                pts={entry?.total_points}
+                rank={entry?.rank}
+              />
             ) : (
               <Link
                 href="/login"
