@@ -72,20 +72,23 @@ export default async function HomePage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  const todayStart = new Date()
+  todayStart.setUTCHours(0, 0, 0, 0)
+
   const [
     { count: participantes },
-    { count: misPronosticos },
+    { data: allPredUserIds },
+    { count: totalMatches },
     { data: upcoming },
     { data: topRanking },
   ] = await Promise.all([
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
-    user
-      ? supabase.from('predictions').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
-      : Promise.resolve({ count: 0, data: null, error: null }),
+    supabase.from('predictions').select('user_id'),
+    supabase.from('matches').select('*', { count: 'exact', head: true }),
     supabase
       .from('matches')
       .select('*')
-      .in('status', ['upcoming', 'live'])
+      .gte('scheduled_at', todayStart.toISOString())
       .order('scheduled_at', { ascending: true })
       .limit(16),
     supabase
@@ -94,6 +97,17 @@ export default async function HomePage() {
       .order('rank', { ascending: true })
       .limit(10),
   ])
+
+  const userPredCounts: Record<string, number> = {}
+  for (const pred of (allPredUserIds ?? [])) {
+    userPredCounts[pred.user_id] = (userPredCounts[pred.user_id] ?? 0) + 1
+  }
+  const prodesCompletados = totalMatches
+    ? Object.values(userPredCounts).filter(c => c >= totalMatches).length
+    : 0
+  const hasMyPredictions = user
+    ? (allPredUserIds ?? []).some(p => p.user_id === user.id)
+    : false
 
   const allUpcoming = (upcoming ?? []) as Match[]
   // Only show matches from the first scheduled day
@@ -185,7 +199,7 @@ export default async function HomePage() {
 
             <p className="mt-6 text-[17px] leading-relaxed font-medium max-w-[520px]" style={{ color: '#d6d6d6' }}>
               Pronósticos partido a partido, ranking en vivo y premios para el podio.
-              Cargá tu prode antes del cierre de cada partido.
+              Cargá tu prode antes del inicio del Mundial.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3 items-center">
@@ -193,7 +207,7 @@ export default async function HomePage() {
                 href="/mi-prode"
                 className="inline-flex items-center gap-[10px] px-[26px] py-[18px] rounded-full font-extrabold text-[15px] bg-orange text-bg transition-transform duration-150 hover:-translate-y-0.5 group shadow-[0_10px_28px_-10px_rgba(255,107,0,.6)] hover:shadow-[0_18px_36px_-10px_rgba(255,107,0,.8)]"
               >
-                {user && (misPronosticos ?? 0) > 0 ? 'Ver mi prode' : 'Hacer mi prode'}
+                {user && hasMyPredictions ? 'Ver mi prode' : 'Hacer mi prode'}
                 <svg
                   className="w-[18px] h-[18px] transition-transform duration-200 group-hover:translate-x-1"
                   viewBox="0 0 24 24"
@@ -266,7 +280,7 @@ export default async function HomePage() {
       >
         <div className="max-w-[1280px] mx-auto px-5 py-7 grid grid-cols-2 min-[780px]:grid-cols-4 gap-5">
           <StatItem num={participantes ?? 0} label="Participantes" live />
-          <StatItem num={misPronosticos ?? 0} label="Mis pronósticos" />
+          <StatItem num={prodesCompletados} label="Pronósticos cargados" />
           <StatItem num={290} label="Puntos en juego" />
           <StatItem num={80} label="Partidos · 48 selecciones" />
         </div>
@@ -278,7 +292,7 @@ export default async function HomePage() {
           <SectionHead
             title="Próximos"
             orange="partidos"
-            sub="Cargá tu pronóstico antes del cierre. Cada partido suma — y los nervios también."
+            sub="Pegále al resultado y sumá puntos al ranking partido a partido"
             link={{ href: '/fixture', label: 'Ver fixture completo' }}
           />
           {matches.length === 0 ? (
@@ -399,7 +413,6 @@ export default async function HomePage() {
                 { href: '/mi-prode', label: 'Mi Prode' },
                 { href: '/ranking', label: 'Ranking en vivo' },
                 { href: '/premios', label: 'Premios' },
-                { href: '/reglas', label: 'Reglas generales' },
               ].map(({ href, label }) => (
                 <li key={label}>
                   <Link
