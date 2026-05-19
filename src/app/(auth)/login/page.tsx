@@ -17,19 +17,31 @@ const LOGIN_ERROR_MESSAGES: Record<string, string> = {
     'La base de datos no está configurada en este ambiente.',
 }
 
+const LOGIN_INFO_MESSAGES: Record<string, string> = {
+  signed_out: 'Sesión cerrada correctamente.',
+}
+
 function getInitialError() {
   if (typeof window === 'undefined') return null
   const code = new URLSearchParams(window.location.search).get('error')
   return code ? LOGIN_ERROR_MESSAGES[code] ?? 'No pudimos iniciar sesión. Volvé a intentarlo.' : null
 }
 
+function getInitialMessage() {
+  if (typeof window === 'undefined') return null
+  const code = new URLSearchParams(window.location.search).get('message')
+  return code ? LOGIN_INFO_MESSAGES[code] ?? null : null
+}
+
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(getInitialError)
+  const [message, setMessage] = useState<string | null>(getInitialMessage)
 
   async function handleGoogleSignIn() {
     setLoading(true)
     setError(null)
+    setMessage(null)
 
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOAuth({
@@ -171,6 +183,18 @@ export default function LoginPage() {
           </div>
 
           <div className="flex flex-col gap-4">
+            {message && (
+              <span
+                className="flex items-start gap-2 text-[13px] font-bold leading-relaxed"
+                style={{ color: '#A8F0D8' }}
+              >
+                <svg className="mt-0.5 shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+                {message}
+              </span>
+            )}
+
             {error && (
               <span
                 className="flex items-start gap-2 text-[13px] font-bold leading-relaxed"

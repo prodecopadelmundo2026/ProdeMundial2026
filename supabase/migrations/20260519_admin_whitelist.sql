@@ -2,6 +2,32 @@
 -- Admin management for email whitelist
 -- =============================================================
 
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS is_admin boolean NOT NULL DEFAULT false;
+
+CREATE TABLE IF NOT EXISTS public.authorized_emails (
+  email      text        PRIMARY KEY CHECK (email = lower(trim(email)) AND email LIKE '%@%'),
+  label      text,
+  active     boolean     NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE OR REPLACE FUNCTION public.current_user_is_admin()
+RETURNS boolean
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = auth.uid()
+      AND is_admin = true
+  );
+$$
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, auth;
+
 INSERT INTO public.authorized_emails (email, label, active)
 VALUES ('prodecopadelmundo2026@gmail.com', 'Admin Prode Mundial 2026', true)
 ON CONFLICT (email) DO UPDATE
@@ -17,9 +43,6 @@ CREATE OR REPLACE FUNCTION public.complete_google_sign_in(
   p_name text DEFAULT NULL,
   p_avatar_url text DEFAULT NULL
 ) RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, auth
 AS $$
 DECLARE
   v_user_id uuid := auth.uid();
@@ -56,7 +79,10 @@ BEGIN
     is_admin = public.profiles.is_admin OR excluded.is_admin,
     updated_at = now();
 END;
-$$;
+$$
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth;
 
 CREATE OR REPLACE FUNCTION public.admin_list_authorized_emails(
   p_query text DEFAULT NULL
@@ -67,10 +93,6 @@ CREATE OR REPLACE FUNCTION public.admin_list_authorized_emails(
   created_at timestamptz,
   updated_at timestamptz
 )
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path = public, auth
 AS $$
 DECLARE
   v_query text := lower(trim(coalesce(p_query, '')));
@@ -88,16 +110,17 @@ BEGIN
   ORDER BY ae.active DESC, ae.email ASC
   LIMIT 250;
 END;
-$$;
+$$
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, auth;
 
 CREATE OR REPLACE FUNCTION public.admin_upsert_authorized_email(
   p_email text,
   p_label text DEFAULT NULL,
   p_active boolean DEFAULT true
 ) RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, auth
 AS $$
 DECLARE
   v_email text := lower(trim(coalesce(p_email, '')));
@@ -119,15 +142,15 @@ BEGIN
     active = excluded.active,
     updated_at = now();
 END;
-$$;
+$$
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth;
 
 CREATE OR REPLACE FUNCTION public.admin_set_authorized_email_active(
   p_email text,
   p_active boolean
 ) RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, auth
 AS $$
 DECLARE
   v_email text := lower(trim(coalesce(p_email, '')));
@@ -144,12 +167,27 @@ BEGIN
     RAISE EXCEPTION 'Email no encontrado';
   END IF;
 END;
-$$;
+$$
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth;
 
+ALTER TABLE public.authorized_emails ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.authorized_emails FROM anon, authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.current_user_is_admin() FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.complete_google_sign_in(text, text) FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.admin_list_authorized_emails(text) FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.admin_upsert_authorized_email(text, text, boolean) FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.admin_set_authorized_email_active(text, boolean) FROM PUBLIC, anon;
 
+GRANT EXECUTE ON FUNCTION public.current_user_is_admin() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.complete_google_sign_in(text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_list_authorized_emails(text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_upsert_authorized_email(text, text, boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_set_authorized_email_active(text, boolean) TO authenticated;
+
+UPDATE public.profiles
+SET is_admin = true, updated_at = now()
+WHERE lower(trim(email)) = 'prodecopadelmundo2026@gmail.com';
