@@ -312,6 +312,110 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* ─── PREMIOS ────────────────────────────────────────────── */}
+      <section style={{ padding: '80px 20px', background: 'linear-gradient(180deg,#0a0a0a 0%,#0e0a18 100%)' }}>
+        <div className="max-w-[1280px] mx-auto">
+          <SectionHead
+            title="Podio de"
+            orange="premios"
+            sub="El que más le pegue al fixture se lleva el botín. Los reyes del Prode 26."
+            link={{ href: '/premios', label: 'Ver premios completos' }}
+          />
+
+          {/* Prize cards */}
+          <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-4 mb-16">
+            {([
+              { rank: '1', sup: 'ER', name: 'Oro',    amount: '$800.000', bg: '#FFE040', champion: true },
+              { rank: '2', sup: 'DO', name: 'Plata',  amount: '$200.000', bg: '#A8F0D8' },
+              { rank: '3', sup: 'ER', name: 'Bronce', amount: 'Smart TV\n50 pulgadas', bg: '#E8A87C' },
+            ] as const).map(({ rank, sup, name, amount, bg, champion }) => (
+              <div
+                key={name}
+                className="relative rounded-[24px] overflow-hidden min-h-[280px] flex flex-col justify-between"
+                style={{ background: bg, color: '#0A0A0A', padding: '32px 26px 28px' }}
+              >
+                {champion && (
+                  <span
+                    className="absolute text-white text-[10px] font-extrabold tracking-[0.2em]"
+                    style={{ top: 14, right: -44, transform: 'rotate(45deg)', background: '#5B2D8E', padding: '4px 50px' }}
+                  >
+                    CAMPEÓN
+                  </span>
+                )}
+                <div
+                  className="absolute rounded-full pointer-events-none"
+                  style={{ right: '-30%', bottom: '-30%', width: '80%', height: '80%', background: 'rgba(0,0,0,0.06)' }}
+                />
+                <div>
+                  <div className="font-display text-[80px] leading-[0.85] tracking-[-0.05em]">
+                    {rank}<sup className="text-[32px] ml-1 font-black" style={{ verticalAlign: 'top' }}>{sup}</sup>
+                  </div>
+                  <div className="font-display text-[24px] leading-none tracking-[-0.02em] uppercase mt-2">{name}</div>
+                </div>
+                <div className="font-display text-[38px] leading-[0.95] tracking-[-0.03em] whitespace-pre-line">{amount}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Puntaje por partido */}
+          <div className="mb-5">
+            <h3
+              className="font-display uppercase tracking-[-0.02em] leading-none"
+              style={{ fontSize: 'clamp(24px,3.4vw,32px)' }}
+            >
+              Puntaje <em className="italic text-orange">por partido</em>
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-3 mb-16">
+            {[
+              { pts: '+3', title: 'Resultado exacto', desc: 'Le pegaste al marcador completo. Mostrá esto en la cena familiar.', color: '#FFE040' },
+              { pts: '+1', title: 'Ganador o empate', desc: 'Acertaste quién la rompía aunque no el resultado exacto. Igual sumás.', color: '#A8F0D8' },
+              { pts: '0',  title: 'Incorrecto',       desc: 'El fútbol es así. Mañana viene otro partido. No se sufre, se juega.',   color: '#3a3a3a' },
+            ].map(({ pts, title, desc, color }) => (
+              <div
+                key={pts}
+                className="bg-panel rounded-[24px] p-6 flex flex-col gap-3"
+                style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                <div className="font-display text-[64px] leading-none tracking-[-0.04em]" style={{ color }}>{pts}</div>
+                <h4 className="font-display text-[18px] tracking-[-0.01em] uppercase">{title}</h4>
+                <p className="text-muted text-[13px] leading-relaxed font-medium">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Apuestas especiales */}
+          <div className="mb-5">
+            <h3
+              className="font-display uppercase tracking-[-0.02em] leading-none"
+              style={{ fontSize: 'clamp(24px,3.4vw,32px)' }}
+            >
+              Apuestas <em className="italic text-orange">especiales</em>
+            </h3>
+            <p className="text-muted text-[14px] mt-2 max-w-[520px] leading-relaxed">
+              Cargás una sola vez antes del Mundial. Si acertás, suman al final del torneo.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-3">
+            {[
+              { pts: '+20', title: 'Balón de Oro',  desc: 'El mejor jugador del torneo. El más subjetivo de todos — por eso vale más.', color: '#5B2D8E' },
+              { pts: '+15', title: 'Bota de Oro',   desc: 'El jugador con más goles al final del Mundial. El máximo artillero.',        color: '#FF6B00' },
+              { pts: '+15', title: 'Guante de Oro', desc: 'El mejor arquero del torneo. El que menos comió, el que más voló.',          color: '#1565C0' },
+            ].map(({ pts, title, desc, color }) => (
+              <div
+                key={title}
+                className="bg-panel rounded-[24px] p-6 flex flex-col gap-3"
+                style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                <div className="font-display text-[64px] leading-none tracking-[-0.04em]" style={{ color }}>{pts}</div>
+                <h4 className="font-display text-[18px] tracking-[-0.01em] uppercase">{title}</h4>
+                <p className="text-muted text-[13px] leading-relaxed font-medium">{desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ─── TOP 10 RANKING ────────────────────────────────────── */}
       {topRanking && topRanking.length > 0 && (
         <section style={{ padding: '80px 20px' }}>
