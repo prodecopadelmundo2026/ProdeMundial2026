@@ -56,18 +56,64 @@ Crear dos proyectos:
 
 En ambos correr el mismo schema/migrations del repo.
 
-En Auth -> URL Configuration agregar callbacks segun corresponda:
+En Supabase -> Authentication -> URL Configuration configurar:
+
+- Site URL: dominio oficial de cada ambiente.
+- Redirect URLs permitidas para la app:
 
 ```text
 http://localhost:3000/auth/callback
 https://<production-domain>/auth/callback
 https://<preview-domain>/auth/callback
-https://*.vercel.app/auth/callback
+https://*-<team-or-account-slug>.vercel.app/**
 ```
 
-`https://*.vercel.app/auth/callback` puede usarse temporalmente mientras no este definido el dominio final o las URLs exactas de preview.
+Supabase permite wildcards en la allow-list de Redirect URLs y recomienda el
+patron de Vercel `https://*-<team-or-account-slug>.vercel.app/**` para previews.
+En produccion conviene usar siempre la URL exacta.
+
+En Google Cloud Console -> OAuth Client, el Authorized redirect URI no es
+`/auth/callback` de la app. Debe ser el callback exacto de Supabase Auth:
+
+```text
+https://<project-ref>.supabase.co/auth/v1/callback
+```
+
+Si el proyecto usa custom domain de Supabase Auth, agregar tambien el callback
+exacto de ese dominio. Google OAuth exige coincidencia exacta; no usar wildcards.
 
 No asumir que una base existente es PROD o DEV hasta confirmarlo con el equipo.
+
+### Google OAuth y whitelist
+
+El login principal usa Supabase Auth con Google OAuth. En cada proyecto de Supabase
+hay que habilitar `Authentication -> Providers -> Google` y cargar el Client ID y
+Client Secret del proyecto Google correspondiente.
+
+La app valida el email autenticado contra `public.authorized_emails`. Para permitir
+un participante:
+
+```sql
+INSERT INTO public.authorized_emails (email, label, active)
+VALUES ('participante@example.com', 'Nombre Apellido', true)
+ON CONFLICT (email) DO UPDATE
+SET active = true, label = excluded.label, updated_at = now();
+```
+
+Para bloquearlo sin borrar historial:
+
+```sql
+UPDATE public.authorized_emails
+SET active = false, updated_at = now()
+WHERE email = 'participante@example.com';
+```
+
+La migracion `20260518_google_auth_whitelist.sql` copia automaticamente los emails
+existentes en `profiles` a `authorized_emails` para no cortar usuarios validos que
+ya estaban creados.
+
+Si un usuario entra con Google pero su email no esta activo en la whitelist, la app
+cierra la sesion y vuelve a `/login?error=unauthorized_email`.
 
 ## Local
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -9,10 +10,13 @@ interface Props {
   name: string
   pts?: number | null
   rank?: number | null
+  isAdmin?: boolean
 }
 
-export function UserMenu({ initial, name, pts, rank }: Props) {
+export function UserMenu({ initial, name, pts, rank, isAdmin = false }: Props) {
   const [open, setOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+  const [logoutError, setLogoutError] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
@@ -33,9 +37,19 @@ export function UserMenu({ initial, name, pts, rank }: Props) {
   }, [open])
 
   async function handleLogout() {
+    setLoggingOut(true)
+    setLogoutError(null)
+
     const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/')
+    const { error } = await supabase.auth.signOut()
+
+    if (error) {
+      setLogoutError('No pudimos cerrar la sesión. Intentá nuevamente.')
+      setLoggingOut(false)
+      return
+    }
+
+    router.push('/login?message=signed_out')
     router.refresh()
   }
 
@@ -55,7 +69,6 @@ export function UserMenu({ initial, name, pts, rank }: Props) {
         {initial}
       </button>
 
-      {/* Dropdown */}
       <div
         className="absolute right-0 z-[60]"
         style={{
@@ -73,7 +86,6 @@ export function UserMenu({ initial, name, pts, rank }: Props) {
         }}
         role="menu"
       >
-        {/* Head: avatar + nombre */}
         <div
           className="flex items-center gap-3 px-[18px] py-[14px]"
           style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
@@ -97,7 +109,6 @@ export function UserMenu({ initial, name, pts, rank }: Props) {
           </div>
         </div>
 
-        {/* Stats: Puntos / Ranking / Aciertos */}
         <div
           className="grid grid-cols-3 px-2 py-[14px]"
           style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
@@ -107,7 +118,7 @@ export function UserMenu({ initial, name, pts, rank }: Props) {
             style={{ borderRight: '1px solid rgba(255,255,255,0.08)' }}
           >
             <div className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums">
-              {pts ?? '—'}
+              {pts ?? '-'}
             </div>
             <div className="text-[9px] font-extrabold tracking-[0.18em] uppercase text-muted mt-1.5">
               Puntos
@@ -121,7 +132,7 @@ export function UserMenu({ initial, name, pts, rank }: Props) {
               className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums"
               style={{ color: '#A8F0D8' }}
             >
-              {rank ? `#${rank}` : '—'}
+              {rank ? `#${rank}` : '-'}
             </div>
             <div className="text-[9px] font-extrabold tracking-[0.18em] uppercase text-muted mt-1.5">
               Ranking
@@ -129,7 +140,7 @@ export function UserMenu({ initial, name, pts, rank }: Props) {
           </div>
           <div className="text-center px-1.5 py-1">
             <div className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums">
-              —
+              -
             </div>
             <div className="text-[9px] font-extrabold tracking-[0.18em] uppercase text-muted mt-1.5">
               Aciertos
@@ -137,17 +148,47 @@ export function UserMenu({ initial, name, pts, rank }: Props) {
           </div>
         </div>
 
-        {/* Footer: logout */}
+        {isAdmin && (
+          <div
+            className="p-1.5"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <Link
+              href="/admin/whitelist"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] font-bold text-[14px] text-left transition-colors duration-150"
+              style={{ color: '#A8F0D8' }}
+              onClick={() => setOpen(false)}
+              role="menuitem"
+            >
+              Lista blanca
+            </Link>
+          </div>
+        )}
+
         <div className="p-1.5">
+          {logoutError && (
+            <p className="px-3 pb-2 text-[12px] font-bold leading-relaxed text-[#FF8585]">
+              {logoutError}
+            </p>
+          )}
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] font-bold text-[14px] text-left transition-colors duration-150"
+            disabled={loggingOut}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] font-bold text-[14px] text-left transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-70"
             style={{ color: '#FF8585' }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,90,90,.08)')}
+            onMouseEnter={(e) => {
+              if (!loggingOut) e.currentTarget.style.background = 'rgba(255,90,90,.08)'
+            }}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             role="menuitem"
           >
-            Cerrar sesión
+            {loggingOut && (
+              <span
+                className="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
+                aria-hidden="true"
+              />
+            )}
+            {loggingOut ? 'Cerrando sesión...' : 'Cerrar sesión'}
           </button>
         </div>
       </div>

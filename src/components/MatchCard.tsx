@@ -78,16 +78,8 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>(
     !noAutosave && prediction ? 'saved' : 'idle',
   )
-  const [savedAt, setSavedAt] = useState<Date | null>(prediction ? new Date() : null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [, startTransition] = useTransition()
-
-  // Ticker para tiempo relativo de guardado
-  const [, tick] = useState(0)
-  useEffect(() => {
-    const id = setInterval(() => tick((n) => n + 1), 30_000)
-    return () => clearInterval(id)
-  }, [])
 
   // Countdown para partidos cerrados
   const [msLeft, setMsLeft] = useState(() =>
@@ -116,7 +108,6 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
       try {
         await upsertPrediction(match.id, hNum, aNum)
         setSaveState('saved')
-        setSavedAt(new Date())
       } catch {
         setSaveState('error')
       }
@@ -136,12 +127,6 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
     if (h !== '' && a !== '') {
       timerRef.current = setTimeout(() => doSave(h, a), 500)
     }
-  }
-
-  function savedMinsAgo() {
-    if (!savedAt) return ''
-    const mins = Math.floor((Date.now() - savedAt.getTime()) / 60_000)
-    return mins < 1 ? 'hace un momento' : `hace ${mins} min`
   }
 
   const homeTeam = getTeam(match.home_team)
@@ -299,7 +284,6 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
             {isOpen && !hasPrediction && (
               <span style={{ color: '#FF6B00' }}>Falta cargar</span>
             )}
-            {isOpen && hasPrediction && <span>+3 si exacto</span>}
             {isClosed && <span>Bloqueado</span>}
           </div>
 
@@ -367,17 +351,11 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
           {/* Bottom row: hint editorial + pts badge */}
           <div className="mt-[14px] flex items-center justify-between gap-[10px] text-[12px]">
             <span className="text-muted font-semibold">
-              {isOpen && !noAutosave && saveState === 'idle' && !hasPrediction && (
-                <span>Aún sin guardar</span>
-              )}
-              {isOpen && !noAutosave && saveState === 'idle' && hasPrediction && (
-                <span>Pronóstico guardado</span>
-              )}
               {isOpen && !noAutosave && saveState === 'saving' && (
                 <span>Guardando...</span>
               )}
               {isOpen && !noAutosave && saveState === 'saved' && (
-                <span>Guardado <b className="text-mint">{savedMinsAgo()}</b></span>
+                <span>Guardado</span>
               )}
               {isOpen && !noAutosave && saveState === 'error' && (
                 <span style={{ color: '#FF6B6B' }}>Error al guardar</span>

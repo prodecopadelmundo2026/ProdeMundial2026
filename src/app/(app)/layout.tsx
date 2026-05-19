@@ -11,7 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const [{ data: profile }, { data: rankRow }] = user
     ? await Promise.all([
-        supabase.from('profiles').select('name').eq('id', user.id).maybeSingle(),
+        supabase.from('profiles').select('name, is_admin').eq('id', user.id).maybeSingle(),
         supabase
           .from('ranking_entries')
           .select('rank, total_points')
@@ -54,6 +54,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 name={userName}
                 pts={entry?.total_points}
                 rank={entry?.rank}
+                isAdmin={Boolean(profile?.is_admin)}
               />
             ) : (
               <Link

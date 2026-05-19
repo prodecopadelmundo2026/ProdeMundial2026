@@ -65,67 +65,6 @@ function SectionHead({ title, orange, sub, link }: { title: string; orange: stri
   )
 }
 
-function PrizeCard({
-  rank,
-  sup,
-  name,
-  amount,
-  bg,
-  champion,
-}: {
-  rank: string
-  sup: string
-  name: string
-  amount: React.ReactNode
-  bg: string
-  champion?: boolean
-}) {
-  return (
-    <div
-      className="relative rounded-[24px] overflow-hidden min-h-[280px] flex flex-col justify-between"
-      style={{ background: bg, color: '#0A0A0A', padding: '32px 26px 28px' }}
-    >
-      {champion && (
-        <span
-          className="ribbon-corner bg-purple text-white"
-          style={{ background: '#5B2D8E', color: '#fff' }}
-        >
-          CAMPEÓN
-        </span>
-      )}
-      <div
-        className="absolute right-[-30%] bottom-[-30%] w-[80%] h-[80%] rounded-full pointer-events-none"
-        style={{ background: 'rgba(0,0,0,0.06)' }}
-      />
-      <div>
-        <div className="font-display text-[80px] leading-[0.85] tracking-[-0.05em]">
-          {rank}
-          <sup className="text-[28px] ml-1 font-black" style={{ verticalAlign: '0.15em' }}>{sup}</sup>
-        </div>
-        <div className="font-display text-[24px] leading-none tracking-[-0.02em] uppercase mt-2">
-          {name}
-        </div>
-      </div>
-      <div className="font-display text-[38px] leading-[0.95] tracking-[-0.03em]">{amount}</div>
-    </div>
-  )
-}
-
-function RuleCard({ pts, title, desc, color }: { pts: string; title: string; desc: string; color: string }) {
-  return (
-    <div
-      className="relative bg-panel rounded-[24px] p-6 flex flex-col gap-3 overflow-hidden"
-      style={{ border: '1px solid rgba(255,255,255,0.08)' }}
-    >
-      <div className="font-display text-[64px] leading-none tracking-[-0.04em]" style={{ color }}>
-        {pts}
-      </div>
-      <h4 className="font-display text-[18px] tracking-[-0.01em] uppercase">{title}</h4>
-      <p className="text-muted text-[13px] leading-relaxed font-medium">{desc}</p>
-    </div>
-  )
-}
-
 /* ─── Page ─────────────────────────────────────────────────────── */
 
 export default async function HomePage() {
@@ -359,109 +298,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ─── PRIZES ─────────────────────────────────────────────── */}
-      <section
-        id="premios"
-        style={{
-          padding: '80px 20px',
-          background: 'linear-gradient(180deg, #0a0a0a 0%, #0e0a18 100%)',
-        }}
-      >
-        <div className="max-w-[1280px] mx-auto">
-          <SectionHead
-            title="Podio de"
-            orange="premios"
-          />
-
-          {/* Pozo dinámico */}
-          <div
-            className="mb-8 rounded-[20px] px-6 py-5"
-            style={{ background: 'rgba(255,224,64,0.07)', border: '1px solid rgba(255,224,64,0.2)' }}
-          >
-            <p className="font-extrabold text-[15px] tracking-[-0.01em] mb-1" style={{ color: '#FFE040' }}>
-              El pozo crece con cada inscripción
-            </p>
-            <p className="text-[#bdbdbd] text-[13px] leading-relaxed">
-              Los premios actuales son <strong className="text-white">base garantizada</strong>.
-              Si llegamos a <strong className="text-white">más de 200 inscriptos</strong>, el pozo
-              acumulado <strong className="text-white">aumenta proporcionalmente</strong> — cuanto
-              más gente sume, más grande el premio.{' '}
-              Además, por cada persona que referís y se inscribe,{' '}
-              <strong className="text-white">ganás una comisión</strong>. Compartí el link y ganá por partida doble.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-4">
-            <PrizeCard rank="1" sup="ER" name="Oro" amount="$800.000" bg="#FFE040" champion />
-            <PrizeCard rank="2" sup="DO" name="Plata" amount="$200.000" bg="#A8F0D8" />
-            <PrizeCard rank="3" sup="ER" name="Bronce" amount="$100.000" bg="#E8A87C" />
-          </div>
-
-          {/* Points rules */}
-          <div className="mt-16" id="reglas">
-            <h3
-              className="font-display uppercase tracking-[-0.02em] leading-none mb-[22px]"
-              style={{ fontSize: 'clamp(24px, 3.4vw, 32px)' }}
-            >
-              Puntaje <em className="italic text-orange">por partido</em>
-            </h3>
-            <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-[14px]">
-              <RuleCard
-                pts="+3"
-                title="Resultado exacto"
-                color="#FFE040"
-                desc="Le pegaste al resultado completo."
-              />
-              <RuleCard
-                pts="+1"
-                title="Ganador o Empate"
-                color="#A8F0D8"
-                desc="Le pegaste a quien pasaba pero no al resultado exacto. Igual sumás."
-              />
-              <RuleCard
-                pts="0"
-                title="Incorrecto"
-                color="#3a3a3a"
-                desc="El fútbol siempre da revancha."
-              />
-            </div>
-          </div>
-
-          {/* Special bets */}
-          <div className="mt-16">
-            <h3
-              className="font-display uppercase tracking-[-0.02em] leading-none mb-3"
-              style={{ fontSize: 'clamp(24px, 3.4vw, 32px)' }}
-            >
-              Apuestas <em className="italic text-orange">especiales</em>
-            </h3>
-            <p className="text-muted text-[14px] max-w-[520px] leading-relaxed mb-[22px]">
-              Cargás una sola vez antes del Mundial. Si acertás, suman al final del torneo.
-            </p>
-            <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-[14px]">
-              <RuleCard
-                pts="+20"
-                title="Balón de Oro"
-                color="#FFE040"
-                desc="El mejor jugador del torneo."
-              />
-              <RuleCard
-                pts="+15"
-                title="Bota de Oro"
-                color="#FF6B00"
-                desc="El goleador del torneo."
-              />
-              <RuleCard
-                pts="+15"
-                title="Guante de Oro"
-                color="#1565C0"
-                desc="El mejor arquero del torneo."
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ─── TOP 10 RANKING ────────────────────────────────────── */}
       {topRanking && topRanking.length > 0 && (
         <section style={{ padding: '80px 20px' }}>
@@ -562,6 +398,7 @@ export default async function HomePage() {
               {[
                 { href: '/mi-prode', label: 'Mi Prode' },
                 { href: '/ranking', label: 'Ranking en vivo' },
+                { href: '/premios', label: 'Premios' },
                 { href: '/reglas', label: 'Reglas generales' },
               ].map(({ href, label }) => (
                 <li key={label}>

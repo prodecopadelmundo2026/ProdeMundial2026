@@ -2,12 +2,23 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getSupabaseConfig, isSupabaseConfigured } from './src/lib/supabase/env'
 
-const PUBLIC_PATHS = ['/', '/login', '/auth/', '/ranking', '/reglas']
+const PUBLIC_PATHS = ['/', '/login', '/auth/', '/ranking', '/reglas', '/premios']
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some((path) =>
     path === '/' ? pathname === '/' : pathname.startsWith(path)
   )
+}
+
+function clearSupabaseAuthCookies(response: NextResponse, request: NextRequest) {
+  request.cookies
+    .getAll()
+    .filter(
+      (cookie) =>
+        cookie.name.startsWith('sb-') ||
+        cookie.name.toLowerCase().includes('supabase')
+    )
+    .forEach((cookie) => response.cookies.delete(cookie.name))
 }
 
 export async function middleware(request: NextRequest) {
@@ -51,6 +62,21 @@ export async function middleware(request: NextRequest) {
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
     return NextResponse.redirect(loginUrl)
+  }
+
+  const { data: hasAccess, error: accessError } = await supabase.rpc(
+    'current_user_has_access'
+  )
+
+  if (accessError || !hasAccess) {
+    await supabase.auth.signOut()
+
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    loginUrl.searchParams.set('error', 'unauthorized_email')
+    const redirectResponse = NextResponse.redirect(loginUrl)
+    clearSupabaseAuthCookies(redirectResponse, request)
+    return redirectResponse
   }
 
   return supabaseResponse

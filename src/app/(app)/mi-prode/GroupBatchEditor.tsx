@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { Match } from '@/types'
 import { MatchCard } from '@/components/MatchCard'
 import { getTeam, flagUrl } from '@/lib/teams'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
-type LocalPreds = Record<string, { home: string; away: string }>
+type LocalPred = { home: string; away: string }
 
 interface TeamStats {
   name: string
@@ -16,7 +16,7 @@ interface TeamStats {
   played: number
 }
 
-function computeGroupStandings(matches: Match[], preds: LocalPreds): TeamStats[] {
+function computeGroupStandings(matches: Match[], preds: Record<string, LocalPred>): TeamStats[] {
   const stats: Record<string, TeamStats> = {}
   for (const m of matches) {
     if (!stats[m.home_team]) stats[m.home_team] = { name: m.home_team, pts: 0, gf: 0, ga: 0, played: 0 }
@@ -45,13 +45,51 @@ function computeGroupStandings(matches: Match[], preds: LocalPreds): TeamStats[]
   }
   return Object.values(stats).sort((a, b) => {
     if (b.pts !== a.pts) return b.pts - a.pts
+    const gdB = b.gf - b.ga
+    const gdA = a.gf - a.ga
+    if (gdB !== gdA) return gdB - gdA
     if (b.gf !== a.gf) return b.gf - a.gf
     return a.name.localeCompare(b.name)
   })
 }
 
+// Teams are truly tied only when pts, goal difference AND goals for all match
 function areTied(a: TeamStats, b: TeamStats) {
-  return a.pts === b.pts && a.gf === b.gf
+  return a.pts === b.pts && (a.gf - a.ga) === (b.gf - b.ga) && a.gf === b.gf
+}
+
+// Reorder tied groups in standings based on tiebreaker choices
+function applyTiebreakers(
+  standings: TeamStats[],
+  tiebreakers: Record<string, string>,
+  groupKey: string
+): TeamStats[] {
+  const result = [...standings]
+  let i = 0
+  while (i < result.length) {
+    let j = i + 1
+    while (j < result.length && areTied(result[j], result[i])) j++
+    if (j > i + 1) {
+      const tiedSlice = result.slice(i, j)
+      const picked: TeamStats[] = []
+      for (let pos = i; pos < j - 1; pos++) {
+        const choice = tiebreakers[`${groupKey}_pos_${pos}`]
+        if (!choice) break
+        const teamIdx = tiedSlice.findIndex(
+          t => t.name === choice && !picked.some(p => p.name === t.name)
+        )
+        if (teamIdx === -1) break
+        picked.push(tiedSlice[teamIdx])
+      }
+      const remaining = tiedSlice.filter(t => !picked.some(p => p.name === t.name))
+      const reordered = [...picked, ...remaining]
+      for (let k = 0; k < reordered.length; k++) {
+        result[i + k] = reordered[k]
+      }
+    }
+    i = j
+  }
+  return result
 }
 
 function TeamFlag({ name }: { name: string }) {
@@ -72,21 +110,23 @@ interface StandingsTableProps {
   standings: TeamStats[]
   tiebreakers: Record<string, string>
   onTiebreaker: (key: string, team: string | null) => void
+  groupKey: string
 }
 
-function StandingsTable({ standings, tiebreakers, onTiebreaker }: StandingsTableProps) {
+function StandingsTable({ standings, tiebreakers, onTiebreaker, groupKey }: StandingsTableProps) {
   if (!standings.some((t) => t.played > 0)) return null
 
-  // Group tied adjacent teams
+  const displayStandings = applyTiebreakers(standings, tiebreakers, groupKey)
+
+  // Detect tied groups from display standings (same stats, just reordered)
   const tieGroups: number[][] = []
   let i = 0
-  while (i < standings.length) {
+  while (i < displayStandings.length) {
     let j = i + 1
-    while (j < standings.length && areTied(standings[j], standings[i])) j++
+    while (j < displayStandings.length && areTied(displayStandings[j], displayStandings[i])) j++
     if (j > i + 1) tieGroups.push(Array.from({ length: j - i }, (_, k) => i + k))
     i = j
   }
-
   const tiedIndices = new Set(tieGroups.flat())
 
   return (
@@ -114,7 +154,7 @@ function StandingsTable({ standings, tiebreakers, onTiebreaker }: StandingsTable
           <span className="text-center">GD</span>
         </div>
 
-        {standings.map((team, idx) => {
+        {displayStandings.map((team, idx) => {
           const advances = idx < 2
           const isTied = tiedIndices.has(idx)
           return (
@@ -123,7 +163,7 @@ function StandingsTable({ standings, tiebreakers, onTiebreaker }: StandingsTable
               className="grid items-center px-4 py-[10px]"
               style={{
                 gridTemplateColumns: '24px 1fr 36px 36px 36px',
-                borderBottom: idx < standings.length - 1 ? '1px solid rgba(255,255,255,0.05)' : undefined,
+                borderBottom: idx < displayStandings.length - 1 ? '1px solid rgba(255,255,255,0.05)' : undefined,
                 background: advances ? 'rgba(168,240,216,0.03)' : undefined,
               }}
             >
@@ -164,47 +204,63 @@ function StandingsTable({ standings, tiebreakers, onTiebreaker }: StandingsTable
         })}
       </div>
 
-      {/* Tiebreaker messages for positions that matter (2nd/3rd boundary) */}
+      {/* Cascading tiebreaker questions for tied groups that include relevant positions */}
       {tieGroups.map((group) => {
-        const criticalPos = group.some((i) => i === 1 || i === 2)
-        if (!criticalPos) return null
-        const teams = group.map((i) => standings[i])
-        const pairs: [TeamStats, TeamStats][] = []
-        for (let k = 0; k < teams.length - 1; k++) {
-          pairs.push([teams[k], teams[k + 1]])
-        }
-        return pairs.map(([teamA, teamB]) => {
-          const key = `${teamA.name}-vs-${teamB.name}`
-          const picked = tiebreakers[key]
-          return (
-            <div
-              key={key}
-              className="mt-3 rounded-[14px] px-4 py-3"
-              style={{ background: '#0A0A0A', border: '1px solid rgba(255,107,0,0.28)' }}
-            >
-              <p className="text-[10px] font-extrabold tracking-[0.1em] uppercase mb-2" style={{ color: '#FF6B00' }}>
-                {teamA.name} y {teamB.name} están empatadas · ¿Quién pasa?
-              </p>
-              <div className="flex gap-2">
-                {[teamA, teamB].map((team) => (
-                  <button
-                    key={team.name}
-                    onClick={() => onTiebreaker(key, picked === team.name ? null : team.name)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150"
-                    style={
-                      picked === team.name
-                        ? { background: '#FF6B00', color: '#0A0A0A' }
-                        : { background: '#1a1a1a', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.08)' }
-                    }
-                  >
-                    <TeamFlag name={team.name} />
-                    {team.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )
-        })
+        // Only show tiebreakers for groups that touch positions 0, 1, or 2
+        if (!group.some(idx => idx <= 2)) return null
+        const tiedTeams = group.map(idx => displayStandings[idx])
+        const basePos = group[0]
+
+        return (
+          <div key={basePos} className="mt-3 space-y-3">
+            {group.slice(0, -1).map((posIdx, k) => {
+              // Teams already chosen for earlier positions in this group
+              const chosenBefore = group.slice(0, k)
+                .map(p => tiebreakers[`${groupKey}_pos_${p}`])
+                .filter((v): v is string => Boolean(v))
+
+              const available = tiedTeams.filter(t => !chosenBefore.includes(t.name))
+              const currentPick = tiebreakers[`${groupKey}_pos_${posIdx}`]
+
+              // Label based on absolute position and group size
+              const is2WayAt0 = group.length === 2 && posIdx === 0
+              let questionLabel: string
+              if (is2WayAt0) questionLabel = '¿Quién pasa primero?'
+              else if (posIdx === 0) questionLabel = '¿Quién es el primero?'
+              else if (posIdx === 1) questionLabel = '¿Quién es el segundo?'
+              else questionLabel = '¿Quién queda tercero?'
+
+              return (
+                <div
+                  key={posIdx}
+                  className="rounded-[14px] px-4 py-3"
+                  style={{ background: '#0A0A0A', border: '1px solid rgba(255,107,0,0.28)' }}
+                >
+                  <p className="text-[10px] font-extrabold tracking-[0.1em] uppercase mb-2" style={{ color: '#FF6B00' }}>
+                    {questionLabel}
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    {available.map((team) => (
+                      <button
+                        key={team.name}
+                        onClick={() => onTiebreaker(`${groupKey}_pos_${posIdx}`, currentPick === team.name ? null : team.name)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150"
+                        style={
+                          currentPick === team.name
+                            ? { background: '#FF6B00', color: '#0A0A0A' }
+                            : { background: '#1a1a1a', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.08)' }
+                        }
+                      >
+                        <TeamFlag name={team.name} />
+                        {team.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
       })}
     </div>
   )
@@ -229,7 +285,6 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
     )
   }
 
-  // Find tie groups
   const tieGroups: number[][] = []
   let i = 0
   while (i < thirds.length) {
@@ -246,7 +301,7 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
         className="mb-4 px-4 py-3 rounded-[14px] text-[13px] text-muted"
         style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.07)' }}
       >
-        Los 8 mejores terceros clasifican a Dieciseisavos. Ordenados por puntos y goles a favor.
+        Los 8 mejores terceros clasifican a Dieciseisavos. Ordenados por puntos, diferencia de gol y goles a favor.
       </div>
 
       <div
@@ -322,11 +377,11 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
         })}
       </div>
 
-      {/* Tiebreaker messages for positions around 8th place */}
+      {/* Tiebreaker for positions around 8th place */}
       {tieGroups.map((group) => {
-        const criticalPos = group.some((i) => i === 7 || i === 8)
+        const criticalPos = group.some((idx) => idx === 7 || idx === 8)
         if (!criticalPos) return null
-        const teams = group.map((i) => thirds[i])
+        const teams = group.map((idx) => thirds[idx])
         const pairs: [BestThirdTeam, BestThirdTeam][] = []
         for (let k = 0; k < teams.length - 1; k++) {
           pairs.push([teams[k], teams[k + 1]])
@@ -344,7 +399,7 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
                 ¿Quién pasa?
               </p>
               <p className="text-[12px] text-muted mb-2">
-                {teamA.name} y {teamB.name} se encuentran empatadas. ¿Quién creés que es mejor tercera?
+                {teamA.name} y {teamB.name} están empatadas. ¿Quién creés que es mejor tercera?
               </p>
               <div className="flex gap-2">
                 {[teamA, teamB].map((team) => (
@@ -380,34 +435,14 @@ const BEST_THIRDS_VIEW = '__mejores_terceros__'
 interface Props {
   grouped: Record<string, Match[]>
   predMap: PredMap
+  localGroupPreds: Record<string, LocalPred>
+  onGroupPredChange: (matchId: string, home: string, away: string) => void
 }
 
-export function GroupBatchEditor({ grouped, predMap }: Props) {
+export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPredChange }: Props) {
   const tabs = sortTabs(Object.keys(grouped))
   const [activeGroup, setActiveGroup] = useState(tabs[0] ?? '')
   const [tiebreakers, setTiebreakers] = useState<Record<string, string>>({})
-
-  const [localPreds, setLocalPreds] = useState<Record<string, LocalPreds>>(() => {
-    const init: Record<string, LocalPreds> = {}
-    for (const tab of tabs) {
-      init[tab] = {}
-      for (const match of grouped[tab] ?? []) {
-        const pred = predMap[match.id]
-        init[tab][match.id] = {
-          home: pred?.home_score?.toString() ?? '',
-          away: pred?.away_score?.toString() ?? '',
-        }
-      }
-    }
-    return init
-  })
-
-  function handleValuesChange(group: string, matchId: string, home: string, away: string) {
-    setLocalPreds((prev) => ({
-      ...prev,
-      [group]: { ...prev[group], [matchId]: { home, away } },
-    }))
-  }
 
   function handleTiebreaker(key: string, team: string | null) {
     setTiebreakers((prev) => {
@@ -420,22 +455,32 @@ export function GroupBatchEditor({ grouped, predMap }: Props) {
   }
 
   const currentGroupMatches = grouped[activeGroup] ?? []
-  const currentGroupPreds = localPreds[activeGroup] ?? {}
+
+  // Derive current group's predictions from the lifted flat map
+  const currentGroupPreds = useMemo((): Record<string, LocalPred> => {
+    const result: Record<string, LocalPred> = {}
+    for (const m of currentGroupMatches) {
+      result[m.id] = localGroupPreds[m.id] ?? { home: '', away: '' }
+    }
+    return result
+  }, [currentGroupMatches, localGroupPreds])
 
   const standings = useMemo(
     () =>
       activeGroup === BEST_THIRDS_VIEW
         ? []
         : computeGroupStandings(currentGroupMatches, currentGroupPreds),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeGroup, localPreds]
+    [activeGroup, currentGroupMatches, currentGroupPreds]
   )
 
   const bestThirds = useMemo<BestThirdTeam[]>(() => {
     return tabs
       .flatMap((tab) => {
         const matches = grouped[tab] ?? []
-        const preds = localPreds[tab] ?? {}
+        const preds: Record<string, LocalPred> = {}
+        for (const m of matches) {
+          preds[m.id] = localGroupPreds[m.id] ?? { home: '', away: '' }
+        }
         const st = computeGroupStandings(matches, preds)
         const third = st[2]
         if (!third || third.played === 0) return []
@@ -443,10 +488,13 @@ export function GroupBatchEditor({ grouped, predMap }: Props) {
       })
       .sort((a, b) => {
         if (b.pts !== a.pts) return b.pts - a.pts
+        const gdB = b.gf - b.ga
+        const gdA = a.gf - a.ga
+        if (gdB !== gdA) return gdB - gdA
         if (b.gf !== a.gf) return b.gf - a.gf
         return a.name.localeCompare(b.name)
       })
-  }, [tabs, grouped, localPreds])
+  }, [tabs, grouped, localGroupPreds])
 
   if (!tabs.length) {
     return (
@@ -544,9 +592,7 @@ export function GroupBatchEditor({ grouped, predMap }: Props) {
                 prediction={predMap[match.id] ?? null}
                 initialHome={currentGroupPreds[match.id]?.home}
                 initialAway={currentGroupPreds[match.id]?.away}
-                onValuesChange={(home, away) =>
-                  handleValuesChange(activeGroup, match.id, home, away)
-                }
+                onValuesChange={(home, away) => onGroupPredChange(match.id, home, away)}
               />
             ))}
           </div>
@@ -556,7 +602,9 @@ export function GroupBatchEditor({ grouped, predMap }: Props) {
             standings={standings}
             tiebreakers={tiebreakers}
             onTiebreaker={handleTiebreaker}
+            groupKey={activeGroup}
           />
+
         </>
       )}
     </div>

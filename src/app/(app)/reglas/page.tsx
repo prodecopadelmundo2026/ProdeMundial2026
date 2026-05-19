@@ -63,7 +63,7 @@ export default function ReglasPage() {
             {[
               'Podés predecir o modificar tu pronóstico antes que comience el mundial.',
               'Una vez cerrado el partido, tu predicción queda bloqueada.',
-              'Los resultados se cargan manualmente después de cada partido.',
+              'Los resultados se cargan manualmente hasta el comienzo de una nueva fecha.',
               'El ranking se actualiza automáticamente al cargar resultados.',
               'En caso de empate en puntos, desempata quien tenga más aciertos exactos.',
             ].map((rule, i) => (

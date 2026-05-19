@@ -82,3 +82,25 @@ export async function upsertPredictionsBatch(
   revalidatePath('/')
   revalidatePath('/mi-prode')
 }
+
+export async function deleteGroupPredictions() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+
+  const { data: groupMatches } = await supabase
+    .from('matches')
+    .select('id')
+    .eq('stage', 'group')
+
+  if (!groupMatches?.length) return
+
+  const { error } = await supabase
+    .from('predictions')
+    .delete()
+    .eq('user_id', user.id)
+    .in('match_id', groupMatches.map((m) => m.id))
+
+  if (error) throw error
+  revalidatePath('/mi-prode')
+}
