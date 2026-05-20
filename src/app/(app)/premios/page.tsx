@@ -1,153 +1,211 @@
 function PrizeCard({
   rank,
-  sup,
+  suffix,
+  metaLabel,
   name,
+  prizeTag,
+  cur,
   amount,
   bg,
   champion,
+  minHeight,
+  rankSize,
+  nameSize,
+  amountSize,
+  decorBefore,
+  decorAfter,
 }: {
   rank: string
-  sup: string
+  suffix: string
+  metaLabel: string
   name: string
+  prizeTag: string
+  cur: string
   amount: string
   bg: string
   champion?: boolean
+  minHeight: number
+  rankSize: number
+  nameSize: number
+  amountSize: number
+  decorBefore: React.CSSProperties
+  decorAfter?: React.CSSProperties
 }) {
   return (
     <div
-      className="relative rounded-[24px] overflow-hidden min-h-[280px] flex flex-col justify-between"
-      style={{ background: bg, color: '#0A0A0A', padding: '32px 26px 28px' }}
+      className="relative rounded-[24px] overflow-hidden flex flex-col transition-transform duration-[250ms] hover:-translate-y-1"
+      style={{ background: bg, color: '#0A0A0A', padding: '26px 26px 28px', minHeight, isolation: 'isolate' }}
     >
       {champion && (
-        <span
-          className="ribbon-corner text-white text-[10px] font-extrabold tracking-[0.12em]"
-          style={{ background: '#5B2D8E', color: '#fff' }}
-        >
+        <span className="ribbon-corner text-white text-[10px] font-extrabold tracking-[0.2em]" style={{ background: '#5B2D8E' }}>
           CAMPEÓN
         </span>
       )}
-      <div
-        className="absolute right-[-30%] bottom-[-30%] w-[80%] h-[80%] rounded-full pointer-events-none"
-        style={{ background: 'rgba(0,0,0,0.06)' }}
-      />
-      <div>
-        <div className="font-display text-[80px] leading-[0.85] tracking-[-0.05em]">
+      {/* decorative circles */}
+      <div className="absolute pointer-events-none" style={{ zIndex: -1, ...decorBefore }} />
+      {decorAfter && <div className="absolute pointer-events-none" style={{ zIndex: -1, ...decorAfter }} />}
+
+      {/* head: meta pill + rank */}
+      <div className="flex justify-between items-start gap-[10px] mb-[6px]">
+        <span
+          className="font-mono text-[10px] font-bold tracking-[0.24em] uppercase px-[10px] py-[6px] rounded-full shrink-0"
+          style={{ background: 'rgba(0,0,0,.08)', color: 'rgba(0,0,0,.7)' }}
+        >
+          {metaLabel}
+        </span>
+        <span
+          className="font-display leading-[0.85] tracking-[-0.06em] -mt-[6px]"
+          style={{ fontSize: rankSize }}
+        >
           {rank}
-          <sup className="text-[28px] ml-1 font-black" style={{ verticalAlign: '0.15em' }}>{sup}</sup>
-        </div>
-        <div className="font-display text-[24px] leading-none tracking-[-0.02em] uppercase mt-2">
-          {name}
-        </div>
+          <i
+            className="not-italic font-black tracking-[0.04em]"
+            style={{ fontSize: '0.3em', marginLeft: '0.04em', opacity: 0.55, verticalAlign: '0.85em' }}
+          >
+            {suffix}
+          </i>
+        </span>
       </div>
-      <div className="font-display text-[38px] leading-[0.95] tracking-[-0.03em]">{amount}</div>
+
+      {/* name pushed to bottom */}
+      <div className="font-display tracking-[-0.02em] uppercase leading-none mt-auto" style={{ fontSize: nameSize }}>
+        {name}
+      </div>
+
+      {/* amount */}
+      <div className="mt-[10px] flex items-baseline gap-[6px] font-display">
+        <span
+          className="font-mono font-bold opacity-50 tracking-[-0.02em] self-start"
+          style={{ fontSize: 18, marginTop: 14 }}
+        >
+          {cur}
+        </span>
+        <span
+          className="italic leading-[0.9] tracking-[-0.05em] tabular-nums"
+          style={{ fontSize: amountSize }}
+        >
+          {amount}
+        </span>
+      </div>
+
+      {/* tag */}
+      <div
+        className="mt-[12px] font-mono text-[11px] font-bold tracking-[0.18em] uppercase inline-flex items-center gap-[6px]"
+        style={{ color: 'rgba(0,0,0,.55)' }}
+      >
+        <span className="w-[14px] inline-block" style={{ height: 1, background: 'currentColor' }} />
+        {prizeTag}
+      </div>
     </div>
   )
 }
 
 export default function PremiosPage() {
   return (
-    <div style={{ padding: '48px 20px 80px' }}>
-      <div className="max-w-[1060px] mx-auto">
+    <div style={{ padding: '48px 20px 100px' }}>
+      <div className="max-w-[1280px] mx-auto">
 
         {/* Header */}
-        <div className="mb-12">
-          <p className="text-[11px] font-extrabold tracking-[0.22em] uppercase text-muted mb-3">
-            Mundial 2026
+        <div className="mb-10">
+          <p className="text-[12px] font-extrabold tracking-[0.22em] uppercase text-muted mb-[18px]">
+            Qué se gana
           </p>
           <h1
-            className="font-display uppercase leading-[0.9] tracking-[-0.03em]"
-            style={{ fontSize: 'clamp(36px, 6vw, 64px)' }}
+            className="font-display uppercase leading-[0.9] tracking-[-0.04em]"
+            style={{ fontSize: 'clamp(48px,9vw,108px)' }}
           >
             Podio de <em className="italic text-orange">premios</em>
           </h1>
-          <p className="text-muted text-[14px] mt-3">
-            USA · Canadá · México
+          <p className="font-mono text-[13px] font-bold text-muted tracking-[0.04em] mt-[14px]">
+            Mundial 2026 · USA · Canadá · México
           </p>
         </div>
 
-        {/* Pozo dinámico */}
-        <div
-          className="mb-10 rounded-[20px] px-6 py-5"
-          style={{ background: 'rgba(255,224,64,0.07)', border: '1px solid rgba(255,224,64,0.2)' }}
+        {/* Pozo banner */}
+        <aside
+          className="mb-10 rounded-[20px] flex items-start gap-[14px]"
+          style={{
+            background: 'linear-gradient(90deg,rgba(255,224,64,.07),rgba(255,224,64,.02))',
+            border: '1px solid rgba(255,224,64,.22)',
+            padding: '20px 24px',
+          }}
         >
-          <p className="font-extrabold text-[15px] tracking-[-0.01em] mb-1" style={{ color: '#FFE040' }}>
-            El pozo crece con cada inscripción
-          </p>
-          <p className="text-[#bdbdbd] text-[13px] leading-relaxed">
-            Los premios actuales son <strong className="text-white">base garantizada</strong>.
-            Si llegamos a <strong className="text-white">más de 200 inscriptos</strong>, el pozo
-            acumulado <strong className="text-white">aumenta proporcionalmente</strong> — cuanto
-            más gente sume, más grande el premio.{' '}
-            Además, por cada persona que referís y se inscribe,{' '}
-            <strong className="text-white">ganás una comisión</strong>. Compartí el link y ganá por partida doble.
-          </p>
-        </div>
-
-        {/* Prize cards */}
-        <section className="mb-16">
-          <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-4">
-            <PrizeCard rank="1" sup="ER" name="Oro" amount="$800.000" bg="#FFE040" champion />
-            <PrizeCard rank="2" sup="DO" name="Plata" amount="$200.000" bg="#A8F0D8" />
-            <PrizeCard rank="3" sup="ER" name="Bronce" amount="$100.000" bg="#E8A87C" />
+          <div
+            className="w-8 h-8 rounded-[10px] shrink-0 grid place-items-center"
+            style={{ background: '#FFE040', color: '#0A0A0A' }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
           </div>
-        </section>
+          <div className="flex-1 min-w-0">
+            <h4 className="font-extrabold text-[14px] mb-1" style={{ color: '#FFE040' }}>
+              El pozo crece con cada inscripción
+            </h4>
+            <p className="text-[#cfcfcf] text-[13px] leading-relaxed font-medium">
+              Los premios actuales son <strong className="text-white font-extrabold">base garantizada</strong>.
+              Si llegamos a <strong className="text-white font-extrabold">más de 200 inscriptos</strong>, el pozo
+              acumulado <strong className="text-white font-extrabold">aumenta proporcionalmente</strong> — cuanto
+              más gente sume, más grande el premio.{' '}
+              Además, por cada persona que referís y se inscribe,{' '}
+              <strong className="text-white font-extrabold">ganás una comisión</strong>. Compartí el link y ganá por partida doble.
+            </p>
+          </div>
+        </aside>
 
-        {/* Puntaje por partido */}
-        <div className="mt-16 mb-5">
-          <h3
-            className="font-display uppercase tracking-[-0.02em] leading-none"
-            style={{ fontSize: 'clamp(24px,3.4vw,32px)' }}
-          >
-            Puntaje <em className="italic text-orange">por partido</em>
-          </h3>
-        </div>
-        <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-3 mb-16">
-          {[
-            { pts: '+3', title: 'Resultado exacto', desc: 'Le pegaste al marcador completo. Mostrá esto en la cena familiar.', color: '#FFE040' },
-            { pts: '+1', title: 'Ganador o empate', desc: 'Acertaste quién la rompía aunque no el resultado exacto. Igual sumás.', color: '#A8F0D8' },
-            { pts: '0',  title: 'Incorrecto',       desc: 'El fútbol es así. Mañana viene otro partido. No se sufre, se juega.', color: '#3a3a3a' },
-          ].map(({ pts, title, desc, color }) => (
-            <div
-              key={pts}
-              className="bg-panel rounded-[24px] p-6 flex flex-col gap-3"
-              style={{ border: '1px solid rgba(255,255,255,0.08)' }}
-            >
-              <div className="font-display text-[64px] leading-none tracking-[-0.04em]" style={{ color }}>{pts}</div>
-              <h4 className="font-display text-[18px] tracking-[-0.01em] uppercase">{title}</h4>
-              <p className="text-muted text-[13px] leading-relaxed font-medium">{desc}</p>
-            </div>
-          ))}
+        {/* Prize grid */}
+        <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-4 mb-[60px]">
+          <PrizeCard
+            rank="1" suffix="er" metaLabel="1º Puesto" name="Oro" prizeTag="Premio mayor"
+            cur="$" amount="800.000" bg="#FFE040" champion
+            minHeight={360} rankSize={120} nameSize={26} amountSize={62}
+            decorBefore={{ right: '-30%', bottom: '-30%', width: '80%', height: '80%', borderRadius: '50%', background: 'rgba(0,0,0,.07)' }}
+            decorAfter={{ left: '-12%', top: '-12%', width: '38%', height: '38%', borderRadius: '50%', background: 'rgba(0,0,0,.05)' }}
+          />
+          <PrizeCard
+            rank="2" suffix="do" metaLabel="2º Puesto" name="Plata" prizeTag="Subcampeón"
+            cur="$" amount="200.000" bg="#A8F0D8"
+            minHeight={320} rankSize={84} nameSize={22} amountSize={46}
+            decorBefore={{ right: '-25%', top: '-25%', width: '70%', height: '70%', borderRadius: '50% 0 50% 50%', background: 'rgba(0,0,0,.07)' }}
+          />
+          <PrizeCard
+            rank="3" suffix="er" metaLabel="3º Puesto" name="Bronce" prizeTag="Tercer lugar"
+            cur="$" amount="100.000" bg="#E8A87C"
+            minHeight={300} rankSize={72} nameSize={22} amountSize={40}
+            decorBefore={{ left: '-20%', bottom: '-20%', width: '65%', height: '65%', borderRadius: '0 50% 50% 50%', background: 'rgba(0,0,0,.07)' }}
+          />
         </div>
 
-        {/* Apuestas especiales */}
-        <div className="mb-5">
-          <h3
-            className="font-display uppercase tracking-[-0.02em] leading-none"
-            style={{ fontSize: 'clamp(24px,3.4vw,32px)' }}
-          >
-            Apuestas <em className="italic text-orange">especiales</em>
-          </h3>
-          <p className="text-muted text-[14px] mt-2 max-w-[520px] leading-relaxed">
-            Cargás una sola vez antes del Mundial. Si acertás, suman al final del torneo.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-3">
-          {[
-            { pts: '+20', title: 'Balón de Oro',  desc: 'El mejor jugador del torneo. El más subjetivo de todos — por eso vale más.', color: '#5B2D8E' },
-            { pts: '+15', title: 'Bota de Oro',   desc: 'El jugador con más goles al final del Mundial. El máximo artillero.',        color: '#FF6B00' },
-            { pts: '+15', title: 'Guante de Oro', desc: 'El mejor arquero del torneo. El que menos comió, el que más voló.',          color: '#1565C0' },
-          ].map(({ pts, title, desc, color }) => (
-            <div
-              key={title}
-              className="bg-panel rounded-[24px] p-6 flex flex-col gap-3"
-              style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+        {/* Referral card */}
+        <aside
+          className="bg-panel rounded-[24px] grid gap-6 items-center"
+          style={{ border: '1px solid rgba(255,255,255,0.08)', padding: '32px 28px', gridTemplateColumns: '1fr' }}
+        >
+          <div>
+            <h3
+              className="font-display leading-none tracking-[-0.02em] uppercase"
+              style={{ fontSize: 'clamp(22px,3vw,30px)' }}
             >
-              <div className="font-display text-[64px] leading-none tracking-[-0.04em]" style={{ color }}>{pts}</div>
-              <h4 className="font-display text-[18px] tracking-[-0.01em] uppercase">{title}</h4>
-              <p className="text-muted text-[13px] leading-relaxed font-medium">{desc}</p>
-            </div>
-          ))}
-        </div>
+              Más amigos, <em className="italic text-orange">más premio</em>
+            </h3>
+            <p className="mt-3 text-[#cfcfcf] text-[14px] leading-relaxed font-medium max-w-[520px]">
+              Por cada persona referida, <strong className="text-white font-extrabold">te llevás una comisión</strong>. Y el pozo total crece. Es un win-win.
+            </p>
+          </div>
+          <div className="flex items-center gap-[14px] flex-wrap">
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 font-extrabold text-[13px] rounded-[14px] transition-transform hover:-translate-y-0.5"
+              style={{ background: '#FF6B00', color: '#0A0A0A', padding: '14px 20px', letterSpacing: '.02em' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+              Compartir invitación
+            </button>
+          </div>
+        </aside>
 
       </div>
     </div>
