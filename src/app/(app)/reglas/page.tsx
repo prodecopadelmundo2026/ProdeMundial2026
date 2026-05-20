@@ -4,7 +4,7 @@ const MATCH_RULES = [
     meta: 'Acierto pleno',
     pts: '+3',
     name: 'Resultado exacto',
-    desc: 'Le pegaste al marcador completo. Argentina 3 - 1 Brasil y pusiste 3-1. Bingo.',
+    desc: 'Le pegaste al marcador completo.',
     color: '#FFE040',
   },
   {
