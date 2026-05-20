@@ -8,7 +8,7 @@ import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
 import { StatusBadge } from '@/components/StatusBadge'
 import { generateRandomKnockoutPredictions, upsertPredictionsBatch } from '@/app/(app)/fixture/actions'
-import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups } from '@/lib/bracket'
+import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups, assignBestThirdsToSlots } from '@/lib/bracket'
 import { normalizeScoreInput, parseScoreInput } from '@/lib/score-input'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
@@ -332,6 +332,7 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
   const standings = computeAllStandings(groupMatches, predMap)
   const pMap = buildKnockoutMap(knockoutMatches)
   const bestThirdsGroups = computeBestThirdsGroups(groupMatches, predMap, groupTiebreakerMap)
+  const thirdSlotAssignment = bestThirdsGroups.size > 0 ? assignBestThirdsToSlots(bestThirdsGroups) : {}
 
   // Local inputs: matchId → { home, away } (starts from predMap)
   const [localInputs, setLocalInputs] = useState<LocalInputs>(() => {
@@ -413,8 +414,8 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
 
   function getResolvedTeams(match: Match) {
     const nextPredMap: PredMap = { ...effectivePredMap }
-    const homeTeam = resolveTeamFull(match.home_team, standings, pMap, nextPredMap, tiebreakerMap, 0, bestThirdsGroups)
-    const awayTeam = resolveTeamFull(match.away_team, standings, pMap, nextPredMap, tiebreakerMap, 0, bestThirdsGroups)
+    const homeTeam = resolveTeamFull(match.home_team, standings, pMap, nextPredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)
+    const awayTeam = resolveTeamFull(match.away_team, standings, pMap, nextPredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)
     return { homeTeam, awayTeam }
   }
 
@@ -541,8 +542,8 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
             <BracketMatchCard
               key={match.id}
               match={match}
-              homeTeam={resolveTeamFull(match.home_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups)}
-              awayTeam={resolveTeamFull(match.away_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups)}
+              homeTeam={resolveTeamFull(match.home_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)}
+              awayTeam={resolveTeamFull(match.away_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)}
               initialHome={localInputs[match.id]?.home ?? ''}
               initialAway={localInputs[match.id]?.away ?? ''}
               tiebreaker={tiebreakerMap[match.id]}
@@ -564,8 +565,8 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
                 <BracketMatchCard
                   key={match.id}
                   match={match}
-                  homeTeam={resolveTeamFull(match.home_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups)}
-                  awayTeam={resolveTeamFull(match.away_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups)}
+                  homeTeam={resolveTeamFull(match.home_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)}
+                  awayTeam={resolveTeamFull(match.away_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)}
                   initialHome={localInputs[match.id]?.home ?? ''}
                   initialAway={localInputs[match.id]?.away ?? ''}
                   tiebreaker={tiebreakerMap[match.id]}

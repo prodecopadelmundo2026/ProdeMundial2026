@@ -123,7 +123,8 @@ function resolveKnockout(
   predMap: PredMap,
   tiebreakerMap: TiebreakerMap,
   depth: number,
-  bestThirdsGroups?: Set<string>
+  bestThirdsGroups?: Set<string>,
+  thirdSlotAssignment?: Record<string, string>
 ): string {
   const fallback = type === 'winner' ? `Ganador P${pNum}` : `Perdedor P${pNum}`
   if (depth > 8) return fallback
@@ -134,8 +135,8 @@ function resolveKnockout(
   const fixture = KNOCKOUT_FIXTURES[pNum]
   if (!fixture) return fallback
 
-  const homeResolved = resolveTeamFull(fixture[0], standings, pMap, predMap, tiebreakerMap, depth + 1, bestThirdsGroups)
-  const awayResolved = resolveTeamFull(fixture[1], standings, pMap, predMap, tiebreakerMap, depth + 1, bestThirdsGroups)
+  const homeResolved = resolveTeamFull(fixture[0], standings, pMap, predMap, tiebreakerMap, depth + 1, bestThirdsGroups, thirdSlotAssignment)
+  const awayResolved = resolveTeamFull(fixture[1], standings, pMap, predMap, tiebreakerMap, depth + 1, bestThirdsGroups, thirdSlotAssignment)
 
   // Use actual result if available
   if (match.home_score != null && match.away_score != null) {
@@ -176,7 +177,8 @@ export function resolveTeamFull(
   predMap: PredMap,
   tiebreakerMap: TiebreakerMap = {},
   depth = 0,
-  bestThirdsGroups?: Set<string>
+  bestThirdsGroups?: Set<string>,
+  thirdSlotAssignment?: Record<string, string>
 ): string {
   // "1° Grupo A", "2° Grupo B"
   const direct = placeholder.match(/^(\d)°\s+Grupo\s+([A-L])$/)
@@ -186,12 +188,15 @@ export function resolveTeamFull(
     return standings[group]?.[pos] ?? placeholder
   }
 
-  // "3° Grupo X/Y/Z/..." — best third: resolve if exactly one qualifying group matches this slot
+  // "3° Grupo X/Y/Z/..." — use slot assignment if available, otherwise fallback
   const thirdMatch = placeholder.match(/^3°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
   if (thirdMatch) {
+    const groupsStr = thirdMatch[1]
+    if (thirdSlotAssignment && thirdSlotAssignment[groupsStr]) {
+      return standings[thirdSlotAssignment[groupsStr]]?.[2] ?? 'Mejor 3°'
+    }
     if (bestThirdsGroups && bestThirdsGroups.size > 0) {
-      const allowedGroups = thirdMatch[1].split('/')
-      const qualifying = allowedGroups.filter((g) => bestThirdsGroups.has(g))
+      const qualifying = groupsStr.split('/').filter((g) => bestThirdsGroups.has(g))
       if (qualifying.length === 1) {
         return standings[qualifying[0]]?.[2] ?? 'Mejor 3°'
       }
@@ -204,7 +209,7 @@ export function resolveTeamFull(
   if (m) {
     const type = m[1] === 'Ganador' ? 'winner' : 'loser'
     const pNum = Number(m[2])
-    return resolveKnockout(pNum, type, pMap, standings, predMap, tiebreakerMap, depth, bestThirdsGroups)
+    return resolveKnockout(pNum, type, pMap, standings, predMap, tiebreakerMap, depth, bestThirdsGroups, thirdSlotAssignment)
   }
 
   return placeholder
@@ -276,6 +281,51 @@ export function computeBestThirdsGroups(
   })
 
   return new Set(thirds.slice(0, 8).map((t) => t.group))
+}
+
+// Maps the "3° Grupo X/Y/Z" key string → allowed group letters for backtracking assignment
+const THIRD_SLOTS: Record<string, string[]> = {
+  'A/B/C/D/F': ['A', 'B', 'C', 'D', 'F'],
+  'C/D/F/G/H': ['C', 'D', 'F', 'G', 'H'],
+  'C/E/F/H/I': ['C', 'E', 'F', 'H', 'I'],
+  'E/H/I/J/K': ['E', 'H', 'I', 'J', 'K'],
+  'B/E/F/I/J': ['B', 'E', 'F', 'I', 'J'],
+  'A/E/H/I/J': ['A', 'E', 'H', 'I', 'J'],
+  'E/F/G/I/J': ['E', 'F', 'G', 'I', 'J'],
+  'D/E/I/J/L': ['D', 'E', 'I', 'J', 'L'],
+}
+
+// Given the 8 qualifying best-thirds groups, find which group fills each slot via backtracking.
+// Returns { 'A/B/C/D/F': 'A', ... }
+export function assignBestThirdsToSlots(
+  bestThirdsGroups: Set<string>
+): Record<string, string> {
+  const slotKeys = Object.keys(THIRD_SLOTS)
+  // Most constrained first
+  const sorted = [...slotKeys].sort((a, b) => {
+    const ac = THIRD_SLOTS[a].filter(g => bestThirdsGroups.has(g)).length
+    const bc = THIRD_SLOTS[b].filter(g => bestThirdsGroups.has(g)).length
+    return ac - bc
+  })
+  const result: Record<string, string> = {}
+  const used = new Set<string>()
+
+  function bt(idx: number): boolean {
+    if (idx === sorted.length) return true
+    const key = sorted[idx]
+    for (const group of THIRD_SLOTS[key]) {
+      if (!bestThirdsGroups.has(group) || used.has(group)) continue
+      result[key] = group
+      used.add(group)
+      if (bt(idx + 1)) return true
+      delete result[key]
+      used.delete(group)
+    }
+    return false
+  }
+
+  bt(0)
+  return result
 }
 
 // Legacy shim — kept for any callers that use only group stage resolution
