@@ -328,12 +328,46 @@ function BracketMatchCard({
   )
 }
 
+const SPECIALS_STORAGE_KEY = 'prode_specials'
+
+const SPECIALS_ITEMS = [
+  { key: 'balon', label: 'Balón de Oro', desc: 'Mejor jugador del torneo', pts: '+20', color: '#5B2D8E' },
+  { key: 'bota',  label: 'Bota de Oro',  desc: 'Máximo goleador del torneo', pts: '+15', color: '#FF6B00' },
+  { key: 'guante', label: 'Guante de Oro', desc: 'Mejor arquero del torneo', pts: '+15', color: '#1565C0' },
+] as const
+
+type SpecialsKey = typeof SPECIALS_ITEMS[number]['key']
+
+function onlyLetters(value: string) {
+  // Allow letters (including accented), spaces — strip everything else
+  return value.replace(/[^a-zA-ZÀ-ÿ\s]/g, '')
+}
+
 function SpecialsCard() {
-  const items = [
-    { label: 'Balón de Oro', desc: 'Mejor jugador del torneo', pts: '+20', color: '#5B2D8E' },
-    { label: 'Bota de Oro', desc: 'Máximo goleador del torneo', pts: '+15', color: '#FF6B00' },
-    { label: 'Guante de Oro', desc: 'Mejor arquero del torneo', pts: '+15', color: '#1565C0' },
-  ]
+  const [values, setValues] = useState<Record<SpecialsKey, string>>({ balon: '', bota: '', guante: '' })
+  const [saved, setSaved] = useState(false)
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SPECIALS_STORAGE_KEY)
+      if (stored) setValues(JSON.parse(stored))
+    } catch {}
+  }, [])
+
+  function handleChange(key: SpecialsKey, raw: string) {
+    const cleaned = onlyLetters(raw)
+    const next = { ...values, [key]: cleaned }
+    setValues(next)
+    setSaved(false)
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      try { localStorage.setItem(SPECIALS_STORAGE_KEY, JSON.stringify(next)) } catch {}
+      setSaved(true)
+      setTimeout(() => setSaved(false), 1800)
+    }, 600)
+  }
+
   return (
     <div
       className="relative flex flex-col overflow-hidden"
@@ -355,34 +389,49 @@ function SpecialsCard() {
         >
           Apuesta Especial
         </span>
-        <span className="font-mono text-[11px] font-bold tracking-[0.06em]" style={{ color: '#5a4a6a' }}>
-          hasta +50 pts
+        <span className="font-mono text-[11px] font-bold tracking-[0.06em]" style={{ color: saved ? '#A8F0D8' : '#5a4a6a' }}>
+          {saved ? 'Guardado ✓' : 'hasta +50 pts'}
         </span>
       </div>
       <div className="flex flex-col gap-2.5 flex-1">
-        {items.map(({ label, desc, pts, color }) => (
+        {SPECIALS_ITEMS.map(({ key, label, desc, pts, color }) => (
           <div
-            key={label}
-            className="flex items-center gap-3 px-3 py-[10px] rounded-[12px]"
+            key={key}
+            className="flex flex-col gap-1.5 px-3 pt-[10px] pb-[10px] rounded-[12px]"
             style={{ background: 'rgba(0,0,0,0.3)', border: `1px solid ${color}33` }}
           >
-            <div className="w-[3px] h-8 rounded-full shrink-0" style={{ background: color }} />
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-bold leading-tight">{label}</p>
-              <p className="text-[11px] font-medium mt-0.5" style={{ color: '#4a4a5a' }}>{desc}</p>
+            <div className="flex items-center gap-3">
+              <div className="w-[3px] h-5 rounded-full shrink-0" style={{ background: color }} />
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-bold leading-tight">{label}</p>
+                <p className="text-[10px] font-medium" style={{ color: '#4a4a5a' }}>{desc}</p>
+              </div>
+              <span className="font-display text-[20px] shrink-0 leading-none" style={{ color }}>{pts}</span>
             </div>
-            <span className="font-display text-[22px] shrink-0 leading-none" style={{ color }}>{pts}</span>
+            <input
+              type="text"
+              value={values[key]}
+              onChange={(e) => handleChange(key, e.target.value)}
+              placeholder="Escribí el jugador..."
+              maxLength={40}
+              className="w-full bg-transparent outline-none font-medium text-[13px] text-white placeholder:text-[#3a3a4a] rounded-[8px] transition-all duration-150"
+              style={{
+                padding: '7px 10px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}
+              onFocus={(e) => {
+                e.target.style.background = `${color}18`
+                e.target.style.borderColor = `${color}66`
+              }}
+              onBlur={(e) => {
+                e.target.style.background = 'rgba(255,255,255,0.04)'
+                e.target.style.borderColor = 'rgba(255,255,255,0.08)'
+              }}
+            />
           </div>
         ))}
       </div>
-      <button
-        className="mt-4 w-full py-[11px] rounded-[14px] font-extrabold text-[12px] tracking-[0.08em] uppercase transition-colors duration-150"
-        style={{ background: 'rgba(91,45,142,0.22)', color: '#c8a8f0', border: '1px solid rgba(168,140,220,0.2)' }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(91,45,142,0.4)' }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(91,45,142,0.22)' }}
-      >
-        Cargar apuestas especiales
-      </button>
     </div>
   )
 }
