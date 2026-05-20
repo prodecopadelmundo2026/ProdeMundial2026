@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
 function assertValidScore(score: number) {
@@ -168,9 +169,10 @@ export async function deleteGroupPredictions() {
 }
 
 export async function generateRandomGroupPredictions() {
-  const { supabase, user } = await requireAdmin()
+  const { user } = await requireAdmin()
+  const admin = createAdminClient()
 
-  const { data: groupMatches } = await supabase
+  const { data: groupMatches } = await admin
     .from('matches')
     .select('id')
     .eq('stage', 'group')
@@ -183,7 +185,7 @@ export async function generateRandomGroupPredictions() {
     awayScore: randomFakeScore(),
   }))
 
-  const { error } = await supabase
+  const { error } = await admin
     .from('predictions')
     .upsert(
       generated.map((p) => ({
