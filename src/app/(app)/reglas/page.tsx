@@ -12,7 +12,7 @@ const MATCH_RULES = [
     meta: 'Acierto parcial',
     pts: '+1',
     name: 'Ganador o empate',
-    desc: 'Acertaste quién ganaba (o el empate) aunque no el resultado exacto. Igual sumás.',
+    desc: 'Acertaste quién ganaba (o el empate) aunque no el resultado exacto.',
     color: '#A8F0D8',
   },
   {
@@ -20,7 +20,7 @@ const MATCH_RULES = [
     meta: 'Sin acierto',
     pts: '0',
     name: 'Incorrecto',
-    desc: 'El fútbol es así. Mañana viene otro partido. No se sufre, se juega.',
+    desc: 'El fútbol es así. Siempre da revancha.',
     color: '#3a3a3a',
   },
 ]
@@ -30,21 +30,21 @@ const SPECIAL_RULES = [
     meta: 'Mejor jugador',
     pts: '+20',
     name: 'Balón de Oro',
-    desc: 'El mejor jugador del torneo. El más subjetivo de todos — por eso vale más.',
+    desc: 'El mejor jugador del torneo.',
     color: '#5B2D8E',
   },
   {
     meta: 'Máximo goleador',
     pts: '+15',
     name: 'Bota de Oro',
-    desc: 'El jugador con más goles al final del Mundial. El artillero del torneo.',
+    desc: 'El jugador con más goles al final del Mundial. El goleador del torneo.',
     color: '#FF6B00',
   },
   {
     meta: 'Mejor arquero',
     pts: '+15',
     name: 'Guante de Oro',
-    desc: 'El mejor arquero del torneo. El que menos comió, el que más voló.',
+    desc: 'El mejor arquero del torneo.',
     color: '#1565C0',
   },
 ]
