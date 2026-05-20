@@ -235,10 +235,14 @@ export function MiProdeTabs({
         </h1>
 
         {/* Pill tabs */}
-        <div
-          className="inline-flex items-center gap-1 p-[5px] rounded-full"
-          style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
-        >
+        <div className="flex flex-col items-end gap-[5px]">
+          <span className="font-mono text-[10px] font-bold tracking-[0.22em] uppercase" style={{ color: '#8A8A8A' }}>
+            Fase
+          </span>
+          <div
+            className="inline-flex items-center gap-1 p-[5px] rounded-full"
+            style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
           {(['grupos', 'eliminatoria'] as TabId[]).map((tab) => (
             <button
               key={tab}
@@ -259,6 +263,7 @@ export function MiProdeTabs({
               {tab === 'grupos' ? 'Grupos' : 'Eliminatorias'}
             </button>
           ))}
+          </div>
         </div>
       </div>
 
