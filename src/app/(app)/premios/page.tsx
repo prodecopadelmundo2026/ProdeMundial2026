@@ -146,9 +146,7 @@ export default function PremiosPage() {
               Los premios actuales son <strong className="text-white font-extrabold">base garantizada</strong>.
               Si llegamos a <strong className="text-white font-extrabold">más de 200 inscriptos</strong>, el pozo
               acumulado <strong className="text-white font-extrabold">aumenta proporcionalmente</strong> — cuanto
-              más gente sume, más grande el premio.{' '}
-              Además, por cada persona que referís y se inscribe,{' '}
-              <strong className="text-white font-extrabold">ganás una comisión</strong>. Compartí el link y ganá por partida doble.
+              más gente sume, más grande el premio.
             </p>
           </div>
         </aside>
@@ -188,7 +186,7 @@ export default function PremiosPage() {
             >
               Más amigos, <em className="italic text-orange">más premio</em>
             </h3>
-            <p className="mt-3 text-[#cfcfcf] text-[14px] leading-relaxed font-medium max-w-[520px]">
+            <p className="mt-3 text-[#cfcfcf] text-[14px] leading-relaxed font-medium">
               Por cada persona referida, <strong className="text-white font-extrabold">te llevás una comisión</strong>. Y el pozo total crece. Es un win-win.
             </p>
           </div>
