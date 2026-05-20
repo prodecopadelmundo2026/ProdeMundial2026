@@ -7,7 +7,7 @@ import { es } from 'date-fns/locale'
 import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
 import { StatusBadge } from '@/components/StatusBadge'
-import { upsertPredictionsBatch } from '@/app/(app)/fixture/actions'
+import { generateRandomKnockoutPredictions, upsertPredictionsBatch } from '@/app/(app)/fixture/actions'
 import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups } from '@/lib/bracket'
 import { normalizeScoreInput, parseScoreInput } from '@/lib/score-input'
 
@@ -19,6 +19,7 @@ interface Props {
   knockoutMatches: Match[]
   predMap: PredMap
   initialTiebreakerMap?: Record<string, string>
+  isAdmin?: boolean
 }
 
 const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'final'] as const
@@ -323,7 +324,7 @@ function BracketMatchCard({
   )
 }
 
-export function BracketView({ groupMatches, knockoutMatches, predMap, initialTiebreakerMap = {} }: Props) {
+export function BracketView({ groupMatches, knockoutMatches, predMap, initialTiebreakerMap = {}, isAdmin = false }: Props) {
   const standings = computeAllStandings(groupMatches, predMap)
   const pMap = buildKnockoutMap(knockoutMatches)
   const bestThirdsGroups = computeBestThirdsGroups(groupMatches, predMap)
@@ -343,6 +344,7 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
 
   const [tiebreakerMap, setTiebreakerMap] = useState<Record<string, string>>(initialTiebreakerMap)
   const [saveState, setSaveState] = useState<Record<string, 'idle' | 'saving' | 'saved' | 'error'>>({})
+  const [adminSaveState, setAdminSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
   // Effective predMap merges saved predictions with locally entered values
   const effectivePredMap: PredMap = { ...predMap }
@@ -434,6 +436,58 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
   const totalOpen = openMatches.length
   const roundSaveState = saveState[activeRound] ?? 'idle'
 
+  function getResolvedTeams(match: Match) {
+    const nextPredMap: PredMap = { ...effectivePredMap }
+    const homeTeam = resolveTeamFull(match.home_team, standings, pMap, nextPredMap, tiebreakerMap, 0, bestThirdsGroups)
+    const awayTeam = resolveTeamFull(match.away_team, standings, pMap, nextPredMap, tiebreakerMap, 0, bestThirdsGroups)
+    return { homeTeam, awayTeam }
+  }
+
+  function getAdminEligibleMatches(round?: string) {
+    return knockoutMatches.filter((match) => {
+      const key = match.stage === 'third_place' ? 'final' : match.stage
+      if (round && key !== round) return false
+      if (match.status !== 'upcoming' || now >= new Date(match.locked_at)) return false
+      const { homeTeam, awayTeam } = getResolvedTeams(match)
+      return !isPlaceholder(homeTeam) && !isPlaceholder(awayTeam)
+    })
+  }
+
+  async function handleAdminRandomKnockout(round?: string) {
+    const targetMatches = getAdminEligibleMatches(round)
+    if (!targetMatches.length) return
+    setAdminSaveState('saving')
+    try {
+      const generated = await generateRandomKnockoutPredictions(targetMatches.map((m) => m.id))
+      setLocalInputs((prev) => {
+        const next = { ...prev }
+        for (const pred of generated) {
+          next[pred.matchId] = {
+            home: String(pred.homeScore),
+            away: String(pred.awayScore),
+          }
+        }
+        return next
+      })
+      setSaveState((prev) => {
+        const next = { ...prev }
+        for (const match of targetMatches) {
+          next[match.stage === 'third_place' ? 'final' : match.stage] = 'saved'
+        }
+        return next
+      })
+      setAdminSaveState('saved')
+      setTimeout(() => setAdminSaveState('idle'), 1800)
+    } catch {
+      setAdminSaveState('error')
+    }
+  }
+
+  const adminEligibleByRound = availableRounds
+    .map((round) => ({ round, count: getAdminEligibleMatches(round).length }))
+    .filter(({ count }) => count > 0)
+  const adminAllEligibleCount = getAdminEligibleMatches().length
+
   return (
     <div className="space-y-6">
       {!hasGroupPredictions && (
@@ -467,6 +521,47 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
           </button>
         ))}
       </div>
+
+      {isAdmin && adminAllEligibleCount > 0 && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-sm"
+          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}
+        >
+          <div>
+            <p className="font-extrabold text-white">Herramienta admin eliminatorias</p>
+            <p className="text-muted">
+              {adminSaveState === 'saved'
+                ? 'Guardado correctamente.'
+                : 'Carga pronósticos aleatorios solo para cruces ya armados.'}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {adminEligibleByRound.map(({ round }) => (
+              <button
+                key={round}
+                onClick={() => handleAdminRandomKnockout(round)}
+                disabled={adminSaveState === 'saving'}
+                className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
+                style={{ background: '#181818', color: '#A8F0D8', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                {adminSaveState === 'saving' ? 'Cargando...' : `Cargar ${ROUND_LABELS[round].toLowerCase()}`}
+              </button>
+            ))}
+            <button
+              onClick={() => handleAdminRandomKnockout()}
+              disabled={adminSaveState === 'saving'}
+              className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
+              style={{ background: adminSaveState === 'error' ? '#3a1515' : '#FF6B00', color: adminSaveState === 'error' ? '#FF6B6B' : '#0A0A0A' }}
+            >
+              {adminSaveState === 'saving'
+                ? 'Cargando...'
+                : adminSaveState === 'error'
+                ? 'Error al cargar. Reintentá.'
+                : 'Cargar todas las eliminatorias disponibles'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main round matches */}
       <div className="grid grid-cols-1 min-[600px]:grid-cols-2 min-[960px]:grid-cols-3 min-[1200px]:grid-cols-4 gap-4">

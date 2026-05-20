@@ -28,6 +28,37 @@ function randomFakeScore() {
   return Math.floor(Math.random() * 10)
 }
 
+function randomWinningScores() {
+  let homeScore = randomFakeScore()
+  let awayScore = randomFakeScore()
+  if (homeScore === awayScore) {
+    awayScore = (awayScore + 1) % 10
+  }
+  return { homeScore, awayScore }
+}
+
+async function savePredictionsRpc(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  predictions: Array<{ matchId: string; homeScore: number; awayScore: number }>
+) {
+  if (!predictions.length) return 0
+  for (const prediction of predictions) {
+    assertValidScore(prediction.homeScore)
+    assertValidScore(prediction.awayScore)
+  }
+
+  const { data, error } = await supabase.rpc('save_predictions', {
+    p_predictions: predictions.map((p) => ({
+      match_id: p.matchId,
+      home_score: p.homeScore,
+      away_score: p.awayScore,
+    })),
+  })
+
+  if (error) throw error
+  return data ?? predictions.length
+}
+
 export async function upsertPrediction(
   matchId: string,
   homeScore: number,
@@ -136,8 +167,8 @@ export async function deleteGroupPredictions() {
   revalidatePath('/mi-prode')
 }
 
-export async function generateFakeGroupPredictions(mode: 'missing' | 'replace') {
-  const { supabase, user } = await requireAdmin()
+export async function generateRandomGroupPredictions() {
+  const { supabase } = await requireAdmin()
   const now = new Date()
 
   const { data: groupMatches } = await supabase
@@ -151,26 +182,44 @@ export async function generateFakeGroupPredictions(mode: 'missing' | 'replace') 
 
   if (!openGroupMatches.length) return []
 
-  let targetMatches = openGroupMatches
-  if (mode === 'missing') {
-    const { data: existingPredictions } = await supabase
-      .from('predictions')
-      .select('match_id')
-      .eq('user_id', user.id)
-      .in('match_id', openGroupMatches.map((m) => m.id))
-
-    const existingIds = new Set((existingPredictions ?? []).map((p) => p.match_id))
-    targetMatches = openGroupMatches.filter((m) => !existingIds.has(m.id))
-  }
-
-  const generated = targetMatches.map((match) => ({
+  const generated = openGroupMatches.map((match) => ({
     matchId: match.id,
     homeScore: randomFakeScore(),
     awayScore: randomFakeScore(),
   }))
 
-  if (!generated.length) return []
+  await savePredictionsRpc(supabase, generated)
+  revalidatePath('/')
+  revalidatePath('/mi-prode')
+  return generated
+}
 
-  await upsertPredictionsBatch(generated)
+export async function generateRandomKnockoutPredictions(matchIds: string[]) {
+  const { supabase } = await requireAdmin()
+  const uniqueMatchIds = [...new Set(matchIds)]
+  if (!uniqueMatchIds.length) return []
+
+  const now = new Date()
+  const { data: matches } = await supabase
+    .from('matches')
+    .select('id, locked_at, status, stage')
+    .in('id', uniqueMatchIds)
+
+  const allowedIds = new Set(
+    (matches ?? [])
+      .filter((m) => m.stage !== 'group' && m.status === 'upcoming' && now < new Date(m.locked_at))
+      .map((m) => m.id)
+  )
+
+  const generated = uniqueMatchIds
+    .filter((matchId) => allowedIds.has(matchId))
+    .map((matchId) => ({
+      matchId,
+      ...randomWinningScores(),
+    }))
+
+  await savePredictionsRpc(supabase, generated)
+  revalidatePath('/')
+  revalidatePath('/mi-prode')
   return generated
 }

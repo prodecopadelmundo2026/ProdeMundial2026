@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useTransition } from 'react'
 import type { Match } from '@/types'
 import { GroupBatchEditor } from './GroupBatchEditor'
 import { BracketView } from './BracketView'
-import { deleteGroupPredictions, generateFakeGroupPredictions } from '@/app/(app)/fixture/actions'
+import { deleteGroupPredictions, generateRandomGroupPredictions } from '@/app/(app)/fixture/actions'
 import { parseScoreInput } from '@/lib/score-input'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
@@ -181,10 +181,10 @@ export function MiProdeTabs({
     })
   }
 
-  async function handleFakePredictions(mode: 'missing' | 'replace') {
+  async function handleRandomGroupPredictions() {
     setFakeState('saving')
     try {
-      const generated = await generateFakeGroupPredictions(mode)
+      const generated = await generateRandomGroupPredictions()
       if (!generated.length) {
         setFakeState('idle')
         return
@@ -273,24 +273,21 @@ export function MiProdeTabs({
             <div>
               <p className="font-extrabold text-white">Herramienta admin</p>
               <p className="text-muted">
-                Esto cargará resultados ficticios para probar el flujo. ¿Querés continuar?
+                {fakeState === 'confirm'
+                  ? 'Esto cargará pronósticos aleatorios para probar el flujo. ¿Querés continuar?'
+                  : fakeState === 'saved'
+                  ? 'Guardado correctamente. Ya podés probar el flujo de eliminatorias.'
+                  : 'Carga pronósticos aleatorios para todos los partidos de grupos.'}
               </p>
             </div>
             {fakeState === 'confirm' ? (
               <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => handleFakePredictions('missing')}
-                  className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
-                  style={{ background: 'rgba(255,255,255,0.08)', color: '#fff' }}
-                >
-                  Completar faltantes
-                </button>
-                <button
-                  onClick={() => handleFakePredictions('replace')}
+                  onClick={handleRandomGroupPredictions}
                   className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
                   style={{ background: '#FF6B00', color: '#0A0A0A' }}
                 >
-                  Reemplazar grupos
+                  Confirmar
                 </button>
                 <button
                   onClick={() => setFakeState('idle')}
@@ -310,10 +307,10 @@ export function MiProdeTabs({
                 {fakeState === 'saving'
                   ? 'Cargando...'
                   : fakeState === 'saved'
-                  ? 'Cargado'
+                  ? 'Guardado correctamente'
                   : fakeState === 'error'
-                  ? 'Error - reintentar'
-                  : 'Cargar prode ficticio'}
+                  ? 'Error al cargar. Reintentá.'
+                  : 'Cargar pronóstico aleatorio'}
               </button>
             )}
           </div>
@@ -378,6 +375,7 @@ export function MiProdeTabs({
             knockoutMatches={knockoutMatches}
             predMap={effectivePredMap}
             initialTiebreakerMap={tiebreakerMap}
+            isAdmin={isAdmin}
           />
         )}
       </div>
