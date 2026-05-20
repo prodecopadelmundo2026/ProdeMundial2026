@@ -3,6 +3,31 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+function assertValidScore(score: number) {
+  if (!Number.isInteger(score) || score < 0 || score > 99) {
+    throw new Error('Goles invalidos')
+  }
+}
+
+async function requireAdmin() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (!profile?.is_admin) throw new Error('Sin permisos de administrador')
+  return { supabase, user }
+}
+
+function randomFakeScore() {
+  return Math.floor(Math.random() * 10)
+}
+
 export async function upsertPrediction(
   matchId: string,
   homeScore: number,
@@ -11,6 +36,8 @@ export async function upsertPrediction(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
+  assertValidScore(homeScore)
+  assertValidScore(awayScore)
 
   // Validación server-side: partido existe y está abierto
   const { data: match } = await supabase
@@ -47,6 +74,10 @@ export async function upsertPredictionsBatch(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
+  for (const prediction of predictions) {
+    assertValidScore(prediction.homeScore)
+    assertValidScore(prediction.awayScore)
+  }
 
   const matchIds = predictions.map((p) => p.matchId)
   const { data: matches } = await supabase
@@ -103,4 +134,43 @@ export async function deleteGroupPredictions() {
 
   if (error) throw error
   revalidatePath('/mi-prode')
+}
+
+export async function generateFakeGroupPredictions(mode: 'missing' | 'replace') {
+  const { supabase, user } = await requireAdmin()
+  const now = new Date()
+
+  const { data: groupMatches } = await supabase
+    .from('matches')
+    .select('id, locked_at, status')
+    .eq('stage', 'group')
+
+  const openGroupMatches = (groupMatches ?? []).filter(
+    (m) => m.status === 'upcoming' && now < new Date(m.locked_at)
+  )
+
+  if (!openGroupMatches.length) return []
+
+  let targetMatches = openGroupMatches
+  if (mode === 'missing') {
+    const { data: existingPredictions } = await supabase
+      .from('predictions')
+      .select('match_id')
+      .eq('user_id', user.id)
+      .in('match_id', openGroupMatches.map((m) => m.id))
+
+    const existingIds = new Set((existingPredictions ?? []).map((p) => p.match_id))
+    targetMatches = openGroupMatches.filter((m) => !existingIds.has(m.id))
+  }
+
+  const generated = targetMatches.map((match) => ({
+    matchId: match.id,
+    homeScore: randomFakeScore(),
+    awayScore: randomFakeScore(),
+  }))
+
+  if (!generated.length) return []
+
+  await upsertPredictionsBatch(generated)
+  return generated
 }

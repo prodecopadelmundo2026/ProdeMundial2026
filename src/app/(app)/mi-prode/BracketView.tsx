@@ -9,6 +9,7 @@ import { getTeam, flagUrl } from '@/lib/teams'
 import { StatusBadge } from '@/components/StatusBadge'
 import { upsertPredictionsBatch } from '@/app/(app)/fixture/actions'
 import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups } from '@/lib/bracket'
+import { normalizeScoreInput, parseScoreInput } from '@/lib/score-input'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type LocalInputs = Record<string, { home: string; away: string }>
@@ -74,10 +75,11 @@ function BracketMatchCard({
 
   function handleChange(field: 'home' | 'away', val: string) {
     if (!isOpen) return
-    const h = field === 'home' ? val : home
-    const a = field === 'away' ? val : away
-    if (field === 'home') setHome(val)
-    else setAway(val)
+    const nextValue = normalizeScoreInput(val)
+    const h = field === 'home' ? nextValue : home
+    const a = field === 'away' ? nextValue : away
+    if (field === 'home') setHome(nextValue)
+    else setAway(nextValue)
     onValuesChange(h, a)
   }
 
@@ -90,7 +92,7 @@ function BracketMatchCard({
   const kickoffStr = format(new Date(match.scheduled_at), 'EEE d MMM · HH:mm', { locale: es })
   const closeStr = format(lockedAt, 'HH:mm', { locale: es })
   const hasPrediction = home !== '' && away !== ''
-  const isDrawPred = hasPrediction && parseInt(home) === parseInt(away)
+  const isDrawPred = hasPrediction && Number(home) === Number(away)
 
   return (
     <article
@@ -213,10 +215,10 @@ function BracketMatchCard({
         }}
       >
         <input
-          type="number"
+          type="text"
           inputMode="numeric"
-          min={0}
-          max={20}
+          pattern="[0-9]*"
+          maxLength={2}
           value={home}
           disabled={!isOpen}
           onChange={(e) => handleChange('home', e.target.value)}
@@ -237,10 +239,10 @@ function BracketMatchCard({
         />
         <span className="font-display text-[24px] text-[#3a3a3a]">—</span>
         <input
-          type="number"
+          type="text"
           inputMode="numeric"
-          min={0}
-          max={20}
+          pattern="[0-9]*"
+          maxLength={2}
           value={away}
           disabled={!isOpen}
           onChange={(e) => handleChange('away', e.target.value)}
@@ -346,9 +348,9 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
   const effectivePredMap: PredMap = { ...predMap }
   for (const [matchId, { home, away }] of Object.entries(localInputs)) {
     if (home !== '' && away !== '') {
-      const h = parseInt(home, 10)
-      const a = parseInt(away, 10)
-      if (!isNaN(h) && !isNaN(a)) {
+      const h = parseScoreInput(home)
+      const a = parseScoreInput(away)
+      if (h != null && a != null) {
         effectivePredMap[matchId] = { home_score: h, away_score: a }
       }
     }
@@ -384,9 +386,9 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
       .map((m) => {
         const inp = localInputs[m.id]
         if (!inp || inp.home === '' || inp.away === '') return null
-        const homeScore = parseInt(inp.home, 10)
-        const awayScore = parseInt(inp.away, 10)
-        if (isNaN(homeScore) || isNaN(awayScore) || homeScore < 0 || awayScore < 0) return null
+        const homeScore = parseScoreInput(inp.home)
+        const awayScore = parseScoreInput(inp.away)
+        if (homeScore == null || awayScore == null) return null
         return {
           matchId: m.id,
           homeScore,

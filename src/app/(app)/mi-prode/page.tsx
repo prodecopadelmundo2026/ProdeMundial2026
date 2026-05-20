@@ -18,12 +18,13 @@ export default async function MiProdePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: allMatches }, { data: predictions }] = await Promise.all([
+  const [{ data: allMatches }, { data: predictions }, { data: profile }] = await Promise.all([
     supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
     supabase
       .from('predictions')
       .select('match_id, home_score, away_score, points, tiebreaker_team, match:matches(status)')
       .eq('user_id', user.id),
+    supabase.from('profiles').select('is_admin').eq('id', user.id).maybeSingle(),
   ])
 
   const matches = (allMatches ?? []) as Match[]
@@ -55,6 +56,7 @@ export default async function MiProdePage() {
           knockoutMatches={knockoutMatches}
           predMap={predMap}
           tiebreakerMap={tiebreakerMap}
+          isAdmin={Boolean(profile?.is_admin)}
         />
       </div>
     </div>

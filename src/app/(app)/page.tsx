@@ -326,8 +326,8 @@ export default async function HomePage() {
           <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-4 mb-16">
             {([
               { rank: '1', sup: 'ER', name: 'Oro',    amount: '$800.000', bg: '#FFE040', champion: true },
-              { rank: '2', sup: 'DO', name: 'Plata',  amount: '$200.000', bg: '#A8F0D8' },
-              { rank: '3', sup: 'ER', name: 'Bronce', amount: 'Smart TV\n50 pulgadas', bg: '#E8A87C' },
+              { rank: '2', sup: 'DO', name: 'Plata',  amount: '$200.000', bg: '#A8F0D8', champion: false },
+              { rank: '3', sup: 'ER', name: 'Bronce', amount: 'Smart TV\n50 pulgadas', bg: '#E8A87C', champion: false },
             ] as const).map(({ rank, sup, name, amount, bg, champion }) => (
               <div
                 key={name}

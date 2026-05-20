@@ -4,9 +4,11 @@ import { useState, useMemo, useEffect, useTransition } from 'react'
 import type { Match } from '@/types'
 import { GroupBatchEditor } from './GroupBatchEditor'
 import { BracketView } from './BracketView'
-import { deleteGroupPredictions } from '@/app/(app)/fixture/actions'
+import { deleteGroupPredictions, generateFakeGroupPredictions } from '@/app/(app)/fixture/actions'
+import { parseScoreInput } from '@/lib/score-input'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
+type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 
 type TabId = 'grupos' | 'eliminatoria'
 
@@ -17,6 +19,7 @@ interface Props {
   knockoutMatches: Match[]
   predMap: PredMap
   tiebreakerMap: Record<string, string>
+  isAdmin: boolean
 }
 
 export function MiProdeTabs({
@@ -24,10 +27,19 @@ export function MiProdeTabs({
   knockoutMatches,
   predMap,
   tiebreakerMap,
+  isAdmin,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('grupos')
   const [bracketKey, setBracketKey] = useState(0)
   const [deleteState, setDeleteState] = useState<'idle' | 'confirm' | 'deleting'>('idle')
+  const [fakeState, setFakeState] = useState<'idle' | 'confirm' | 'saving' | 'saved' | 'error'>('idle')
+  const [groupSaveStates, setGroupSaveStates] = useState<Record<string, SaveState>>(() => {
+    const init: Record<string, SaveState> = {}
+    for (const m of groupMatches) {
+      if (predMap[m.id]) init[m.id] = 'saved'
+    }
+    return init
+  })
   const [, startTransition] = useTransition()
 
   const groupedByGroup: Record<string, Match[]> = {}
@@ -63,7 +75,15 @@ export function MiProdeTabs({
       setLocalGroupPreds((prev) => {
         const next = { ...prev }
         for (const [matchId, val] of Object.entries(parsed)) {
-          if (validMatchIds.has(matchId)) next[matchId] = val
+          if (validMatchIds.has(matchId) && !predMap[matchId]) next[matchId] = val
+        }
+        return next
+      })
+      setGroupSaveStates((prev) => {
+        const next = { ...prev }
+        for (const [matchId] of Object.entries(parsed)) {
+          if (!validMatchIds.has(matchId)) continue
+          if (!predMap[matchId]) next[matchId] = 'dirty'
         }
         return next
       })
@@ -82,13 +102,23 @@ export function MiProdeTabs({
     setLocalGroupPreds((prev) => ({ ...prev, [matchId]: { home, away } }))
   }
 
+  function handleGroupSaveStateChange(matchId: string, state: SaveState) {
+    setGroupSaveStates((prev) => ({ ...prev, [matchId]: state }))
+  }
+
+  function hasCompleteGroupInput(matchId: string) {
+    const input = localGroupPreds[matchId]
+    if (!input) return false
+    return parseScoreInput(input.home) != null && parseScoreInput(input.away) != null
+  }
+
   // Merge server preds with locally entered group preds for BracketView standings
   const effectivePredMap = useMemo(() => {
     const merged = { ...predMap }
     for (const [matchId, { home, away }] of Object.entries(localGroupPreds)) {
-      const h = parseInt(home, 10)
-      const a = parseInt(away, 10)
-      if (!isNaN(h) && !isNaN(a) && h >= 0 && a >= 0) {
+      const h = parseScoreInput(home)
+      const a = parseScoreInput(away)
+      if (h != null && a != null) {
         merged[matchId] = { home_score: h, away_score: a }
       }
     }
@@ -98,7 +128,37 @@ export function MiProdeTabs({
   // All group matches have a valid prediction (server or local)
   const allGroupsFilled =
     groupMatches.length > 0 &&
-    groupMatches.every((m) => effectivePredMap[m.id])
+    groupMatches.every((m) => hasCompleteGroupInput(m.id))
+
+  const groupStatus = useMemo(() => {
+    const filledCount = groupMatches.filter((m) => hasCompleteGroupInput(m.id)).length
+    const hasSaving = groupMatches.some((m) => groupSaveStates[m.id] === 'saving')
+    const hasDirty = groupMatches.some((m) => groupSaveStates[m.id] === 'dirty')
+    const hasError = groupMatches.some((m) => groupSaveStates[m.id] === 'error')
+    const allReady =
+      allGroupsFilled &&
+      groupMatches.every((m) => groupSaveStates[m.id] === 'saved')
+
+    return { filledCount, hasSaving, hasDirty, hasError, allReady }
+  }, [allGroupsFilled, groupMatches, groupSaveStates, localGroupPreds])
+
+  const groupStatusLabel = groupStatus.hasError
+    ? 'Error al guardar'
+    : groupStatus.hasSaving
+    ? 'Guardando...'
+    : groupStatus.hasDirty
+    ? 'Cambios sin guardar'
+    : groupStatus.allReady
+    ? 'Guardado'
+    : `${groupStatus.filledCount}/${groupMatches.length} partidos cargados`
+
+  const groupStatusColor = groupStatus.hasError
+    ? '#FF6B6B'
+    : groupStatus.hasDirty
+    ? '#FFB15C'
+    : groupStatus.allReady
+    ? '#A8F0D8'
+    : '#8A8A8A'
 
   function handleDeleteGroups() {
     if (deleteState === 'idle') {
@@ -119,6 +179,37 @@ export function MiProdeTabs({
         setDeleteState('idle')
       }
     })
+  }
+
+  async function handleFakePredictions(mode: 'missing' | 'replace') {
+    setFakeState('saving')
+    try {
+      const generated = await generateFakeGroupPredictions(mode)
+      if (!generated.length) {
+        setFakeState('idle')
+        return
+      }
+      setLocalGroupPreds((prev) => {
+        const next = { ...prev }
+        for (const pred of generated) {
+          next[pred.matchId] = {
+            home: String(pred.homeScore),
+            away: String(pred.awayScore),
+          }
+        }
+        return next
+      })
+      setGroupSaveStates((prev) => {
+        const next = { ...prev }
+        for (const pred of generated) next[pred.matchId] = 'saved'
+        return next
+      })
+      try { localStorage.removeItem(LOCAL_STORAGE_KEY) } catch {}
+      setFakeState('saved')
+      setTimeout(() => setFakeState('idle'), 1800)
+    } catch {
+      setFakeState('error')
+    }
   }
 
   return (
@@ -162,11 +253,78 @@ export function MiProdeTabs({
 
       {/* Both tabs kept mounted to preserve state; only one visible at a time */}
       <div style={{ display: activeTab === 'grupos' ? undefined : 'none' }}>
+        <div
+          className="mb-5 flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-sm"
+          style={{ background: '#131313', border: '1px solid #272727', borderRadius: '16px' }}
+        >
+          <span className="text-muted font-semibold">
+            Completá y guardá todos los grupos antes de armar eliminatorias.
+          </span>
+          <span className="font-extrabold" style={{ color: groupStatusColor }}>
+            {groupStatusLabel}
+          </span>
+        </div>
+
+        {isAdmin && (
+          <div
+            className="mb-5 flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-sm"
+            style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}
+          >
+            <div>
+              <p className="font-extrabold text-white">Herramienta admin</p>
+              <p className="text-muted">
+                Esto cargará resultados ficticios para probar el flujo. ¿Querés continuar?
+              </p>
+            </div>
+            {fakeState === 'confirm' ? (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => handleFakePredictions('missing')}
+                  className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
+                  style={{ background: 'rgba(255,255,255,0.08)', color: '#fff' }}
+                >
+                  Completar faltantes
+                </button>
+                <button
+                  onClick={() => handleFakePredictions('replace')}
+                  className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
+                  style={{ background: '#FF6B00', color: '#0A0A0A' }}
+                >
+                  Reemplazar grupos
+                </button>
+                <button
+                  onClick={() => setFakeState('idle')}
+                  className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase text-muted"
+                  style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.08)' }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setFakeState('confirm')}
+                disabled={fakeState === 'saving'}
+                className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
+                style={{ background: '#181818', color: fakeState === 'error' ? '#FF6B6B' : '#A8F0D8', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                {fakeState === 'saving'
+                  ? 'Cargando...'
+                  : fakeState === 'saved'
+                  ? 'Cargado'
+                  : fakeState === 'error'
+                  ? 'Error - reintentar'
+                  : 'Cargar prode ficticio'}
+              </button>
+            )}
+          </div>
+        )}
+
         <GroupBatchEditor
           grouped={groupedByGroup}
           predMap={predMap}
           localGroupPreds={localGroupPreds}
           onGroupPredChange={handleGroupPredChange}
+          onMatchSaveStateChange={handleGroupSaveStateChange}
         />
 
         {/* Delete button — only once all groups are complete */}
@@ -200,13 +358,28 @@ export function MiProdeTabs({
         )}
       </div>
       <div style={{ display: activeTab === 'eliminatoria' ? undefined : 'none' }}>
-        <BracketView
-          key={bracketKey}
-          groupMatches={groupMatches}
-          knockoutMatches={knockoutMatches}
-          predMap={effectivePredMap}
-          initialTiebreakerMap={tiebreakerMap}
-        />
+        {!groupStatus.allReady ? (
+          <div
+            className="px-5 py-5 text-sm"
+            style={{ background: '#131313', border: '1px solid #272727', borderRadius: '16px' }}
+          >
+            <p className="font-extrabold text-white mb-1">
+              Completá todos los partidos de grupos para armar tus eliminatorias.
+            </p>
+            <p className="text-muted">
+              Estado de grupos: <span style={{ color: groupStatusColor }}>{groupStatusLabel}</span>. Si ya tenías
+              eliminatorias guardadas, no las mostramos como válidas hasta que la fase de grupos esté completa y guardada.
+            </p>
+          </div>
+        ) : (
+          <BracketView
+            key={bracketKey}
+            groupMatches={groupMatches}
+            knockoutMatches={knockoutMatches}
+            predMap={effectivePredMap}
+            initialTiebreakerMap={tiebreakerMap}
+          />
+        )}
       </div>
     </div>
   )

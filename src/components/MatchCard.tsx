@@ -6,6 +6,7 @@ import { es } from 'date-fns/locale'
 import { StatusBadge } from './StatusBadge'
 import { getTeam, flagUrl } from '@/lib/teams'
 import { upsertPrediction } from '@/app/(app)/fixture/actions'
+import { normalizeScoreInput, parseScoreInput } from '@/lib/score-input'
 import type { Match } from '@/types'
 
 type Prediction = { home_score: number; away_score: number }
@@ -53,6 +54,7 @@ type Props = {
   initialHome?: string
   initialAway?: string
   onValuesChange?: (home: string, away: string) => void
+  onSaveStateChange?: (state: 'idle' | 'dirty' | 'saving' | 'saved' | 'error') => void
   readOnly?: boolean
 }
 
@@ -63,7 +65,7 @@ const STRIP_COLOR: Record<string, string> = {
   finished: '#3a3a3a',
 }
 
-export function MatchCard({ match, prediction, noAutosave, initialHome, initialAway, onValuesChange, readOnly }: Props) {
+export function MatchCard({ match, prediction, noAutosave, initialHome, initialAway, onValuesChange, onSaveStateChange, readOnly }: Props) {
   const now = new Date()
   const lockedAt = new Date(match.locked_at)
   const isOpen = match.status === 'upcoming' && now < lockedAt
@@ -75,10 +77,14 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
 
   const [home, setHome] = useState(initialHome ?? prediction?.home_score?.toString() ?? '')
   const [away, setAway] = useState(initialAway ?? prediction?.away_score?.toString() ?? '')
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>(
+  const [saveState, setSaveState] = useState<'idle' | 'dirty' | 'saving' | 'saved' | 'error'>(
     !noAutosave && prediction ? 'saved' : 'idle',
   )
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const latestValuesRef = useRef({
+    home: initialHome ?? prediction?.home_score?.toString() ?? '',
+    away: initialAway ?? prediction?.away_score?.toString() ?? '',
+  })
   const [, startTransition] = useTransition()
 
   // Countdown para partidos cerrados
@@ -99,30 +105,45 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
     }
   }, [])
 
+  useEffect(() => {
+    const nextHome = initialHome ?? prediction?.home_score?.toString() ?? ''
+    const nextAway = initialAway ?? prediction?.away_score?.toString() ?? ''
+    setHome(nextHome)
+    setAway(nextAway)
+    latestValuesRef.current = { home: nextHome, away: nextAway }
+  }, [initialHome, initialAway, prediction?.home_score, prediction?.away_score])
+
   function doSave(h: string, a: string) {
-    const hNum = parseInt(h, 10)
-    const aNum = parseInt(a, 10)
-    if (isNaN(hNum) || isNaN(aNum) || hNum < 0 || aNum < 0) return
+    const hNum = parseScoreInput(h)
+    const aNum = parseScoreInput(a)
+    if (hNum == null || aNum == null) return
     setSaveState('saving')
+    onSaveStateChange?.('saving')
     startTransition(async () => {
       try {
         await upsertPrediction(match.id, hNum, aNum)
-        setSaveState('saved')
+        const isLatest = latestValuesRef.current.home === h && latestValuesRef.current.away === a
+        setSaveState(isLatest ? 'saved' : 'dirty')
+        onSaveStateChange?.(isLatest ? 'saved' : 'dirty')
       } catch {
         setSaveState('error')
+        onSaveStateChange?.('error')
       }
     })
   }
 
   function handleChange(field: 'home' | 'away', val: string) {
     if (!isOpen) return
-    if (field === 'home') setHome(val)
-    else setAway(val)
-    const h = field === 'home' ? val : home
-    const a = field === 'away' ? val : away
+    const nextValue = normalizeScoreInput(val)
+    if (field === 'home') setHome(nextValue)
+    else setAway(nextValue)
+    const h = field === 'home' ? nextValue : home
+    const a = field === 'away' ? nextValue : away
+    latestValuesRef.current = { home: h, away: a }
     onValuesChange?.(h, a)
     if (noAutosave) return
-    setSaveState('idle')
+    setSaveState('dirty')
+    onSaveStateChange?.('dirty')
     if (timerRef.current) clearTimeout(timerRef.current)
     if (h !== '' && a !== '') {
       timerRef.current = setTimeout(() => doSave(h, a), 500)
@@ -136,7 +157,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
 
   const hasPrediction = home !== '' && away !== ''
   const predObj = hasPrediction
-    ? { home_score: parseInt(home, 10), away_score: parseInt(away, 10) }
+    ? { home_score: Number(home), away_score: Number(away) }
     : null
   const ptsBadge =
     isScored && predObj && match.home_score != null && match.away_score != null
@@ -300,10 +321,10 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
             }}
           >
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
-              min={0}
-              max={20}
+              pattern="[0-9]*"
+              maxLength={2}
               value={home}
               disabled={isInputLocked}
               onChange={(e) => handleChange('home', e.target.value)}
@@ -324,10 +345,10 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
             />
             <span className="font-display text-[24px] text-[#3a3a3a]">—</span>
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
-              min={0}
-              max={20}
+              pattern="[0-9]*"
+              maxLength={2}
               value={away}
               disabled={isInputLocked}
               onChange={(e) => handleChange('away', e.target.value)}
@@ -353,6 +374,9 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
             <span className="text-muted font-semibold">
               {isOpen && !noAutosave && saveState === 'saving' && (
                 <span>Guardando...</span>
+              )}
+              {isOpen && !noAutosave && saveState === 'dirty' && (
+                <span style={{ color: '#FFB15C' }}>Cambios sin guardar</span>
               )}
               {isOpen && !noAutosave && saveState === 'saved' && (
                 <span>Guardado</span>

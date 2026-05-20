@@ -437,9 +437,10 @@ interface Props {
   predMap: PredMap
   localGroupPreds: Record<string, LocalPred>
   onGroupPredChange: (matchId: string, home: string, away: string) => void
+  onMatchSaveStateChange?: (matchId: string, state: 'idle' | 'dirty' | 'saving' | 'saved' | 'error') => void
 }
 
-export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPredChange }: Props) {
+export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPredChange, onMatchSaveStateChange }: Props) {
   const tabs = sortTabs(Object.keys(grouped))
   const [activeGroup, setActiveGroup] = useState(tabs[0] ?? '')
   const [tiebreakers, setTiebreakers] = useState<Record<string, string>>({})
@@ -593,6 +594,7 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
                 initialHome={currentGroupPreds[match.id]?.home}
                 initialAway={currentGroupPreds[match.id]?.away}
                 onValuesChange={(home, away) => onGroupPredChange(match.id, home, away)}
+                onSaveStateChange={(state) => onMatchSaveStateChange?.(match.id, state)}
               />
             ))}
           </div>
