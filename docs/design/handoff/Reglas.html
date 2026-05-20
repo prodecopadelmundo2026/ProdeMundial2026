@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Prode 26 — Reglas</title>
+<meta name="description" content="Reglas del Prode 26. Cómo se suman puntos y apuestas especiales." />
+<meta name="theme-color" content="#FF6B00" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23FF6B00'/><text x='50%25' y='53%25' text-anchor='middle' dominant-baseline='middle' font-family='Archivo Black,Impact,sans-serif' font-weight='900' font-size='32' fill='%230A0A0A' letter-spacing='-2'>26</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --orange:#FF6B00;--purple:#5B2D8E;--yellow:#FFE040;--blue:#1565C0;--mint:#A8F0D8;
+    --bg:#0A0A0A;--panel:#141414;--panel-2:#1c1c1c;--line:rgba(255,255,255,.08);
+    --text:#FFFFFF;--muted:#8A8A8A;
+    --radius:24px;--radius-sm:14px;
+    --display:'Archivo Black',system-ui,sans-serif;
+    --sans:'Archivo',system-ui,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;border:none;cursor:pointer;background:none;color:inherit}
+
+  /* ─── NAV ─── */
+  .nav{position:sticky;top:0;z-index:50;background:rgba(10,10,10,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  .nav-inner{max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;gap:18px}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--display);letter-spacing:-.02em}
+  .brand-mark{width:36px;height:36px;border-radius:10px;background:var(--orange);display:grid;place-items:center;font-family:var(--display);font-size:14px;color:#000;transform:rotate(-6deg)}
+  .brand-mark span{transform:rotate(6deg)}
+  .brand-name{font-size:18px}.brand-name b{color:var(--orange)}
+  .nav-links{display:none;gap:28px;font-weight:600;font-size:14px}
+  .nav-links a{color:#cfcfcf;padding:6px 0;position:relative;transition:color .15s}
+  .nav-links a:hover{color:#fff}
+  .nav-links a.active{color:#fff}
+  .nav-links a.active::after{content:"";position:absolute;left:0;right:0;bottom:-16px;height:3px;background:var(--orange);border-radius:2px 2px 0 0}
+  .btn-enter{
+    background:var(--orange);color:#0A0A0A;padding:10px 20px;border-radius:999px;
+    font-weight:800;font-size:14px;letter-spacing:.01em;
+    box-shadow:0 6px 18px -8px rgba(255,107,0,.6);
+    transition:transform .15s, box-shadow .2s;
+  }
+  .btn-enter:hover{transform:translateY(-1px);box-shadow:0 12px 24px -8px rgba(255,107,0,.8)}
+  @media (min-width:880px){.nav-links{display:flex}}
+
+  /* ─── PAGE WRAPPER ─── */
+  .page{padding:48px 20px 100px}
+  .page-inner{max-width:1280px;margin:0 auto}
+
+  /* ─── PAGE HEAD ─── */
+  .page-head{margin-bottom:40px}
+  .eyebrow{
+    display:inline-block;
+    font-family:var(--sans);font-size:12px;font-weight:800;
+    letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
+    margin-bottom:18px;
+  }
+  .page-title{
+    font-family:var(--display);
+    font-size:clamp(48px,9vw,108px);
+    line-height:.9;letter-spacing:-.04em;text-transform:uppercase;
+  }
+  .page-title em{font-style:italic;color:var(--orange)}
+  .page-sub{
+    margin-top:14px;
+    font-family:var(--mono);font-size:13px;font-weight:700;
+    color:var(--muted);letter-spacing:.04em;
+  }
+
+  /* ─── INFO BANNER (mismo formato que el pozo en premios) ─── */
+  .info{
+    margin-bottom:40px;
+    background:linear-gradient(90deg, rgba(168,240,216,.07), rgba(168,240,216,.02));
+    border:1px solid rgba(168,240,216,.22);
+    border-radius:20px;
+    padding:20px 24px;
+    display:flex;align-items:flex-start;gap:14px;
+  }
+  .info-icon{
+    width:32px;height:32px;border-radius:10px;
+    background:var(--mint);
+    display:grid;place-items:center;flex-shrink:0;
+    color:#0A0A0A;
+  }
+  .info-icon svg{display:block;width:18px;height:18px}
+  .info-content{flex:1;min-width:0}
+  .info-content h4{
+    font-family:var(--sans);font-size:14px;font-weight:800;
+    color:var(--mint);margin-bottom:4px;
+  }
+  .info-content p{
+    font-size:13px;line-height:1.55;font-weight:500;color:#cfcfcf;
+  }
+  .info-content p b{color:#fff;font-weight:800}
+
+  /* ─── BLOCK HEADER (mismo patrón que el podio en premios) ─── */
+  .block{margin-bottom:60px}
+  .block-head{margin-bottom:22px}
+  .block-title{
+    font-family:var(--display);font-size:clamp(24px,3.4vw,32px);
+    text-transform:uppercase;letter-spacing:-.02em;line-height:1;
+  }
+  .block-title em{font-style:italic;color:var(--orange)}
+  .block-sub{margin-top:8px;color:var(--muted);font-size:14px;max-width:520px;line-height:1.5}
+
+  /* ─── RULES GRID ─── */
+  .rules{
+    display:grid;gap:16px;
+    grid-template-columns:1fr;
+  }
+  @media (min-width:780px){.rules{grid-template-columns:repeat(3,1fr)}}
+
+  .rule{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:28px 26px 26px;
+    display:flex;flex-direction:column;
+    position:relative;overflow:hidden;
+    min-height:230px;
+    transition:transform .2s ease, border-color .2s ease;
+  }
+  .rule:hover{transform:translateY(-3px);border-color:rgba(255,255,255,.16)}
+
+  .rule-head{
+    display:flex;justify-content:space-between;align-items:flex-start;
+    gap:10px;margin-bottom:auto;
+  }
+  .rule-meta{
+    font-family:var(--mono);font-size:10px;font-weight:700;
+    letter-spacing:.24em;text-transform:uppercase;
+    padding:6px 10px;border-radius:999px;
+    background:rgba(255,255,255,.06);
+    color:var(--muted);
+  }
+  .rule-pts{
+    font-family:var(--display);
+    font-size:72px;line-height:.85;letter-spacing:-.05em;
+    margin-top:-6px;
+  }
+  .rule.exact .rule-pts{color:var(--yellow)}
+  .rule.partial .rule-pts{color:var(--mint)}
+  .rule.miss .rule-pts{color:#3a3a3a}
+  .rule.s-ball .rule-pts{color:var(--purple)}
+  .rule.s-scorer .rule-pts{color:var(--orange)}
+  .rule.s-keeper .rule-pts{color:var(--blue)}
+
+  .rule-name{
+    font-family:var(--display);
+    font-size:18px;letter-spacing:-.01em;
+    text-transform:uppercase;line-height:1.05;
+    margin-top:20px;
+  }
+  .rule-desc{
+    margin-top:10px;
+    color:var(--muted);font-size:13px;
+    font-weight:500;line-height:1.5;
+  }
+
+  /* Tinted edge per rule type — sutil acento de color */
+  .rule::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+    background:currentColor;opacity:.3;
+  }
+  .rule.exact::before{background:var(--yellow)}
+  .rule.partial::before{background:var(--mint)}
+  .rule.miss::before{background:#3a3a3a}
+  .rule.s-ball::before{background:var(--purple)}
+  .rule.s-scorer::before{background:var(--orange)}
+  .rule.s-keeper::before{background:var(--blue)}
+
+  /* A11y */
+  :focus{outline:none}
+  :focus-visible{outline:2px solid var(--orange);outline-offset:3px;border-radius:8px}
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:0.01ms !important;transition-duration:0.01ms !important}
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html">
+      <span class="brand-mark"><span>26</span></span>
+      <span class="brand-name">PRODE <b>26</b></span>
+    </a>
+    <nav class="nav-links">
+      <a href="index.html">Inicio</a>
+      <a href="premios.html">Premios</a>
+      <a href="reglas.html" class="active">Reglas</a>
+    </nav>
+    <a class="btn-enter" href="login.html">Entrar</a>
+  </div>
+</header>
+
+<main class="page">
+  <div class="page-inner">
+
+    <!-- ═══ HEADER ═══ -->
+    <div class="page-head">
+      <span class="eyebrow">Cómo jugar</span>
+      <h1 class="page-title">Reglas del <em>juego</em></h1>
+      <p class="page-sub">Mundial 2026 · USA · Canadá · México</p>
+    </div>
+
+    <!-- ═══ INFO BANNER ═══ -->
+    <aside class="info">
+      <div class="info-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      </div>
+      <div class="info-content">
+        <h4>El que más le pega, gana</h4>
+        <p>Pronosticá el resultado de los <b>80 partidos</b> del Mundial. Sumás puntos partido a partido y al final del torneo se reparte el podio. También podés sumar <b>hasta 50 puntos extra</b> con las apuestas especiales (Balón, Bota y Guante de Oro).</p>
+      </div>
+    </aside>
+
+    <!-- ═══ BLOCK: PUNTAJE POR PARTIDO ═══ -->
+    <section class="block">
+      <div class="block-head">
+        <h2 class="block-title">Puntaje por <em>partido</em></h2>
+        <p class="block-sub">Cargá un resultado por partido. Cada acierto suma según el tipo.</p>
+      </div>
+      <div class="rules">
+        <article class="rule exact">
+          <div class="rule-head">
+            <span class="rule-meta">Acierto pleno</span>
+            <span class="rule-pts">+3</span>
+          </div>
+          <h4 class="rule-name">Resultado exacto</h4>
+          <p class="rule-desc">Le pegaste al marcador completo. Argentina 3 - 1 Brasil y pusiste 3-1. Bingo.</p>
+        </article>
+        <article class="rule partial">
+          <div class="rule-head">
+            <span class="rule-meta">Acierto parcial</span>
+            <span class="rule-pts">+1</span>
+          </div>
+          <h4 class="rule-name">Ganador o empate</h4>
+          <p class="rule-desc">Acertaste quién ganaba (o el empate) aunque no el resultado exacto. Igual sumás.</p>
+        </article>
+        <article class="rule miss">
+          <div class="rule-head">
+            <span class="rule-meta">Sin acierto</span>
+            <span class="rule-pts">0</span>
+          </div>
+          <h4 class="rule-name">Incorrecto</h4>
+          <p class="rule-desc">El fútbol es así. Mañana viene otro partido. No se sufre, se juega.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ═══ BLOCK: APUESTAS ESPECIALES ═══ -->
+    <section class="block">
+      <div class="block-head">
+        <h2 class="block-title">Apuestas <em>especiales</em></h2>
+        <p class="block-sub">Cargás una sola vez antes del Mundial. Si acertás, suman al final del torneo.</p>
+      </div>
+      <div class="rules">
+        <article class="rule s-ball">
+          <div class="rule-head">
+            <span class="rule-meta">Mejor jugador</span>
+            <span class="rule-pts">+20</span>
+          </div>
+          <h4 class="rule-name">Balón de Oro</h4>
+          <p class="rule-desc">El mejor jugador del torneo. El más subjetivo de todos — por eso vale más.</p>
+        </article>
+        <article class="rule s-scorer">
+          <div class="rule-head">
+            <span class="rule-meta">Máximo goleador</span>
+            <span class="rule-pts">+15</span>
+          </div>
+          <h4 class="rule-name">Bota de Oro</h4>
+          <p class="rule-desc">El jugador con más goles al final del Mundial. El artillero del torneo.</p>
+        </article>
+        <article class="rule s-keeper">
+          <div class="rule-head">
+            <span class="rule-meta">Mejor arquero</span>
+            <span class="rule-pts">+15</span>
+          </div>
+          <h4 class="rule-name">Guante de Oro</h4>
+          <p class="rule-desc">El mejor arquero del torneo. El que menos comió, el que más voló.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ═══ META ═══ -->
+    <p class="block-sub" style="margin-top:12px;text-align:center;font-family:var(--mono);font-size:11px;color:#3a3a3a;letter-spacing:.18em;text-transform:uppercase">· fin de reglas ·</p>
+
+  </div>
+</main>
+
+</body>
+</html>
