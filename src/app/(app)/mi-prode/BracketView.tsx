@@ -20,6 +20,7 @@ interface Props {
   predMap: PredMap
   initialTiebreakerMap?: Record<string, string>
   isAdmin?: boolean
+  groupTiebreakerMap?: Record<string, string>
 }
 
 const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'final'] as const
@@ -324,10 +325,10 @@ function BracketMatchCard({
   )
 }
 
-export function BracketView({ groupMatches, knockoutMatches, predMap, initialTiebreakerMap = {}, isAdmin = false }: Props) {
+export function BracketView({ groupMatches, knockoutMatches, predMap, initialTiebreakerMap = {}, isAdmin = false, groupTiebreakerMap = {} }: Props) {
   const standings = computeAllStandings(groupMatches, predMap)
   const pMap = buildKnockoutMap(knockoutMatches)
-  const bestThirdsGroups = computeBestThirdsGroups(groupMatches, predMap)
+  const bestThirdsGroups = computeBestThirdsGroups(groupMatches, predMap, groupTiebreakerMap)
 
   // Local inputs: matchId → { home, away } (starts from predMap)
   const [localInputs, setLocalInputs] = useState<LocalInputs>(() => {

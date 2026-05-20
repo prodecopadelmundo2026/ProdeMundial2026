@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import type { Match } from '@/types'
 import { MatchCard } from '@/components/MatchCard'
 import { getTeam, flagUrl } from '@/lib/teams'
@@ -90,6 +90,25 @@ function applyTiebreakers(
     i = j
   }
   return result
+}
+
+// Re-sort best thirds list applying tiebreaker picks (keys: "3rd-{teamA}-vs-{teamB}")
+function applyTiebreakersToThirds(
+  thirds: BestThirdTeam[],
+  tiebreakers: Record<string, string>
+): BestThirdTeam[] {
+  return [...thirds].sort((a, b) => {
+    if (b.pts !== a.pts) return b.pts - a.pts
+    const gdB = b.gf - b.ga, gdA = a.gf - a.ga
+    if (gdB !== gdA) return gdB - gdA
+    if (b.gf !== a.gf) return b.gf - a.gf
+    const key1 = `3rd-${a.name}-vs-${b.name}`
+    const key2 = `3rd-${b.name}-vs-${a.name}`
+    const picked = tiebreakers[key1] || tiebreakers[key2]
+    if (picked === a.name) return -1
+    if (picked === b.name) return 1
+    return a.name.localeCompare(b.name)
+  })
 }
 
 function TeamFlag({ name }: { name: string }) {
@@ -285,11 +304,17 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
     )
   }
 
+  // Re-sort applying tiebreaker picks so the table updates live
+  const displayThirds = useMemo(
+    () => applyTiebreakersToThirds(thirds, tiebreakers),
+    [thirds, tiebreakers]
+  )
+
   const tieGroups: number[][] = []
   let i = 0
-  while (i < thirds.length) {
+  while (i < displayThirds.length) {
     let j = i + 1
-    while (j < thirds.length && areTied(thirds[j], thirds[i])) j++
+    while (j < displayThirds.length && areTied(displayThirds[j], displayThirds[i])) j++
     if (j > i + 1) tieGroups.push(Array.from({ length: j - i }, (_, k) => i + k))
     i = j
   }
@@ -325,7 +350,7 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
           <span className="text-center">GD</span>
         </div>
 
-        {thirds.map((team, idx) => {
+        {displayThirds.map((team, idx) => {
           const advances = idx < 8
           const isTied = tiedIndices.has(idx)
           return (
@@ -334,7 +359,7 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
               className="grid items-center px-4 py-[10px]"
               style={{
                 gridTemplateColumns: '24px 40px 1fr 36px 36px 36px',
-                borderBottom: idx < thirds.length - 1 ? '1px solid rgba(255,255,255,0.05)' : undefined,
+                borderBottom: idx < displayThirds.length - 1 ? '1px solid rgba(255,255,255,0.05)' : undefined,
                 background: advances ? 'rgba(168,240,216,0.03)' : undefined,
               }}
             >
@@ -377,18 +402,20 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
         })}
       </div>
 
-      {/* Tiebreaker for positions around 8th place */}
+      {/* Tiebreaker for positions around 8th place cutoff */}
       {tieGroups.map((group) => {
         const criticalPos = group.some((idx) => idx === 7 || idx === 8)
         if (!criticalPos) return null
-        const teams = group.map((idx) => thirds[idx])
+        const teams = group.map((idx) => displayThirds[idx])
         const pairs: [BestThirdTeam, BestThirdTeam][] = []
         for (let k = 0; k < teams.length - 1; k++) {
           pairs.push([teams[k], teams[k + 1]])
         }
         return pairs.map(([teamA, teamB]) => {
           const key = `3rd-${teamA.name}-vs-${teamB.name}`
-          const picked = tiebreakers[key]
+          const altKey = `3rd-${teamB.name}-vs-${teamA.name}`
+          const picked = tiebreakers[key] || tiebreakers[altKey]
+          const canonicalKey = tiebreakers[key] !== undefined ? key : altKey
           return (
             <div
               key={key}
@@ -405,7 +432,7 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
                 {[teamA, teamB].map((team) => (
                   <button
                     key={team.name}
-                    onClick={() => onTiebreaker(key, picked === team.name ? null : team.name)}
+                    onClick={() => onTiebreaker(canonicalKey, picked === team.name ? null : team.name)}
                     className="flex items-center gap-2 px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150"
                     style={
                       picked === team.name
@@ -438,22 +465,13 @@ interface Props {
   localGroupPreds: Record<string, LocalPred>
   onGroupPredChange: (matchId: string, home: string, away: string) => void
   onMatchSaveStateChange?: (matchId: string, state: 'idle' | 'dirty' | 'saving' | 'saved' | 'error') => void
+  tiebreakers: Record<string, string>
+  onTiebreaker: (key: string, team: string | null) => void
 }
 
-export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPredChange, onMatchSaveStateChange }: Props) {
+export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPredChange, onMatchSaveStateChange, tiebreakers, onTiebreaker }: Props) {
   const tabs = sortTabs(Object.keys(grouped))
   const [activeGroup, setActiveGroup] = useState(tabs[0] ?? '')
-  const [tiebreakers, setTiebreakers] = useState<Record<string, string>>({})
-
-  function handleTiebreaker(key: string, team: string | null) {
-    setTiebreakers((prev) => {
-      if (!team) {
-        const { [key]: _removed, ...rest } = prev
-        return rest
-      }
-      return { ...prev, [key]: team }
-    })
-  }
 
   const currentGroupMatches = grouped[activeGroup] ?? []
 
@@ -580,7 +598,7 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
         <BestThirdsView
           thirds={bestThirds}
           tiebreakers={tiebreakers}
-          onTiebreaker={handleTiebreaker}
+          onTiebreaker={onTiebreaker}
         />
       ) : (
         <>
@@ -603,10 +621,9 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
           <StandingsTable
             standings={standings}
             tiebreakers={tiebreakers}
-            onTiebreaker={handleTiebreaker}
+            onTiebreaker={onTiebreaker}
             groupKey={activeGroup}
           />
-
         </>
       )}
     </div>

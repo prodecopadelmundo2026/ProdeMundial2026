@@ -210,10 +210,12 @@ export function resolveTeamFull(
   return placeholder
 }
 
-// Computes which 8 group letters have the best third-place teams based on predictions
+// Computes which 8 group letters have the best third-place teams based on predictions.
+// tiebreakerMap keys: "3rd-{teamA}-vs-{teamB}" → picked team name
 export function computeBestThirdsGroups(
   allGroupMatches: Match[],
-  predMap: PredMap
+  predMap: PredMap,
+  tiebreakerMap: Record<string, string> = {}
 ): Set<string> {
   const byGroup: Record<string, Match[]> = {}
   for (const m of allGroupMatches) {
@@ -222,7 +224,7 @@ export function computeBestThirdsGroups(
     byGroup[m.group].push(m)
   }
 
-  const thirds: { group: string; pts: number; gd: number; gf: number }[] = []
+  const thirds: { group: string; team: string; pts: number; gd: number; gf: number }[] = []
   for (const [group, matches] of Object.entries(byGroup)) {
     const stats: Record<string, { pts: number; gf: number; ga: number; played: number }> = {}
     for (const m of matches) {
@@ -247,15 +249,17 @@ export function computeBestThirdsGroups(
         stats[m.away_team].pts += 3
       }
     }
-    const sorted = Object.values(stats).sort((a, b) => {
-      if (b.pts !== a.pts) return b.pts - a.pts
-      const gdB = b.gf - b.ga, gdA = a.gf - a.ga
-      if (gdB !== gdA) return gdB - gdA
-      return b.gf - a.gf
-    })
+    const sorted = Object.entries(stats)
+      .map(([name, s]) => ({ name, ...s }))
+      .sort((a, b) => {
+        if (b.pts !== a.pts) return b.pts - a.pts
+        const gdB = b.gf - b.ga, gdA = a.gf - a.ga
+        if (gdB !== gdA) return gdB - gdA
+        return b.gf - a.gf
+      })
     const third = sorted[2]
     if (third && third.played > 0) {
-      thirds.push({ group, pts: third.pts, gd: third.gf - third.ga, gf: third.gf })
+      thirds.push({ group, team: third.name, pts: third.pts, gd: third.gf - third.ga, gf: third.gf })
     }
   }
 
@@ -263,6 +267,11 @@ export function computeBestThirdsGroups(
     if (b.pts !== a.pts) return b.pts - a.pts
     if (b.gd !== a.gd) return b.gd - a.gd
     if (b.gf !== a.gf) return b.gf - a.gf
+    const key1 = `3rd-${a.team}-vs-${b.team}`
+    const key2 = `3rd-${b.team}-vs-${a.team}`
+    const picked = tiebreakerMap[key1] || tiebreakerMap[key2]
+    if (picked === a.team) return -1
+    if (picked === b.team) return 1
     return a.group.localeCompare(b.group)
   })
 

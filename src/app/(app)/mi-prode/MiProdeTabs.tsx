@@ -33,6 +33,7 @@ export function MiProdeTabs({
   const [bracketKey, setBracketKey] = useState(0)
   const [deleteState, setDeleteState] = useState<'idle' | 'confirm' | 'deleting'>('idle')
   const [fakeState, setFakeState] = useState<'idle' | 'confirm' | 'saving' | 'saved' | 'error'>('idle')
+  const [tiebreakers, setTiebreakers] = useState<Record<string, string>>({})
   const [groupSaveStates, setGroupSaveStates] = useState<Record<string, SaveState>>(() => {
     const init: Record<string, SaveState> = {}
     for (const m of groupMatches) {
@@ -97,6 +98,16 @@ export function MiProdeTabs({
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(localGroupPreds))
     } catch {}
   }, [localGroupPreds])
+
+  function handleTiebreaker(key: string, team: string | null) {
+    setTiebreakers((prev) => {
+      if (!team) {
+        const { [key]: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, [key]: team }
+    })
+  }
 
   function handleGroupPredChange(matchId: string, home: string, away: string) {
     setLocalGroupPreds((prev) => ({ ...prev, [matchId]: { home, away } }))
@@ -322,6 +333,8 @@ export function MiProdeTabs({
           localGroupPreds={localGroupPreds}
           onGroupPredChange={handleGroupPredChange}
           onMatchSaveStateChange={handleGroupSaveStateChange}
+          tiebreakers={tiebreakers}
+          onTiebreaker={handleTiebreaker}
         />
 
         {/* Delete button — only once all groups are complete */}
@@ -376,6 +389,7 @@ export function MiProdeTabs({
             predMap={effectivePredMap}
             initialTiebreakerMap={tiebreakerMap}
             isAdmin={isAdmin}
+            groupTiebreakerMap={tiebreakers}
           />
         )}
       </div>
