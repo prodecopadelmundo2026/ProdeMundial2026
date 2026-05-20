@@ -417,19 +417,23 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
         })}
       </div>
 
-      {/* Tiebreaker — only when the tie crosses the top-8 boundary */}
+      {/* Tiebreaker — when the tie includes at least one team in the top 8 */}
       {tieGroups.map((group) => {
+        const touchesTop8 = group.some(idx => idx <= 7)
+        if (!touchesTop8) return null
         const spansTop8 = group.some(idx => idx <= 7) && group.some(idx => idx >= 8)
-        if (!spansTop8) return null
         const teams = group.map(idx => displayThirds[idx])
 
         if (teams.length === 2) {
-          // Simple 2-team: pick who passes
           const [teamA, teamB] = teams
           const key = `3rd-${teamA.name}-vs-${teamB.name}`
           const altKey = `3rd-${teamB.name}-vs-${teamA.name}`
           const picked = tiebreakers[key] || tiebreakers[altKey]
           const canonicalKey = tiebreakers[key] !== undefined ? key : altKey
+          const question = spansTop8 ? '¿Quién pasa?' : '¿Quién queda mejor posicionado?'
+          const subtitle = spansTop8
+            ? `${teamA.name} y ${teamB.name} están empatadas en el límite del 8vo puesto.`
+            : `${teamA.name} y ${teamB.name} están empatadas dentro del top 8.`
           return (
             <div
               key={key}
@@ -437,11 +441,9 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
               style={{ background: '#0A0A0A', border: '1px solid rgba(255,107,0,0.28)' }}
             >
               <p className="text-[10px] font-extrabold tracking-[0.1em] uppercase mb-1" style={{ color: '#FF6B00' }}>
-                ¿Quién pasa?
+                {question}
               </p>
-              <p className="text-[12px] text-muted mb-2">
-                {teamA.name} y {teamB.name} están empatadas en el límite del 8vo puesto.
-              </p>
+              <p className="text-[12px] text-muted mb-2">{subtitle}</p>
               <div className="flex gap-2">
                 {[teamA, teamB].map((team) => (
                   <button
@@ -468,6 +470,10 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
         const currentRanking: string[] = tiebreakers[rankKey]
           ? tiebreakers[rankKey].split(',')
           : []
+        const question = spansTop8 ? 'Ordenar mejores terceros' : 'Ordenar posición dentro del top 8'
+        const subtitle = spansTop8
+          ? `${teams.length} equipos empatados. Hacé clic en orden de mejor a peor para definir quién pasa al 8vo puesto.`
+          : `${teams.length} equipos empatados dentro del top 8. Definí su posición relativa.`
 
         return (
           <div
@@ -476,11 +482,9 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
             style={{ background: '#0A0A0A', border: '1px solid rgba(255,107,0,0.28)' }}
           >
             <p className="text-[10px] font-extrabold tracking-[0.1em] uppercase mb-1" style={{ color: '#FF6B00' }}>
-              Ordenar mejores terceros
+              {question}
             </p>
-            <p className="text-[12px] text-muted mb-3">
-              {teams.length} equipos empatados. Hacé clic en orden de mejor a peor para definir quién pasa al 8vo puesto.
-            </p>
+            <p className="text-[12px] text-muted mb-3">{subtitle}</p>
             <div className="flex gap-2 flex-wrap">
               {teams.map((team) => {
                 const rankIdx = currentRanking.indexOf(team.name)
