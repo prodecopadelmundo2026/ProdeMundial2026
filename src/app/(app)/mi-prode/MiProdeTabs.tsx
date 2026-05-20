@@ -269,18 +269,6 @@ export function MiProdeTabs({
 
       {/* Both tabs kept mounted to preserve state; only one visible at a time */}
       <div style={{ display: activeTab === 'grupos' ? undefined : 'none' }}>
-        <div
-          className="mb-5 flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-sm"
-          style={{ background: '#131313', border: '1px solid #272727', borderRadius: '16px' }}
-        >
-          <span className="text-muted font-semibold">
-            Completá y guardá todos los grupos antes de armar eliminatorias.
-          </span>
-          <span className="font-extrabold" style={{ color: groupStatusColor }}>
-            {groupStatusLabel}
-          </span>
-        </div>
-
         {isAdmin && (
           <div
             className="mb-5 flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-sm"
@@ -373,30 +361,16 @@ export function MiProdeTabs({
         )}
       </div>
       <div style={{ display: activeTab === 'eliminatoria' ? undefined : 'none' }}>
-        {!groupStatus.allReady ? (
-          <div
-            className="px-5 py-5 text-sm"
-            style={{ background: '#131313', border: '1px solid #272727', borderRadius: '16px' }}
-          >
-            <p className="font-extrabold text-white mb-1">
-              Completá todos los partidos de grupos para armar tus eliminatorias.
-            </p>
-            <p className="text-muted">
-              Estado de grupos: <span style={{ color: groupStatusColor }}>{groupStatusLabel}</span>. Si ya tenías
-              eliminatorias guardadas, no las mostramos como válidas hasta que la fase de grupos esté completa y guardada.
-            </p>
-          </div>
-        ) : (
-          <BracketView
-            key={bracketKey}
-            groupMatches={groupMatches}
-            knockoutMatches={knockoutMatches}
-            predMap={effectivePredMap}
-            initialTiebreakerMap={tiebreakerMap}
-            isAdmin={isAdmin}
-            groupTiebreakerMap={tiebreakers}
-          />
-        )}
+        <BracketView
+          key={bracketKey}
+          groupMatches={groupMatches}
+          knockoutMatches={knockoutMatches}
+          predMap={effectivePredMap}
+          initialTiebreakerMap={tiebreakerMap}
+          isAdmin={isAdmin}
+          groupTiebreakerMap={tiebreakers}
+          readOnly={!allGroupsFilled}
+        />
       </div>
     </div>
   )

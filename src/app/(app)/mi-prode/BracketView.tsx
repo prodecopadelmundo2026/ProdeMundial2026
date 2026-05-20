@@ -21,6 +21,7 @@ interface Props {
   initialTiebreakerMap?: Record<string, string>
   isAdmin?: boolean
   groupTiebreakerMap?: Record<string, string>
+  readOnly?: boolean
 }
 
 const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'final'] as const
@@ -51,6 +52,7 @@ function BracketMatchCard({
   initialHome,
   initialAway,
   tiebreaker,
+  disabled,
   onValuesChange,
   onTiebreakerChange,
 }: {
@@ -60,12 +62,13 @@ function BracketMatchCard({
   initialHome: string
   initialAway: string
   tiebreaker?: string
+  disabled?: boolean
   onValuesChange: (home: string, away: string) => void
   onTiebreakerChange: (team: string | null) => void
 }) {
   const now = new Date()
   const lockedAt = new Date(match.locked_at)
-  const isOpen = match.status === 'upcoming' && now < lockedAt
+  const isOpen = match.status === 'upcoming' && now < lockedAt && !disabled
   const isClosed = match.status === 'upcoming' && now >= lockedAt
   const isLive = match.status === 'live'
   const isFinished = match.status === 'finished'
@@ -325,7 +328,7 @@ function BracketMatchCard({
   )
 }
 
-export function BracketView({ groupMatches, knockoutMatches, predMap, initialTiebreakerMap = {}, isAdmin = false, groupTiebreakerMap = {} }: Props) {
+export function BracketView({ groupMatches, knockoutMatches, predMap, initialTiebreakerMap = {}, isAdmin = false, groupTiebreakerMap = {}, readOnly = false }: Props) {
   const standings = computeAllStandings(groupMatches, predMap)
   const pMap = buildKnockoutMap(knockoutMatches)
   const bestThirdsGroups = computeBestThirdsGroups(groupMatches, predMap, groupTiebreakerMap)
@@ -491,12 +494,13 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
 
   return (
     <div className="space-y-6">
-      {!hasGroupPredictions && (
+      {readOnly && (
         <div
-          className="px-5 py-4 text-sm text-[#7a7266]"
+          className="px-5 py-4 text-sm"
           style={{ background: '#131313', border: '1px solid #272727', borderRadius: '16px' }}
         >
-          Completá tus predicciones de grupos para ver los equipos clasificados en el bracket.
+          <span className="font-extrabold text-white">Podés explorar el bracket, pero no guardar pronósticos.</span>
+          <span className="text-muted"> Completá todos los partidos de grupos para habilitar el guardado.</span>
         </div>
       )}
 
@@ -578,6 +582,7 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
               initialHome={localInputs[match.id]?.home ?? ''}
               initialAway={localInputs[match.id]?.away ?? ''}
               tiebreaker={tiebreakerMap[match.id]}
+              disabled={readOnly}
               onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
               onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
             />
@@ -600,6 +605,7 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
                   initialHome={localInputs[match.id]?.home ?? ''}
                   initialAway={localInputs[match.id]?.away ?? ''}
                   tiebreaker={tiebreakerMap[match.id]}
+                  disabled={readOnly}
                   onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
                   onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
                 />
@@ -609,7 +615,7 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
       )}
 
       {/* Save button */}
-      {totalOpen > 0 && (
+      {totalOpen > 0 && !readOnly && (
         <div className="flex items-center justify-between gap-4">
           <span className="text-[13px] text-muted font-semibold">
             {filledCount}/{totalOpen} completados
