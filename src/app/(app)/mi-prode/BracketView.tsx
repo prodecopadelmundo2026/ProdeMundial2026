@@ -328,6 +328,65 @@ function BracketMatchCard({
   )
 }
 
+function SpecialsCard() {
+  const items = [
+    { label: 'Balón de Oro', desc: 'Mejor jugador del torneo', pts: '+20', color: '#5B2D8E' },
+    { label: 'Bota de Oro', desc: 'Máximo goleador del torneo', pts: '+15', color: '#FF6B00' },
+    { label: 'Guante de Oro', desc: 'Mejor arquero del torneo', pts: '+15', color: '#1565C0' },
+  ]
+  return (
+    <div
+      className="relative flex flex-col overflow-hidden"
+      style={{
+        background: 'linear-gradient(145deg, rgba(91,45,142,0.16) 0%, rgba(91,45,142,0.05) 100%)',
+        border: '1px solid rgba(168,140,220,0.22)',
+        borderRadius: 24,
+        padding: '22px 22px 20px',
+      }}
+    >
+      <span
+        className="absolute left-0 top-0 bottom-0 rounded-l-[24px]"
+        style={{ width: 4, background: '#5B2D8E' }}
+      />
+      <div className="flex items-center justify-between mb-4">
+        <span
+          className="text-[10px] px-2 py-1 rounded-[6px] font-bold"
+          style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)', color: '#c8a8f0' }}
+        >
+          Apuesta Especial
+        </span>
+        <span className="font-mono text-[11px] font-bold tracking-[0.06em]" style={{ color: '#5a4a6a' }}>
+          hasta +50 pts
+        </span>
+      </div>
+      <div className="flex flex-col gap-2.5 flex-1">
+        {items.map(({ label, desc, pts, color }) => (
+          <div
+            key={label}
+            className="flex items-center gap-3 px-3 py-[10px] rounded-[12px]"
+            style={{ background: 'rgba(0,0,0,0.3)', border: `1px solid ${color}33` }}
+          >
+            <div className="w-[3px] h-8 rounded-full shrink-0" style={{ background: color }} />
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-bold leading-tight">{label}</p>
+              <p className="text-[11px] font-medium mt-0.5" style={{ color: '#4a4a5a' }}>{desc}</p>
+            </div>
+            <span className="font-display text-[22px] shrink-0 leading-none" style={{ color }}>{pts}</span>
+          </div>
+        ))}
+      </div>
+      <button
+        className="mt-4 w-full py-[11px] rounded-[14px] font-extrabold text-[12px] tracking-[0.08em] uppercase transition-colors duration-150"
+        style={{ background: 'rgba(91,45,142,0.22)', color: '#c8a8f0', border: '1px solid rgba(168,140,220,0.2)' }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(91,45,142,0.4)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(91,45,142,0.22)' }}
+      >
+        Cargar apuestas especiales
+      </button>
+    </div>
+  )
+}
+
 export function BracketView({ groupMatches, knockoutMatches, predMap, initialTiebreakerMap = {}, isAdmin = false, groupTiebreakerMap = {}, readOnly = false }: Props) {
   const standings = computeAllStandings(groupMatches, predMap)
   const pMap = buildKnockoutMap(knockoutMatches)
@@ -533,49 +592,53 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
         </div>
       )}
 
-      {/* Main round matches */}
-      <div className="grid grid-cols-1 min-[600px]:grid-cols-2 min-[960px]:grid-cols-3 min-[1200px]:grid-cols-4 gap-4">
-        {(byRound[activeRound] ?? [])
-          .filter((m) => m.stage !== 'third_place')
-          .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
-          .map((match) => (
-            <BracketMatchCard
-              key={match.id}
-              match={match}
-              homeTeam={resolveTeamFull(match.home_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)}
-              awayTeam={resolveTeamFull(match.away_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)}
-              initialHome={localInputs[match.id]?.home ?? ''}
-              initialAway={localInputs[match.id]?.away ?? ''}
-              tiebreaker={tiebreakerMap[match.id]}
-              disabled={readOnly}
-              onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
-              onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
-            />
-          ))}
-      </div>
+      {/* Main round matches — non-final rounds */}
+      {activeRound !== 'final' && (
+        <div className="grid grid-cols-1 min-[600px]:grid-cols-2 min-[960px]:grid-cols-3 min-[1200px]:grid-cols-4 gap-4">
+          {(byRound[activeRound] ?? [])
+            .filter((m) => m.stage !== 'third_place')
+            .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+            .map((match) => (
+              <BracketMatchCard
+                key={match.id}
+                match={match}
+                homeTeam={resolveTeamFull(match.home_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)}
+                awayTeam={resolveTeamFull(match.away_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)}
+                initialHome={localInputs[match.id]?.home ?? ''}
+                initialAway={localInputs[match.id]?.away ?? ''}
+                tiebreaker={tiebreakerMap[match.id]}
+                disabled={readOnly}
+                onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
+                onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
+              />
+            ))}
+        </div>
+      )}
 
-      {/* Third place (alongside final tab) */}
-      {activeRound === 'final' && byRound['final']?.some((m) => m.stage === 'third_place') && (
-        <div>
-          <p className="text-xs tracking-[0.2em] uppercase text-[#7a7266] mb-3">3er Puesto</p>
-          <div className="grid grid-cols-1 min-[600px]:grid-cols-2 gap-4">
-            {byRound['final']
-              .filter((m) => m.stage === 'third_place')
-              .map((match) => (
-                <BracketMatchCard
-                  key={match.id}
-                  match={match}
-                  homeTeam={resolveTeamFull(match.home_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)}
-                  awayTeam={resolveTeamFull(match.away_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)}
-                  initialHome={localInputs[match.id]?.home ?? ''}
-                  initialAway={localInputs[match.id]?.away ?? ''}
-                  tiebreaker={tiebreakerMap[match.id]}
-                  disabled={readOnly}
-                  onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
-                  onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
-                />
-              ))}
-          </div>
+      {/* Final round: Final + 3er Puesto + Apuesta Especial — misma altura */}
+      {activeRound === 'final' && (
+        <div className="grid grid-cols-1 min-[600px]:grid-cols-2 min-[960px]:grid-cols-3 gap-4 items-stretch">
+          {(byRound['final'] ?? [])
+            .sort((a, b) => {
+              if (a.stage === 'third_place' && b.stage !== 'third_place') return 1
+              if (b.stage === 'third_place' && a.stage !== 'third_place') return -1
+              return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
+            })
+            .map((match) => (
+              <BracketMatchCard
+                key={match.id}
+                match={match}
+                homeTeam={resolveTeamFull(match.home_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)}
+                awayTeam={resolveTeamFull(match.away_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)}
+                initialHome={localInputs[match.id]?.home ?? ''}
+                initialAway={localInputs[match.id]?.away ?? ''}
+                tiebreaker={tiebreakerMap[match.id]}
+                disabled={readOnly}
+                onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
+                onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
+              />
+            ))}
+          <SpecialsCard />
         </div>
       )}
 
