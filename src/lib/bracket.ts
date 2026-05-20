@@ -272,6 +272,22 @@ export function computeBestThirdsGroups(
     if (b.pts !== a.pts) return b.pts - a.pts
     if (b.gd !== a.gd) return b.gd - a.gd
     if (b.gf !== a.gf) return b.gf - a.gf
+
+    // N-team rank key: "3rd-rank-TeamA-TeamB-TeamC" → "TeamA,TeamB,TeamC" (comma-separated, best first)
+    const rankKey = Object.keys(tiebreakerMap).find((k) => {
+      if (!k.startsWith('3rd-rank-')) return false
+      // Names joined with '-'; team names shouldn't contain hyphens so split is safe
+      const names = k.slice('3rd-rank-'.length).split('-')
+      return names.includes(a.team) && names.includes(b.team)
+    })
+    if (rankKey) {
+      const ranked = tiebreakerMap[rankKey].split(',')
+      const ai = ranked.indexOf(a.team)
+      const bi = ranked.indexOf(b.team)
+      if (ai !== -1 && bi !== -1) return ai - bi
+    }
+
+    // 2-team pairwise key fallback
     const key1 = `3rd-${a.team}-vs-${b.team}`
     const key2 = `3rd-${b.team}-vs-${a.team}`
     const picked = tiebreakerMap[key1] || tiebreakerMap[key2]
