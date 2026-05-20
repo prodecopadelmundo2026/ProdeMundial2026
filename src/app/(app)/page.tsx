@@ -132,13 +132,21 @@ export default async function HomePage() {
   }
 
   const allUpcoming = (upcoming ?? []) as Match[]
-  // Only show matches from the first scheduled day
   const firstDay = allUpcoming[0]
     ? new Date(allUpcoming[0].scheduled_at).toDateString()
     : null
-  const matches = firstDay
+  const firstDayMatches = firstDay
     ? allUpcoming.filter((m) => new Date(m.scheduled_at).toDateString() === firstDay)
     : []
+  // Up to 3 matches: fill from first day, complement with next day if needed
+  const matches = firstDayMatches.length >= 3
+    ? firstDayMatches.slice(0, 3)
+    : [
+        ...firstDayMatches,
+        ...allUpcoming
+          .filter((m) => new Date(m.scheduled_at).toDateString() !== firstDay)
+          .slice(0, 3 - firstDayMatches.length),
+      ]
 
   const predictionMap: Record<string, { home_score: number; away_score: number }> = {}
   if (user && matches.length > 0) {
@@ -521,7 +529,7 @@ export default async function HomePage() {
               <em className="italic text-orange">26'</em>
             </div>
             <p className="mt-[10px] text-muted text-[13px] max-w-[340px] leading-relaxed">
-              Pronósticos del Mundial 2026, hechos en Argentina. Sin apuestas, sin guita rara — solo gloria.
+              Pronósticos del Mundial 2026.
             </p>
           </div>
           <div>
@@ -533,7 +541,6 @@ export default async function HomePage() {
                 { href: '/mi-prode', label: 'Mi Prode' },
                 { href: '/ranking', label: 'Ranking en vivo' },
                 { href: '/premios', label: 'Premios' },
-                { href: '/fixture', label: 'Fixture completo' },
               ].map(({ href, label }) => (
                 <li key={label}>
                   <Link
@@ -554,8 +561,6 @@ export default async function HomePage() {
               {[
                 { href: '/reglas', label: 'Reglas y puntaje' },
                 { href: '/reglas', label: 'Preguntas frecuentes' },
-                { href: '/reglas', label: 'Contacto' },
-                { href: '/reglas', label: 'Términos' },
               ].map(({ href, label }) => (
                 <li key={label}>
                   <Link
@@ -573,7 +578,7 @@ export default async function HomePage() {
           className="max-w-[1280px] mx-auto mt-[30px] pt-5 text-[#666] text-[12px] flex flex-wrap gap-[10px] justify-between"
           style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
         >
-          <span>© 2026 Prode 26 · Hecho con mate en Buenos Aires</span>
+          <span>© 2026 Prode 26</span>
           <span>v1.0.0 · No afiliado a FIFA</span>
         </div>
       </footer>
