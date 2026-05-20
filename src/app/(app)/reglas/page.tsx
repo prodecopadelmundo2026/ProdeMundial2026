@@ -1,125 +1,216 @@
+const MATCH_RULES = [
+  {
+    type: 'exact',
+    meta: 'Acierto pleno',
+    pts: '+3',
+    name: 'Resultado exacto',
+    desc: 'Le pegaste al marcador completo. Argentina 3 - 1 Brasil y pusiste 3-1. Bingo.',
+    color: '#FFE040',
+  },
+  {
+    type: 'partial',
+    meta: 'Acierto parcial',
+    pts: '+1',
+    name: 'Ganador o empate',
+    desc: 'Acertaste quién ganaba (o el empate) aunque no el resultado exacto. Igual sumás.',
+    color: '#A8F0D8',
+  },
+  {
+    type: 'miss',
+    meta: 'Sin acierto',
+    pts: '0',
+    name: 'Incorrecto',
+    desc: 'El fútbol es así. Mañana viene otro partido. No se sufre, se juega.',
+    color: '#3a3a3a',
+  },
+]
+
+const SPECIAL_RULES = [
+  {
+    meta: 'Mejor jugador',
+    pts: '+20',
+    name: 'Balón de Oro',
+    desc: 'El mejor jugador del torneo. El más subjetivo de todos — por eso vale más.',
+    color: '#5B2D8E',
+  },
+  {
+    meta: 'Máximo goleador',
+    pts: '+15',
+    name: 'Bota de Oro',
+    desc: 'El jugador con más goles al final del Mundial. El artillero del torneo.',
+    color: '#FF6B00',
+  },
+  {
+    meta: 'Mejor arquero',
+    pts: '+15',
+    name: 'Guante de Oro',
+    desc: 'El mejor arquero del torneo. El que menos comió, el que más voló.',
+    color: '#1565C0',
+  },
+]
+
+function RuleCard({ meta, pts, name, desc, color }: {
+  meta: string; pts: string; name: string; desc: string; color: string
+}) {
+  return (
+    <article
+      className="relative flex flex-col overflow-hidden"
+      style={{
+        background: '#141414',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 24,
+        padding: '28px 26px 26px',
+        minHeight: 230,
+        transition: 'transform .2s ease, border-color .2s ease',
+      }}
+    >
+      {/* Left color strip */}
+      <div
+        className="absolute left-0 top-0 bottom-0"
+        style={{ width: 3, background: color, opacity: 0.85 }}
+      />
+
+      {/* Head row: meta pill + pts */}
+      <div className="flex justify-between items-start gap-2.5 mb-auto">
+        <span
+          className="font-mono text-[10px] font-bold uppercase"
+          style={{
+            letterSpacing: '0.24em',
+            padding: '6px 10px',
+            borderRadius: 999,
+            background: 'rgba(255,255,255,0.06)',
+            color: '#8A8A8A',
+          }}
+        >
+          {meta}
+        </span>
+        <span
+          className="font-display"
+          style={{ fontSize: 72, lineHeight: 0.85, letterSpacing: '-0.05em', color, marginTop: -6 }}
+        >
+          {pts}
+        </span>
+      </div>
+
+      <h4
+        className="font-display uppercase"
+        style={{ fontSize: 18, letterSpacing: '-0.01em', lineHeight: 1.05, marginTop: 20 }}
+      >
+        {name}
+      </h4>
+      <p
+        className="font-medium"
+        style={{ marginTop: 10, color: '#8A8A8A', fontSize: 13, lineHeight: 1.5 }}
+      >
+        {desc}
+      </p>
+    </article>
+  )
+}
+
 export default function ReglasPage() {
   return (
-    <div style={{ padding: '48px 20px 80px' }}>
-      <div className="max-w-[860px] mx-auto">
+    <div style={{ padding: '48px 20px 100px' }}>
+      <div style={{ maxWidth: 1280, margin: '0 auto' }}>
 
-        {/* Header */}
-        <div className="mb-12">
-          <p className="text-[11px] font-extrabold tracking-[0.22em] uppercase text-muted mb-3">
-            Cómo jugar
-          </p>
-          <h1
-            className="font-display uppercase leading-[0.9] tracking-[-0.03em]"
-            style={{ fontSize: 'clamp(36px, 6vw, 64px)' }}
+        {/* ── Header ── */}
+        <div style={{ marginBottom: 40 }}>
+          <span
+            className="font-sans font-extrabold uppercase"
+            style={{ fontSize: 12, letterSpacing: '0.22em', color: '#8A8A8A', display: 'inline-block', marginBottom: 18 }}
           >
-            Reglas del <em className="italic text-orange">Prode</em>
+            Cómo jugar
+          </span>
+          <h1
+            className="font-display uppercase"
+            style={{ fontSize: 'clamp(48px, 9vw, 108px)', lineHeight: 0.9, letterSpacing: '-0.04em' }}
+          >
+            Reglas del <em className="italic" style={{ color: '#FF6B00' }}>juego</em>
           </h1>
-          <p className="text-muted text-[14px] mt-3">
+          <p
+            className="font-mono font-bold"
+            style={{ marginTop: 14, color: '#8A8A8A', fontSize: 13, letterSpacing: '0.04em' }}
+          >
             Mundial 2026 · USA · Canadá · México
           </p>
         </div>
 
-        {/* Sistema de puntaje */}
-        <section className="mb-10">
-          <h2
-            className="font-display uppercase tracking-[-0.02em] leading-none mb-5"
-            style={{ fontSize: 'clamp(20px, 3vw, 28px)' }}
-          >
-            Sistema de <em className="italic text-orange">puntaje</em>
-          </h2>
-          <div className="grid grid-cols-1 min-[640px]:grid-cols-3 gap-3">
-            {[
-              { pts: '+3', title: 'Resultado exacto', desc: 'Acertás el marcador completo.', color: '#FFE040' },
-              { pts: '+1', title: 'Ganador o Empate', desc: 'Acertás quién gana o que empatan, pero no el marcador exacto.', color: '#A8F0D8' },
-              { pts: '0', title: 'Incorrecto', desc: 'El fútbol siempre da revancha.', color: '#3a3a3a' },
-            ].map(({ pts, title, desc, color }) => (
-              <div
-                key={title}
-                className="relative bg-panel rounded-[20px] p-6 flex flex-col gap-2 overflow-hidden"
-                style={{ border: '1px solid rgba(255,255,255,0.08)' }}
-              >
-                <div className="font-display text-[56px] leading-none tracking-[-0.04em]" style={{ color }}>
-                  {pts}
-                </div>
-                <h4 className="font-display text-[16px] tracking-[-0.01em] uppercase">{title}</h4>
-                <p className="text-muted text-[13px] leading-relaxed font-medium">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Reglas generales */}
-        <section className="mb-10">
-          <h2
-            className="font-display uppercase tracking-[-0.02em] leading-none mb-5"
-            style={{ fontSize: 'clamp(20px, 3vw, 28px)' }}
-          >
-            Reglas <em className="italic text-orange">generales</em>
-          </h2>
+        {/* ── Info banner ── */}
+        <aside
+          className="flex items-start gap-3.5"
+          style={{
+            marginBottom: 40,
+            background: 'linear-gradient(90deg, rgba(168,240,216,.07), rgba(168,240,216,.02))',
+            border: '1px solid rgba(168,240,216,.22)',
+            borderRadius: 20,
+            padding: '20px 24px',
+          }}
+        >
           <div
-            className="rounded-[20px] overflow-hidden"
-            style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+            className="shrink-0 grid place-items-center"
+            style={{ width: 32, height: 32, borderRadius: 10, background: '#A8F0D8', color: '#0A0A0A' }}
           >
-            {[
-              'Podés predecir o modificar tu pronóstico antes que comience el mundial.',
-              'Una vez comenzado el mundial, tu predicción queda bloqueada.',
-              'Los resultados se cargan manualmente hasta el comienzo de una nueva fecha.',
-              'El ranking se actualiza automáticamente al cargar resultados.',
-              'En caso de empate en puntos, desempata quien tenga más aciertos exactos.',
-            ].map((rule, i) => (
-              <div
-                key={i}
-                className="flex gap-5 px-6 py-4"
-                style={{
-                  background: '#141414',
-                  borderBottom: i < 4 ? '1px solid rgba(255,255,255,0.06)' : undefined,
-                }}
-              >
-                <span
-                  className="font-display text-[20px] leading-none shrink-0 mt-0.5"
-                  style={{ color: '#FF6B00' }}
-                >
-                  {i + 1}
-                </span>
-                <p className="text-[14px] leading-relaxed font-medium" style={{ color: '#cfcfcf' }}>
-                  {rule}
-                </p>
-              </div>
-            ))}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4M12 8h.01" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4
+              className="font-sans font-extrabold"
+              style={{ fontSize: 14, color: '#A8F0D8', marginBottom: 4 }}
+            >
+              El que más le pega, gana
+            </h4>
+            <p className="font-medium" style={{ fontSize: 13, lineHeight: 1.55, color: '#cfcfcf' }}>
+              Pronosticá el resultado de los <strong style={{ color: '#fff', fontWeight: 800 }}>80 partidos</strong> del Mundial. Sumás puntos partido a partido y al final del torneo se reparte el podio. También podés sumar <strong style={{ color: '#fff', fontWeight: 800 }}>hasta 50 puntos extra</strong> con las apuestas especiales (Balón, Bota y Guante de Oro).
+            </p>
+          </div>
+        </aside>
+
+        {/* ── Puntaje por partido ── */}
+        <section style={{ marginBottom: 60 }}>
+          <div style={{ marginBottom: 22 }}>
+            <h2
+              className="font-display uppercase"
+              style={{ fontSize: 'clamp(24px, 3.4vw, 32px)', letterSpacing: '-0.02em', lineHeight: 1 }}
+            >
+              Puntaje por <em className="italic" style={{ color: '#FF6B00' }}>partido</em>
+            </h2>
+            <p className="font-medium" style={{ marginTop: 8, color: '#8A8A8A', fontSize: 14, maxWidth: 520, lineHeight: 1.5 }}>
+              Cargá un resultado por partido. Cada acierto suma según el tipo.
+            </p>
+          </div>
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+            {MATCH_RULES.map((r) => <RuleCard key={r.type} {...r} />)}
           </div>
         </section>
 
-        {/* Apuestas especiales */}
-        <section>
-          <h2
-            className="font-display uppercase tracking-[-0.02em] leading-none mb-2"
-            style={{ fontSize: 'clamp(20px, 3vw, 28px)' }}
-          >
-            Apuestas <em className="italic text-orange">especiales</em>
-          </h2>
-          <p className="text-muted text-[14px] max-w-[520px] leading-relaxed mb-5">
-            Se cargan una sola vez antes del Mundial. Si acertás, suman al final del torneo.
-          </p>
-          <div className="grid grid-cols-1 min-[640px]:grid-cols-3 gap-3">
-            {[
-              { pts: '+20', title: 'Balón de Oro', desc: 'El mejor jugador del torneo.', color: '#FFE040' },
-              { pts: '+15', title: 'Bota de Oro', desc: 'El goleador del torneo.', color: '#FF6B00' },
-              { pts: '+15', title: 'Guante de Oro', desc: 'El mejor arquero del torneo.', color: '#1565C0' },
-            ].map(({ pts, title, desc, color }) => (
-              <div
-                key={title}
-                className="relative bg-panel rounded-[20px] p-6 flex flex-col gap-2 overflow-hidden"
-                style={{ border: '1px solid rgba(255,255,255,0.08)' }}
-              >
-                <div className="font-display text-[56px] leading-none tracking-[-0.04em]" style={{ color }}>
-                  {pts}
-                </div>
-                <h4 className="font-display text-[16px] tracking-[-0.01em] uppercase">{title}</h4>
-                <p className="text-muted text-[13px] leading-relaxed font-medium">{desc}</p>
-              </div>
-            ))}
+        {/* ── Apuestas especiales ── */}
+        <section style={{ marginBottom: 60 }}>
+          <div style={{ marginBottom: 22 }}>
+            <h2
+              className="font-display uppercase"
+              style={{ fontSize: 'clamp(24px, 3.4vw, 32px)', letterSpacing: '-0.02em', lineHeight: 1 }}
+            >
+              Apuestas <em className="italic" style={{ color: '#FF6B00' }}>especiales</em>
+            </h2>
+            <p className="font-medium" style={{ marginTop: 8, color: '#8A8A8A', fontSize: 14, maxWidth: 520, lineHeight: 1.5 }}>
+              Cargás una sola vez antes del Mundial. Si acertás, suman al final del torneo.
+            </p>
+          </div>
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+            {SPECIAL_RULES.map((r) => <RuleCard key={r.name} {...r} />)}
           </div>
         </section>
+
+        {/* ── Footer ── */}
+        <p
+          className="font-mono font-bold uppercase text-center"
+          style={{ marginTop: 12, fontSize: 11, color: '#3a3a3a', letterSpacing: '0.18em' }}
+        >
+          · fin de reglas ·
+        </p>
 
       </div>
     </div>
