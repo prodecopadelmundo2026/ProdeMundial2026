@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import clsx from 'clsx'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -347,8 +347,31 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
   })
 
   const [tiebreakerMap, setTiebreakerMap] = useState<Record<string, string>>(initialTiebreakerMap)
-  const [saveState, setSaveState] = useState<Record<string, 'idle' | 'saving' | 'saved' | 'error'>>({})
   const [adminSaveState, setAdminSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (readOnly) return
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(async () => {
+      const now = new Date()
+      const predictions = knockoutMatches
+        .map((m) => {
+          if (m.status !== 'upcoming' || now >= new Date(m.locked_at)) return null
+          const inp = localInputs[m.id]
+          if (!inp || inp.home === '' || inp.away === '') return null
+          const h = parseScoreInput(inp.home)
+          const a = parseScoreInput(inp.away)
+          if (h == null || a == null) return null
+          return { matchId: m.id, homeScore: h, awayScore: a, tiebreakerTeam: tiebreakerMap[m.id] ?? null }
+        })
+        .filter((p): p is NonNullable<typeof p> => p !== null)
+      if (!predictions.length) return
+      try { await upsertPredictionsBatch(predictions) } catch {}
+    }, 800)
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localInputs, tiebreakerMap, readOnly])
 
   // Effective predMap merges saved predictions with locally entered values
   const effectivePredMap: PredMap = { ...predMap }
@@ -364,9 +387,6 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
 
   function handleValuesChange(matchId: string, home: string, away: string) {
     setLocalInputs((prev) => ({ ...prev, [matchId]: { home, away } }))
-    const round = knockoutMatches.find((m) => m.id === matchId)?.stage
-    const key = round === 'third_place' ? 'final' : (round ?? '')
-    setSaveState((prev) => ({ ...prev, [key]: 'idle' }))
   }
 
   function handleTiebreaker(matchId: string, team: string | null) {
@@ -377,42 +397,6 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
       }
       return { ...prev, [matchId]: team }
     })
-    const round = knockoutMatches.find((m) => m.id === matchId)?.stage
-    const key = round === 'third_place' ? 'final' : (round ?? '')
-    setSaveState((prev) => ({ ...prev, [key]: 'idle' }))
-  }
-
-  async function handleSave(round: string) {
-    const roundMatches = knockoutMatches.filter((m) => {
-      const key = m.stage === 'third_place' ? 'final' : m.stage
-      return key === round
-    })
-
-    const predictions = roundMatches
-      .map((m) => {
-        const inp = localInputs[m.id]
-        if (!inp || inp.home === '' || inp.away === '') return null
-        const homeScore = parseScoreInput(inp.home)
-        const awayScore = parseScoreInput(inp.away)
-        if (homeScore == null || awayScore == null) return null
-        return {
-          matchId: m.id,
-          homeScore,
-          awayScore,
-          tiebreakerTeam: tiebreakerMap[m.id] ?? null,
-        }
-      })
-      .filter(Boolean) as Array<{ matchId: string; homeScore: number; awayScore: number; tiebreakerTeam: string | null }>
-
-    if (!predictions.length) return
-
-    setSaveState((prev) => ({ ...prev, [round]: 'saving' }))
-    try {
-      await upsertPredictionsBatch(predictions)
-      setSaveState((prev) => ({ ...prev, [round]: 'saved' }))
-    } catch {
-      setSaveState((prev) => ({ ...prev, [round]: 'error' }))
-    }
   }
 
   const byRound: Record<string, Match[]> = {}
@@ -425,20 +409,7 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
   const availableRounds = ROUND_ORDER.filter((r) => byRound[r]?.length)
   const [activeRound, setActiveRound] = useState(availableRounds[0] ?? 'round_of_32')
 
-  const hasGroupPredictions = groupMatches.some((m) => predMap[m.id])
-
-  // Count open matches in active round
   const now = new Date()
-  const roundMatches = byRound[activeRound] ?? []
-  const openMatches = roundMatches.filter(
-    (m) => m.status === 'upcoming' && now < new Date(m.locked_at)
-  )
-  const filledCount = openMatches.filter((m) => {
-    const inp = localInputs[m.id]
-    return inp && inp.home !== '' && inp.away !== ''
-  }).length
-  const totalOpen = openMatches.length
-  const roundSaveState = saveState[activeRound] ?? 'idle'
 
   function getResolvedTeams(match: Match) {
     const nextPredMap: PredMap = { ...effectivePredMap }
@@ -470,13 +441,6 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
             home: String(pred.homeScore),
             away: String(pred.awayScore),
           }
-        }
-        return next
-      })
-      setSaveState((prev) => {
-        const next = { ...prev }
-        for (const match of targetMatches) {
-          next[match.stage === 'third_place' ? 'final' : match.stage] = 'saved'
         }
         return next
       })
@@ -614,35 +578,6 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
         </div>
       )}
 
-      {/* Save button */}
-      {totalOpen > 0 && !readOnly && (
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-[13px] text-muted font-semibold">
-            {filledCount}/{totalOpen} completados
-          </span>
-          <button
-            onClick={() => handleSave(activeRound)}
-            disabled={filledCount === 0 || roundSaveState === 'saving'}
-            className="px-6 py-2.5 rounded-full text-[13px] font-extrabold tracking-[0.06em] uppercase transition-all duration-150 disabled:opacity-40"
-            style={{
-              background: roundSaveState === 'saved' ? '#A8F0D8' : '#FF6B00',
-              color: roundSaveState === 'saved' ? '#0A0A0A' : '#fff',
-              boxShadow:
-                filledCount > 0 && roundSaveState !== 'saving'
-                  ? '0 6px 18px -8px rgba(255,107,0,.5)'
-                  : 'none',
-            }}
-          >
-            {roundSaveState === 'saving'
-              ? 'Guardando...'
-              : roundSaveState === 'saved'
-              ? 'Guardado'
-              : roundSaveState === 'error'
-              ? 'Error — reintentar'
-              : `Guardar ${ROUND_LABELS[activeRound]}`}
-          </button>
-        </div>
-      )}
     </div>
   )
 }

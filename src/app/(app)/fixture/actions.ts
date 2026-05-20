@@ -168,27 +168,35 @@ export async function deleteGroupPredictions() {
 }
 
 export async function generateRandomGroupPredictions() {
-  const { supabase } = await requireAdmin()
-  const now = new Date()
+  const { supabase, user } = await requireAdmin()
 
   const { data: groupMatches } = await supabase
     .from('matches')
-    .select('id, locked_at, status')
+    .select('id')
     .eq('stage', 'group')
 
-  const openGroupMatches = (groupMatches ?? []).filter(
-    (m) => m.status === 'upcoming' && now < new Date(m.locked_at)
-  )
+  if (!groupMatches?.length) return []
 
-  if (!openGroupMatches.length) return []
-
-  const generated = openGroupMatches.map((match) => ({
+  const generated = groupMatches.map((match) => ({
     matchId: match.id,
     homeScore: randomFakeScore(),
     awayScore: randomFakeScore(),
   }))
 
-  await savePredictionsRpc(supabase, generated)
+  const { error } = await supabase
+    .from('predictions')
+    .upsert(
+      generated.map((p) => ({
+        user_id: user.id,
+        match_id: p.matchId,
+        home_score: p.homeScore,
+        away_score: p.awayScore,
+        updated_at: new Date().toISOString(),
+      })),
+      { onConflict: 'user_id,match_id' }
+    )
+
+  if (error) throw error
   revalidatePath('/')
   revalidatePath('/mi-prode')
   return generated
