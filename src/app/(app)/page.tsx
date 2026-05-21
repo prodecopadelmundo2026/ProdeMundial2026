@@ -86,14 +86,14 @@ export default async function HomePage() {
 
   const [
     { count: participantes },
-    { data: allPredUserIds },
-    { count: totalMatches },
+    { count: myPredsCount },
     { data: upcoming },
     { data: topRanking },
   ] = await Promise.all([
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
-    supabase.from('predictions').select('user_id'),
-    supabase.from('matches').select('*', { count: 'exact', head: true }),
+    user
+      ? supabase.from('predictions').select('*', { count: 'exact', head: true }).limit(1)
+      : Promise.resolve({ count: 0 }),
     supabase
       .from('matches')
       .select('*')
@@ -107,16 +107,7 @@ export default async function HomePage() {
       .limit(10),
   ])
 
-  const userPredCounts: Record<string, number> = {}
-  for (const pred of (allPredUserIds ?? [])) {
-    userPredCounts[pred.user_id] = (userPredCounts[pred.user_id] ?? 0) + 1
-  }
-  const prodesCompletados = totalMatches
-    ? Object.values(userPredCounts).filter(c => c >= totalMatches).length
-    : 0
-  const hasMyPredictions = user
-    ? (allPredUserIds ?? []).some(p => p.user_id === user.id)
-    : false
+  const hasMyPredictions = (myPredsCount ?? 0) > 0
 
   const typedTopRanking = (topRanking ?? []) as RankingEntry[]
   const isInTop10 = user ? typedTopRanking.some(e => e.user_id === user.id) : false
@@ -311,9 +302,8 @@ export default async function HomePage() {
         className="bg-orange text-bg overflow-hidden"
         style={{ borderTop: '2px solid #0A0A0A', borderBottom: '2px solid #0A0A0A' }}
       >
-        <div className="max-w-[1280px] mx-auto px-5 py-7 grid grid-cols-2 min-[780px]:grid-cols-4 gap-5">
+        <div className="max-w-[1280px] mx-auto px-5 py-7 grid grid-cols-3 gap-5">
           <StatItem num={participantes ?? 0} label="Participantes" live />
-          <StatItem num={prodesCompletados} label="Pronósticos cargados" />
           <StatItem num={290} label="Puntos en juego" />
           <StatItem num={80} label="Partidos · 48 selecciones" />
         </div>
