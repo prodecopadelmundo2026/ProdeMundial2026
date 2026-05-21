@@ -715,45 +715,10 @@ export function BracketView({
         </div>
       )}
 
-      {isAdmin && (
-        <div
-          className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-sm"
-          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}
-        >
-          <div>
-            <p className="font-extrabold text-white">Herramienta admin eliminatorias</p>
-            <p className="text-muted">
-              {adminSaveState === 'saved'
-                ? adminSaveMessage ?? 'Pronósticos cargados correctamente.'
-                : adminSaveState === 'error' && adminSaveError
-                ? `Error real: ${adminSaveError}`
-                : 'Carga pronosticos aleatorios solo para eliminatorias disponibles. Apuestas especiales es una carga de prueba separada.'}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => {
-                setRandomModalOpen(true)
-                setAdminSaveState('idle')
-                setAdminSaveError(null)
-              }}
-              disabled={adminSaveState === 'saving' || adminAllEligibleCount === 0}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
-              style={{ background: '#FF6B00', color: '#0A0A0A', border: '1px solid rgba(255,107,0,0.35)' }}
-            >
-              <Shuffle size={15} strokeWidth={2.5} />
-              Cargar aleatorios
-            </button>
-            <button
-              onClick={handleAdminRandomSpecials}
-              disabled={adminSaveState === 'saving'}
-              className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
-              style={{ background: '#181818', color: '#c8a8f0', border: '1px solid rgba(168,140,220,0.22)' }}
-            >
-              Cargar apuestas especiales
-            </button>
-          </div>
-        </div>
+      {isAdmin && (adminSaveState === 'saved' || adminSaveState === 'error') && (
+        <p className="text-[12px] font-bold px-1" style={{ color: adminSaveState === 'error' ? '#FF6B6B' : '#A8F0D8' }}>
+          {adminSaveState === 'error' ? `Error: ${adminSaveError}` : (adminSaveMessage ?? 'Cargado correctamente.')}
+        </p>
       )}
 
       {randomModalOpen && (
