@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { requireAdmin } from '../actions'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { WhitelistForm, type AuthorizedEmailRow } from './WhitelistForm'
 
 type Props = {
@@ -10,15 +11,15 @@ type Props = {
 export default async function AdminWhitelistPage({ searchParams }: Props) {
   const { q } = await searchParams
   const query = q?.trim() ?? ''
-  let supabase
 
   try {
-    supabase = await requireAdmin()
+    await requireAdmin()
   } catch {
     redirect('/')
   }
 
-  const { data, error } = await supabase.rpc('admin_list_authorized_emails', {
+  const admin = createAdminClient()
+  const { data, error } = await admin.rpc('admin_list_authorized_emails', {
     p_query: query,
   })
 

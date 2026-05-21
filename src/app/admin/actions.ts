@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
 export async function requireAdmin() {
@@ -15,7 +16,6 @@ export async function requireAdmin() {
     .single()
 
   if (!profile?.is_admin) throw new Error('Sin permisos de administrador')
-  return supabase
 }
 
 export async function setMatchResult(
@@ -27,9 +27,12 @@ export async function setMatchResult(
   if (!Number.isInteger(homeScore) || homeScore < 0 || homeScore > 99) throw new Error('Goles inválidos')
   if (!Number.isInteger(awayScore) || awayScore < 0 || awayScore > 99) throw new Error('Goles inválidos')
 
-  const supabase = await requireAdmin()
+  await requireAdmin()
 
-  const { error } = await supabase
+  // Use service-role client to bypass RLS — admin writes always need this
+  const admin = createAdminClient()
+
+  const { data, error } = await admin
     .from('matches')
     .update({
       home_score: homeScore,
@@ -37,8 +40,10 @@ export async function setMatchResult(
       status,
     })
     .eq('id', matchId)
+    .select('id')
 
-  if (error) throw error
+  if (error) throw new Error(error.message)
+  if (!data || data.length === 0) throw new Error('No se encontró el partido o no se pudo actualizar.')
 
   revalidatePath('/admin')
   revalidatePath('/ranking')
@@ -47,7 +52,9 @@ export async function setMatchResult(
 }
 
 export async function upsertAuthorizedEmail(formData: FormData) {
-  const supabase = await requireAdmin()
+  await requireAdmin()
+  const admin = createAdminClient()
+
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
   const label = String(formData.get('label') ?? '').trim()
   const active = formData.get('active') === 'on'
@@ -56,7 +63,7 @@ export async function upsertAuthorizedEmail(formData: FormData) {
     throw new Error('Email inválido')
   }
 
-  const { error } = await supabase.rpc('admin_upsert_authorized_email', {
+  const { error } = await admin.rpc('admin_upsert_authorized_email', {
     p_email: email,
     p_label: label,
     p_active: active,
@@ -68,8 +75,10 @@ export async function upsertAuthorizedEmail(formData: FormData) {
 }
 
 export async function setAuthorizedEmailActive(email: string, active: boolean) {
-  const supabase = await requireAdmin()
-  const { error } = await supabase.rpc('admin_set_authorized_email_active', {
+  await requireAdmin()
+  const admin = createAdminClient()
+
+  const { error } = await admin.rpc('admin_set_authorized_email_active', {
     p_email: email,
     p_active: active,
   })
