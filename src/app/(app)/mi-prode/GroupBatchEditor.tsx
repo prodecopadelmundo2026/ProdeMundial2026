@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import type { Match } from '@/types'
 import { MatchCard } from '@/components/MatchCard'
 import { getTeam, flagUrl } from '@/lib/teams'
@@ -552,6 +552,15 @@ interface Props {
 export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPredChange, onMatchSaveStateChange, tiebreakers, onTiebreaker }: Props) {
   const tabs = sortTabs(Object.keys(grouped))
   const [activeGroup, setActiveGroup] = useState(tabs[0] ?? '')
+  const matchesTopRef = useRef<HTMLDivElement>(null)
+  const prevGroupRef = useRef(activeGroup)
+
+  useEffect(() => {
+    if (activeGroup !== prevGroupRef.current) {
+      prevGroupRef.current = activeGroup
+      matchesTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [activeGroup])
 
   const currentGroupMatches = grouped[activeGroup] ?? []
 
@@ -730,6 +739,9 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
         />
       ) : (
         <>
+          {/* Scroll anchor — placed above the grid so arrows land here */}
+          <div ref={matchesTopRef} style={{ scrollMarginTop: '80px' }} />
+
           {/* Matches grid — autosave via MatchCard */}
           <div className="grid grid-cols-1 min-[720px]:grid-cols-2 min-[1100px]:grid-cols-3 gap-4">
             {currentGroupMatches.map((match) => (

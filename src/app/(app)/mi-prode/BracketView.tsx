@@ -665,12 +665,25 @@ export function BracketView({
   }
 
   const visibleRounds = availableRounds
+  const currentRoundIdx = visibleRounds.indexOf(activeRound as RoundKey)
+  const prevRound = currentRoundIdx > 0 ? visibleRounds[currentRoundIdx - 1] : null
+  const nextRound = currentRoundIdx < visibleRounds.length - 1 ? visibleRounds[currentRoundIdx + 1] : null
+
+  const matchesTopRef = useRef<HTMLDivElement>(null)
+  const prevRoundRef = useRef(activeRound)
 
   useEffect(() => {
     if (availableRounds.length && !availableRounds.includes(activeRound as RoundKey)) {
       setActiveRound(visibleRounds[0])
     }
   }, [activeRound, availableRounds, visibleRounds])
+
+  useEffect(() => {
+    if (activeRound !== prevRoundRef.current) {
+      prevRoundRef.current = activeRound
+      matchesTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [activeRound])
 
   useEffect(() => {
     if (openRandomModal) setRandomModalOpen(true)
@@ -836,27 +849,99 @@ export function BracketView({
         </div>
       )}
 
-      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5">
-        {visibleRounds.map((round) => (
-          <button
-            key={round}
-            onClick={() => setActiveRound(round)}
-            className={clsx(
-              'px-4 py-2 rounded-full text-[12px] font-extrabold tracking-[0.08em] uppercase transition-all duration-150 shrink-0 whitespace-nowrap',
-              activeRound === round
-                ? 'bg-[#c8a84a] text-[#0a0a0a]'
-                : 'text-[#7a7266] hover:text-[#ede8dc]'
-            )}
-            style={
-              activeRound === round
-                ? { boxShadow: '0 6px 18px -8px rgba(200,168,74,.5)' }
-                : { background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }
-            }
+      {/* Combo row — dropdown + arrows */}
+      <div className="flex items-end gap-2" style={{ minWidth: 0 }}>
+        <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+          <label className="text-[11px] font-extrabold tracking-[0.22em] uppercase text-muted">
+            Seleccioná la fase
+          </label>
+          <div
+            className="relative transition-[border-color,background] duration-150"
+            style={{
+              background: '#141414',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '14px',
+            }}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget as HTMLElement
+              el.style.borderColor = 'rgba(255,255,255,.18)'
+              el.style.background = '#1C1C1C'
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget as HTMLElement
+              el.style.borderColor = 'rgba(255,255,255,.08)'
+              el.style.background = '#141414'
+            }}
           >
-            {ROUND_LABELS[round]}
+            <select
+              value={activeRound}
+              onChange={(e) => setActiveRound(e.target.value as RoundKey)}
+              className="w-full bg-transparent text-white font-extrabold text-[15px] outline-none cursor-pointer"
+              style={{
+                appearance: 'none',
+                WebkitAppearance: 'none',
+                padding: '14px 46px 14px 16px',
+                border: 'none',
+              }}
+            >
+              {visibleRounds.map((round) => (
+                <option key={round} value={round} style={{ background: '#000', color: '#fff', fontWeight: 700 }}>
+                  {ROUND_LABELS[round]}
+                </option>
+              ))}
+            </select>
+            <svg
+              className="absolute right-[14px] top-1/2 -translate-y-1/2 pointer-events-none text-muted"
+              width="15" height="15" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
+        </div>
+
+        <div className="flex gap-2 shrink-0">
+          <button
+            onClick={() => prevRound && setActiveRound(prevRound)}
+            disabled={!prevRound}
+            className="grid place-items-center transition-all duration-150"
+            style={{
+              width: 44, height: 44,
+              background: prevRound ? '#141414' : '#0d0d0d',
+              border: `1px solid ${prevRound ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)'}`,
+              borderRadius: 12,
+              color: prevRound ? '#cfcfcf' : '#282828',
+              cursor: prevRound ? 'pointer' : 'default',
+            }}
+            aria-label="Fase anterior"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
           </button>
-        ))}
+          <button
+            onClick={() => nextRound && setActiveRound(nextRound)}
+            disabled={!nextRound}
+            className="grid place-items-center transition-all duration-150"
+            style={{
+              width: 44, height: 44,
+              background: nextRound ? '#141414' : '#0d0d0d',
+              border: `1px solid ${nextRound ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)'}`,
+              borderRadius: 12,
+              color: nextRound ? '#cfcfcf' : '#282828',
+              cursor: nextRound ? 'pointer' : 'default',
+            }}
+            aria-label="Fase siguiente"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        </div>
       </div>
+
+      {/* Scroll anchor */}
+      <div ref={matchesTopRef} style={{ scrollMarginTop: '80px' }} />
 
       {/* Round context line */}
       {ROUND_CONTEXT[activeRound] && (
