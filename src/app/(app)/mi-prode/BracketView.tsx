@@ -271,32 +271,36 @@ function BracketMatchCard({
 
       {/* Partido terminado/en vivo: Pronóstico + Resultado Final */}
       {hasRealScore ? (
-        <div className="flex flex-col gap-[6px]">
+        <div className="flex flex-col gap-[8px]">
           {/* Pronóstico */}
-          <div
-            className="flex items-center justify-between rounded-[10px]"
-            style={{ padding: '9px 12px', background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)' }}
-          >
-            <span className="text-[9px] font-extrabold uppercase tracking-[0.18em]" style={{ color: '#4a4a4a' }}>
+          <div>
+            <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] mb-[5px]" style={{ color: '#4a4a4a' }}>
               Pronóstico
-            </span>
-            {hasPrediction ? (
-              <span className="font-display text-[18px] text-white tabular-nums">{home} — {away}</span>
-            ) : (
-              <span className="text-[11px] font-bold" style={{ color: '#3a3a3a' }}>Sin pronóstico</span>
-            )}
+            </p>
+            <div
+              className="flex items-center justify-center rounded-[12px]"
+              style={{ padding: '10px 8px', background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)' }}
+            >
+              {hasPrediction ? (
+                <span className="font-display text-[24px] text-white tabular-nums">{home} — {away}</span>
+              ) : (
+                <span className="text-[11px] font-bold" style={{ color: '#3a3a3a' }}>Sin pronóstico</span>
+              )}
+            </div>
           </div>
           {/* Resultado final */}
-          <div
-            className="flex items-center justify-between rounded-[10px]"
-            style={{ padding: '9px 12px', background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-          >
-            <span className="text-[9px] font-extrabold uppercase tracking-[0.18em]" style={{ color: '#9a9a9a' }}>
+          <div>
+            <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] mb-[5px]" style={{ color: '#9a9a9a' }}>
               Resultado final
-            </span>
-            <span className="font-display text-[18px] text-white tabular-nums">
-              {match.home_score} — {match.away_score}
-            </span>
+            </p>
+            <div
+              className="flex items-center justify-center rounded-[12px]"
+              style={{ padding: '10px 8px', background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <span className="font-display text-[24px] text-white tabular-nums">
+                {match.home_score} — {match.away_score}
+              </span>
+            </div>
           </div>
         </div>
       ) : (
