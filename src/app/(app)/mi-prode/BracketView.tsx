@@ -924,7 +924,7 @@ export function BracketView({
 
       {/* Main round matches — non-final rounds */}
       {activeRound !== 'final' && (
-        <div className="grid grid-cols-1 min-[600px]:grid-cols-2 min-[960px]:grid-cols-3 min-[1200px]:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 min-[720px]:grid-cols-2 min-[1100px]:grid-cols-3 gap-4">
           {(byRound[activeRound] ?? [])
             .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
             .map((match) => (
@@ -946,7 +946,7 @@ export function BracketView({
 
       {/* Final round: Final + 3er Puesto */}
       {activeRound === 'final' && (
-        <div className="grid grid-cols-1 min-[600px]:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 min-[720px]:grid-cols-2 gap-4">
           {(byRound['final'] ?? [])
             .sort((a, b) => {
               if (a.stage === 'third_place' && b.stage !== 'third_place') return 1
