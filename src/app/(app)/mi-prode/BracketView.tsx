@@ -142,11 +142,9 @@ function BracketMatchCard({
   const now = new Date()
   const lockedAt = new Date(match.locked_at)
   const isOpen = match.status === 'upcoming' && now < lockedAt && !disabled
-  const isClosed = match.status === 'upcoming' && now >= lockedAt
   const isLive = match.status === 'live'
   const isFinished = match.status === 'finished'
-  const isScored = isLive || isFinished
-  const stripKey = isOpen ? 'open' : isClosed ? 'closed' : match.status
+  const hasRealScore = (isLive || isFinished) && match.home_score != null && match.away_score != null
 
   const [home, setHome] = useState(initialHome)
   const [away, setAway] = useState(initialAway)
@@ -175,7 +173,6 @@ function BracketMatchCard({
 
   const stageLabel = ROUND_LABELS[match.stage] ?? match.stage
   const kickoffStr = format(new Date(match.scheduled_at), 'EEE d MMM · HH:mm', { locale: es })
-  const closeStr = format(lockedAt, 'HH:mm', { locale: es })
   const hasPrediction = home !== '' && away !== ''
   const isDrawPred = hasPrediction && Number(home) === Number(away)
 
@@ -184,8 +181,8 @@ function BracketMatchCard({
       className="relative bg-panel overflow-hidden transition-all duration-200 hover:-translate-y-[3px]"
       style={{
         border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: '24px',
-        padding: '22px 22px 20px',
+        borderRadius: '18px',
+        padding: '14px 14px 12px',
       }}
       onMouseEnter={(e) =>
         ((e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.18)')
@@ -194,129 +191,112 @@ function BracketMatchCard({
         ((e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)')
       }
     >
-      {/* Left status strip */}
+      {/* Left strip */}
       <span
-        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-[24px]"
-        style={{ background: STRIP_COLOR[stripKey] ?? '#3a3a3a' }}
+        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-[18px]"
+        style={{ background: isOpen ? '#FF6B00' : '#3a3a3a' }}
       />
 
       {/* Top row */}
-      <div className="flex items-center justify-between mb-3 text-[12px]">
-        <div className="flex items-center gap-[10px] text-muted font-bold tracking-[0.06em] uppercase text-[11px]">
+      <div className="flex items-center justify-between mb-3 text-[11px]">
+        <div className="flex items-center gap-[8px] text-muted font-bold tracking-[0.04em] uppercase text-[10px]">
           <span
-            className="text-white text-[10px] px-2 py-1 rounded-[6px]"
+            className="text-white text-[9px] px-1.5 py-0.5 rounded-[5px]"
             style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}
           >
             {stageLabel}
           </span>
-          <span>{kickoffStr}</span>
+          <span className="font-mono">{kickoffStr}</span>
         </div>
         <StatusBadge match={match} />
       </div>
 
-      {/* Teams */}
-      <div
-        className="grid gap-3 items-center mb-3"
-        style={{ gridTemplateColumns: '1fr auto 1fr' }}
-      >
+      {/* Teams row */}
+      <div className="grid gap-[8px] items-center mb-[10px]" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
         {/* Home */}
-        <div className="flex flex-col items-center gap-[10px] text-center">
+        <div className="flex flex-col items-center gap-[6px] text-center">
           <div
-            className="w-14 h-14 rounded-full grid place-items-center overflow-hidden"
+            className="w-[38px] h-[38px] rounded-full grid place-items-center overflow-hidden"
             style={homePH
               ? { background: 'rgba(10,10,10,0.6)', border: '1px dashed rgba(255,255,255,0.09)' }
               : { background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}
           >
             {homePH ? (
-              <span className="text-[14px]" style={{ color: '#2e2926' }}>?</span>
+              <span className="text-[12px]" style={{ color: '#2e2926' }}>?</span>
             ) : homeMeta.iso2 ? (
-              <img src={flagUrl(homeMeta.iso2)} alt={homeTeam} style={{ width: '38px', height: '26px', objectFit: 'contain' }} />
+              <img src={flagUrl(homeMeta.iso2)} alt={homeTeam} style={{ width: '28px', height: '20px', objectFit: 'contain' }} />
             ) : (
-              <span className="text-[28px]">{homeMeta.flag}</span>
+              <span className="text-[20px]">{homeMeta.flag}</span>
             )}
           </div>
-          <div>
+          <div className="font-extrabold text-[12px] tracking-[-0.01em] leading-tight">
             {homePH ? (
-              <>
-                <div className="font-bold text-[11px] leading-tight" style={{ color: '#4a453f' }}>
-                  {homeFmt!.primary}
-                </div>
-                {homeFmt!.hint && (
-                  <div className="font-mono text-[9px] mt-0.5" style={{ color: '#332f2a' }}>
-                    {homeFmt!.hint}
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="font-extrabold text-[15px] tracking-[-0.01em] leading-tight">
-                  {homeTeam}
-                </div>
-                <div className="font-mono text-[10px] text-muted tracking-[0.2em] mt-0.5">
-                  {homeMeta.code}
-                </div>
-              </>
-            )}
+              <span style={{ color: '#4a453f' }}>{homeFmt!.primary}</span>
+            ) : homeTeam}
           </div>
+          {homePH && homeFmt!.hint && (
+            <div className="font-mono text-[9px] -mt-1" style={{ color: '#332f2a' }}>{homeFmt!.hint}</div>
+          )}
         </div>
 
         {/* Center */}
-        <div className="font-display text-[14px] text-muted tracking-[0.18em]">
-          {isScored ? `${match.home_score} — ${match.away_score}` : 'VS'}
-        </div>
+        <div className="font-display text-[11px] text-muted tracking-[0.14em]">VS</div>
 
         {/* Away */}
-        <div className="flex flex-col items-center gap-[10px] text-center">
+        <div className="flex flex-col items-center gap-[6px] text-center">
           <div
-            className="w-14 h-14 rounded-full grid place-items-center overflow-hidden"
+            className="w-[38px] h-[38px] rounded-full grid place-items-center overflow-hidden"
             style={awayPH
               ? { background: 'rgba(10,10,10,0.6)', border: '1px dashed rgba(255,255,255,0.09)' }
               : { background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}
           >
             {awayPH ? (
-              <span className="text-[14px]" style={{ color: '#2e2926' }}>?</span>
+              <span className="text-[12px]" style={{ color: '#2e2926' }}>?</span>
             ) : awayMeta.iso2 ? (
-              <img src={flagUrl(awayMeta.iso2)} alt={awayTeam} style={{ width: '38px', height: '26px', objectFit: 'contain' }} />
+              <img src={flagUrl(awayMeta.iso2)} alt={awayTeam} style={{ width: '28px', height: '20px', objectFit: 'contain' }} />
             ) : (
-              <span className="text-[28px]">{awayMeta.flag}</span>
+              <span className="text-[20px]">{awayMeta.flag}</span>
             )}
           </div>
-          <div>
+          <div className="font-extrabold text-[12px] tracking-[-0.01em] leading-tight">
             {awayPH ? (
-              <>
-                <div className="font-bold text-[11px] leading-tight" style={{ color: '#4a453f' }}>
-                  {awayFmt!.primary}
-                </div>
-                {awayFmt!.hint && (
-                  <div className="font-mono text-[9px] mt-0.5" style={{ color: '#332f2a' }}>
-                    {awayFmt!.hint}
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="font-extrabold text-[15px] tracking-[-0.01em] leading-tight">
-                  {awayTeam}
-                </div>
-                <div className="font-mono text-[10px] text-muted tracking-[0.2em] mt-0.5">
-                  {awayMeta.code}
-                </div>
-              </>
-            )}
+              <span style={{ color: '#4a453f' }}>{awayFmt!.primary}</span>
+            ) : awayTeam}
           </div>
+          {awayPH && awayFmt!.hint && (
+            <div className="font-mono text-[9px] -mt-1" style={{ color: '#332f2a' }}>{awayFmt!.hint}</div>
+          )}
         </div>
       </div>
+
+      {/* Score banner for live/finished */}
+      {hasRealScore && (
+        <div
+          className="flex items-center justify-between mb-2 rounded-[10px] gap-3"
+          style={{
+            padding: '9px 12px',
+            background: 'rgba(255,255,255,.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            color: '#9a9a9a',
+          }}
+        >
+          <span className="text-[9px] font-extrabold uppercase tracking-[0.18em]">Resultado final</span>
+          <span className="font-display text-[18px] text-white tabular-nums">
+            {match.home_score} — {match.away_score}
+          </span>
+        </div>
+      )}
 
       {/* Score inputs */}
       <div
         className="grid items-center"
         style={{
           gridTemplateColumns: '1fr auto 1fr',
-          gap: '10px',
+          gap: '8px',
           background: isOpen ? '#0A0A0A' : '#0d0d0d',
           border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '16px',
-          padding: '10px',
+          borderRadius: '12px',
+          padding: '6px',
         }}
       >
         <input
@@ -329,7 +309,7 @@ function BracketMatchCard({
           onChange={(e) => handleChange('home', e.target.value)}
           placeholder="–"
           aria-label={`Goles ${homeTeam}`}
-          className="score w-full h-[54px] text-center bg-transparent border-none text-white outline-none rounded-[10px] transition-all duration-150 font-display text-[34px] tracking-[-0.03em]"
+          className="score w-full h-[42px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[26px] tracking-[-0.03em]"
           style={isOpen ? undefined : { cursor: 'not-allowed' }}
           onFocus={(e) => {
             if (isOpen) {
@@ -342,7 +322,7 @@ function BracketMatchCard({
             e.target.style.boxShadow = 'none'
           }}
         />
-        <span className="font-display text-[24px] text-[#3a3a3a]">—</span>
+        <span className="font-display text-[18px] text-[#3a3a3a]">—</span>
         <input
           type="text"
           inputMode="numeric"
@@ -353,7 +333,7 @@ function BracketMatchCard({
           onChange={(e) => handleChange('away', e.target.value)}
           placeholder="–"
           aria-label={`Goles ${awayTeam}`}
-          className="score w-full h-[54px] text-center bg-transparent border-none text-white outline-none rounded-[10px] transition-all duration-150 font-display text-[34px] tracking-[-0.03em]"
+          className="score w-full h-[42px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[26px] tracking-[-0.03em]"
           style={isOpen ? undefined : { cursor: 'not-allowed' }}
           onFocus={(e) => {
             if (isOpen) {
@@ -371,7 +351,7 @@ function BracketMatchCard({
       {/* Tiebreaker: knockout draw → pick who advances */}
       {isOpen && match.stage !== 'group' && hasPrediction && !homePH && !awayPH && isDrawPred && (
         <div
-          className="mt-3 rounded-[14px] px-3 py-3"
+          className="mt-3 rounded-[10px] px-3 py-3"
           style={{ background: '#0A0A0A', border: '1px solid rgba(255,107,0,0.35)' }}
         >
           <p className="text-[10px] font-extrabold tracking-[0.16em] uppercase text-orange mb-2">
@@ -398,32 +378,6 @@ function BracketMatchCard({
           </div>
         </div>
       )}
-
-      {/* Bottom row */}
-      <div className="mt-2.5 flex items-center justify-between gap-[10px] text-[12px]">
-        <span className="text-muted font-semibold">
-          {isClosed && <span>Pronóstico bloqueado</span>}
-          {isLive && match.home_score != null && (
-            <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-muted">
-              En vivo:{' '}
-              <b className="font-display text-[13px] text-white tracking-[0.04em]">
-                {match.home_score} — {match.away_score}
-              </b>
-            </span>
-          )}
-          {isFinished && match.home_score != null && (
-            <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-muted">
-              Final:{' '}
-              <b className="font-display text-[13px] text-white tracking-[0.04em]">
-                {match.home_score} — {match.away_score}
-              </b>
-            </span>
-          )}
-        </span>
-        {isOpen && (
-          <span className="text-muted font-semibold shrink-0">Cierra {closeStr}</span>
-        )}
-      </div>
     </article>
   )
 }
