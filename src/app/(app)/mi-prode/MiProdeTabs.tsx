@@ -657,7 +657,7 @@ export function MiProdeTabs({
           initialTiebreakerMap={tiebreakerMap}
           isAdmin={isAdmin}
           groupTiebreakerMap={tiebreakers}
-          readOnly={!allGroupsFilled}
+          readOnly={false}
           clearSignal={bracketClearSignal}
           openRandomModal={bracketModalSignal}
         />

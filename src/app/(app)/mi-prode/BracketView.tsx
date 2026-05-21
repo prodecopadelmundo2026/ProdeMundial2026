@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import clsx from 'clsx'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Shuffle, Lock, AlertTriangle } from 'lucide-react'
+import { Shuffle, AlertTriangle, Zap } from 'lucide-react'
 import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
 import { StatusBadge } from '@/components/StatusBadge'
@@ -429,6 +429,8 @@ export function BracketView({
   const [adminSaveError, setAdminSaveError] = useState<string | null>(null)
   const [adminSaveMessage, setAdminSaveMessage] = useState<string | null>(null)
   const [bracketSaveError, setBracketSaveError] = useState(false)
+  const [quickFillState, setQuickFillState] = useState<'idle' | 'confirm' | 'saving' | 'saved' | 'error'>('idle')
+  const [quickFillError, setQuickFillError] = useState<string | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -654,31 +656,113 @@ export function BracketView({
 
   const canLoadSelectedRounds = selectedAdminCount > 0 && adminSaveState !== 'saving'
 
+  const eligibleForQuickFill = knockoutMatches.filter(
+    (m) => m.status === 'upcoming' && now < new Date(m.locked_at)
+  ).length
+
+  async function handleQuickFillAll() {
+    const targetMatches = knockoutMatches.filter(
+      (m) => m.status === 'upcoming' && now < new Date(m.locked_at)
+    )
+    if (!targetMatches.length) return
+    setQuickFillState('saving')
+    setQuickFillError(null)
+    try {
+      const generated = await generateRandomKnockoutPredictions(targetMatches.map((m) => m.id))
+      setLocalInputs((prev) => {
+        const next = { ...prev }
+        for (const pred of generated) {
+          next[pred.matchId] = { home: String(pred.homeScore), away: String(pred.awayScore) }
+        }
+        return next
+      })
+      setQuickFillState('saved')
+      setTimeout(() => setQuickFillState('idle'), 2000)
+    } catch (error) {
+      setQuickFillError(formatClientError(error))
+      setQuickFillState('error')
+    }
+  }
+
   return (
     <div className="space-y-6">
-      {bracketLocked && (
+      {hasPendingTiebreakers && (
         <div
           className="flex items-start gap-3 px-5 py-4 text-sm"
           style={{ background: '#131313', border: '1px solid #272727', borderRadius: '16px' }}
         >
-          <span className="mt-0.5 shrink-0" style={{ color: hasPendingTiebreakers ? '#FF6B00' : '#7A5BC9' }}>
-            {hasPendingTiebreakers
-              ? <AlertTriangle size={16} strokeWidth={2.5} />
-              : <Lock size={16} strokeWidth={2.5} />}
+          <span className="mt-0.5 shrink-0" style={{ color: '#FF6B00' }}>
+            <AlertTriangle size={16} strokeWidth={2.5} />
           </span>
           <div>
-            {hasPendingTiebreakers ? (
-              <>
-                <p className="font-extrabold text-white leading-snug">Desempates pendientes en grupos</p>
-                <p className="text-[13px] mt-0.5 text-muted">Resolvé los desempates para que el bracket se arme correctamente.</p>
-              </>
-            ) : (
-              <>
-                <p className="font-extrabold text-white leading-snug">Bracket en modo exploración</p>
-                <p className="text-[13px] mt-0.5 text-muted">Completá todos los partidos de grupos para habilitar el guardado de pronósticos.</p>
-              </>
-            )}
+            <p className="font-extrabold text-white leading-snug">Desempates pendientes en grupos</p>
+            <p className="text-[13px] mt-0.5 text-muted">Resolvé los desempates para que el bracket se arme correctamente.</p>
           </div>
+        </div>
+      )}
+
+      {/* Quick fill banner — visible to all users when there are open knockout matches */}
+      {eligibleForQuickFill > 0 && quickFillState !== 'idle' && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 rounded-[16px] text-[13px]"
+          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <p className="text-muted">
+            {quickFillState === 'confirm'
+              ? `¿Completar los ${eligibleForQuickFill} partidos de eliminatorias con pronósticos aleatorios?`
+              : quickFillState === 'saving'
+              ? 'Cargando bracket completo...'
+              : quickFillState === 'saved'
+              ? `¡Listo! ${eligibleForQuickFill} partidos cargados.`
+              : quickFillError
+              ? `Error: ${quickFillError}`
+              : ''}
+          </p>
+          {quickFillState === 'confirm' && (
+            <div className="flex gap-2">
+              <button
+                onClick={handleQuickFillAll}
+                className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase"
+                style={{ background: '#FF6B00', color: '#0A0A0A' }}
+              >
+                Confirmar
+              </button>
+              <button
+                onClick={() => setQuickFillState('idle')}
+                className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase text-muted"
+                style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
+          {(quickFillState === 'saved' || quickFillState === 'error') && (
+            <button onClick={() => setQuickFillState('idle')} className="text-[11px] font-bold text-muted">
+              Cerrar ×
+            </button>
+          )}
+        </div>
+      )}
+
+      {eligibleForQuickFill > 0 && quickFillState === 'idle' && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 rounded-[16px]"
+          style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)' }}
+        >
+          <div>
+            <p className="font-extrabold text-white text-[13px] leading-snug">Completar bracket de una vez</p>
+            <p className="text-[12px] mt-0.5 text-muted">{eligibleForQuickFill} partidos disponibles · pronósticos aleatorios</p>
+          </div>
+          <button
+            onClick={() => setQuickFillState('confirm')}
+            className="inline-flex items-center gap-[6px] px-4 py-2 rounded-full text-[12px] font-extrabold uppercase shrink-0"
+            style={{ background: 'rgba(255,107,0,0.14)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.3)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,107,0,0.24)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,107,0,0.14)' }}
+          >
+            <Zap size={12} strokeWidth={2.5} />
+            Completar todo
+          </button>
         </div>
       )}
 
