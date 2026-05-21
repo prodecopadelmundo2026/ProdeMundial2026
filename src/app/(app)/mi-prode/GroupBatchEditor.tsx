@@ -723,13 +723,6 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
           </div>
         </div>
 
-        {/* Meta: aligns with bottom of dropdown, wraps on narrow screens */}
-        <span
-          className="text-[13px] font-bold text-muted shrink-0"
-          style={{ paddingBottom: '8px', letterSpacing: '0.02em' }}
-        >
-          <b className="text-white font-extrabold">6</b> partidos · 11–22 junio
-        </span>
       </div>
 
       {activeGroup === BEST_THIRDS_VIEW ? (
