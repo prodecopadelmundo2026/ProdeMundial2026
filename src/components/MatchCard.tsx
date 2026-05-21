@@ -142,7 +142,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
       style={{
         border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: '18px',
-        padding: '14px 14px 12px',
+        padding: '12px 12px 10px',
       }}
       onMouseEnter={(e) =>
         ((e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.18)')
@@ -257,7 +257,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
               background: isInputLocked ? '#0d0d0d' : '#0A0A0A',
               border: '1px solid rgba(255,255,255,0.08)',
               borderRadius: '12px',
-              padding: '6px',
+              padding: '5px',
             }}
           >
             <input
@@ -270,7 +270,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
               onChange={(e) => handleChange('home', e.target.value)}
               placeholder="–"
               aria-label={`Goles ${match.home_team}`}
-              className="score w-full h-[42px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[26px] tracking-[-0.03em]"
+              className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
               style={isInputLocked ? { cursor: 'not-allowed' } : undefined}
               onFocus={(e) => {
                 if (!isInputLocked) {
@@ -294,7 +294,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
               onChange={(e) => handleChange('away', e.target.value)}
               placeholder="–"
               aria-label={`Goles ${match.away_team}`}
-              className="score w-full h-[42px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[26px] tracking-[-0.03em]"
+              className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
               style={isInputLocked ? { cursor: 'not-allowed' } : undefined}
               onFocus={(e) => {
                 if (!isInputLocked) {

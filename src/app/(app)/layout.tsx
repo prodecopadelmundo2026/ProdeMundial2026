@@ -35,15 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           borderColor: 'rgba(255,255,255,0.08)',
         }}
       >
-        <div className="max-w-[1280px] mx-auto px-5 h-[60px] flex items-center justify-between gap-[18px]">
-          {/* Brand */}
-          <Link
-            href="/"
-            className="flex items-center font-display text-[18px] tracking-[-0.02em] shrink-0"
-          >
-            PRODE <b className="text-orange ml-[6px]">26'</b>
-          </Link>
-
+        <div className="max-w-[1280px] mx-auto px-4 h-[56px] flex items-center justify-between">
           <NavLinks isLoggedIn={!!user} />
 
           {/* Right side */}

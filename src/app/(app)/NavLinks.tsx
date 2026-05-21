@@ -26,25 +26,16 @@ export function NavLinks({ isLoggedIn }: Props) {
   const [activeAnchor, setActiveAnchor] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
 
-  // Close menu on navigation
   useEffect(() => {
     setActiveAnchor(null)
     setMenuOpen(false)
   }, [pathname])
 
-  // Lock body scroll when mobile menu is open
   useEffect(() => {
-    if (menuOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
-    return () => {
-      document.body.style.overflow = ''
-    }
+    document.body.style.overflow = menuOpen ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
   }, [menuOpen])
 
-  // Close on Escape key
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setMenuOpen(false)
@@ -55,7 +46,31 @@ export function NavLinks({ isLoggedIn }: Props) {
 
   return (
     <>
-      {/* ── Desktop nav ─────────────────────────────────── */}
+      {/* Brand: botón en mobile (abre menú), link en desktop */}
+      <button
+        className="min-[880px]:hidden flex items-center font-display text-[18px] tracking-[-0.02em] shrink-0 select-none"
+        onClick={() => setMenuOpen((v) => !v)}
+        aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
+        aria-expanded={menuOpen}
+        aria-controls="mobile-nav"
+      >
+        PRODE{' '}
+        <b
+          className="ml-[6px] transition-colors duration-150"
+          style={{ color: menuOpen ? 'rgba(255,107,0,0.4)' : '#FF6B00' }}
+        >
+          26'
+        </b>
+      </button>
+
+      <Link
+        href="/"
+        className="hidden min-[880px]:flex items-center font-display text-[18px] tracking-[-0.02em] shrink-0"
+      >
+        PRODE <b className="text-orange ml-[6px]">26'</b>
+      </Link>
+
+      {/* Desktop nav */}
       <nav className="hidden min-[880px]:flex gap-7 text-[14px] font-semibold tracking-[0.01em]">
         {links.map(({ href, label, exact, anchor }) => {
           const active = anchor
@@ -69,7 +84,7 @@ export function NavLinks({ isLoggedIn }: Props) {
               className={clsx(
                 'relative py-1.5 transition-colors duration-150',
                 active
-                  ? 'text-white after:absolute after:left-0 after:right-0 after:bottom-[-18px] after:h-[3px] after:bg-orange after:rounded-t-sm'
+                  ? 'text-white after:absolute after:left-0 after:right-0 after:bottom-[-17px] after:h-[3px] after:bg-orange after:rounded-t-sm'
                   : 'text-[#cfcfcf] hover:text-white',
               )}
             >
@@ -79,33 +94,7 @@ export function NavLinks({ isLoggedIn }: Props) {
         })}
       </nav>
 
-      {/* ── Mobile hamburger button ──────────────────────── */}
-      <button
-        className="min-[880px]:hidden flex items-center justify-center w-9 h-9 rounded-[10px] transition-all duration-150"
-        style={
-          menuOpen
-            ? { background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.14)' }
-            : { background: 'transparent', border: '1px solid transparent' }
-        }
-        onClick={() => setMenuOpen((v) => !v)}
-        aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
-        aria-expanded={menuOpen}
-        aria-controls="mobile-nav"
-      >
-        {menuOpen ? (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        ) : (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="3" y1="8" x2="21" y2="8" />
-            <line x1="3" y1="16" x2="21" y2="16" />
-          </svg>
-        )}
-      </button>
-
-      {/* ── Backdrop overlay ─────────────────────────────── */}
+      {/* Backdrop overlay */}
       {menuOpen && (
         <div
           className="fixed inset-0 z-40 min-[880px]:hidden"
@@ -115,7 +104,7 @@ export function NavLinks({ isLoggedIn }: Props) {
         />
       )}
 
-      {/* ── Mobile dropdown panel ────────────────────────── */}
+      {/* Mobile dropdown panel */}
       <nav
         id="mobile-nav"
         className={clsx(
@@ -123,7 +112,7 @@ export function NavLinks({ isLoggedIn }: Props) {
           menuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none',
         )}
         style={{
-          top: '60px',
+          top: '56px',
           background: 'rgba(10,10,10,0.97)',
           backdropFilter: 'blur(14px)',
           WebkitBackdropFilter: 'blur(14px)',
@@ -131,7 +120,7 @@ export function NavLinks({ isLoggedIn }: Props) {
           boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
         }}
       >
-        <div className="max-w-[1280px] mx-auto px-4 py-3 flex flex-col gap-0.5">
+        <div className="max-w-[1280px] mx-auto px-4 py-2 flex flex-col gap-0.5">
           {links.map(({ href, label, exact, anchor }) => {
             const active = anchor
               ? activeAnchor === href
@@ -145,7 +134,7 @@ export function NavLinks({ isLoggedIn }: Props) {
                   setMenuOpen(false)
                 }}
                 className={clsx(
-                  'flex items-center gap-3 px-4 py-[13px] rounded-[12px] text-[15px] font-semibold transition-all duration-150',
+                  'flex items-center gap-3 px-4 py-[11px] rounded-[12px] text-[15px] font-semibold transition-all duration-150',
                   active
                     ? 'text-white'
                     : 'text-[#b0b0b0] hover:text-white hover:bg-white/5',

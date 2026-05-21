@@ -182,7 +182,7 @@ function BracketMatchCard({
       style={{
         border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: '18px',
-        padding: '14px 14px 12px',
+        padding: '12px 12px 10px',
       }}
       onMouseEnter={(e) =>
         ((e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.18)')
@@ -296,7 +296,7 @@ function BracketMatchCard({
           background: isOpen ? '#0A0A0A' : '#0d0d0d',
           border: '1px solid rgba(255,255,255,0.08)',
           borderRadius: '12px',
-          padding: '6px',
+          padding: '5px',
         }}
       >
         <input
@@ -309,7 +309,7 @@ function BracketMatchCard({
           onChange={(e) => handleChange('home', e.target.value)}
           placeholder="–"
           aria-label={`Goles ${homeTeam}`}
-          className="score w-full h-[42px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[26px] tracking-[-0.03em]"
+          className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
           style={isOpen ? undefined : { cursor: 'not-allowed' }}
           onFocus={(e) => {
             if (isOpen) {
@@ -333,7 +333,7 @@ function BracketMatchCard({
           onChange={(e) => handleChange('away', e.target.value)}
           placeholder="–"
           aria-label={`Goles ${awayTeam}`}
-          className="score w-full h-[42px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[26px] tracking-[-0.03em]"
+          className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
           style={isOpen ? undefined : { cursor: 'not-allowed' }}
           onFocus={(e) => {
             if (isOpen) {
@@ -834,7 +834,7 @@ export function BracketView({
               style={{
                 appearance: 'none',
                 WebkitAppearance: 'none',
-                padding: '14px 46px 14px 16px',
+                padding: '11px 44px 11px 14px',
                 border: 'none',
               }}
             >

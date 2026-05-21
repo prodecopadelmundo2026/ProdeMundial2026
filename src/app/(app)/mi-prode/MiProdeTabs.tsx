@@ -396,16 +396,16 @@ export function MiProdeTabs({
   return (
     <div>
       {/* Toolbar: phase tabs (left) + admin actions (right) */}
-      <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
         <div
-          className="inline-flex items-center gap-1 p-[5px] rounded-full"
+          className="inline-flex items-center gap-[3px] p-[4px] rounded-full"
           style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
         >
           {(['grupos', 'eliminatoria', 'especiales'] as TabId[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className="px-[18px] py-[10px] rounded-full font-extrabold text-[13px] transition-all duration-150 whitespace-nowrap"
+              className="px-[14px] py-[7px] rounded-full font-extrabold text-[12px] transition-all duration-150 whitespace-nowrap"
               style={
                 activeTab === tab
                   ? { background: '#FF6B00', color: '#0A0A0A' }
@@ -418,7 +418,7 @@ export function MiProdeTabs({
                 if (activeTab !== tab) e.currentTarget.style.color = '#8A8A8A'
               }}
             >
-              {tab === 'grupos' ? 'Grupos' : tab === 'eliminatoria' ? 'Eliminatorias' : 'Apuestas especiales'}
+              {tab === 'grupos' ? 'Grupos' : tab === 'eliminatoria' ? 'Eliminatorias' : 'Especiales'}
             </button>
           ))}
         </div>
@@ -441,7 +441,7 @@ export function MiProdeTabs({
                 }
               }}
               disabled={fakeState === 'saving'}
-              className="inline-flex items-center gap-2 px-4 py-[10px] rounded-[12px] font-bold text-[13px] transition-all duration-150 disabled:opacity-40"
+              className="inline-flex items-center gap-[6px] px-3 py-[7px] rounded-[10px] font-bold text-[12px] transition-all duration-150 disabled:opacity-40"
               style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}
               title="Cargá pronósticos aleatorios para la fase activa"
               onMouseEnter={(e) => {
@@ -453,7 +453,7 @@ export function MiProdeTabs({
                 e.currentTarget.style.color = '#cfcfcf'
               }}
             >
-              <Shuffle size={14} strokeWidth={2.4} style={{ color: '#A8F0D8' }} />
+              <Shuffle size={13} strokeWidth={2.4} style={{ color: '#A8F0D8' }} />
               Aleatorio
             </button>
 
@@ -464,7 +464,7 @@ export function MiProdeTabs({
                 setDeleteState('idle')
                 setDeleteMessage(null)
               }}
-              className="grid h-10 w-10 place-items-center rounded-[12px] transition-all duration-150"
+              className="grid h-[34px] w-[34px] place-items-center rounded-[10px] transition-all duration-150"
               style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.08)' }}
               title="Borrar pronósticos"
               aria-label="Borrar pronósticos"
@@ -477,7 +477,7 @@ export function MiProdeTabs({
                 e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
               }}
             >
-              <Trash2 size={16} strokeWidth={2.4} />
+              <Trash2 size={14} strokeWidth={2.4} />
             </button>
           </div>
         )}

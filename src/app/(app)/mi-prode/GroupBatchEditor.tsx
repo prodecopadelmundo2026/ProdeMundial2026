@@ -626,7 +626,7 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
   return (
     <div>
       {/* Combo row — dropdown + arrows always inline, meta wraps below on narrow */}
-      <div className="flex items-end gap-3 flex-wrap mb-7">
+      <div className="flex items-end gap-3 flex-wrap mb-5">
         {/* Dropdown + arrows: flex-1 so they fill available width together */}
         <div className="flex items-end gap-2 flex-1" style={{ minWidth: 0 }}>
           <div className="flex flex-col gap-1.5 flex-1 min-w-0">
@@ -658,7 +658,7 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
                 style={{
                   appearance: 'none',
                   WebkitAppearance: 'none',
-                  padding: '14px 46px 14px 16px',
+                  padding: '11px 44px 11px 14px',
                   border: 'none',
                 }}
               >
@@ -725,7 +725,7 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
         {/* Meta: aligns with bottom of dropdown, wraps on narrow screens */}
         <span
           className="text-[13px] font-bold text-muted shrink-0"
-          style={{ paddingBottom: '11px', letterSpacing: '0.02em' }}
+          style={{ paddingBottom: '8px', letterSpacing: '0.02em' }}
         >
           <b className="text-white font-extrabold">6</b> partidos · 11–22 junio
         </span>

@@ -46,24 +46,24 @@ export default async function MiProdePage() {
   )
 
   return (
-    <div style={{ padding: '28px 20px clamp(60px, 12vw, 100px)' }}>
+    <div style={{ padding: '20px 16px clamp(40px, 8vw, 72px)' }}>
       <div className="max-w-[1280px] mx-auto">
 
         {/* Page head */}
-        <div style={{ marginBottom: '32px' }}>
+        <div style={{ marginBottom: '20px' }}>
           <span
-            className="inline-block font-sans text-[12px] font-extrabold tracking-[0.22em] uppercase text-muted"
-            style={{ marginBottom: '18px' }}
+            className="inline-block font-sans text-[11px] font-extrabold tracking-[0.22em] uppercase text-muted"
+            style={{ marginBottom: '10px' }}
           >
             Tus pronósticos
           </span>
           <h1
             className="font-display uppercase leading-[.9] tracking-[-0.04em]"
-            style={{ fontSize: 'clamp(48px, 9vw, 108px)' }}
+            style={{ fontSize: 'clamp(40px, 8vw, 96px)' }}
           >
             Mi <em className="not-italic italic" style={{ color: '#FF6B00' }}>Prode</em>
           </h1>
-          <p className="font-mono text-[13px] font-bold text-muted tracking-[0.04em] mt-[14px]">
+          <p className="font-mono text-[12px] font-bold text-muted tracking-[0.04em] mt-[8px]">
             Mundial 2026 · USA · Canadá · México
           </p>
         </div>
