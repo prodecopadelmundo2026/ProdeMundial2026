@@ -52,8 +52,13 @@ export async function setMatchResult(
 }
 
 export async function upsertAuthorizedEmail(formData: FormData) {
-  await requireAdmin()
-  const admin = createAdminClient()
+  // RPCs with internal current_user_is_admin() check need the user's session
+  // (auth.uid() must be set) — use createClient(), NOT createAdminClient()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+  const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
+  if (!profile?.is_admin) throw new Error('Sin permisos de administrador')
 
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
   const label = String(formData.get('label') ?? '').trim()
@@ -63,7 +68,7 @@ export async function upsertAuthorizedEmail(formData: FormData) {
     throw new Error('Email inválido')
   }
 
-  const { error } = await admin.rpc('admin_upsert_authorized_email', {
+  const { error } = await supabase.rpc('admin_upsert_authorized_email', {
     p_email: email,
     p_label: label,
     p_active: active,
@@ -75,10 +80,13 @@ export async function upsertAuthorizedEmail(formData: FormData) {
 }
 
 export async function setAuthorizedEmailActive(email: string, active: boolean) {
-  await requireAdmin()
-  const admin = createAdminClient()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+  const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
+  if (!profile?.is_admin) throw new Error('Sin permisos de administrador')
 
-  const { error } = await admin.rpc('admin_set_authorized_email_active', {
+  const { error } = await supabase.rpc('admin_set_authorized_email_active', {
     p_email: email,
     p_active: active,
   })
