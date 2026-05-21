@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import type { Match } from '@/types'
 import { MiProdeTabs } from './MiProdeTabs'
-import { SpecialsBanner } from './SpecialsBanner'
 
 type PredRow = {
   match_id: string
@@ -49,8 +48,6 @@ export default async function MiProdePage() {
   return (
     <div style={{ padding: '28px 20px clamp(60px, 12vw, 100px)' }}>
       <div className="max-w-[1280px] mx-auto">
-        <SpecialsBanner />
-
         <MiProdeTabs
           groupMatches={groupMatches}
           knockoutMatches={knockoutMatches}

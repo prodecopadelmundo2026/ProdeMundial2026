@@ -6,13 +6,15 @@ import { Trash2 } from 'lucide-react'
 import type { Match } from '@/types'
 import { GroupBatchEditor } from './GroupBatchEditor'
 import { BracketView } from './BracketView'
+import { SpecialsTab } from './SpecialsTab'
+import { SpecialsBanner } from './SpecialsBanner'
 import { deletePredictionsByStages, generateRandomGroupPredictions } from '@/app/(app)/fixture/actions'
 import { parseScoreInput } from '@/lib/score-input'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 
-type TabId = 'grupos' | 'eliminatoria'
+type TabId = 'grupos' | 'eliminatoria' | 'especiales'
 type DeleteOption = 'groups' | 'knockout' | 'round_of_32' | 'round_of_16' | 'quarter' | 'semi' | 'final' | 'third_place' | 'specials' | 'all'
 type DeleteState = 'idle' | 'confirm' | 'deleting' | 'success' | 'error'
 
@@ -418,7 +420,7 @@ export function MiProdeTabs({
             className="inline-flex items-center gap-1 p-[5px] rounded-full"
             style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
           >
-          {(['grupos', 'eliminatoria'] as TabId[]).map((tab) => (
+          {(['grupos', 'eliminatoria', 'especiales'] as TabId[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -435,7 +437,7 @@ export function MiProdeTabs({
                 if (activeTab !== tab) e.currentTarget.style.color = '#8A8A8A'
               }}
             >
-              {tab === 'grupos' ? 'Grupos' : 'Eliminatorias'}
+              {tab === 'grupos' ? 'Grupos' : tab === 'eliminatoria' ? 'Eliminatorias' : 'Especiales'}
             </button>
           ))}
           </div>
@@ -545,7 +547,12 @@ export function MiProdeTabs({
         </div>
       )}
 
-      {/* Both tabs kept mounted to preserve state; only one visible at a time */}
+      {/* SpecialsBanner — hidden when already on especiales tab */}
+      {activeTab !== 'especiales' && (
+        <SpecialsBanner onClickCargar={() => setActiveTab('especiales')} />
+      )}
+
+      {/* All tabs kept mounted to preserve state; only one visible at a time */}
       <div style={{ display: activeTab === 'grupos' ? undefined : 'none' }}>
         {isAdmin && (
           <div
@@ -622,6 +629,9 @@ export function MiProdeTabs({
           readOnly={!allGroupsFilled}
           clearSignal={bracketClearSignal}
         />
+      </div>
+      <div style={{ display: activeTab === 'especiales' ? undefined : 'none' }}>
+        <SpecialsTab />
       </div>
     </div>
   )

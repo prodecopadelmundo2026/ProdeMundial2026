@@ -429,152 +429,12 @@ function BracketMatchCard({
 
 const SPECIALS_STORAGE_KEY = 'prode_specials'
 
-const SPECIALS_ITEMS = [
-  { key: 'balon', label: 'Balón de Oro', desc: 'Mejor jugador del torneo', pts: '+20', color: '#5B2D8E' },
-  { key: 'bota',  label: 'Bota de Oro',  desc: 'Máximo goleador del torneo', pts: '+15', color: '#FF6B00' },
-  { key: 'guante', label: 'Guante de Oro', desc: 'Mejor arquero del torneo', pts: '+15', color: '#1565C0' },
-] as const
-
-type SpecialsKey = typeof SPECIALS_ITEMS[number]['key']
-type SpecialsValues = Record<SpecialsKey, string>
-
-const SPECIALS_TEST_VALUES: Record<SpecialsKey, string[]> = {
-  balon: ['Lionel Messi', 'Kylian Mbappe', 'Vinicius Junior', 'Jamal Musiala'],
-  bota: ['Kylian Mbappe', 'Harry Kane', 'Erling Haaland', 'Julian Alvarez'],
-  guante: ['Emiliano Martinez', 'Thibaut Courtois', 'Alisson Becker', 'Mike Maignan'],
-}
-
-function pickRandom(values: string[]) {
-  return values[Math.floor(Math.random() * values.length)] ?? values[0] ?? ''
-}
-
-function randomSpecials(): SpecialsValues {
-  return {
-    balon: pickRandom(SPECIALS_TEST_VALUES.balon),
-    bota: pickRandom(SPECIALS_TEST_VALUES.bota),
-    guante: pickRandom(SPECIALS_TEST_VALUES.guante),
-  }
-}
-
-function onlyLetters(value: string) {
-  // Allow letters (including accented), spaces — strip everything else
-  return value.replace(/[^a-zA-ZÀ-ÿ\s]/g, '')
-}
-
-function SpecialsCard() {
-  const [values, setValues] = useState<SpecialsValues>({ balon: '', bota: '', guante: '' })
-  const [saved, setSaved] = useState(false)
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(SPECIALS_STORAGE_KEY)
-      if (stored) setValues(JSON.parse(stored))
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    function handleClear() {
-      setValues({ balon: '', bota: '', guante: '' })
-      setSaved(false)
-    }
-    function handleRandomize() {
-      try {
-        const stored = localStorage.getItem(SPECIALS_STORAGE_KEY)
-        setValues(stored ? JSON.parse(stored) : randomSpecials())
-      } catch {
-        setValues(randomSpecials())
-      }
-      setSaved(true)
-      setTimeout(() => setSaved(false), 1800)
-    }
-    window.addEventListener('prode-specials-cleared', handleClear)
-    window.addEventListener('prode-specials-randomized', handleRandomize)
-    return () => {
-      window.removeEventListener('prode-specials-cleared', handleClear)
-      window.removeEventListener('prode-specials-randomized', handleRandomize)
-    }
-  }, [])
-
-  function handleChange(key: SpecialsKey, raw: string) {
-    const cleaned = onlyLetters(raw)
-    const next = { ...values, [key]: cleaned }
-    setValues(next)
-    setSaved(false)
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => {
-      try { localStorage.setItem(SPECIALS_STORAGE_KEY, JSON.stringify(next)) } catch {}
-      setSaved(true)
-      setTimeout(() => setSaved(false), 1800)
-    }, 600)
-  }
-
-  return (
-    <div
-      className="relative flex flex-col overflow-hidden"
-      style={{
-        background: 'linear-gradient(145deg, rgba(91,45,142,0.16) 0%, rgba(91,45,142,0.05) 100%)',
-        border: '1px solid rgba(168,140,220,0.22)',
-        borderRadius: 24,
-        padding: '22px 22px 20px',
-      }}
-    >
-      <span
-        className="absolute left-0 top-0 bottom-0 rounded-l-[24px]"
-        style={{ width: 4, background: '#5B2D8E' }}
-      />
-      <div className="flex items-center justify-between mb-4">
-        <span
-          className="text-[10px] px-2 py-1 rounded-[6px] font-bold"
-          style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)', color: '#c8a8f0' }}
-        >
-          Apuesta Especial
-        </span>
-        <span className="font-mono text-[11px] font-bold tracking-[0.06em]" style={{ color: saved ? '#A8F0D8' : '#5a4a6a' }}>
-          {saved ? 'Guardado ✓' : 'hasta +50 pts'}
-        </span>
-      </div>
-      <div className="flex flex-col gap-2.5 flex-1">
-        {SPECIALS_ITEMS.map(({ key, label, desc, pts, color }) => (
-          <div
-            key={key}
-            className="flex flex-col gap-1.5 px-3 pt-[10px] pb-[10px] rounded-[12px]"
-            style={{ background: 'rgba(0,0,0,0.3)', border: `1px solid ${color}33` }}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-[3px] h-5 rounded-full shrink-0" style={{ background: color }} />
-              <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-bold leading-tight">{label}</p>
-                <p className="text-[10px] font-medium" style={{ color: '#4a4a5a' }}>{desc}</p>
-              </div>
-              <span className="font-display text-[20px] shrink-0 leading-none" style={{ color }}>{pts}</span>
-            </div>
-            <input
-              type="text"
-              value={values[key]}
-              onChange={(e) => handleChange(key, e.target.value)}
-              placeholder="Escribí el jugador..."
-              maxLength={40}
-              className="w-full bg-transparent outline-none font-medium text-[13px] text-white placeholder:text-[#3a3a4a] rounded-[8px] transition-all duration-150"
-              style={{
-                padding: '7px 10px',
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
-              }}
-              onFocus={(e) => {
-                e.target.style.background = `${color}18`
-                e.target.style.borderColor = `${color}66`
-              }}
-              onBlur={(e) => {
-                e.target.style.background = 'rgba(255,255,255,0.04)'
-                e.target.style.borderColor = 'rgba(255,255,255,0.08)'
-              }}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+function randomSpecials() {
+  const balon = ['Lionel Messi', 'Kylian Mbappe', 'Vinicius Junior', 'Jamal Musiala']
+  const bota = ['Kylian Mbappe', 'Harry Kane', 'Erling Haaland', 'Julian Alvarez']
+  const guante = ['Emiliano Martinez', 'Thibaut Courtois', 'Alisson Becker', 'Mike Maignan']
+  const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)] ?? arr[0] ?? ''
+  return { balon: pick(balon), bota: pick(bota), guante: pick(guante) }
 }
 
 export function BracketView({
@@ -1074,9 +934,9 @@ export function BracketView({
         </div>
       )}
 
-      {/* Final round: Final + 3er Puesto + Apuesta Especial — misma altura */}
+      {/* Final round: Final + 3er Puesto */}
       {activeRound === 'final' && (
-        <div className="grid grid-cols-1 min-[600px]:grid-cols-2 min-[960px]:grid-cols-3 gap-4 items-stretch">
+        <div className="grid grid-cols-1 min-[600px]:grid-cols-2 gap-4">
           {(byRound['final'] ?? [])
             .sort((a, b) => {
               if (a.stage === 'third_place' && b.stage !== 'third_place') return 1
@@ -1097,7 +957,6 @@ export function BracketView({
                 onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
               />
             ))}
-          <SpecialsCard />
         </div>
       )}
 
