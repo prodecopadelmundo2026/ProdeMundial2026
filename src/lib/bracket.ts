@@ -1,12 +1,15 @@
 import type { Match } from '@/types'
+import { THIRD_PLACE_SLOT_ASSIGNMENTS } from './world-cup-2026-third-place'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
+type TiebreakerMap = Record<string, string>
 
 interface TeamStats {
   name: string
   pts: number
   gf: number
   ga: number
+  played: number
 }
 
 // Maps each P-number to its original [home_placeholder, away_placeholder] as stored in DB
@@ -45,15 +48,54 @@ const KNOCKOUT_FIXTURES: Record<number, [string, string]> = {
   104: ['Ganador P101', 'Ganador P102'],
 }
 
+function areStatsTied(a: TeamStats, b: TeamStats) {
+  return a.pts === b.pts && (a.gf - a.ga) === (b.gf - b.ga) && a.gf === b.gf
+}
+
+function applyGroupTiebreakers(
+  standings: TeamStats[],
+  tiebreakerMap: TiebreakerMap,
+  groupKey?: string
+): TeamStats[] {
+  if (!groupKey) return standings
+
+  const result = [...standings]
+  let i = 0
+  while (i < result.length) {
+    let j = i + 1
+    while (j < result.length && areStatsTied(result[j], result[i])) j++
+
+    if (j > i + 1) {
+      const tiedSlice = result.slice(i, j)
+      const picked: TeamStats[] = []
+      for (let pos = i; pos < j - 1; pos++) {
+        const choice = tiebreakerMap[`${groupKey}_pos_${pos}`]
+        if (!choice) break
+        const team = tiedSlice.find((t) => t.name === choice && !picked.some((p) => p.name === t.name))
+        if (!team) break
+        picked.push(team)
+      }
+      const remaining = tiedSlice.filter((t) => !picked.some((p) => p.name === t.name))
+      const reordered = [...picked, ...remaining]
+      for (let k = 0; k < reordered.length; k++) result[i + k] = reordered[k]
+    }
+
+    i = j
+  }
+  return result
+}
+
 export function computeGroupStandings(
   groupMatches: Match[],
-  predMap: PredMap
+  predMap: PredMap,
+  tiebreakerMap: TiebreakerMap = {},
+  groupKey?: string
 ): string[] {
   const stats: Record<string, TeamStats> = {}
 
   for (const m of groupMatches) {
-    if (!stats[m.home_team]) stats[m.home_team] = { name: m.home_team, pts: 0, gf: 0, ga: 0 }
-    if (!stats[m.away_team]) stats[m.away_team] = { name: m.away_team, pts: 0, gf: 0, ga: 0 }
+    if (!stats[m.home_team]) stats[m.home_team] = { name: m.home_team, pts: 0, gf: 0, ga: 0, played: 0 }
+    if (!stats[m.away_team]) stats[m.away_team] = { name: m.away_team, pts: 0, gf: 0, ga: 0, played: 0 }
   }
 
   for (const m of groupMatches) {
@@ -61,6 +103,8 @@ export function computeGroupStandings(
     if (!pred) continue
     const h = stats[m.home_team]
     const a = stats[m.away_team]
+    h.played++
+    a.played++
     h.gf += pred.home_score
     h.ga += pred.away_score
     a.gf += pred.away_score
@@ -75,20 +119,23 @@ export function computeGroupStandings(
     }
   }
 
-  return Object.values(stats)
+  const sorted = Object.values(stats)
     .sort((a, b) => {
       if (b.pts !== a.pts) return b.pts - a.pts
       const gdB = b.gf - b.ga
       const gdA = a.gf - a.ga
       if (gdB !== gdA) return gdB - gdA
-      return b.gf - a.gf
+      if (b.gf !== a.gf) return b.gf - a.gf
+      return a.name.localeCompare(b.name)
     })
-    .map((t) => t.name)
+
+  return applyGroupTiebreakers(sorted, tiebreakerMap, groupKey).map((t) => t.name)
 }
 
 export function computeAllStandings(
   allGroupMatches: Match[],
-  predMap: PredMap
+  predMap: PredMap,
+  tiebreakerMap: TiebreakerMap = {}
 ): Record<string, string[]> {
   const byGroup: Record<string, Match[]> = {}
   for (const m of allGroupMatches) {
@@ -98,7 +145,7 @@ export function computeAllStandings(
   }
   const result: Record<string, string[]> = {}
   for (const [group, matches] of Object.entries(byGroup)) {
-    result[group] = computeGroupStandings(matches, predMap)
+    result[group] = computeGroupStandings(matches, predMap, tiebreakerMap, `Grupo ${group}`)
   }
   return result
 }
@@ -112,8 +159,6 @@ export function buildKnockoutMap(knockoutMatches: Match[]): Record<number, Match
   }
   return result
 }
-
-type TiebreakerMap = Record<string, string>
 
 function resolveKnockout(
   pNum: number,
@@ -254,14 +299,15 @@ export function computeBestThirdsGroups(
         stats[m.away_team].pts += 3
       }
     }
-    const sorted = Object.entries(stats)
+    const sorted = applyGroupTiebreakers(Object.entries(stats)
       .map(([name, s]) => ({ name, ...s }))
       .sort((a, b) => {
         if (b.pts !== a.pts) return b.pts - a.pts
         const gdB = b.gf - b.ga, gdA = a.gf - a.ga
         if (gdB !== gdA) return gdB - gdA
-        return b.gf - a.gf
-      })
+        if (b.gf !== a.gf) return b.gf - a.gf
+        return a.name.localeCompare(b.name)
+      }), tiebreakerMap, `Grupo ${group}`)
     const third = sorted[2]
     if (third && third.played > 0) {
       thirds.push({ group, team: third.name, pts: third.pts, gd: third.gf - third.ga, gf: third.gf })
@@ -311,11 +357,93 @@ const THIRD_SLOTS: Record<string, string[]> = {
   'D/E/I/J/L': ['D', 'E', 'I', 'J', 'L'],
 }
 
+function computeGroupStats(groupMatches: Match[], predMap: PredMap): TeamStats[] {
+  const stats: Record<string, TeamStats> = {}
+  for (const m of groupMatches) {
+    if (!stats[m.home_team]) stats[m.home_team] = { name: m.home_team, pts: 0, gf: 0, ga: 0, played: 0 }
+    if (!stats[m.away_team]) stats[m.away_team] = { name: m.away_team, pts: 0, gf: 0, ga: 0, played: 0 }
+    const pred = predMap[m.id]
+    if (!pred) continue
+    stats[m.home_team].played++
+    stats[m.away_team].played++
+    stats[m.home_team].gf += pred.home_score
+    stats[m.home_team].ga += pred.away_score
+    stats[m.away_team].gf += pred.away_score
+    stats[m.away_team].ga += pred.home_score
+    if (pred.home_score > pred.away_score) stats[m.home_team].pts += 3
+    else if (pred.home_score === pred.away_score) {
+      stats[m.home_team].pts += 1
+      stats[m.away_team].pts += 1
+    } else stats[m.away_team].pts += 3
+  }
+  return Object.values(stats).sort((a, b) => {
+    if (b.pts !== a.pts) return b.pts - a.pts
+    const gdB = b.gf - b.ga
+    const gdA = a.gf - a.ga
+    if (gdB !== gdA) return gdB - gdA
+    if (b.gf !== a.gf) return b.gf - a.gf
+    return a.name.localeCompare(b.name)
+  })
+}
+
+function getThirdPlaceStats(
+  allGroupMatches: Match[],
+  predMap: PredMap,
+  tiebreakerMap: TiebreakerMap = {}
+): Array<TeamStats & { group: string }> {
+  const byGroup: Record<string, Match[]> = {}
+  for (const m of allGroupMatches) {
+    if (!m.group) continue
+    if (!byGroup[m.group]) byGroup[m.group] = []
+    byGroup[m.group].push(m)
+  }
+
+  return Object.entries(byGroup).flatMap(([group, matches]) => {
+    const standings = applyGroupTiebreakers(computeGroupStats(matches, predMap), tiebreakerMap, `Grupo ${group}`)
+    const third = standings[2]
+    if (!third || third.played === 0) return []
+    return [{ ...third, group }]
+  })
+}
+
+function sortThirds<T extends TeamStats & { group: string }>(thirds: T[], tiebreakerMap: TiebreakerMap): T[] {
+  return [...thirds].sort((a, b) => {
+    if (b.pts !== a.pts) return b.pts - a.pts
+    const gdB = b.gf - b.ga
+    const gdA = a.gf - a.ga
+    if (gdB !== gdA) return gdB - gdA
+    if (b.gf !== a.gf) return b.gf - a.gf
+
+    const rankKey = Object.keys(tiebreakerMap).find((k) => {
+      if (!k.startsWith('3rd-rank-')) return false
+      const names = k.slice('3rd-rank-'.length).split('-')
+      return names.includes(a.name) && names.includes(b.name)
+    })
+    if (rankKey) {
+      const ranked = tiebreakerMap[rankKey].split(',')
+      const ai = ranked.indexOf(a.name)
+      const bi = ranked.indexOf(b.name)
+      if (ai !== -1 && bi !== -1) return ai - bi
+    }
+
+    const key1 = `3rd-${a.name}-vs-${b.name}`
+    const key2 = `3rd-${b.name}-vs-${a.name}`
+    const picked = tiebreakerMap[key1] || tiebreakerMap[key2]
+    if (picked === a.name) return -1
+    if (picked === b.name) return 1
+    return a.group.localeCompare(b.group)
+  })
+}
+
 // Given the 8 qualifying best-thirds groups, find which group fills each slot via backtracking.
 // Returns { 'A/B/C/D/F': 'A', ... }
 export function assignBestThirdsToSlots(
   bestThirdsGroups: Set<string>
 ): Record<string, string> {
+  const officialKey = [...bestThirdsGroups].sort().join('')
+  const official = THIRD_PLACE_SLOT_ASSIGNMENTS[officialKey]
+  if (official) return official
+
   const slotKeys = Object.keys(THIRD_SLOTS)
   // Most constrained first
   const sorted = [...slotKeys].sort((a, b) => {
@@ -342,6 +470,64 @@ export function assignBestThirdsToSlots(
 
   bt(0)
   return result
+}
+
+export function getPendingGroupTiebreakers(
+  allGroupMatches: Match[],
+  predMap: PredMap,
+  tiebreakerMap: TiebreakerMap = {}
+): string[] {
+  if (!allGroupMatches.length || !allGroupMatches.every((m) => Boolean(predMap[m.id]))) {
+    return []
+  }
+
+  const byGroup: Record<string, Match[]> = {}
+  for (const m of allGroupMatches) {
+    if (!m.group) continue
+    if (!byGroup[m.group]) byGroup[m.group] = []
+    byGroup[m.group].push(m)
+  }
+
+  const pending = new Set<string>()
+  for (const [group, matches] of Object.entries(byGroup)) {
+    const standings = computeGroupStats(matches, predMap)
+    let i = 0
+    while (i < standings.length) {
+      let j = i + 1
+      while (j < standings.length && areStatsTied(standings[j], standings[i])) j++
+      if (j > i + 1 && Array.from({ length: j - i }, (_, k) => i + k).some((idx) => idx <= 2)) {
+        for (let pos = i; pos < j - 1; pos++) {
+          if (!tiebreakerMap[`Grupo ${group}_pos_${pos}`]) pending.add(`Grupo ${group}`)
+        }
+      }
+      i = j
+    }
+  }
+
+  const thirds = getThirdPlaceStats(allGroupMatches, predMap, tiebreakerMap)
+  const sortedThirds = sortThirds(thirds, tiebreakerMap)
+  let i = 0
+  while (i < sortedThirds.length) {
+    let j = i + 1
+    while (j < sortedThirds.length && areStatsTied(sortedThirds[j], sortedThirds[i])) j++
+    const crossesTop8 = j > i + 1 && Array.from({ length: j - i }, (_, k) => i + k).some((idx) => idx <= 7) && Array.from({ length: j - i }, (_, k) => i + k).some((idx) => idx >= 8)
+    if (crossesTop8) {
+      const teams = sortedThirds.slice(i, j)
+      if (teams.length === 2) {
+        const [a, b] = teams
+        if (!tiebreakerMap[`3rd-${a.name}-vs-${b.name}`] && !tiebreakerMap[`3rd-${b.name}-vs-${a.name}`]) {
+          pending.add('Mejores terceros')
+        }
+      } else {
+        const rankKey = `3rd-rank-${teams.map((t) => t.name).sort().join('-')}`
+        const picks = tiebreakerMap[rankKey]?.split(',').filter(Boolean) ?? []
+        if (picks.length < teams.length - 1) pending.add('Mejores terceros')
+      }
+    }
+    i = j
+  }
+
+  return [...pending]
 }
 
 // Legacy shim — kept for any callers that use only group stage resolution

@@ -125,7 +125,8 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
         const isLatest = latestValuesRef.current.home === h && latestValuesRef.current.away === a
         setSaveState(isLatest ? 'saved' : 'dirty')
         onSaveStateChange?.(isLatest ? 'saved' : 'dirty')
-      } catch {
+      } catch (error) {
+        console.error('Error al guardar pronóstico', error)
         setSaveState('error')
         onSaveStateChange?.('error')
       }

@@ -13,6 +13,7 @@ type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 type TabId = 'grupos' | 'eliminatoria'
 
 const LOCAL_STORAGE_KEY = 'prode_group_preds'
+const TIEBREAKERS_STORAGE_KEY = 'prode_group_tiebreakers'
 
 interface Props {
   groupMatches: Match[]
@@ -91,6 +92,19 @@ export function MiProdeTabs({
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(TIEBREAKERS_STORAGE_KEY)
+      if (stored) setTiebreakers(JSON.parse(stored))
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(TIEBREAKERS_STORAGE_KEY, JSON.stringify(tiebreakers))
+    } catch {}
+  }, [tiebreakers])
 
   // Persist to localStorage whenever group preds change
   useEffect(() => {
@@ -218,7 +232,8 @@ export function MiProdeTabs({
       try { localStorage.removeItem(LOCAL_STORAGE_KEY) } catch {}
       setFakeState('saved')
       setTimeout(() => setFakeState('idle'), 1800)
-    } catch {
+    } catch (error) {
+      console.error('Error al cargar pronóstico aleatorio de grupos', error)
       setFakeState('error')
     }
   }

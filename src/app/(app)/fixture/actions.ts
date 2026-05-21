@@ -1,7 +1,6 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
 function assertValidScore(score: number) {
@@ -40,7 +39,7 @@ function randomWinningScores() {
 
 async function savePredictionsRpc(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  predictions: Array<{ matchId: string; homeScore: number; awayScore: number }>
+  predictions: Array<{ matchId: string; homeScore: number; awayScore: number; tiebreakerTeam?: string | null }>
 ) {
   if (!predictions.length) return 0
   for (const prediction of predictions) {
@@ -53,6 +52,7 @@ async function savePredictionsRpc(
       match_id: p.matchId,
       home_score: p.homeScore,
       away_score: p.awayScore,
+      tiebreaker_team: p.tiebreakerTeam ?? null,
     })),
   })
 
@@ -83,18 +83,7 @@ export async function upsertPrediction(
     throw new Error('Las predicciones para este partido ya cerraron')
   }
 
-  const { error } = await supabase.from('predictions').upsert(
-    {
-      user_id: user.id,
-      match_id: matchId,
-      home_score: homeScore,
-      away_score: awayScore,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id,match_id' }
-  )
-
-  if (error) throw error
+  await savePredictionsRpc(supabase, [{ matchId, homeScore, awayScore }])
   revalidatePath('/')
   revalidatePath('/fixture')
   revalidatePath('/mi-prode')
@@ -124,24 +113,18 @@ export async function upsertPredictionsBatch(
       .map((m) => m.id)
   )
 
-  const toInsert = predictions
+  const toSave = predictions
     .filter((p) => openIds.has(p.matchId))
     .map((p) => ({
-      user_id: user.id,
-      match_id: p.matchId,
-      home_score: p.homeScore,
-      away_score: p.awayScore,
-      tiebreaker_team: p.tiebreakerTeam ?? null,
-      updated_at: new Date().toISOString(),
+      matchId: p.matchId,
+      homeScore: p.homeScore,
+      awayScore: p.awayScore,
+      tiebreakerTeam: p.tiebreakerTeam ?? null,
     }))
 
-  if (!toInsert.length) throw new Error('No hay predicciones abiertas para guardar')
+  if (!toSave.length) throw new Error('No hay predicciones abiertas para guardar')
 
-  const { error } = await supabase
-    .from('predictions')
-    .upsert(toInsert, { onConflict: 'user_id,match_id' })
-
-  if (error) throw error
+  await savePredictionsRpc(supabase, toSave)
   revalidatePath('/')
   revalidatePath('/mi-prode')
 }
@@ -169,13 +152,17 @@ export async function deleteGroupPredictions() {
 }
 
 export async function generateRandomGroupPredictions() {
-  const { user } = await requireAdmin()
-  const admin = createAdminClient()
+  const { supabase } = await requireAdmin()
 
-  const { data: groupMatches } = await admin
+  const { data: groupMatches, error: matchesError } = await supabase
     .from('matches')
     .select('id')
     .eq('stage', 'group')
+
+  if (matchesError) {
+    console.error('generateRandomGroupPredictions: error loading matches', matchesError)
+    throw matchesError
+  }
 
   if (!groupMatches?.length) return []
 
@@ -185,20 +172,12 @@ export async function generateRandomGroupPredictions() {
     awayScore: randomFakeScore(),
   }))
 
-  const { error } = await admin
-    .from('predictions')
-    .upsert(
-      generated.map((p) => ({
-        user_id: user.id,
-        match_id: p.matchId,
-        home_score: p.homeScore,
-        away_score: p.awayScore,
-        updated_at: new Date().toISOString(),
-      })),
-      { onConflict: 'user_id,match_id' }
-    )
-
-  if (error) throw error
+  try {
+    await savePredictionsRpc(supabase, generated)
+  } catch (error) {
+    console.error('generateRandomGroupPredictions: error saving predictions', error)
+    throw error
+  }
   revalidatePath('/')
   revalidatePath('/mi-prode')
   return generated

@@ -8,7 +8,7 @@ import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
 import { StatusBadge } from '@/components/StatusBadge'
 import { generateRandomKnockoutPredictions, upsertPredictionsBatch } from '@/app/(app)/fixture/actions'
-import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups, assignBestThirdsToSlots } from '@/lib/bracket'
+import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups, assignBestThirdsToSlots, getPendingGroupTiebreakers } from '@/lib/bracket'
 import { normalizeScoreInput, parseScoreInput } from '@/lib/score-input'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
@@ -437,7 +437,10 @@ function SpecialsCard() {
 }
 
 export function BracketView({ groupMatches, knockoutMatches, predMap, initialTiebreakerMap = {}, isAdmin = false, groupTiebreakerMap = {}, readOnly = false }: Props) {
-  const standings = computeAllStandings(groupMatches, predMap)
+  const pendingTiebreakers = getPendingGroupTiebreakers(groupMatches, predMap, groupTiebreakerMap)
+  const hasPendingTiebreakers = pendingTiebreakers.length > 0
+  const bracketLocked = readOnly || hasPendingTiebreakers
+  const standings = computeAllStandings(groupMatches, predMap, groupTiebreakerMap)
   const pMap = buildKnockoutMap(knockoutMatches)
   const bestThirdsGroups = computeBestThirdsGroups(groupMatches, predMap, groupTiebreakerMap)
   const thirdSlotAssignment = bestThirdsGroups.size > 0 ? assignBestThirdsToSlots(bestThirdsGroups) : {}
@@ -460,7 +463,7 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    if (readOnly) return
+    if (bracketLocked) return
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(async () => {
       const now = new Date()
@@ -476,11 +479,11 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
         })
         .filter((p): p is NonNullable<typeof p> => p !== null)
       if (!predictions.length) return
-      try { await upsertPredictionsBatch(predictions) } catch {}
+      try { await upsertPredictionsBatch(predictions) } catch (error) { console.error('Error al guardar eliminatorias', error) }
     }, 800)
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localInputs, tiebreakerMap, readOnly])
+  }, [localInputs, tiebreakerMap, bracketLocked])
 
   // Effective predMap merges saved predictions with locally entered values
   const effectivePredMap: PredMap = { ...predMap }
@@ -521,7 +524,7 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
   const now = new Date()
 
   function resolve(placeholder: string): string {
-    if (readOnly) return placeholder
+    if (bracketLocked) return placeholder
     return resolveTeamFull(placeholder, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)
   }
 
@@ -532,6 +535,7 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
   }
 
   function getAdminEligibleMatches(round?: string) {
+    if (bracketLocked) return []
     return knockoutMatches.filter((match) => {
       const key = match.stage === 'third_place' ? 'final' : match.stage
       if (round && key !== round) return false
@@ -559,7 +563,8 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
       })
       setAdminSaveState('saved')
       setTimeout(() => setAdminSaveState('idle'), 1800)
-    } catch {
+    } catch (error) {
+      console.error('Error al cargar pronóstico aleatorio de eliminatorias', error)
       setAdminSaveState('error')
     }
   }
@@ -571,13 +576,19 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
 
   return (
     <div className="space-y-6">
-      {readOnly && (
+      {bracketLocked && (
         <div
           className="px-5 py-4 text-sm"
           style={{ background: '#131313', border: '1px solid #272727', borderRadius: '16px' }}
         >
-          <span className="font-extrabold text-white">Podés explorar el bracket, pero no guardar pronósticos.</span>
-          <span className="text-muted"> Completá todos los partidos de grupos para habilitar el guardado.</span>
+          {hasPendingTiebreakers ? (
+            <span className="font-extrabold text-white">Hay desempates pendientes. Resolvelos para armar eliminatorias.</span>
+          ) : (
+            <>
+              <span className="font-extrabold text-white">Podés explorar el bracket, pero no guardar pronósticos.</span>
+              <span className="text-muted"> Completá todos los partidos de grupos para habilitar el guardado.</span>
+            </>
+          )}
         </div>
       )}
 
@@ -660,7 +671,7 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
                 initialHome={localInputs[match.id]?.home ?? ''}
                 initialAway={localInputs[match.id]?.away ?? ''}
                 tiebreaker={tiebreakerMap[match.id]}
-                disabled={readOnly}
+                disabled={bracketLocked}
                 onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
                 onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
               />
@@ -686,7 +697,7 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
                 initialHome={localInputs[match.id]?.home ?? ''}
                 initialAway={localInputs[match.id]?.away ?? ''}
                 tiebreaker={tiebreakerMap[match.id]}
-                disabled={readOnly}
+                disabled={bracketLocked}
                 onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
                 onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
               />
