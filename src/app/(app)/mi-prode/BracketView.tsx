@@ -269,84 +269,98 @@ function BracketMatchCard({
         </div>
       </div>
 
-      {/* Score banner for live/finished */}
-      {hasRealScore && (
+      {/* Partido terminado/en vivo: Pronóstico + Resultado Final */}
+      {hasRealScore ? (
+        <div className="flex flex-col gap-[6px]">
+          {/* Pronóstico */}
+          <div
+            className="flex items-center justify-between rounded-[10px]"
+            style={{ padding: '9px 12px', background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)' }}
+          >
+            <span className="text-[9px] font-extrabold uppercase tracking-[0.18em]" style={{ color: '#4a4a4a' }}>
+              Pronóstico
+            </span>
+            {hasPrediction ? (
+              <span className="font-display text-[18px] text-white tabular-nums">{home} — {away}</span>
+            ) : (
+              <span className="text-[11px] font-bold" style={{ color: '#3a3a3a' }}>Sin pronóstico</span>
+            )}
+          </div>
+          {/* Resultado final */}
+          <div
+            className="flex items-center justify-between rounded-[10px]"
+            style={{ padding: '9px 12px', background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <span className="text-[9px] font-extrabold uppercase tracking-[0.18em]" style={{ color: '#9a9a9a' }}>
+              Resultado final
+            </span>
+            <span className="font-display text-[18px] text-white tabular-nums">
+              {match.home_score} — {match.away_score}
+            </span>
+          </div>
+        </div>
+      ) : (
+        /* Score inputs — partido abierto */
         <div
-          className="flex items-center justify-between mb-2 rounded-[10px] gap-3"
+          className="grid items-center"
           style={{
-            padding: '9px 12px',
-            background: 'rgba(255,255,255,.04)',
+            gridTemplateColumns: '1fr auto 1fr',
+            gap: '8px',
+            background: isOpen ? '#0A0A0A' : '#0d0d0d',
             border: '1px solid rgba(255,255,255,0.08)',
-            color: '#9a9a9a',
+            borderRadius: '12px',
+            padding: '5px',
           }}
         >
-          <span className="text-[9px] font-extrabold uppercase tracking-[0.18em]">Resultado final</span>
-          <span className="font-display text-[18px] text-white tabular-nums">
-            {match.home_score} — {match.away_score}
-          </span>
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={2}
+            value={home}
+            disabled={!isOpen}
+            onChange={(e) => handleChange('home', e.target.value)}
+            placeholder="–"
+            aria-label={`Goles ${homeTeam}`}
+            className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
+            style={isOpen ? undefined : { cursor: 'not-allowed' }}
+            onFocus={(e) => {
+              if (isOpen) {
+                e.target.style.background = 'rgba(255,107,0,0.12)'
+                e.target.style.boxShadow = 'inset 0 0 0 2px #FF6B00'
+              }
+            }}
+            onBlur={(e) => {
+              e.target.style.background = 'transparent'
+              e.target.style.boxShadow = 'none'
+            }}
+          />
+          <span className="font-display text-[18px] text-[#3a3a3a]">—</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={2}
+            value={away}
+            disabled={!isOpen}
+            onChange={(e) => handleChange('away', e.target.value)}
+            placeholder="–"
+            aria-label={`Goles ${awayTeam}`}
+            className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
+            style={isOpen ? undefined : { cursor: 'not-allowed' }}
+            onFocus={(e) => {
+              if (isOpen) {
+                e.target.style.background = 'rgba(255,107,0,0.12)'
+                e.target.style.boxShadow = 'inset 0 0 0 2px #FF6B00'
+              }
+            }}
+            onBlur={(e) => {
+              e.target.style.background = 'transparent'
+              e.target.style.boxShadow = 'none'
+            }}
+          />
         </div>
       )}
-
-      {/* Score inputs */}
-      <div
-        className="grid items-center"
-        style={{
-          gridTemplateColumns: '1fr auto 1fr',
-          gap: '8px',
-          background: isOpen ? '#0A0A0A' : '#0d0d0d',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '12px',
-          padding: '5px',
-        }}
-      >
-        <input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          maxLength={2}
-          value={home}
-          disabled={!isOpen}
-          onChange={(e) => handleChange('home', e.target.value)}
-          placeholder="–"
-          aria-label={`Goles ${homeTeam}`}
-          className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
-          style={isOpen ? undefined : { cursor: 'not-allowed' }}
-          onFocus={(e) => {
-            if (isOpen) {
-              e.target.style.background = 'rgba(255,107,0,0.12)'
-              e.target.style.boxShadow = 'inset 0 0 0 2px #FF6B00'
-            }
-          }}
-          onBlur={(e) => {
-            e.target.style.background = 'transparent'
-            e.target.style.boxShadow = 'none'
-          }}
-        />
-        <span className="font-display text-[18px] text-[#3a3a3a]">—</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          maxLength={2}
-          value={away}
-          disabled={!isOpen}
-          onChange={(e) => handleChange('away', e.target.value)}
-          placeholder="–"
-          aria-label={`Goles ${awayTeam}`}
-          className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
-          style={isOpen ? undefined : { cursor: 'not-allowed' }}
-          onFocus={(e) => {
-            if (isOpen) {
-              e.target.style.background = 'rgba(255,107,0,0.12)'
-              e.target.style.boxShadow = 'inset 0 0 0 2px #FF6B00'
-            }
-          }}
-          onBlur={(e) => {
-            e.target.style.background = 'transparent'
-            e.target.style.boxShadow = 'none'
-          }}
-        />
-      </div>
 
       {/* Tiebreaker: knockout draw → pick who advances */}
       {isOpen && match.stage !== 'group' && hasPrediction && !homePH && !awayPH && isDrawPred && (

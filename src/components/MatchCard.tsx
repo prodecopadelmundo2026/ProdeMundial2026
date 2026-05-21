@@ -215,108 +215,127 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
         </div>
       </div>
 
-      {/* Score context banner — solo para partidos con resultado */}
-      {hasRealScore && (
-        <div
-          className="flex items-center justify-between mb-2 rounded-[10px] font-extrabold gap-3"
-          style={{
-            padding: '9px 12px',
-            background: 'rgba(255,255,255,.04)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            color: '#9a9a9a',
-          }}
-        >
-          <span className="text-[9px] font-extrabold uppercase tracking-[0.18em]">Resultado final</span>
-          <span className="font-display text-[18px] text-white tabular-nums">
-            {match.home_score} — {match.away_score}
-          </span>
-        </div>
-      )}
-
-      {/* Pronóstico read-only (home page, vista pública) */}
-      {readOnly && prediction && (
-        <div
-          className="flex items-center justify-between mt-1 px-3 py-2 rounded-[10px] text-[11px] font-bold"
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
-        >
-          <span className="text-muted tracking-[0.12em] uppercase text-[10px] font-extrabold">Tu pronóstico</span>
-          <span className="font-mono text-white text-[12px]">
-            {prediction.home_score} — {prediction.away_score}
-          </span>
-        </div>
-      )}
-
-      {/* Pronóstico editable */}
-      {!readOnly && (
+      {/* Partido terminado/en vivo: Pronóstico + Resultado Final */}
+      {hasRealScore ? (
         <>
-          <div
-            className="grid items-center"
-            style={{
-              gridTemplateColumns: '1fr auto 1fr',
-              gap: '8px',
-              background: isInputLocked ? '#0d0d0d' : '#0A0A0A',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '12px',
-              padding: '5px',
-            }}
-          >
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={2}
-              value={home}
-              disabled={isInputLocked}
-              onChange={(e) => handleChange('home', e.target.value)}
-              placeholder="–"
-              aria-label={`Goles ${match.home_team}`}
-              className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
-              style={isInputLocked ? { cursor: 'not-allowed' } : undefined}
-              onFocus={(e) => {
-                if (!isInputLocked) {
-                  e.target.style.background = 'rgba(255,107,0,0.12)'
-                  e.target.style.boxShadow = 'inset 0 0 0 2px #FF6B00'
-                }
-              }}
-              onBlur={(e) => {
-                e.target.style.background = 'transparent'
-                e.target.style.boxShadow = 'none'
-              }}
-            />
-            <span className="font-display text-[18px] text-[#3a3a3a]">—</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={2}
-              value={away}
-              disabled={isInputLocked}
-              onChange={(e) => handleChange('away', e.target.value)}
-              placeholder="–"
-              aria-label={`Goles ${match.away_team}`}
-              className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
-              style={isInputLocked ? { cursor: 'not-allowed' } : undefined}
-              onFocus={(e) => {
-                if (!isInputLocked) {
-                  e.target.style.background = 'rgba(255,107,0,0.12)'
-                  e.target.style.boxShadow = 'inset 0 0 0 2px #FF6B00'
-                }
-              }}
-              onBlur={(e) => {
-                e.target.style.background = 'transparent'
-                e.target.style.boxShadow = 'none'
-              }}
-            />
-          </div>
-
-          {/* Bottom: solo pts badge + error save state */}
-          {(ptsBadge || (!noAutosave && saveState === 'error')) && (
-            <div className="mt-[10px] flex items-center justify-between gap-[8px]">
-              <span className="text-[11px] font-semibold" style={{ color: '#FF6B6B' }}>
-                {!noAutosave && saveState === 'error' ? 'Error al guardar' : ''}
+          <div className="flex flex-col gap-[6px]">
+            {/* Pronóstico */}
+            <div
+              className="flex items-center justify-between rounded-[10px]"
+              style={{ padding: '9px 12px', background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)' }}
+            >
+              <span className="text-[9px] font-extrabold uppercase tracking-[0.18em]" style={{ color: '#4a4a4a' }}>
+                Pronóstico
               </span>
-              {ptsBadge && <PtsBadge pts={ptsBadge.pts} type={ptsBadge.type} />}
+              {hasPrediction ? (
+                <span className="font-display text-[18px] text-white tabular-nums">{home} — {away}</span>
+              ) : (
+                <span className="text-[11px] font-bold" style={{ color: '#3a3a3a' }}>Sin pronóstico</span>
+              )}
             </div>
+            {/* Resultado final */}
+            <div
+              className="flex items-center justify-between rounded-[10px]"
+              style={{ padding: '9px 12px', background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <span className="text-[9px] font-extrabold uppercase tracking-[0.18em]" style={{ color: '#9a9a9a' }}>
+                Resultado final
+              </span>
+              <span className="font-display text-[18px] text-white tabular-nums">
+                {match.home_score} — {match.away_score}
+              </span>
+            </div>
+          </div>
+          {/* Pts badge */}
+          {ptsBadge && (
+            <div className="mt-[10px] flex justify-end">
+              <PtsBadge pts={ptsBadge.pts} type={ptsBadge.type} />
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Pronóstico read-only (home page, vista pública) */}
+          {readOnly && prediction && (
+            <div
+              className="flex items-center justify-between px-3 py-2 rounded-[10px] text-[11px] font-bold"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
+            >
+              <span className="text-muted tracking-[0.12em] uppercase text-[10px] font-extrabold">Tu pronóstico</span>
+              <span className="font-mono text-white text-[12px]">
+                {prediction.home_score} — {prediction.away_score}
+              </span>
+            </div>
+          )}
+
+          {/* Pronóstico editable */}
+          {!readOnly && (
+            <>
+              <div
+                className="grid items-center"
+                style={{
+                  gridTemplateColumns: '1fr auto 1fr',
+                  gap: '8px',
+                  background: isInputLocked ? '#0d0d0d' : '#0A0A0A',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '12px',
+                  padding: '5px',
+                }}
+              >
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={2}
+                  value={home}
+                  disabled={isInputLocked}
+                  onChange={(e) => handleChange('home', e.target.value)}
+                  placeholder="–"
+                  aria-label={`Goles ${match.home_team}`}
+                  className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
+                  style={isInputLocked ? { cursor: 'not-allowed' } : undefined}
+                  onFocus={(e) => {
+                    if (!isInputLocked) {
+                      e.target.style.background = 'rgba(255,107,0,0.12)'
+                      e.target.style.boxShadow = 'inset 0 0 0 2px #FF6B00'
+                    }
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.background = 'transparent'
+                    e.target.style.boxShadow = 'none'
+                  }}
+                />
+                <span className="font-display text-[18px] text-[#3a3a3a]">—</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={2}
+                  value={away}
+                  disabled={isInputLocked}
+                  onChange={(e) => handleChange('away', e.target.value)}
+                  placeholder="–"
+                  aria-label={`Goles ${match.away_team}`}
+                  className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
+                  style={isInputLocked ? { cursor: 'not-allowed' } : undefined}
+                  onFocus={(e) => {
+                    if (!isInputLocked) {
+                      e.target.style.background = 'rgba(255,107,0,0.12)'
+                      e.target.style.boxShadow = 'inset 0 0 0 2px #FF6B00'
+                    }
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.background = 'transparent'
+                    e.target.style.boxShadow = 'none'
+                  }}
+                />
+              </div>
+              {(!noAutosave && saveState === 'error') && (
+                <div className="mt-[10px] flex justify-end">
+                  <span className="text-[11px] font-semibold" style={{ color: '#FF6B6B' }}>Error al guardar</span>
+                </div>
+              )}
+            </>
           )}
         </>
       )}
