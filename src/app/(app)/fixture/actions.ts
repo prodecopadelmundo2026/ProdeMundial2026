@@ -9,6 +9,18 @@ function assertValidScore(score: number) {
   }
 }
 
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'object' && error && 'message' in error) {
+    return String((error as { message: unknown }).message)
+  }
+  return String(error)
+}
+
+function logActionError(scope: string, error: unknown, context?: Record<string, unknown>) {
+  console.error(`[${scope}] ${errorMessage(error)}`, { error, ...context })
+}
+
 async function requireAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -56,7 +68,13 @@ async function savePredictionsRpc(
     })),
   })
 
-  if (error) throw error
+  if (error) {
+    logActionError('savePredictionsRpc', error, {
+      count: predictions.length,
+      firstPrediction: predictions[0],
+    })
+    throw new Error(error.message)
+  }
   return data ?? predictions.length
 }
 
@@ -72,18 +90,27 @@ export async function upsertPrediction(
   assertValidScore(awayScore)
 
   // Validación server-side: partido existe y está abierto
-  const { data: match } = await supabase
+  const { data: match, error: matchError } = await supabase
     .from('matches')
     .select('locked_at, status')
     .eq('id', matchId)
     .single()
 
+  if (matchError) {
+    logActionError('upsertPrediction.loadMatch', matchError, { matchId })
+    throw new Error(matchError.message)
+  }
   if (!match) throw new Error('Partido no encontrado')
   if (match.status !== 'upcoming' || new Date() >= new Date(match.locked_at)) {
     throw new Error('Las predicciones para este partido ya cerraron')
   }
 
-  await savePredictionsRpc(supabase, [{ matchId, homeScore, awayScore }])
+  try {
+    await savePredictionsRpc(supabase, [{ matchId, homeScore, awayScore }])
+  } catch (error) {
+    logActionError('upsertPrediction.save', error, { matchId, homeScore, awayScore })
+    throw new Error(errorMessage(error))
+  }
   revalidatePath('/')
   revalidatePath('/fixture')
   revalidatePath('/mi-prode')
@@ -101,10 +128,15 @@ export async function upsertPredictionsBatch(
   }
 
   const matchIds = predictions.map((p) => p.matchId)
-  const { data: matches } = await supabase
+  const { data: matches, error: matchesError } = await supabase
     .from('matches')
     .select('id, locked_at, status')
     .in('id', matchIds)
+
+  if (matchesError) {
+    logActionError('upsertPredictionsBatch.loadMatches', matchesError, { count: predictions.length })
+    throw new Error(matchesError.message)
+  }
 
   const now = new Date()
   const openIds = new Set(
@@ -124,7 +156,12 @@ export async function upsertPredictionsBatch(
 
   if (!toSave.length) throw new Error('No hay predicciones abiertas para guardar')
 
-  await savePredictionsRpc(supabase, toSave)
+  try {
+    await savePredictionsRpc(supabase, toSave)
+  } catch (error) {
+    logActionError('upsertPredictionsBatch.save', error, { count: toSave.length })
+    throw new Error(errorMessage(error))
+  }
   revalidatePath('/')
   revalidatePath('/mi-prode')
 }
@@ -134,21 +171,39 @@ export async function deleteGroupPredictions() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
 
-  const { data: groupMatches } = await supabase
-    .from('matches')
-    .select('id')
-    .eq('stage', 'group')
+  const { data, error } = await supabase.rpc('delete_predictions_by_stages', {
+    p_stages: ['group'],
+  })
 
-  if (!groupMatches?.length) return
-
-  const { error } = await supabase
-    .from('predictions')
-    .delete()
-    .eq('user_id', user.id)
-    .in('match_id', groupMatches.map((m) => m.id))
-
-  if (error) throw error
+  if (error) {
+    logActionError('deleteGroupPredictions', error)
+    throw new Error(error.message)
+  }
   revalidatePath('/mi-prode')
+  return data ?? 0
+}
+
+export async function deletePredictionsByStages(stages: string[]) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+
+  const uniqueStages = [...new Set(stages)].filter(Boolean)
+  if (!uniqueStages.length) return 0
+
+  const { data, error } = await supabase.rpc('delete_predictions_by_stages', {
+    p_stages: uniqueStages,
+  })
+
+  if (error) {
+    logActionError('deletePredictionsByStages', error, { stages: uniqueStages })
+    throw new Error(error.message)
+  }
+
+  revalidatePath('/')
+  revalidatePath('/fixture')
+  revalidatePath('/mi-prode')
+  return data ?? 0
 }
 
 export async function generateRandomGroupPredictions() {
@@ -160,8 +215,8 @@ export async function generateRandomGroupPredictions() {
     .eq('stage', 'group')
 
   if (matchesError) {
-    console.error('generateRandomGroupPredictions: error loading matches', matchesError)
-    throw matchesError
+    logActionError('generateRandomGroupPredictions.loadMatches', matchesError)
+    throw new Error(matchesError.message)
   }
 
   if (!groupMatches?.length) return []
@@ -175,8 +230,8 @@ export async function generateRandomGroupPredictions() {
   try {
     await savePredictionsRpc(supabase, generated)
   } catch (error) {
-    console.error('generateRandomGroupPredictions: error saving predictions', error)
-    throw error
+    logActionError('generateRandomGroupPredictions.save', error, { count: generated.length })
+    throw new Error(errorMessage(error))
   }
   revalidatePath('/')
   revalidatePath('/mi-prode')
@@ -189,10 +244,15 @@ export async function generateRandomKnockoutPredictions(matchIds: string[]) {
   if (!uniqueMatchIds.length) return []
 
   const now = new Date()
-  const { data: matches } = await supabase
+  const { data: matches, error: matchesError } = await supabase
     .from('matches')
     .select('id, locked_at, status, stage')
     .in('id', uniqueMatchIds)
+
+  if (matchesError) {
+    logActionError('generateRandomKnockoutPredictions.loadMatches', matchesError, { count: uniqueMatchIds.length })
+    throw new Error(matchesError.message)
+  }
 
   const allowedIds = new Set(
     (matches ?? [])
@@ -207,7 +267,12 @@ export async function generateRandomKnockoutPredictions(matchIds: string[]) {
       ...randomWinningScores(),
     }))
 
-  await savePredictionsRpc(supabase, generated)
+  try {
+    await savePredictionsRpc(supabase, generated)
+  } catch (error) {
+    logActionError('generateRandomKnockoutPredictions.save', error, { count: generated.length })
+    throw new Error(errorMessage(error))
+  }
   revalidatePath('/')
   revalidatePath('/mi-prode')
   return generated

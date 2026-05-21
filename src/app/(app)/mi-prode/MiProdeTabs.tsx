@@ -1,19 +1,45 @@
 'use client'
 
 import { useState, useMemo, useEffect, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { Trash2 } from 'lucide-react'
 import type { Match } from '@/types'
 import { GroupBatchEditor } from './GroupBatchEditor'
 import { BracketView } from './BracketView'
-import { deleteGroupPredictions, generateRandomGroupPredictions } from '@/app/(app)/fixture/actions'
+import { deletePredictionsByStages, generateRandomGroupPredictions } from '@/app/(app)/fixture/actions'
 import { parseScoreInput } from '@/lib/score-input'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 
 type TabId = 'grupos' | 'eliminatoria'
+type DeleteOption = 'groups' | 'knockout' | 'round_of_32' | 'round_of_16' | 'quarter' | 'semi' | 'final' | 'third_place' | 'specials' | 'all'
+type DeleteState = 'idle' | 'confirm' | 'deleting' | 'success' | 'error'
 
 const LOCAL_STORAGE_KEY = 'prode_group_preds'
 const TIEBREAKERS_STORAGE_KEY = 'prode_group_tiebreakers'
+const SPECIALS_STORAGE_KEY = 'prode_specials'
+
+const DELETE_OPTIONS: Array<{ key: DeleteOption; label: string; stages?: string[]; localOnly?: boolean }> = [
+  { key: 'groups', label: 'Fase de grupos completa', stages: ['group'] },
+  { key: 'knockout', label: 'Eliminatorias completas', stages: ['round_of_32', 'round_of_16', 'quarter', 'semi', 'final', 'third_place'] },
+  { key: 'round_of_32', label: 'Dieciseisavos', stages: ['round_of_32'] },
+  { key: 'round_of_16', label: 'Octavos', stages: ['round_of_16'] },
+  { key: 'quarter', label: 'Cuartos', stages: ['quarter'] },
+  { key: 'semi', label: 'Semis', stages: ['semi'] },
+  { key: 'final', label: 'Final', stages: ['final'] },
+  { key: 'third_place', label: '3er puesto', stages: ['third_place'] },
+  { key: 'specials', label: 'Apuestas especiales', localOnly: true },
+  { key: 'all', label: 'Todo' },
+]
+
+function formatClientError(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'object' && error && 'message' in error) {
+    return String((error as { message: unknown }).message)
+  }
+  return String(error)
+}
 
 interface Props {
   groupMatches: Match[]
@@ -30,10 +56,15 @@ export function MiProdeTabs({
   tiebreakerMap,
   isAdmin,
 }: Props) {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabId>('grupos')
   const [bracketKey, setBracketKey] = useState(0)
-  const [deleteState, setDeleteState] = useState<'idle' | 'confirm' | 'deleting'>('idle')
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deleteState, setDeleteState] = useState<DeleteState>('idle')
+  const [deleteSelections, setDeleteSelections] = useState<Set<DeleteOption>>(() => new Set())
+  const [deleteMessage, setDeleteMessage] = useState<string | null>(null)
   const [fakeState, setFakeState] = useState<'idle' | 'confirm' | 'saving' | 'saved' | 'error'>('idle')
+  const [fakeError, setFakeError] = useState<string | null>(null)
   const [tiebreakers, setTiebreakers] = useState<Record<string, string>>({})
   const [groupSaveStates, setGroupSaveStates] = useState<Record<string, SaveState>>(() => {
     const init: Record<string, SaveState> = {}
@@ -185,29 +216,103 @@ export function MiProdeTabs({
     ? '#A8F0D8'
     : '#8A8A8A'
 
-  function handleDeleteGroups() {
-    if (deleteState === 'idle') {
-      setDeleteState('confirm')
+  function toggleDeleteSelection(option: DeleteOption) {
+    setDeleteSelections((prev) => {
+      const next = new Set(prev)
+      if (option === 'all') {
+        return next.has('all') ? new Set() : new Set(['all'])
+      }
+      next.delete('all')
+      if (next.has(option)) next.delete(option)
+      else next.add(option)
+      return next
+    })
+    setDeleteState('idle')
+    setDeleteMessage(null)
+  }
+
+  function resolveDeleteScopes() {
+    const selected = deleteSelections.has('all')
+      ? DELETE_OPTIONS.filter((option) => option.key !== 'all').map((option) => option.key)
+      : [...deleteSelections]
+    const selectedSet = new Set(selected)
+    const stages = new Set<string>()
+
+    for (const option of DELETE_OPTIONS) {
+      if (!selectedSet.has(option.key)) continue
+      for (const stage of option.stages ?? []) stages.add(stage)
+    }
+
+    return {
+      stages: [...stages],
+      deleteGroupsLocally: selectedSet.has('groups'),
+      deleteKnockoutLocally: selectedSet.has('knockout') || selected.some((key) => ['round_of_32', 'round_of_16', 'quarter', 'semi', 'final', 'third_place'].includes(key)),
+      deleteSpecials: selectedSet.has('specials'),
+      hasAnySelection: selectedSet.size > 0,
+    }
+  }
+
+  function closeDeleteModal() {
+    if (deleteState === 'deleting') return
+    setDeleteModalOpen(false)
+    setDeleteState('idle')
+    setDeleteMessage(null)
+  }
+
+  function handleDeleteSelectedPredictions() {
+    const scopes = resolveDeleteScopes()
+    if (!scopes.hasAnySelection) {
+      setDeleteState('error')
+      setDeleteMessage('Elegí al menos una opción para borrar.')
       return
     }
+    if (deleteState !== 'confirm') {
+      setDeleteState('confirm')
+      setDeleteMessage('Confirmá el borrado. Solo se afectará tu usuario y partidos abiertos.')
+      return
+    }
+
     setDeleteState('deleting')
+    setDeleteMessage(null)
     startTransition(async () => {
       try {
-        await deleteGroupPredictions()
-        // Clear localStorage
-        try { localStorage.removeItem(LOCAL_STORAGE_KEY) } catch {}
-        // Reset local state
-        setLocalGroupPreds({})
-        // Force BracketView remount so localInputs starts fresh
-        setBracketKey((k) => k + 1)
-      } finally {
-        setDeleteState('idle')
+        const deletedCount = scopes.stages.length ? await deletePredictionsByStages(scopes.stages) : 0
+        if (scopes.deleteGroupsLocally) {
+          try {
+            localStorage.removeItem(LOCAL_STORAGE_KEY)
+            localStorage.removeItem(TIEBREAKERS_STORAGE_KEY)
+          } catch {}
+          setLocalGroupPreds({})
+          setTiebreakers({})
+          setGroupSaveStates({})
+        }
+        if (scopes.deleteKnockoutLocally) setBracketKey((key) => key + 1)
+        if (scopes.deleteSpecials) {
+          try {
+            localStorage.removeItem(SPECIALS_STORAGE_KEY)
+            window.dispatchEvent(new Event('prode-specials-cleared'))
+          } catch {}
+        }
+        setDeleteState('success')
+        setDeleteMessage(
+          scopes.deleteSpecials && !scopes.stages.length
+            ? 'Apuestas especiales borradas correctamente.'
+            : `Borrado correcto. Predicciones eliminadas: ${deletedCount}.`
+        )
+        setDeleteSelections(new Set())
+        router.refresh()
+      } catch (error) {
+        const message = formatClientError(error)
+        console.error('Error al borrar pronósticos', error)
+        setDeleteState('error')
+        setDeleteMessage(message)
       }
     })
   }
 
   async function handleRandomGroupPredictions() {
     setFakeState('saving')
+    setFakeError(null)
     try {
       const generated = await generateRandomGroupPredictions()
       if (!generated.length) {
@@ -233,7 +338,9 @@ export function MiProdeTabs({
       setFakeState('saved')
       setTimeout(() => setFakeState('idle'), 1800)
     } catch (error) {
+      const message = formatClientError(error)
       console.error('Error al cargar pronóstico aleatorio de grupos', error)
+      setFakeError(message)
       setFakeState('error')
     }
   }
@@ -250,7 +357,23 @@ export function MiProdeTabs({
         </h1>
 
         {/* Pill tabs */}
-        <div className="flex flex-col items-end gap-[5px]">
+        <div className="flex items-end gap-3">
+          {isAdmin && (
+            <button
+              onClick={() => {
+                setDeleteModalOpen(true)
+                setDeleteState('idle')
+                setDeleteMessage(null)
+              }}
+              className="grid h-11 w-11 place-items-center rounded-full transition-all duration-150"
+              style={{ background: 'rgba(255,59,59,0.12)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.25)' }}
+              title="Borrar pronósticos"
+              aria-label="Borrar pronósticos"
+            >
+              <Trash2 size={18} strokeWidth={2.5} />
+            </button>
+          )}
+          <div className="flex flex-col items-end gap-[5px]">
           <span className="font-mono text-[10px] font-bold tracking-[0.22em] uppercase" style={{ color: '#8A8A8A' }}>
             Fase
           </span>
@@ -279,8 +402,106 @@ export function MiProdeTabs({
             </button>
           ))}
           </div>
+          </div>
         </div>
       </div>
+
+      {deleteModalOpen && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center px-4 py-8"
+          style={{ background: 'rgba(0,0,0,0.72)' }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Borrar pronósticos"
+        >
+          <div
+            className="w-full max-w-[560px] overflow-hidden"
+            style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 24, boxShadow: '0 24px 80px rgba(0,0,0,0.45)' }}
+          >
+            <div className="flex items-start justify-between gap-4 px-6 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <div>
+                <p className="text-[11px] font-extrabold tracking-[0.18em] uppercase" style={{ color: '#FF6B6B' }}>
+                  Herramienta admin
+                </p>
+                <h2 className="mt-1 text-[22px] font-extrabold text-white">Borrar pronósticos</h2>
+                <p className="mt-1 text-[13px] text-muted">
+                  Solo se borran tus pronósticos en partidos abiertos. No toca resultados, ranking ni otros usuarios.
+                </p>
+              </div>
+              <button
+                onClick={closeDeleteModal}
+                disabled={deleteState === 'deleting'}
+                className="grid h-9 w-9 place-items-center rounded-full text-[18px] font-bold disabled:opacity-40"
+                style={{ background: '#181818', color: '#8A8A8A', border: '1px solid rgba(255,255,255,0.08)' }}
+                aria-label="Cerrar"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="grid gap-2 px-6 py-5 sm:grid-cols-2">
+              {DELETE_OPTIONS.map((option) => {
+                const checked = deleteSelections.has('all') || deleteSelections.has(option.key)
+                return (
+                  <label
+                    key={option.key}
+                    className="flex cursor-pointer items-center gap-3 rounded-[12px] px-3 py-3 text-[13px] font-bold transition-all duration-150"
+                    style={{
+                      background: checked ? 'rgba(255,107,0,0.14)' : '#151515',
+                      color: checked ? '#fff' : '#cfcfcf',
+                      border: checked ? '1px solid rgba(255,107,0,0.45)' : '1px solid rgba(255,255,255,0.07)',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleDeleteSelection(option.key)}
+                      className="h-4 w-4 accent-[#FF6B00]"
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                )
+              })}
+            </div>
+
+            {deleteMessage && (
+              <div className="mx-6 mb-4 rounded-[12px] px-4 py-3 text-[13px] font-bold"
+                style={{
+                  background: deleteState === 'error' ? 'rgba(255,59,59,0.12)' : deleteState === 'success' ? 'rgba(168,240,216,0.1)' : 'rgba(255,177,92,0.1)',
+                  color: deleteState === 'error' ? '#FF6B6B' : deleteState === 'success' ? '#A8F0D8' : '#FFB15C',
+                  border: deleteState === 'error' ? '1px solid rgba(255,59,59,0.25)' : '1px solid rgba(255,255,255,0.08)',
+                }}
+              >
+                {deleteMessage}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-end gap-2 px-6 py-5" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <button
+                onClick={closeDeleteModal}
+                disabled={deleteState === 'deleting'}
+                className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase text-muted disabled:opacity-40"
+                style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={handleDeleteSelectedPredictions}
+                disabled={deleteState === 'deleting'}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
+                style={{ background: deleteState === 'confirm' ? '#FF3B3B' : 'rgba(255,59,59,0.16)', color: deleteState === 'confirm' ? '#fff' : '#FF6B6B', border: '1px solid rgba(255,59,59,0.25)' }}
+              >
+                <Trash2 size={15} strokeWidth={2.5} />
+                {deleteState === 'deleting'
+                  ? 'Borrando...'
+                  : deleteState === 'confirm'
+                  ? 'Confirmar borrado'
+                  : 'Borrar selección'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Both tabs kept mounted to preserve state; only one visible at a time */}
       <div style={{ display: activeTab === 'grupos' ? undefined : 'none' }}>
@@ -296,6 +517,8 @@ export function MiProdeTabs({
                   ? 'Esto cargará pronósticos aleatorios para probar el flujo. ¿Querés continuar?'
                   : fakeState === 'saved'
                   ? 'Guardado correctamente. Ya podés probar el flujo de eliminatorias.'
+                  : fakeState === 'error' && fakeError
+                  ? `Error real: ${fakeError}`
                   : 'Carga pronósticos aleatorios para todos los partidos de grupos.'}
               </p>
             </div>
@@ -345,35 +568,6 @@ export function MiProdeTabs({
           onTiebreaker={handleTiebreaker}
         />
 
-        {/* Delete button — only once all groups are complete */}
-        {allGroupsFilled && (
-          <div className="flex items-center justify-end gap-3 mt-8 pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-            {deleteState === 'confirm' && (
-              <span className="text-[13px] font-semibold" style={{ color: '#FF6B6B' }}>
-                ¿Seguro? Se borran todos los pronósticos de grupos.
-              </span>
-            )}
-            <button
-              onClick={handleDeleteGroups}
-              disabled={deleteState === 'deleting'}
-              className="px-5 py-2.5 rounded-full text-[12px] font-extrabold tracking-[0.06em] uppercase transition-all duration-150 disabled:opacity-40"
-              style={
-                deleteState === 'confirm'
-                  ? { background: '#FF3B3B', color: '#fff' }
-                  : { background: 'rgba(255,59,59,0.12)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.25)' }
-              }
-              onMouseLeave={() => {
-                if (deleteState === 'confirm') setDeleteState('idle')
-              }}
-            >
-              {deleteState === 'deleting'
-                ? 'Borrando...'
-                : deleteState === 'confirm'
-                ? 'Confirmar borrado'
-                : 'Borrar predicciones'}
-            </button>
-          </div>
-        )}
       </div>
       <div style={{ display: activeTab === 'eliminatoria' ? undefined : 'none' }}>
         <BracketView

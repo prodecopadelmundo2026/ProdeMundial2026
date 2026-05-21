@@ -14,6 +14,14 @@ import { normalizeScoreInput, parseScoreInput } from '@/lib/score-input'
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type LocalInputs = Record<string, { home: string; away: string }>
 
+function formatClientError(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'object' && error && 'message' in error) {
+    return String((error as { message: unknown }).message)
+  }
+  return String(error)
+}
+
 interface Props {
   groupMatches: Match[]
   knockoutMatches: Match[]
@@ -24,7 +32,10 @@ interface Props {
   readOnly?: boolean
 }
 
-const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'final'] as const
+const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'third_place', 'final'] as const
+type RoundKey = typeof ROUND_ORDER[number]
+type AdminPhaseValue = RoundKey | 'all'
+
 const ROUND_LABELS: Record<string, string> = {
   round_of_32:  'Dieciseisavos',
   round_of_16:  'Octavos',
@@ -43,6 +54,10 @@ const STRIP_COLOR: Record<string, string> = {
 
 function isPlaceholder(name: string) {
   return name.includes('°') || name.startsWith('Ganador') || name.startsWith('Perdedor') || name === 'Mejor 3°'
+}
+
+function isRoundKey(value: AdminPhaseValue): value is RoundKey {
+  return value !== 'all'
 }
 
 function BracketMatchCard({
@@ -337,6 +352,13 @@ const SPECIALS_ITEMS = [
 ] as const
 
 type SpecialsKey = typeof SPECIALS_ITEMS[number]['key']
+type SpecialsValues = Record<SpecialsKey, string>
+
+const RANDOM_SPECIALS: SpecialsValues = {
+  balon: 'Lionel Messi',
+  bota: 'Kylian Mbappé',
+  guante: 'Emiliano Martínez',
+}
 
 function onlyLetters(value: string) {
   // Allow letters (including accented), spaces — strip everything else
@@ -344,7 +366,7 @@ function onlyLetters(value: string) {
 }
 
 function SpecialsCard() {
-  const [values, setValues] = useState<Record<SpecialsKey, string>>({ balon: '', bota: '', guante: '' })
+  const [values, setValues] = useState<SpecialsValues>({ balon: '', bota: '', guante: '' })
   const [saved, setSaved] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -353,6 +375,24 @@ function SpecialsCard() {
       const stored = localStorage.getItem(SPECIALS_STORAGE_KEY)
       if (stored) setValues(JSON.parse(stored))
     } catch {}
+  }, [])
+
+  useEffect(() => {
+    function handleClear() {
+      setValues({ balon: '', bota: '', guante: '' })
+      setSaved(false)
+    }
+    function handleRandomize() {
+      setValues(RANDOM_SPECIALS)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 1800)
+    }
+    window.addEventListener('prode-specials-cleared', handleClear)
+    window.addEventListener('prode-specials-randomized', handleRandomize)
+    return () => {
+      window.removeEventListener('prode-specials-cleared', handleClear)
+      window.removeEventListener('prode-specials-randomized', handleRandomize)
+    }
   }, [])
 
   function handleChange(key: SpecialsKey, raw: string) {
@@ -460,6 +500,8 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
 
   const [tiebreakerMap, setTiebreakerMap] = useState<Record<string, string>>(initialTiebreakerMap)
   const [adminSaveState, setAdminSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [adminSaveError, setAdminSaveError] = useState<string | null>(null)
+  const [adminSaveMessage, setAdminSaveMessage] = useState<string | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -513,13 +555,14 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
 
   const byRound: Record<string, Match[]> = {}
   for (const m of knockoutMatches) {
-    const key = m.stage === 'third_place' ? 'final' : m.stage
+    const key = m.stage
     if (!byRound[key]) byRound[key] = []
     byRound[key].push(m)
   }
 
   const availableRounds = ROUND_ORDER.filter((r) => byRound[r]?.length)
   const [activeRound, setActiveRound] = useState(availableRounds[0] ?? 'round_of_32')
+  const [adminPhase, setAdminPhase] = useState<AdminPhaseValue>('all')
 
   const now = new Date()
 
@@ -534,21 +577,32 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
     return { homeTeam, awayTeam }
   }
 
-  function getAdminEligibleMatches(round?: string) {
+  function isMatchReady(match: Match) {
+    if (bracketLocked) return false
+    const { homeTeam, awayTeam } = getResolvedTeams(match)
+    return !isPlaceholder(homeTeam) && !isPlaceholder(awayTeam)
+  }
+
+  function isRoundReady(round: RoundKey) {
+    return (byRound[round] ?? []).some(isMatchReady)
+  }
+
+  function getAdminEligibleMatches(round?: RoundKey) {
     if (bracketLocked) return []
     return knockoutMatches.filter((match) => {
-      const key = match.stage === 'third_place' ? 'final' : match.stage
+      const key = match.stage
       if (round && key !== round) return false
       if (match.status !== 'upcoming' || now >= new Date(match.locked_at)) return false
-      const { homeTeam, awayTeam } = getResolvedTeams(match)
-      return !isPlaceholder(homeTeam) && !isPlaceholder(awayTeam)
+      return isMatchReady(match)
     })
   }
 
-  async function handleAdminRandomKnockout(round?: string) {
+  async function handleAdminRandomKnockout(round?: RoundKey) {
     const targetMatches = getAdminEligibleMatches(round)
     if (!targetMatches.length) return
     setAdminSaveState('saving')
+    setAdminSaveError(null)
+    setAdminSaveMessage(null)
     try {
       const generated = await generateRandomKnockoutPredictions(targetMatches.map((m) => m.id))
       setLocalInputs((prev) => {
@@ -561,18 +615,55 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
         }
         return next
       })
+      setAdminSaveMessage(round ? `${ROUND_LABELS[round]} cargados correctamente.` : 'Pronósticos cargados correctamente.')
       setAdminSaveState('saved')
       setTimeout(() => setAdminSaveState('idle'), 1800)
     } catch (error) {
+      const message = formatClientError(error)
       console.error('Error al cargar pronóstico aleatorio de eliminatorias', error)
+      setAdminSaveError(message)
       setAdminSaveState('error')
     }
   }
 
-  const adminEligibleByRound = availableRounds
+  function handleAdminRandomSpecials() {
+    try {
+      localStorage.setItem(SPECIALS_STORAGE_KEY, JSON.stringify(RANDOM_SPECIALS))
+      window.dispatchEvent(new Event('prode-specials-randomized'))
+      setAdminSaveError(null)
+      setAdminSaveMessage('Apuestas especiales cargadas correctamente.')
+      setAdminSaveState('saved')
+      setTimeout(() => setAdminSaveState('idle'), 1800)
+    } catch (error) {
+      const message = formatClientError(error)
+      console.error('Error al cargar apuestas especiales', error)
+      setAdminSaveError(message)
+      setAdminSaveState('error')
+    }
+  }
+
+  const visibleRounds = availableRounds.filter(isRoundReady)
+
+  useEffect(() => {
+    if (visibleRounds.length && !visibleRounds.includes(activeRound as RoundKey)) {
+      setActiveRound(visibleRounds[0])
+    }
+  }, [activeRound, visibleRounds])
+
+  const adminEligibleByRound = visibleRounds
     .map((round) => ({ round, count: getAdminEligibleMatches(round).length }))
     .filter(({ count }) => count > 0)
   const adminAllEligibleCount = getAdminEligibleMatches().length
+
+  const selectedAdminCount = isRoundKey(adminPhase)
+    ? getAdminEligibleMatches(adminPhase).length
+    : adminAllEligibleCount
+
+  useEffect(() => {
+    if (adminPhase !== 'all' && !adminEligibleByRound.some(({ round }) => round === adminPhase)) {
+      setAdminPhase('all')
+    }
+  }, [adminPhase, adminEligibleByRound])
 
   return (
     <div className="space-y-6">
@@ -594,7 +685,7 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
 
       {/* Round tabs */}
       <div className="flex flex-wrap gap-2">
-        {availableRounds.map((round) => (
+        {visibleRounds.map((round) => (
           <button
             key={round}
             onClick={() => setActiveRound(round)}
@@ -615,7 +706,7 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
         ))}
       </div>
 
-      {isAdmin && adminAllEligibleCount > 0 && (
+      {isAdmin && (
         <div
           className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-sm"
           style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}
@@ -624,25 +715,30 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
             <p className="font-extrabold text-white">Herramienta admin eliminatorias</p>
             <p className="text-muted">
               {adminSaveState === 'saved'
-                ? 'Guardado correctamente.'
+                ? adminSaveMessage ?? 'Pronósticos cargados correctamente.'
+                : adminSaveState === 'error' && adminSaveError
+                ? `Error real: ${adminSaveError}`
                 : 'Carga pronósticos aleatorios solo para cruces ya armados.'}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {adminEligibleByRound.map(({ round }) => (
-              <button
-                key={round}
-                onClick={() => handleAdminRandomKnockout(round)}
-                disabled={adminSaveState === 'saving'}
-                className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
-                style={{ background: '#181818', color: '#A8F0D8', border: '1px solid rgba(255,255,255,0.08)' }}
-              >
-                {adminSaveState === 'saving' ? 'Cargando...' : `Cargar ${ROUND_LABELS[round].toLowerCase()}`}
-              </button>
-            ))}
-            <button
-              onClick={() => handleAdminRandomKnockout()}
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={adminPhase}
+              onChange={(e) => setAdminPhase(e.target.value as AdminPhaseValue)}
               disabled={adminSaveState === 'saving'}
+              className="min-h-10 rounded-full px-4 text-[12px] font-extrabold uppercase disabled:opacity-40"
+              style={{ background: '#181818', color: '#EDE8DC', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <option value="all">Todas disponibles ({adminAllEligibleCount})</option>
+              {adminEligibleByRound.map(({ round, count }) => (
+                <option key={round} value={round}>
+                  {ROUND_LABELS[round]} ({count})
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => handleAdminRandomKnockout(isRoundKey(adminPhase) ? adminPhase : undefined)}
+              disabled={adminSaveState === 'saving' || selectedAdminCount === 0}
               className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
               style={{ background: adminSaveState === 'error' ? '#3a1515' : '#FF6B00', color: adminSaveState === 'error' ? '#FF6B6B' : '#0A0A0A' }}
             >
@@ -650,7 +746,17 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
                 ? 'Cargando...'
                 : adminSaveState === 'error'
                 ? 'Error al cargar. Reintentá.'
-                : 'Cargar todas las eliminatorias disponibles'}
+                : adminPhase === 'all'
+                ? 'Cargar todas'
+                : `Cargar ${ROUND_LABELS[adminPhase].toLowerCase()}`}
+            </button>
+            <button
+              onClick={handleAdminRandomSpecials}
+              disabled={adminSaveState === 'saving'}
+              className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
+              style={{ background: '#181818', color: '#c8a8f0', border: '1px solid rgba(168,140,220,0.22)' }}
+            >
+              Cargar apuestas especiales
             </button>
           </div>
         </div>
@@ -660,7 +766,6 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
       {activeRound !== 'final' && (
         <div className="grid grid-cols-1 min-[600px]:grid-cols-2 min-[960px]:grid-cols-3 min-[1200px]:grid-cols-4 gap-4">
           {(byRound[activeRound] ?? [])
-            .filter((m) => m.stage !== 'third_place')
             .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
             .map((match) => (
               <BracketMatchCard
