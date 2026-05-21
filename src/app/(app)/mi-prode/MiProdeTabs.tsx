@@ -386,45 +386,17 @@ export function MiProdeTabs({
 
   return (
     <div>
-      {/* Header: h1 + phase tabs inline */}
-      <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
-        <h1
-          className="font-display uppercase leading-[0.94] tracking-[-0.03em]"
-          style={{ fontSize: 'clamp(28px, 4.5vw, 40px)' }}
+      {/* Toolbar: phase tabs (left) + admin actions (right) */}
+      <div className="flex items-center justify-between gap-4 flex-wrap mb-7">
+        <div
+          className="inline-flex items-center gap-1 p-[5px] rounded-full"
+          style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
         >
-          Mi <em className="italic text-orange">Prode</em>
-        </h1>
-
-        {/* Pill tabs */}
-        <div className="flex items-end gap-3">
-          {isAdmin && (
-            <button
-              onClick={() => {
-                setDeleteModalOpen(true)
-                setDeleteState('idle')
-                setDeleteMessage(null)
-              }}
-              className="grid h-11 w-11 place-items-center rounded-full transition-all duration-150"
-              style={{ background: 'rgba(255,59,59,0.12)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.25)' }}
-              title="Borrar pronósticos"
-              aria-label="Borrar pronósticos"
-            >
-              <Trash2 size={18} strokeWidth={2.5} />
-            </button>
-          )}
-          <div className="flex flex-col items-end gap-[5px]">
-          <span className="font-mono text-[10px] font-bold tracking-[0.22em] uppercase" style={{ color: '#8A8A8A' }}>
-            Fase
-          </span>
-          <div
-            className="inline-flex items-center gap-1 p-[5px] rounded-full"
-            style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
-          >
           {(['grupos', 'eliminatoria', 'especiales'] as TabId[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className="px-[18px] py-[10px] rounded-full font-extrabold text-[13px] transition-all duration-150"
+              className="px-[18px] py-[10px] rounded-full font-extrabold text-[13px] transition-all duration-150 whitespace-nowrap"
               style={
                 activeTab === tab
                   ? { background: '#FF6B00', color: '#0A0A0A' }
@@ -437,12 +409,36 @@ export function MiProdeTabs({
                 if (activeTab !== tab) e.currentTarget.style.color = '#8A8A8A'
               }}
             >
-              {tab === 'grupos' ? 'Grupos' : tab === 'eliminatoria' ? 'Eliminatorias' : 'Especiales'}
+              {tab === 'grupos' ? 'Grupos' : tab === 'eliminatoria' ? 'Eliminatorias' : 'Apuestas especiales'}
             </button>
           ))}
-          </div>
-          </div>
         </div>
+
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setDeleteModalOpen(true)
+                setDeleteState('idle')
+                setDeleteMessage(null)
+              }}
+              className="grid h-10 w-10 place-items-center rounded-[12px] transition-all duration-150"
+              style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.08)' }}
+              title="Borrar pronósticos"
+              aria-label="Borrar pronósticos"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#FF8585'
+                e.currentTarget.style.borderColor = 'rgba(255,90,90,0.3)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = '#cfcfcf'
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+              }}
+            >
+              <Trash2 size={16} strokeWidth={2.4} />
+            </button>
+          </div>
+        )}
       </div>
 
       {deleteModalOpen && (

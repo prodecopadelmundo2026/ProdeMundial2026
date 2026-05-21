@@ -5,9 +5,9 @@ import { useState, useEffect, useRef } from 'react'
 const SPECIALS_STORAGE_KEY = 'prode_specials'
 
 const AWARDS = [
-  { key: 'balon', label: 'Balón de Oro', desc: 'Mejor jugador del torneo', pts: '+20', color: '#5B2D8E', accent: 'rgba(91,45,142,0.14)', border: 'rgba(168,140,220,0.22)' },
-  { key: 'bota', label: 'Bota de Oro', desc: 'Máximo goleador del torneo', pts: '+15', color: '#FF6B00', accent: 'rgba(255,107,0,0.1)', border: 'rgba(255,107,0,0.22)' },
-  { key: 'guante', label: 'Guante de Oro', desc: 'Mejor arquero del torneo', pts: '+15', color: '#1565C0', accent: 'rgba(21,101,192,0.12)', border: 'rgba(100,160,230,0.22)' },
+  { key: 'balon', label: 'Balón de Oro', sub: 'Mejor jugador del torneo', pts: '+20', color: '#5B2D8E', inputLabel: 'Jugador' },
+  { key: 'bota', label: 'Bota de Oro', sub: 'Máximo goleador del torneo', pts: '+15', color: '#FF6B00', inputLabel: 'Jugador' },
+  { key: 'guante', label: 'Guante de Oro', sub: 'Mejor arquero del torneo', pts: '+15', color: '#1565C0', inputLabel: 'Arquero' },
 ] as const
 
 type Key = typeof AWARDS[number]['key']
@@ -65,54 +65,121 @@ export function SpecialsTab() {
 
   return (
     <div>
-      <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-4">
-        {AWARDS.map(({ key, label, desc, pts, color, accent, border }) => (
-          <div
+      {/* Section head */}
+      <div style={{ marginBottom: '22px', maxWidth: '560px' }}>
+        <h3
+          className="font-display uppercase leading-none tracking-[-0.02em]"
+          style={{ fontSize: 'clamp(24px, 3vw, 32px)' }}
+        >
+          Apuestas <em className="not-italic italic" style={{ color: '#5B2D8E' }}>especiales</em>
+        </h3>
+        <p className="text-[14px] mt-2 leading-[1.5]" style={{ color: '#8A8A8A' }}>
+          Cargá quien creés que se va a llevar cada distinción. Solo se evalúan al final del torneo.{' '}
+          <b className="text-white font-extrabold">Cierran el 11 de junio.</b>
+        </p>
+      </div>
+
+      {/* Cards grid */}
+      <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-[14px]">
+        {AWARDS.map(({ key, label, sub, pts, color, inputLabel }) => (
+          <article
             key={key}
-            className="relative flex flex-col overflow-hidden rounded-[20px]"
-            style={{ background: accent, border: `1px solid ${border}`, padding: '20px 20px 18px' }}
+            className="relative overflow-hidden rounded-[18px] flex flex-col gap-[18px] transition-[transform,border-color] duration-200"
+            style={{
+              background: '#141414',
+              border: '1px solid rgba(255,255,255,0.08)',
+              padding: '20px',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)'
+              ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.16)'
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = ''
+              ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'
+            }}
           >
+            {/* Left strip */}
             <span
-              className="absolute left-0 top-0 bottom-0 rounded-l-[20px]"
+              className="absolute left-0 top-0 bottom-0 rounded-l-[18px]"
               style={{ width: 4, background: color }}
             />
-            <div className="flex items-center justify-between mb-4">
+
+            {/* Header */}
+            <header className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-extrabold text-[15px] leading-tight">{label}</p>
-                <p className="text-[11px] mt-0.5 font-medium" style={{ color: '#5a5a6a' }}>{desc}</p>
+                <p
+                  className="font-display text-[18px] uppercase leading-none tracking-[-0.01em] text-white"
+                >
+                  {label}
+                </p>
+                <p className="text-[12px] font-semibold mt-[6px] leading-[1.4]" style={{ color: '#8A8A8A' }}>
+                  {sub}
+                </p>
               </div>
-              <span className="font-display text-[28px] leading-none shrink-0 ml-2" style={{ color }}>{pts}</span>
+              <span
+                className="font-display leading-[.85] tracking-[-0.04em] shrink-0"
+                style={{ fontSize: '36px', color }}
+              >
+                {pts}
+              </span>
+            </header>
+
+            {/* Input */}
+            <div className="flex flex-col gap-[6px]">
+              <label
+                htmlFor={`sp-${key}`}
+                className="text-[10px] font-extrabold tracking-[0.22em] uppercase"
+                style={{ color: '#8A8A8A' }}
+              >
+                {inputLabel}
+              </label>
+              <input
+                id={`sp-${key}`}
+                type="text"
+                value={values[key]}
+                onChange={(e) => handleChange(key, e.target.value)}
+                placeholder="Nombre del jugador"
+                maxLength={40}
+                className="w-full outline-none font-bold text-[15px] text-white placeholder:font-medium placeholder:text-[#555] rounded-[12px] transition-all duration-150"
+                style={{
+                  background: '#0A0A0A',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  padding: '14px 16px',
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = color
+                  e.target.style.background = '#0d0d0d'
+                  e.target.style.boxShadow = '0 0 0 4px rgba(255,255,255,0.04)'
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'rgba(255,255,255,0.08)'
+                  e.target.style.background = '#0A0A0A'
+                  e.target.style.boxShadow = ''
+                }}
+              />
+              {saved && values[key] && (
+                <span className="inline-flex items-center gap-[6px] text-[11px] font-bold" style={{ color: '#A8F0D8' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  Guardado
+                </span>
+              )}
             </div>
-            <input
-              type="text"
-              value={values[key]}
-              onChange={(e) => handleChange(key, e.target.value)}
-              placeholder="Nombre del jugador..."
-              maxLength={40}
-              aria-label={label}
-              className="w-full bg-transparent outline-none font-medium text-[14px] text-white placeholder:font-normal placeholder:text-[#3a3a4a] rounded-[10px] transition-all duration-150"
-              style={{
-                padding: '9px 12px',
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
-              }}
-              onFocus={(e) => {
-                e.target.style.background = `${color}18`
-                e.target.style.borderColor = `${color}66`
-              }}
-              onBlur={(e) => {
-                e.target.style.background = 'rgba(255,255,255,0.04)'
-                e.target.style.borderColor = 'rgba(255,255,255,0.08)'
-              }}
-            />
-          </div>
+          </article>
         ))}
       </div>
 
-      <div className="mt-5 flex items-center justify-between gap-3 flex-wrap">
-        <p className="font-mono text-[11px] font-bold tracking-[0.1em] text-muted">
-          Fecha límite: <b className="text-white">11 jun · 16:00</b>
-        </p>
+      {/* Save footer */}
+      <div
+        className="mt-[22px] flex items-center justify-between gap-[14px] flex-wrap px-5 py-4 rounded-[14px]"
+        style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
+      >
+        <span className="text-[13px]" style={{ color: '#8A8A8A' }}>
+          Podés editarlas hasta el{' '}
+          <b className="font-mono text-[12px] font-extrabold tracking-[0.1em] uppercase text-white">11 jun · 15:30</b>
+        </span>
         <span
           className="font-mono text-[11px] font-bold tracking-[0.06em] transition-colors duration-300"
           style={{ color: saved ? '#A8F0D8' : '#4a4a4a' }}

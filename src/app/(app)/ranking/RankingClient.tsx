@@ -81,7 +81,10 @@ function RankRow({
 
       {/* Puntos */}
       <div className="text-right shrink-0">
-        <span className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums">
+        <span
+          className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums"
+          style={{ color: entry.total_points === 0 ? '#8A8A8A' : undefined }}
+        >
           {entry.total_points}
         </span>
         <span
@@ -225,7 +228,10 @@ export function RankingClient({
               </div>
             </div>
             <div className="text-right shrink-0">
-              <span className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums">
+              <span
+                className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums"
+                style={{ color: meEntry.total_points === 0 ? '#8A8A8A' : undefined }}
+              >
                 {meEntry.total_points}
               </span>
               <span className="font-mono text-[10px] font-bold tracking-[0.16em] uppercase ml-1.5" style={{ color: '#8A8A8A' }}>
