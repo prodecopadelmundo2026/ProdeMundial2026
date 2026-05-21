@@ -47,7 +47,7 @@ export default async function MiProdePage() {
   )
 
   return (
-    <div style={{ padding: '32px 20px 100px' }}>
+    <div style={{ padding: '28px 20px clamp(60px, 12vw, 100px)' }}>
       <div className="max-w-[1280px] mx-auto">
         <SpecialsBanner />
 

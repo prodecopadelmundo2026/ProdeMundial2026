@@ -189,7 +189,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
       />
 
       {/* Top row: grupo + fecha + status badge */}
-      <div className="flex items-center justify-between mb-[18px] text-[12px]">
+      <div className="flex items-center justify-between mb-3 text-[12px]">
         <div className="flex items-center gap-[10px] text-muted font-bold tracking-[0.06em] uppercase text-[11px]">
           <span
             className="text-white text-[10px] px-2 py-1 rounded-[6px]"
@@ -203,7 +203,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
       </div>
 
       {/* Teams row: siempre VS en el centro */}
-      <div className="grid gap-[14px] items-center mb-[18px]" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
+      <div className="grid gap-[14px] items-center mb-[14px]" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
         {/* Local */}
         <div className="flex flex-col items-center gap-[10px] text-center">
           <div
@@ -371,7 +371,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
           </div>
 
           {/* Bottom row: hint editorial + pts badge */}
-          <div className="mt-[14px] flex items-center justify-between gap-[10px] text-[12px]">
+          <div className="mt-[10px] flex items-center justify-between gap-[10px] text-[12px]">
             <span className="text-muted font-semibold">
               {isOpen && !noAutosave && saveState === 'saving' && (
                 <span>Guardando...</span>

@@ -445,12 +445,13 @@ export function MiProdeTabs({
 
       {deleteModalOpen && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center px-4 py-8"
+          className="fixed inset-0 z-50 overflow-y-auto"
           style={{ background: 'rgba(0,0,0,0.72)' }}
           role="dialog"
           aria-modal="true"
           aria-label="Borrar pronósticos"
         >
+          <div className="flex min-h-full items-start min-[540px]:items-center justify-center px-4 py-8">
           <div
             className="w-full max-w-[560px] overflow-hidden"
             style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 24, boxShadow: '0 24px 80px rgba(0,0,0,0.45)' }}
@@ -539,6 +540,7 @@ export function MiProdeTabs({
                   : 'Borrar selección'}
               </button>
             </div>
+          </div>
           </div>
         </div>
       )}

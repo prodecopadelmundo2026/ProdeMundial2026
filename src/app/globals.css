@@ -178,6 +178,15 @@
 }
 
 @layer utilities {
+  /* Hide scrollbar cross-browser */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Grain overlay para el hero */
   .bg-grain {
     background-image: repeating-linear-gradient(

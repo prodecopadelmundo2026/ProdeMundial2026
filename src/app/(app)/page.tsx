@@ -171,8 +171,8 @@ export default async function HomePage() {
     <>
       {/* ─── HERO ──────────────────────────────────────────────── */}
       <section
-        className="relative overflow-hidden min-h-[760px] flex items-center"
-        style={{ padding: '64px 20px 80px', isolation: 'isolate' }}
+        className="relative overflow-hidden min-h-[420px] min-[980px]:min-h-[760px] flex items-center"
+        style={{ padding: 'clamp(40px, 8vw, 64px) 20px clamp(48px, 10vw, 80px)', isolation: 'isolate' }}
       >
         {/* Animated blobs */}
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
@@ -320,7 +320,7 @@ export default async function HomePage() {
       </div>
 
       {/* ─── UPCOMING MATCHES ───────────────────────────────────── */}
-      <section style={{ padding: '80px 20px' }}>
+      <section style={{ padding: 'clamp(40px, 10vw, 80px) 20px' }}>
         <div className="max-w-[1280px] mx-auto">
           <SectionHead
             title="Próximos"
@@ -346,7 +346,7 @@ export default async function HomePage() {
       </section>
 
       {/* ─── TOP 10 RANKING ────────────────────────────────────── */}
-      <section style={{ padding: '80px 20px' }}>
+      <section style={{ padding: 'clamp(40px, 10vw, 80px) 20px' }}>
         <div className="max-w-[1280px] mx-auto">
           <SectionHead
             title="Top"
@@ -519,7 +519,7 @@ export default async function HomePage() {
       {/* ─── FOOTER ─────────────────────────────────────────────── */}
       <footer
         className="bg-[#070707]"
-        style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '50px 20px 40px' }}
+        style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: 'clamp(32px, 6vw, 50px) 20px clamp(24px, 5vw, 40px)' }}
       >
         <div className="max-w-[1280px] mx-auto grid grid-cols-1 min-[780px]:grid-cols-[1.4fr_1fr_1fr] gap-[30px]">
           <div>

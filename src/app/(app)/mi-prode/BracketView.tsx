@@ -139,7 +139,7 @@ function BracketMatchCard({
       />
 
       {/* Top row */}
-      <div className="flex items-center justify-between mb-4 text-[12px]">
+      <div className="flex items-center justify-between mb-3 text-[12px]">
         <div className="flex items-center gap-[10px] text-muted font-bold tracking-[0.06em] uppercase text-[11px]">
           <span
             className="text-white text-[10px] px-2 py-1 rounded-[6px]"
@@ -154,7 +154,7 @@ function BracketMatchCard({
 
       {/* Teams */}
       <div
-        className="grid gap-3 items-center mb-4"
+        className="grid gap-3 items-center mb-3"
         style={{ gridTemplateColumns: '1fr auto 1fr' }}
       >
         {/* Home */}
@@ -318,7 +318,7 @@ function BracketMatchCard({
       )}
 
       {/* Bottom row */}
-      <div className="mt-3 flex items-center justify-between gap-[10px] text-[12px]">
+      <div className="mt-2.5 flex items-center justify-between gap-[10px] text-[12px]">
         <span className="text-muted font-semibold">
           {isClosed && <span>Pronóstico bloqueado</span>}
           {isLive && match.home_score != null && (
@@ -801,12 +801,13 @@ export function BracketView({
 
       {randomModalOpen && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center px-4 py-8"
+          className="fixed inset-0 z-50 overflow-y-auto"
           style={{ background: 'rgba(0,0,0,0.72)' }}
           role="dialog"
           aria-modal="true"
           aria-label="Cargar pronosticos aleatorios"
         >
+          <div className="flex min-h-full items-start min-[540px]:items-center justify-center px-4 py-8">
           <div
             className="w-full max-w-[560px] overflow-hidden"
             style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 24, boxShadow: '0 24px 80px rgba(0,0,0,0.45)' }}
@@ -901,6 +902,7 @@ export function BracketView({
               </button>
             </div>
           </div>
+          </div>
         </div>
       )}
       {bracketSaveError && (
@@ -912,13 +914,13 @@ export function BracketView({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5">
         {visibleRounds.map((round) => (
           <button
             key={round}
             onClick={() => setActiveRound(round)}
             className={clsx(
-              'px-4 py-2 rounded-full text-[12px] font-extrabold tracking-[0.08em] uppercase transition-all duration-150',
+              'px-4 py-2 rounded-full text-[12px] font-extrabold tracking-[0.08em] uppercase transition-all duration-150 shrink-0 whitespace-nowrap',
               activeRound === round
                 ? 'bg-[#c8a84a] text-[#0a0a0a]'
                 : 'text-[#7a7266] hover:text-[#ede8dc]'

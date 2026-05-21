@@ -616,104 +616,107 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
 
   return (
     <div>
-      {/* Combo row — select + meta inline */}
-      <div className="flex items-start gap-[18px] flex-wrap mb-7">
-        <div className="flex flex-col gap-1.5 w-[280px] max-w-full">
-          <label className="text-[11px] font-extrabold tracking-[0.22em] uppercase text-muted">
-            Seleccioná el grupo
-          </label>
-          <div
-            className="relative transition-[border-color,background] duration-150"
-            style={{
-              background: '#141414',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '14px',
-            }}
-            onMouseEnter={(e) => {
-              const el = e.currentTarget as HTMLElement
-              el.style.borderColor = 'rgba(255,255,255,.18)'
-              el.style.background = '#1C1C1C'
-            }}
-            onMouseLeave={(e) => {
-              const el = e.currentTarget as HTMLElement
-              el.style.borderColor = 'rgba(255,255,255,.08)'
-              el.style.background = '#141414'
-            }}
-          >
-            <select
-              value={activeGroup}
-              onChange={(e) => setActiveGroup(e.target.value)}
-              className="w-full bg-transparent text-white font-extrabold text-[16px] outline-none cursor-pointer"
+      {/* Combo row — dropdown + arrows always inline, meta wraps below on narrow */}
+      <div className="flex items-end gap-3 flex-wrap mb-7">
+        {/* Dropdown + arrows: flex-1 so they fill available width together */}
+        <div className="flex items-end gap-2 flex-1" style={{ minWidth: 0 }}>
+          <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+            <label className="text-[11px] font-extrabold tracking-[0.22em] uppercase text-muted">
+              Seleccioná el grupo
+            </label>
+            <div
+              className="relative transition-[border-color,background] duration-150"
               style={{
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                padding: '16px 50px 16px 18px',
-                border: 'none',
+                background: '#141414',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '14px',
+              }}
+              onMouseEnter={(e) => {
+                const el = e.currentTarget as HTMLElement
+                el.style.borderColor = 'rgba(255,255,255,.18)'
+                el.style.background = '#1C1C1C'
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget as HTMLElement
+                el.style.borderColor = 'rgba(255,255,255,.08)'
+                el.style.background = '#141414'
               }}
             >
-              {tabs.map((tab) => (
-                <option key={tab} value={tab} style={{ background: '#000', color: '#fff', fontWeight: 700 }}>
-                  {tab}
+              <select
+                value={activeGroup}
+                onChange={(e) => setActiveGroup(e.target.value)}
+                className="w-full bg-transparent text-white font-extrabold text-[15px] outline-none cursor-pointer"
+                style={{
+                  appearance: 'none',
+                  WebkitAppearance: 'none',
+                  padding: '14px 46px 14px 16px',
+                  border: 'none',
+                }}
+              >
+                {tabs.map((tab) => (
+                  <option key={tab} value={tab} style={{ background: '#000', color: '#fff', fontWeight: 700 }}>
+                    {tab}
+                  </option>
+                ))}
+                <option value={BEST_THIRDS_VIEW} style={{ background: '#000', color: '#fff', fontWeight: 700 }}>
+                  Mejores Terceros
                 </option>
-              ))}
-              <option value={BEST_THIRDS_VIEW} style={{ background: '#000', color: '#fff', fontWeight: 700 }}>
-                Mejores Terceros
-              </option>
-            </select>
-            <svg
-              className="absolute right-[18px] top-1/2 -translate-y-1/2 pointer-events-none text-muted"
-              width="16" height="16" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              </select>
+              <svg
+                className="absolute right-[14px] top-1/2 -translate-y-1/2 pointer-events-none text-muted"
+                width="15" height="15" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Navigation arrows — inline with dropdown */}
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={() => prevTab && setActiveGroup(prevTab)}
+              disabled={!prevTab}
+              className="grid place-items-center transition-all duration-150"
+              style={{
+                width: 44, height: 44,
+                background: prevTab ? '#141414' : '#0d0d0d',
+                border: `1px solid ${prevTab ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)'}`,
+                borderRadius: 12,
+                color: prevTab ? '#cfcfcf' : '#282828',
+                cursor: prevTab ? 'pointer' : 'default',
+              }}
+              aria-label="Grupo anterior"
             >
-              <path d="M6 9l6 6 6-6" />
-            </svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+            <button
+              onClick={() => nextTab && setActiveGroup(nextTab)}
+              disabled={!nextTab}
+              className="grid place-items-center transition-all duration-150"
+              style={{
+                width: 44, height: 44,
+                background: nextTab ? '#141414' : '#0d0d0d',
+                border: `1px solid ${nextTab ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)'}`,
+                borderRadius: 12,
+                color: nextTab ? '#cfcfcf' : '#282828',
+                cursor: nextTab ? 'pointer' : 'default',
+              }}
+              aria-label="Grupo siguiente"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </button>
           </div>
         </div>
 
-        {/* Navigation arrows */}
-        <div className="flex gap-2 self-end" style={{ paddingBottom: '1px' }}>
-          <button
-            onClick={() => prevTab && setActiveGroup(prevTab)}
-            disabled={!prevTab}
-            className="grid place-items-center transition-all duration-150"
-            style={{
-              width: 52, height: 52,
-              background: prevTab ? '#141414' : '#0d0d0d',
-              border: `1px solid ${prevTab ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)'}`,
-              borderRadius: 14,
-              color: prevTab ? '#cfcfcf' : '#282828',
-              cursor: prevTab ? 'pointer' : 'default',
-            }}
-            aria-label="Grupo anterior"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </button>
-          <button
-            onClick={() => nextTab && setActiveGroup(nextTab)}
-            disabled={!nextTab}
-            className="grid place-items-center transition-all duration-150"
-            style={{
-              width: 52, height: 52,
-              background: nextTab ? '#141414' : '#0d0d0d',
-              border: `1px solid ${nextTab ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)'}`,
-              borderRadius: 14,
-              color: nextTab ? '#cfcfcf' : '#282828',
-              cursor: nextTab ? 'pointer' : 'default',
-            }}
-            aria-label="Grupo siguiente"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 18l6-6-6-6" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Meta inline */}
+        {/* Meta: aligns with bottom of dropdown, wraps on narrow screens */}
         <span
-          className="text-[13px] font-bold text-muted self-end whitespace-nowrap"
-          style={{ paddingBottom: '18px', letterSpacing: '0.02em' }}
+          className="text-[13px] font-bold text-muted shrink-0"
+          style={{ paddingBottom: '11px', letterSpacing: '0.02em' }}
         >
           <b className="text-white font-extrabold">6</b> partidos · 11–22 junio
         </span>
