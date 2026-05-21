@@ -815,6 +815,7 @@ export function BracketView({
               background: '#141414',
               border: '1px solid rgba(255,255,255,0.08)',
               borderRadius: '14px',
+              width: '100%',
             }}
             onMouseEnter={(e) => {
               const el = e.currentTarget as HTMLElement
