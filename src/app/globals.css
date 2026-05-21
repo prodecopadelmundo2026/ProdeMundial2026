@@ -212,6 +212,31 @@
   .rounded-petal-2 { border-radius: 0 50% 0 50%; }
   .rounded-petal-3 { border-radius: 50% 50% 0 50%; }
 
+  /* Sticky "tu fila" del Ranking — muestra la posición del usuario cuando scrollea arriba */
+  .you-sticky {
+    position: fixed;
+    left: 50%;
+    transform: translate(-50%, 20px);
+    bottom: 24px;
+    z-index: 60;
+    width: min(840px, calc(100vw - 40px));
+    background: rgba(20, 20, 20, 0.95);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 107, 0, 0.35);
+    border-radius: 18px;
+    padding: 6px;
+    box-shadow: 0 20px 60px -10px rgba(0, 0, 0, 0.7);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .you-sticky--show {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, 0);
+  }
+
   /* Cinta diagonal para el premio "Campeón" */
   .ribbon-corner {
     position: absolute;

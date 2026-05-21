@@ -1,8 +1,8 @@
-# Componente · MatchCard
+# Componente · MatchCard (v7)
 
-Componente crítico del Prode 26. Aparece en Home (`<UpcomingMatches />`), Mi Prode autenticado (`<MatchGrid />`), y eventualmente en Ranking.
+Componente crítico del Prode 26. Aparece en Home (`<UpcomingMatches />`), Mi Prode autenticado (`<MatchGrid />`).
 
-> Mock: ver cualquier `.html` en `mocks/`. La grid de "Próximos partidos" en `Home.html` muestra los 6 estados principales lado a lado.
+> Mock: ver `mocks/MiProde-Auth.html` → sección Grupos. 4 cards en desktop.
 
 ---
 
@@ -10,233 +10,200 @@ Componente crítico del Prode 26. Aparece en Home (`<UpcomingMatches />`), Mi Pr
 
 ```ts
 interface MatchCardProps {
-  id: string;
-  group: 'A' | 'B' | 'C' | ... | 'L';
-  matchday?: 1 | 2 | 3;                    // J1, J2, J3 — opcional, se muestra como "A · J2" si está
-  home: { name: string; code: string; flag: string };  // flag = emoji o URL
-  away: { name: string; code: string; flag: string };
-  kickoff: Date;                            // En zona ART (GMT-3)
-  status: 'open' | 'closed' | 'live' | 'finished';
-  liveMinute?: number;                      // solo si status='live'
-  realScore?: { home: number; away: number }; // si status='live' o 'finished'
-  prediction?: { home: number; away: number };
-  pointsEarned?: 0 | 1 | 3;                 // solo si status='finished'
-  predictionSavedAt?: Date;                 // para "Guardado hace 4 min"
-  onPredictionChange?: (home: number, away: number) => void;
+  match: Match;
+  prediction?: { home_score: number; away_score: number } | null;
+  noAutosave?: boolean;                     // si true, no hace upsert automático (batch save externo)
+  initialHome?: string;                     // valor inicial del input local
+  initialAway?: string;
+  onValuesChange?: (home: string, away: string) => void;
+  onSaveStateChange?: (state: 'idle' | 'dirty' | 'saving' | 'saved' | 'error') => void;
+  readOnly?: boolean;                       // oculta inputs, muestra pronóstico como texto
 }
 ```
+
+> ⚠️ v7: eliminados `liveMinute`, `realScore`, `pointsEarned`, `predictionSavedAt`, `kickoff` como prop aparte — se leen del objeto `match`.
 
 ---
 
 ## Anatomía
 
 ```
-┌─────────────────────────────────────────┐  ← Card (bg-panel, border-line, rounded-card, p-[22px])
-│ │ [A · J2]  Jue 11 Jun · 17:00    [STATUS]│  ← match-top
-│ │                                          │
-│ │     🇲🇽           VS           🇨🇦       │  ← teams
-│ │   México                     Canadá      │
-│ │     MEX                        CAN       │
-│ │                                          │
-│ │ [Banner marcador en vivo / final]        │  ← score-context (solo live/finished)
-│ │                                          │
-│ │ TU PRONÓSTICO     [FALTA CARGAR]         │  ← pred-label
-│ │ ┌─────┬───┬─────┐                       │
-│ │ │  2  │ — │  1  │                       │  ← score-row
-│ │ └─────┴───┴─────┘                       │
-│ │                                          │
-│ │ Guardado hace 4 min      [+3 exacto]    │  ← match-bottom
+┌─────────────────────────────────────────┐  ← Card (bg-panel, border-line, rounded-[18px], p-[14px_14px_12px])
+│ │ [GRUPO A]  Jue 11 Jun · 16:00  [STATUS]│  ← match-top
+│ │                                         │
+│ │   🇲🇽  38px       VS 11px       🇨🇦  38px│  ← teams (flag 38px, no code)
+│ │  México 12px                  Canadá    │
+│ │                                         │
+│ │  [Resultado final        1 — 2]         │  ← score-context (solo finished)
+│ │                                         │
+│ │ ┌─────┬───┬─────┐                      │
+│ │ │  2  │ — │  1  │ h-[42px] text-[26px] │  ← score-row (p-1.5, rounded-xl)
+│ │ └─────┴───┴─────┘                      │
+│ │                              [+3 exacto]│  ← match-bottom (solo si hay pts badge)
 └─────────────────────────────────────────┘
- ↑ strip izquierdo 4px (color según status)
+ ↑ strip izquierdo 4px
 ```
 
 ---
 
-## Strip izquierdo (`::before`)
+## Strip izquierdo
 
 `position: absolute; left: 0; top: 0; bottom: 0; width: 4px;`
 
-| Status | Color | Token |
-|---|---|---|
-| open | naranja | `var(--color-orange)` `#FF6B00` |
-| closed | púrpura claro | `#7A5BC9` |
-| live | rojo | `#FF3B3B` |
-| finished | gris | `#3A3A3A` |
+| Estado | Color |
+|---|---|
+| open | naranja `#FF6B00` |
+| todo lo demás | gris `#3A3A3A` |
+
+> v7: eliminados strips púrpura (closed) y rojo (live).
+
+---
+
+## Status badge (`<StatusBadge />`)
+
+Pill `padding 5px 10px`, uppercase 10px, letra-spacing 0.18em, con dot 6px:
+
+| Estado | Bg | Text | Dot |
+|---|---|---|---|
+| `open` (upcoming + now < lockedAt) | `rgba(168,240,216,.14)` | `#A8F0D8` | mint |
+| `finished` (o live tratado igual) | `rgba(255,255,255,.06)` | `#9a9a9a` | gris |
+
+> v7: eliminados `closed` (púrpura) y `live` (rojo pulsante).
 
 ---
 
 ## Header (match-top)
 
-- Grupo chip + fecha mono uppercase 11px muted (con jornada si está disponible)
+- Grupo chip `9px uppercase` + fecha `10px mono uppercase muted`
 - Status badge a la derecha
-
-### StatusBadge
-
-Pill `padding 5px 10px`, uppercase 10px `letter-spacing: .18em`, con dot 6px:
-
-| Status | Bg | Text | Dot |
-|---|---|---|---|
-| open | `rgba(168,240,216,.14)` | `var(--color-mint)` | mint |
-| closed | `rgba(123,92,210,.18)` | `#A892E8` | `#A892E8` |
-| live | `rgba(255,59,59,.18)` | `#FF6B6B` | `#FF6B6B` (animación `blink 1s infinite`) |
-| finished | `rgba(255,255,255,.06)` | `#9a9a9a` | `#9a9a9a` |
 
 ---
 
 ## Teams row
 
-Grid `1fr auto 1fr`. Cada team es columna vertical:
-- Flag 56×56 round (bg `#0A0A0A`, border line)
-- Nombre 15px bold tracking-tight
-- Code mono 10px muted `letter-spacing: .2em`
+Grid `1fr auto 1fr`. Cada team:
+- Flag `38×38px` round (`bg #0A0A0A`, border line)
+- Nombre `12px extrabold`
+- **Sin code** (oculto en v7)
 
-Centro: **siempre** `VS` (display 14px muted). NUNCA usar este slot para mostrar el marcador real — eso va al banner separado.
+Centro: `VS` display 11px muted. Siempre VS — nunca marcador en este slot.
 
 ---
 
-## Score context banner (live/finished)
-
-Solo si `status === 'live' || status === 'finished'`.
-
-Pill horizontal arriba del pronóstico. Marcador real claramente separado del pronóstico del usuario:
+## Score context banner (solo `finished` / `live`)
 
 ```tsx
-{status === 'live' && (
-  <div className="bg-gradient-to-r from-red-500/22 to-red-500/6 border border-red-500/30 text-[#FF8585] flex items-center justify-between p-3 rounded-xl mb-2.5">
-    <span className="text-[10px] font-extrabold uppercase tracking-[.18em] inline-flex items-center gap-2">
-      <span className="w-1.5 h-1.5 rounded-full bg-current animate-blink"/>
-      Marcador en vivo
-    </span>
-    <span className="font-display text-xl text-white tabular-nums">{realScore.home} — {realScore.away}</span>
-  </div>
-)}
-
-{status === 'finished' && (
-  <div className="bg-white/[.04] border border-line text-[#9a9a9a] flex items-center justify-between p-3 rounded-xl mb-2.5">
-    <span className="text-[10px] font-extrabold uppercase tracking-[.18em]">Resultado final</span>
-    <span className="font-display text-xl text-white tabular-nums">{realScore.home} — {realScore.away}</span>
+{hasRealScore && (
+  <div className="flex items-center justify-between mb-2 rounded-[10px] font-extrabold gap-3"
+    style={{ padding: '9px 12px', background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#9a9a9a' }}
+  >
+    <span className="text-[9px] font-extrabold uppercase tracking-[.18em]">Resultado final</span>
+    <span className="font-display text-[18px] text-white tabular-nums">{match.home_score} — {match.away_score}</span>
   </div>
 )}
 ```
 
----
-
-## Pred label
-
-Eyebrow encima del score-row. Texto izq fijo "Tu pronóstico". Eyebrow derecho varía:
-
-- `open` sin guardar: `<span className="text-orange">Falta cargar</span>`
-- `open` guardado: `+3 si exacto`
-- `closed`: `Bloqueado`
-- `live` / `finished`: vacío
+> v7: un solo banner gris "Resultado final" para `finished` y `live`. Eliminado el banner rojo pulsante de live.
 
 ---
 
 ## Score row
 
-Grid `1fr auto 1fr` con `bg-[#0A0A0A]`, border line, `rounded-xl`, `p-2.5`.
+Grid `1fr auto 1fr`. `bg-[#0A0A0A]` (locked: `#0d0d0d`), border line, `rounded-[12px]`, `p-[6px]`.
 
 ### Inputs
-- `height: 54px`, sin border, `font-display`, `text-[34px]`, `tabular-nums`
-- Focus: `bg-orange/12` + `inset 0 0 0 2px orange`, transition 150ms
-- Locked (status closed/live/finished): `disabled`, `cursor-not-allowed`, opacity 1 (mostrar el valor en blanco). Card padre con clase `locked` que cambia bg a `#0d0d0d`
+- `height: 42px`, sin border, font-display, `text-[26px]`, tabular-nums
+- Focus: `bg-orange/12` + `inset 0 0 0 2px orange`, 150ms
+- Locked: `disabled`, `cursor-not-allowed`
 
 ### Separador
-Caracter `—` en display 24px gris `#3a3a3a`
-
-### Validación
-- Min 0, max 20
-- Auto-clamp en `onInput`
+`—` display 18px gris `#3a3a3a`
 
 ---
 
-## Bottom
+## Bottom row
 
-Flex `justify-between`. Izquierda: hint editorial. Derecha: PtsBadge si hay puntos, o info extra.
+Solo visible cuando hay algo concreto que mostrar. Flex `justify-between`.
 
-### Hint editorial (izq)
-Copy varía según estado:
-- Abierto sin guardar: `Aún sin guardar` (muted)
-- Abierto guardado: `Guardado hace 4 min` (con `<b className="text-mint">`)
-- Cerrado: `Empieza en HH:MM:SS` (con countdown)
-- Live: `Si termina así, ganás +3` o `Podés sumar hasta +3 según cómo termine`
-- Finished exacto: `Marcador exacto. La rompiste.`
-- Finished parcial: `Acertaste el ganador.`
-- Finished miss: `No le pegaste — mañana hay revancha.`
+- **Pts badge** (derecha): cuando hay resultado y pronóstico
+- **Error save** (izquierda, `#FF6B6B`): solo cuando el autosave falla
 
-### PtsBadge (der, solo finished/live)
-Pill con número en display 14px + label small:
-- `exact` (+3): `bg-yellow text-black`
-- `partial` (+1): `bg-mint text-black`
-- `miss` (0): `bg-[#2a2a2a] text-[#9a9a9a]`
+> v7: eliminados "Aún sin guardar", "Guardado hace X min", "Empieza en HH:MM:SS", "Marcador exacto. La rompiste.", "Acertaste el ganador.", "No le pegaste — mañana hay revancha.", countdown.
+
+### PtsBadge
+
+| Tipo | Bg | Color | Label |
+|---|---|---|---|
+| `exact` (+3) | `#FFE040` | `#0A0A0A` | exacto |
+| `partial` (+1) | `#A8F0D8` | `#0A0A0A` | parcial |
+| `miss` (0) | `#2a2a2a` | `#9a9a9a` | **incorrecto** |
+
+> v7: "0 falló" → "**0 incorrecto**"
 
 ---
 
-## Estados — ejemplos reales
+## Estados — ejemplos
 
 ### 1. Abierto sin cargar
 ```ts
-{ status: 'open', prediction: undefined }
+{ status: 'upcoming', lockedAt: future, prediction: undefined }
 ```
-Inputs vacíos con placeholder `–`, hint izq "Aún sin guardar", eyebrow derecho "Falta cargar" naranja.
+Strip naranja, badge "Abierto", inputs vacíos con placeholder `–`, sin bottom row.
 
-### 2. Abierto cargado
+### 2. Abierto con pronóstico
 ```ts
-{ status: 'open', prediction: {home: 2, away: 1}, predictionSavedAt: <recent> }
+{ status: 'upcoming', lockedAt: future, prediction: { home: 2, away: 1 } }
 ```
-Inputs con valores, hint izq "Guardado hace 4 min" (con b mint), eyebrow "+3 si exacto".
+Strip naranja, badge "Abierto", inputs con valores, sin bottom row.
 
-### 3. Cerrado
+### 3. Finalizado exacto
 ```ts
-{ status: 'closed', prediction: {home: 1, away: 2}, kickoff: <near future> }
+{ status: 'finished', home_score: 3, away_score: 1, prediction: { home: 3, away: 1 } }
 ```
-Inputs locked, hint izq "Empieza en 02:14:32", eyebrow "Bloqueado".
+Strip gris, badge "Finalizado", banner "Resultado final · 3 — 1", inputs locked, badge `+3 exacto`.
 
-### 4. En vivo
+### 4. Finalizado parcial
 ```ts
-{ status: 'live', liveMinute: 67, realScore: {home: 2, away: 0}, prediction: {home: 2, away: 1} }
+{ status: 'finished', home_score: 2, away_score: 1, prediction: { home: 3, away: 2 } }
 ```
-Status pulsando rojo con minuto, banner rojo "Marcador en vivo · 2 — 0", inputs locked, hint "Si termina así, ganás +1", badge mint "+1 parcial" (predictivo).
+Strip gris, badge "Finalizado", banner "Resultado final · 2 — 1", badge `+1 parcial`.
 
-### 5. Finalizado exacto
+### 5. Finalizado incorrecto
 ```ts
-{ status: 'finished', realScore: {home: 3, away: 1}, prediction: {home: 3, away: 1}, pointsEarned: 3 }
+{ status: 'finished', home_score: 0, away_score: 3, prediction: { home: 1, away: 1 } }
 ```
-Banner gris "Resultado final · 3 — 1", inputs locked, hint "Marcador exacto. La rompiste.", badge amarillo "+3 exacto".
-
-### 6. Finalizado parcial
-```ts
-{ status: 'finished', realScore: {home: 2, away: 1}, prediction: {home: 3, away: 2}, pointsEarned: 1 }
-```
-Banner gris "Resultado final · 2 — 1", inputs locked, hint "Acertaste el ganador.", badge mint "+1 parcial".
-
-### 7. Finalizado miss
-```ts
-{ status: 'finished', realScore: {home: 0, away: 3}, prediction: {home: 1, away: 1}, pointsEarned: 0 }
-```
-Banner gris "Resultado final · 0 — 3", inputs locked, hint "No le pegaste — mañana hay revancha.", badge gris "0 falló".
+Strip gris, badge "Finalizado", banner "Resultado final · 0 — 3", badge `0 incorrecto`.
 
 ---
 
-## Interactividad (cliente)
+## Interactividad
 
-- `onPredictionChange` se dispara con debounce de 500ms → autosave a Supabase
-- Optimistic UI: actualizar `predictionSavedAt` inmediatamente, revertir si Supabase falla
-- Si el usuario edita cualquier input → opcionalmente mostrar una sticky bar abajo del viewport "N cambios sin guardar · [Guardar]"
-- Si `status` cambia (ej. partido pasa a live), re-render con polling cada 30s o subscribe a Supabase Realtime
+- `onValuesChange` se dispara en cada keystroke → el padre puede hacer batch save
+- Autosave (cuando `!noAutosave`): debounce 500ms → `upsertPrediction`
+- Si el match pasa de `upcoming` a `finished` → re-render desde el servidor (polling o Supabase Realtime cada 30s)
+
+---
+
+## Grid de cards
+
+```css
+/* match-grid */
+display: grid;
+gap: 12px;
+grid-template-columns: 1fr;          /* mobile */
+
+@media (min-width: 640px)  { grid-template-columns: repeat(2, 1fr); }
+@media (min-width: 1024px) { grid-template-columns: repeat(3, 1fr); }
+@media (min-width: 1280px) { grid-template-columns: repeat(4, 1fr); }  /* ← v7: 4 cols */
+```
 
 ---
 
 ## Hover
 
 ```css
-.match {
-  transition: transform 0.2s, border-color 0.2s;
-}
-.match:hover {
-  transform: translateY(-3px);
-  border-color: rgba(255,255,255,0.18);
-}
+transition: transform 0.2s, border-color 0.2s;
+&:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.18); }
 ```
 
 ---
@@ -244,6 +211,6 @@ Banner gris "Resultado final · 0 — 3", inputs locked, hint "No le pegaste —
 ## Accesibilidad
 
 - Cada input con `aria-label="Goles {team.name}"`
-- Si el card es una fecha pasada (closed/live/finished), los inputs son `disabled` (no `readonly`)
-- Status badge incluye **texto** además del color (no depende solo del color)
-- Focus visible naranja outline 2px (heredado del `:focus-visible` global)
+- Inputs `disabled` (no `readonly`) cuando locked
+- Status badge incluye texto además del color
+- Focus visible: outline naranja 2px (heredado del global)

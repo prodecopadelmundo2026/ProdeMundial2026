@@ -248,6 +248,52 @@
   }
   .specials-dismiss:hover{background:rgba(255,255,255,.06);color:#fff}
 
+  /* ─── PAGE HEAD (hermano de Premios/Reglas/Ranking) ─── */
+  .page-head{margin-bottom:32px}
+  .eyebrow-label{
+    display:inline-block;
+    font-family:var(--sans);font-size:12px;font-weight:800;
+    letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
+    margin-bottom:18px;
+  }
+  .page-title{
+    font-family:var(--display);
+    font-size:clamp(48px,9vw,108px);
+    line-height:.9;letter-spacing:-.04em;text-transform:uppercase;
+  }
+  .page-title em{font-style:italic;color:var(--orange)}
+  .page-sub{
+    margin-top:14px;
+    font-family:var(--mono);font-size:13px;font-weight:700;
+    color:var(--muted);letter-spacing:.04em;
+  }
+
+  /* ─── TOOLBAR ─── */
+  .toolbar{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:16px;flex-wrap:wrap;
+    margin-bottom:28px;
+  }
+  .toolbar-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .icon-btn{
+    width:40px;height:40px;border-radius:12px;
+    background:var(--panel);border:1px solid var(--line);
+    display:grid;place-items:center;color:#cfcfcf;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .icon-btn:hover{background:var(--panel-2);color:#fff}
+  .icon-btn.danger:hover{color:#FF8585;border-color:rgba(255,90,90,.3)}
+  .btn-admin{
+    display:inline-flex;align-items:center;gap:8px;
+    background:var(--panel);border:1px solid var(--line);
+    color:#cfcfcf;
+    padding:10px 16px;border-radius:12px;
+    font-weight:700;font-size:13px;letter-spacing:.02em;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .btn-admin:hover{background:var(--panel-2);color:#fff;border-color:rgba(255,255,255,.18)}
+  .btn-admin svg{color:var(--mint)}
+
   /* ─── SECTION HEADER ─── */
   .sec-head{
     display:flex;align-items:end;justify-content:space-between;gap:24px;flex-wrap:wrap;
@@ -265,15 +311,100 @@
     display:inline-flex;background:var(--panel);
     border:1px solid var(--line);
     border-radius:999px;padding:5px;gap:4px;
-    margin-bottom:20px;
+    margin-bottom:20px;flex-wrap:wrap;
   }
   .phase-tabs button{
     padding:10px 18px;border-radius:999px;
     font-weight:800;font-size:13px;color:var(--muted);
     transition:background .15s, color .15s;
+    white-space:nowrap;
   }
   .phase-tabs button.on{background:var(--orange);color:#0A0A0A}
   .phase-tabs button:not(.on):hover{color:#fff}
+
+  /* ─── SPECIALS SECTION (tab dedicada) ─── */
+  .specials-section{margin-top:8px}
+  .specials-head{margin-bottom:22px;max-width:560px}
+  .specials-head h3{
+    font-family:var(--display);font-size:clamp(24px,3vw,32px);
+    text-transform:uppercase;letter-spacing:-.02em;line-height:1;
+  }
+  .specials-head h3 em{font-style:italic;color:var(--purple)}
+  .specials-head p{margin-top:8px;color:var(--muted);font-size:14px;line-height:1.5}
+  .specials-head p b{color:#fff;font-weight:800}
+  .specials-grid{
+    display:grid;gap:14px;
+    grid-template-columns:1fr;
+  }
+  @media (min-width:780px){.specials-grid{grid-template-columns:repeat(3,1fr)}}
+
+  .special{
+    position:relative;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:20px;
+    overflow:hidden;
+    display:flex;flex-direction:column;gap:18px;
+    transition:transform .2s, border-color .2s;
+  }
+  .special:hover{transform:translateY(-3px);border-color:rgba(255,255,255,.16)}
+  .special::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+    background:currentColor;
+  }
+  .special.special-ball{color:var(--purple)}
+  .special.special-boot{color:var(--orange)}
+  .special.special-glove{color:var(--blue)}
+
+  .special-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .special-title{
+    font-family:var(--display);font-size:18px;letter-spacing:-.01em;
+    text-transform:uppercase;line-height:1;color:#fff;
+  }
+  .special-sub{margin-top:6px;font-size:12px;color:var(--muted);font-weight:600;line-height:1.4}
+  .special-pts{
+    font-family:var(--display);font-size:36px;line-height:.85;letter-spacing:-.04em;
+    color:currentColor;flex-shrink:0;
+  }
+
+  .special-input-wrap{display:flex;flex-direction:column;gap:6px}
+  .special-input-label{
+    font-size:10px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
+  }
+  .special-input{
+    width:100%;background:#0A0A0A;border:1px solid var(--line);
+    color:#fff;padding:14px 16px;border-radius:12px;
+    font-family:var(--sans);font-size:15px;font-weight:700;
+    outline:none;transition:border-color .15s, background .15s, box-shadow .15s;
+  }
+  .special-input::placeholder{color:#555;font-weight:500}
+  .special-input:focus{border-color:currentColor;background:#0d0d0d;box-shadow:0 0 0 4px rgba(255,255,255,.04)}
+  .special-input.has-value{color:#fff}
+
+  .special-saved{
+    display:none;align-items:center;gap:6px;
+    font-size:11px;font-weight:700;color:var(--mint);
+  }
+  .special-saved.show{display:inline-flex}
+  .special-saved svg{width:12px;height:12px}
+
+  .specials-save{
+    margin-top:22px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    padding:16px 20px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+  }
+  .specials-save-info{font-size:13px;color:var(--muted)}
+  .specials-save-info b{color:#fff;font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+  .specials-save-btn{
+    background:var(--orange);color:#0A0A0A;
+    padding:12px 22px;border-radius:999px;
+    font-weight:800;font-size:13px;letter-spacing:.02em;
+    transition:transform .15s, box-shadow .2s;
+  }
+  .specials-save-btn:hover{transform:translateY(-1px);box-shadow:0 10px 24px -8px rgba(255,107,0,.6)}
 
   /* ─── GROUP DROPDOWN (combo) ─── */
   .combo-row{
@@ -440,102 +571,91 @@
   .group-section-cta:hover{color:#fff}
 
   /* ─── MATCH GRID ─── */
-  .match-grid{display:grid;gap:16px;grid-template-columns:1fr}
-  @media (min-width:720px){.match-grid{grid-template-columns:repeat(2,1fr)}}
-  @media (min-width:1100px){.match-grid{grid-template-columns:repeat(3,1fr)}}
+  .match-grid{display:grid;gap:12px;grid-template-columns:1fr}
+  @media (min-width:640px){.match-grid{grid-template-columns:repeat(2,1fr)}}
+  @media (min-width:1024px){.match-grid{grid-template-columns:repeat(3,1fr)}}
+  @media (min-width:1280px){.match-grid{grid-template-columns:repeat(4,1fr)}}
 
   .match{
     position:relative;background:var(--panel);
-    border:1px solid var(--line);border-radius:var(--radius);
-    padding:22px;transition:transform .2s, border-color .2s;
+    border:1px solid var(--line);border-radius:18px;
+    padding:14px 14px 12px;
+    transition:transform .2s, border-color .2s;
     overflow:hidden;
   }
   .match:hover{transform:translateY(-3px);border-color:rgba(255,255,255,.18)}
   .match::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--orange)}
-  .match.live::before{background:#FF3B3B}
-  .match.closed::before{background:#7A5BC9}
   .match.finished::before{background:#3a3a3a}
 
   .match-top{
     display:flex;align-items:center;justify-content:space-between;
-    margin-bottom:18px;font-size:12px;
+    margin-bottom:12px;font-size:11px;gap:8px;
   }
-  .match-meta{display:flex;align-items:center;gap:10px;color:var(--muted);font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:11px}
-  .match-meta .grp{background:#0A0A0A;color:#fff;padding:4px 8px;border-radius:6px;border:1px solid var(--line);font-size:10px}
+  .match-meta{display:flex;align-items:center;gap:8px;color:var(--muted);font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:10px;min-width:0;overflow:hidden}
+  .match-meta .grp{background:#0A0A0A;color:#fff;padding:3px 6px;border-radius:5px;border:1px solid var(--line);font-size:9px;flex-shrink:0}
+  .match-meta .date{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .status{
-    display:inline-flex;align-items:center;gap:6px;
-    padding:5px 10px;border-radius:999px;
-    font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+    display:inline-flex;align-items:center;gap:5px;
+    padding:3px 8px;border-radius:999px;
+    font-size:9px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+    flex-shrink:0;
   }
-  .status .d{width:6px;height:6px;border-radius:50%}
+  .status .d{width:5px;height:5px;border-radius:50%}
   .status.open{background:rgba(168,240,216,.14);color:var(--mint)}
   .status.open .d{background:var(--mint)}
-  .status.closed{background:rgba(123,92,210,.18);color:#A892E8}
-  .status.closed .d{background:#A892E8}
-  .status.live{background:rgba(255,59,59,.18);color:#FF6B6B}
-  .status.live .d{background:#FF6B6B;animation:blink 1s infinite}
   .status.finished{background:rgba(255,255,255,.06);color:#9a9a9a}
   .status.finished .d{background:#9a9a9a}
   @keyframes blink{50%{opacity:.2}}
 
-  .teams{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;margin-bottom:18px}
-  .team{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+  .teams{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:10px}
+  .team{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;min-width:0}
   .team.away{order:3}
-  .flag{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-size:28px;background:#0A0A0A;border:1px solid var(--line)}
-  .team-name{font-weight:800;font-size:15px;letter-spacing:-.01em}
-  .team-code{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.2em}
-  .vs{font-family:var(--display);font-size:14px;color:var(--muted);letter-spacing:.18em}
+  .flag{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:20px;background:#0A0A0A;border:1px solid var(--line)}
+  .team-name{font-weight:800;font-size:12px;letter-spacing:-.01em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .team-code{display:none}
+  .vs{font-family:var(--display);font-size:11px;color:var(--muted);letter-spacing:.14em}
 
   .score-context{
     display:flex;align-items:center;justify-content:space-between;
-    margin-bottom:10px;padding:11px 14px;border-radius:12px;
-    font-weight:800;gap:12px;
+    margin-bottom:8px;padding:8px 12px;border-radius:10px;
+    font-weight:800;gap:10px;
   }
-  .score-context .label{display:inline-flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:.18em;font-size:10px}
-  .score-context .label .d{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
-  .score-context .score{font-family:var(--display);font-size:20px;letter-spacing:-.02em;color:#fff;font-variant-numeric:tabular-nums}
-  .score-context.live{background:linear-gradient(90deg,rgba(255,59,59,.22),rgba(255,59,59,.06));border:1px solid rgba(255,59,59,.3);color:#FF8585}
-  .score-context.live .label .d{animation:blink 1s infinite}
+  .score-context .label{display:inline-flex;align-items:center;gap:6px;text-transform:uppercase;letter-spacing:.16em;font-size:9px}
+  .score-context .score{font-family:var(--display);font-size:16px;letter-spacing:-.02em;color:#fff;font-variant-numeric:tabular-nums}
   .score-context.final{background:rgba(255,255,255,.04);border:1px solid var(--line);color:#9a9a9a}
 
-  .pred-label{
-    display:flex;align-items:center;justify-content:space-between;
-    font-size:10px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
-    margin-bottom:6px;
-  }
-  .pred-label .urgent{color:var(--orange)}
+  .pred-label{display:none}
 
   .score-row{
-    display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;
+    display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;
     background:#0A0A0A;border:1px solid var(--line);
-    border-radius:16px;padding:10px;
+    border-radius:12px;padding:6px;
   }
   .score-input{
-    width:100%;height:54px;text-align:center;
+    width:100%;height:42px;text-align:center;
     background:transparent;border:none;color:#fff;
-    font-family:var(--display);font-size:34px;letter-spacing:-.03em;
-    border-radius:10px;transition:background .15s;outline:none;
+    font-family:var(--display);font-size:26px;letter-spacing:-.03em;
+    border-radius:8px;transition:background .15s;outline:none;
     font-variant-numeric:tabular-nums;
   }
   .score-input:focus{background:rgba(255,107,0,.12);box-shadow:inset 0 0 0 2px var(--orange)}
   .score-input:disabled{color:#fff;-webkit-text-fill-color:#fff;opacity:1;cursor:not-allowed}
-  .score-sep{font-family:var(--display);font-size:24px;color:#3a3a3a}
+  .score-sep{font-family:var(--display);font-size:18px;color:#3a3a3a}
   .score-row.locked{background:#0d0d0d}
 
   .match-bottom{
-    margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;
-    font-size:12px;
+    margin-top:10px;display:flex;align-items:center;justify-content:flex-end;gap:8px;
+    font-size:11px;
   }
-  .save-hint{color:var(--muted);font-weight:600;font-size:12px}
-  .save-hint b{color:var(--mint)}
   .pts-badge{
-    display:inline-flex;align-items:center;gap:6px;
-    padding:6px 11px;border-radius:999px;font-weight:800;font-size:12px;letter-spacing:.04em;
+    display:inline-flex;align-items:center;gap:4px;
+    padding:3px 8px;border-radius:999px;font-weight:800;font-size:10px;letter-spacing:.04em;
+    flex-shrink:0;
   }
   .pts-badge.exact{background:var(--yellow);color:#0A0A0A}
   .pts-badge.partial{background:var(--mint);color:#0A0A0A}
   .pts-badge.miss{background:#2a2a2a;color:#9a9a9a}
-  .pts-badge .pts{font-family:var(--display);font-size:14px}
+  .pts-badge .pts{font-family:var(--display);font-size:11px}
 
   /* Empty state for "no matches in filter" */
   .empty{
@@ -634,6 +754,13 @@
 <main class="page">
   <div class="page-inner">
 
+    <!-- ═══ PAGE HEAD (hermano de Premios/Reglas/Ranking) ═══ -->
+    <div class="page-head">
+      <span class="eyebrow-label">Tus pronósticos</span>
+      <h1 class="page-title">Mi <em>Prode</em></h1>
+      <p class="page-sub">Mundial 2026 · USA · Canadá · México</p>
+    </div>
+
     <!-- ═══ SPECIALS BANNER (slim) ═══ -->
     <aside class="specials-banner" id="specialsBanner">
       <div class="specials-icon">
@@ -649,17 +776,26 @@
       </button>
     </aside>
 
-    <!-- ═══ TÍTULO + TABS ═══ -->
-    <div class="sec-head">
-      <h1 class="sec-title">Mi <em>Prode</em></h1>
+    <!-- ═══ TOOLBAR (acciones + fase) ═══ -->
+    <div class="toolbar">
       <div class="phase-tabs" role="tablist">
-        <button class="on" role="tab">Grupos</button>
-        <button role="tab">Eliminatorias</button>
+        <button class="on" role="tab" data-tab="grupos">Grupos</button>
+        <button role="tab" data-tab="elim">Eliminatorias</button>
+        <button role="tab" data-tab="especiales">Apuestas especiales</button>
+      </div>
+      <div class="toolbar-actions">
+        <button class="btn-admin" type="button" title="Carga pronósticos aleatorios en todos los partidos">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+          Aleatorio
+        </button>
+        <button class="icon-btn danger" type="button" title="Borrar todos los pronósticos del grupo" aria-label="Borrar pronósticos del grupo">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
       </div>
     </div>
 
     <!-- ═══ GROUP DROPDOWN ═══ -->
-    <div class="combo-row">
+    <div class="combo-row" id="comboRow">
       <div class="group-combo-wrap" id="comboGroups">
         <label for="groupSelect">Seleccionar grupo</label>
         <div class="group-combo">
@@ -699,8 +835,8 @@
       <div class="combo-meta" id="comboMeta">6 partidos · 11–22 junio</div>
     </div>
 
-    <!-- ═══ GROUP A — SECTION ═══ -->
-    <section class="group-section">
+    <!-- ═══ GROUP A — SECTION (Grupos / Eliminatorias) ═══ -->
+    <section class="group-section" id="phaseSection">
       <div class="match-grid">
 
         <!-- PENDIENTE -->
@@ -715,23 +851,18 @@
           <div class="teams">
             <div class="team home">
               <div class="flag">🇲🇽</div>
-              <div><div class="team-name">México</div><div class="team-code">MEX</div></div>
+              <div><div class="team-name">México</div></div>
             </div>
             <div class="vs">VS</div>
             <div class="team away">
               <div class="flag">🇿🇦</div>
-              <div><div class="team-name">Sudáfrica</div><div class="team-code">RSA</div></div>
+              <div><div class="team-name">Sudáfrica</div></div>
             </div>
           </div>
-          <div class="pred-label"><span>Tu pronóstico</span><span class="urgent">Falta cargar</span></div>
           <div class="score-row">
             <input class="score-input" type="number" min="0" max="20" placeholder="–"/>
             <span class="score-sep">—</span>
             <input class="score-input" type="number" min="0" max="20" placeholder="–"/>
-          </div>
-          <div class="match-bottom">
-            <span class="save-hint">Aún sin guardar</span>
-            <span class="save-hint">Cierra 15:30</span>
           </div>
         </article>
 
@@ -747,59 +878,18 @@
           <div class="teams">
             <div class="team home">
               <div class="flag">🇰🇷</div>
-              <div><div class="team-name">Corea del Sur</div><div class="team-code">KOR</div></div>
+              <div><div class="team-name">Corea del Sur</div></div>
             </div>
             <div class="vs">VS</div>
             <div class="team away">
               <div class="flag">🇨🇿</div>
-              <div><div class="team-name">Chequia</div><div class="team-code">CZE</div></div>
+              <div><div class="team-name">Chequia</div></div>
             </div>
           </div>
-          <div class="pred-label"><span>Tu pronóstico</span><span>+3 si exacto</span></div>
           <div class="score-row">
             <input class="score-input" type="number" value="1"/>
             <span class="score-sep">—</span>
             <input class="score-input" type="number" value="0"/>
-          </div>
-          <div class="match-bottom">
-            <span class="save-hint">Guardado <b>hace 2 min</b></span>
-            <span class="save-hint">Cierra 22:30</span>
-          </div>
-        </article>
-
-        <!-- EN VIVO -->
-        <article class="match live">
-          <div class="match-top">
-            <div class="match-meta">
-              <span class="grp">A · J2</span>
-              <span>Hoy · 18:00</span>
-            </div>
-            <span class="status live"><span class="d"></span>En vivo · 67'</span>
-          </div>
-          <div class="teams">
-            <div class="team home">
-              <div class="flag">🇲🇽</div>
-              <div><div class="team-name">México</div><div class="team-code">MEX</div></div>
-            </div>
-            <div class="vs">VS</div>
-            <div class="team away">
-              <div class="flag">🇰🇷</div>
-              <div><div class="team-name">Corea del Sur</div><div class="team-code">KOR</div></div>
-            </div>
-          </div>
-          <div class="score-context live">
-            <span class="label"><span class="d"></span>Marcador en vivo</span>
-            <span class="score">2 — 1</span>
-          </div>
-          <div class="pred-label"><span>Tu pronóstico</span></div>
-          <div class="score-row locked">
-            <input class="score-input" type="number" value="2" disabled/>
-            <span class="score-sep">—</span>
-            <input class="score-input" type="number" value="1" disabled/>
-          </div>
-          <div class="match-bottom">
-            <span class="save-hint">Si termina así, ganás <b>+3</b></span>
-            <span class="pts-badge exact"><span class="pts">+3</span>parcial</span>
           </div>
         </article>
 
@@ -815,63 +905,29 @@
           <div class="teams">
             <div class="team home">
               <div class="flag">🇸🇦</div>
-              <div><div class="team-name">Arabia Saudí</div><div class="team-code">KSA</div></div>
+              <div><div class="team-name">Arabia Saudí</div></div>
             </div>
             <div class="vs">VS</div>
             <div class="team away">
               <div class="flag">🇿🇦</div>
-              <div><div class="team-name">Sudáfrica</div><div class="team-code">RSA</div></div>
+              <div><div class="team-name">Sudáfrica</div></div>
             </div>
           </div>
           <div class="score-context final">
             <span class="label">Resultado final</span>
             <span class="score">1 — 2</span>
           </div>
-          <div class="pred-label"><span>Tu pronóstico</span></div>
           <div class="score-row locked">
             <input class="score-input" type="number" value="1" disabled/>
             <span class="score-sep">—</span>
             <input class="score-input" type="number" value="2" disabled/>
           </div>
           <div class="match-bottom">
-            <span class="save-hint">Marcador exacto. La rompiste.</span>
             <span class="pts-badge exact"><span class="pts">+3</span>exacto</span>
           </div>
         </article>
 
-        <!-- CERRADO -->
-        <article class="match closed">
-          <div class="match-top">
-            <div class="match-meta">
-              <span class="grp">A · J2</span>
-              <span>Vie 12 Jun · 21:00</span>
-            </div>
-            <span class="status closed"><span class="d"></span>Cerrado</span>
-          </div>
-          <div class="teams">
-            <div class="team home">
-              <div class="flag">🇸🇦</div>
-              <div><div class="team-name">Arabia Saudí</div><div class="team-code">KSA</div></div>
-            </div>
-            <div class="vs">VS</div>
-            <div class="team away">
-              <div class="flag">🇨🇿</div>
-              <div><div class="team-name">Chequia</div><div class="team-code">CZE</div></div>
-            </div>
-          </div>
-          <div class="pred-label"><span>Tu pronóstico</span><span>Bloqueado</span></div>
-          <div class="score-row locked">
-            <input class="score-input" type="number" value="2" disabled/>
-            <span class="score-sep">—</span>
-            <input class="score-input" type="number" value="1" disabled/>
-          </div>
-          <div class="match-bottom">
-            <span class="save-hint">Empieza en <b>02:14:32</b></span>
-            <span class="save-hint">No se puede editar</span>
-          </div>
-        </article>
-
-        <!-- FINALIZADO FALLÓ -->
+        <!-- FINALIZADO PARCIAL -->
         <article class="match finished">
           <div class="match-top">
             <div class="match-meta">
@@ -883,27 +939,25 @@
           <div class="teams">
             <div class="team home">
               <div class="flag">🇰🇷</div>
-              <div><div class="team-name">Corea del Sur</div><div class="team-code">KOR</div></div>
+              <div><div class="team-name">Corea del Sur</div></div>
             </div>
             <div class="vs">VS</div>
             <div class="team away">
               <div class="flag">🇲🇽</div>
-              <div><div class="team-name">México</div><div class="team-code">MEX</div></div>
+              <div><div class="team-name">México</div></div>
             </div>
           </div>
           <div class="score-context final">
             <span class="label">Resultado final</span>
             <span class="score">0 — 3</span>
           </div>
-          <div class="pred-label"><span>Tu pronóstico</span></div>
           <div class="score-row locked">
             <input class="score-input" type="number" value="1" disabled/>
             <span class="score-sep">—</span>
             <input class="score-input" type="number" value="1" disabled/>
           </div>
           <div class="match-bottom">
-            <span class="save-hint">No le pegaste — mañana hay revancha.</span>
-            <span class="pts-badge miss"><span class="pts">0</span>falló</span>
+            <span class="pts-badge miss"><span class="pts">0</span>incorrecto</span>
           </div>
         </article>
 
@@ -1035,6 +1089,66 @@
         </div>
       </div>
     </section>
+    <!-- ═══ APUESTAS ESPECIALES SECTION ═══ -->
+    <section class="specials-section" id="specialsSection" style="display:none">
+      <div class="specials-head">
+        <h3>Apuestas <em>especiales</em></h3>
+        <p>Cargá quien creés que se va a llevar cada distinción. Solo se evalúan al final del torneo. <b>Cierran el 11 de junio.</b></p>
+      </div>
+
+      <div class="specials-grid">
+        <article class="special special-ball">
+          <header class="special-head">
+            <div>
+              <div class="special-title">Balón de Oro</div>
+              <div class="special-sub">Mejor jugador del torneo</div>
+            </div>
+            <span class="special-pts">+20</span>
+          </header>
+          <div class="special-input-wrap">
+            <label class="special-input-label" for="sp-ball">Jugador</label>
+            <input id="sp-ball" class="special-input" type="text" placeholder="Nombre del jugador" value="Lionel Messi" />
+            <span class="special-saved show"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Guardado</span>
+          </div>
+        </article>
+
+        <article class="special special-boot">
+          <header class="special-head">
+            <div>
+              <div class="special-title">Bota de Oro</div>
+              <div class="special-sub">Máximo goleador del torneo</div>
+            </div>
+            <span class="special-pts">+15</span>
+          </header>
+          <div class="special-input-wrap">
+            <label class="special-input-label" for="sp-boot">Jugador</label>
+            <input id="sp-boot" class="special-input" type="text" placeholder="Nombre del jugador" value="Kylian Mbappé" />
+            <span class="special-saved show"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Guardado</span>
+          </div>
+        </article>
+
+        <article class="special special-glove">
+          <header class="special-head">
+            <div>
+              <div class="special-title">Guante de Oro</div>
+              <div class="special-sub">Mejor arquero del torneo</div>
+            </div>
+            <span class="special-pts">+15</span>
+          </header>
+          <div class="special-input-wrap">
+            <label class="special-input-label" for="sp-glove">Arquero</label>
+            <input id="sp-glove" class="special-input" type="text" placeholder="Nombre del arquero" value="Emiliano Martínez" />
+            <span class="special-saved show"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Guardado</span>
+          </div>
+        </article>
+      </div>
+
+      <div class="specials-save">
+        <span class="specials-save-info">Podés editarlas hasta el <b>11 jun · 15:30</b></span>
+        <button class="specials-save-btn" type="button">Guardar cambios</button>
+      </div>
+    </section>
+
   </div>
 </main>
 
@@ -1075,24 +1189,56 @@
     });
   });
 
-  // Phase tabs: switch active + swap dropdowns + show/hide standings
+  // Phase tabs: switch active + swap dropdowns + show/hide sections
+  const phaseSection = document.getElementById('phaseSection');
+  const specialsSection = document.getElementById('specialsSection');
+  const comboRow = document.getElementById('comboRow');
   const standings = document.querySelector('.standings-block');
   const comboGroups = document.getElementById('comboGroups');
   const comboElim = document.getElementById('comboElim');
   const comboMeta = document.getElementById('comboMeta');
+  const specialsBanner = document.getElementById('specialsBanner');
 
-  document.querySelectorAll('.phase-tabs button').forEach(b => {
-    b.addEventListener('click', () => {
-      document.querySelectorAll('.phase-tabs button').forEach(c => c.classList.remove('on'));
-      b.classList.add('on');
+  function switchTab(tab) {
+    document.querySelectorAll('.phase-tabs button').forEach(b => {
+      b.classList.toggle('on', b.dataset.tab === tab);
+    });
 
-      const isElim = b.textContent.trim().toLowerCase() === 'eliminatorias';
+    const isElim = tab === 'elim';
+    const isSpecials = tab === 'especiales';
+
+    // Show/hide secciones principales
+    comboRow.style.display = isSpecials ? 'none' : '';
+    phaseSection.style.display = isSpecials ? 'none' : '';
+    specialsSection.style.display = isSpecials ? '' : 'none';
+
+    // Combo y standings dentro de la fase de torneo
+    if (!isSpecials) {
       comboGroups.style.display = isElim ? 'none' : '';
       comboElim.style.display = isElim ? '' : 'none';
       standings.style.display = isElim ? 'none' : '';
       comboMeta.textContent = isElim ? '16 partidos · 28 jun – 02 jul' : '6 partidos · 11–22 junio';
-    });
+    }
+
+    // Ocultar la slim bar cuando ya estás en Apuestas Especiales
+    if (specialsBanner) {
+      specialsBanner.style.display = isSpecials ? 'none' : '';
+    }
+  }
+
+  document.querySelectorAll('.phase-tabs button').forEach(b => {
+    b.addEventListener('click', () => switchTab(b.dataset.tab));
   });
+
+  // Slim bar "Cargar" → switch to apuestas tab
+  const specialsCta = document.querySelector('.specials-cta');
+  if (specialsCta) {
+    specialsCta.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchTab('especiales');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
 
   // User menu (avatar dropdown)
   const avatarBtn = document.getElementById('avatarBtn');

@@ -1,14 +1,16 @@
-# Handoff — Prode 26 · v6
+# Handoff — Prode 26 · v7
 
 Pack de diseño para implementar el sitio completo del Prode Mundial 2026.
 
-**Cambios v6** (sobre v5):
-- Nueva página **`/premios`** con podio + banner del pozo + card de referidos
-- Nueva página **`/reglas`** con puntaje por partido + apuestas especiales (mismo layout que premios)
-- Home: sección de premios y de reglas **removidas** (viven en sus propias páginas)
-- Home: nueva sección **Top 10** con podio del ranking + fila pinned del usuario logueado
-- Premios: monto del 3º puesto pasa a `$100.000` cash (antes Smart TV)
-- Tipografía del podio rediseada con jerarquía interna (rank italic + monto multi-peso)
+**Cambios v7** (sobre v6):
+- **Nueva página Ranking** (`/ranking`) alineada al patrón de Premios/Reglas. Search bar, top 3 con color (oro/plata/bronce), fila del usuario destacada en su posición + sticky bottom cuando se scrollea fuera del viewport
+- **Mi Prode autenticado**: 3 tabs (Grupos / Eliminatorias / **Apuestas especiales** nueva)
+- **MatchCards compactas**: padding/banderas/inputs reducidos ~40% → entran 4 cards en desktop (antes 3), mejor uso de espacio en mobile
+- **Estados simplificados**: solo `open` y `finished` (eliminados live + closed)
+- **Copy limpio**: removidos hints "Aún sin guardar", "Cierra HH:MM", "Marcador exacto. La rompiste.", countdown. "0 falló" → "0 incorrecto"
+- **Header de Mi Prode** alineado al patrón Premios/Reglas/Ranking (eyebrow + h1 italic + sub mono)
+- **Toolbar admin** colapsada en un solo grupo (Aleatorio + delete icon) en lugar de banner gigante
+- **Apuestas especiales como tab dedicada** con 3 cards (Balón/Bota/Guante de Oro), inputs para nombres, slim bar de recordatorio en otras tabs
 
 ## Contenido
 
@@ -19,12 +21,13 @@ handoff/
 ├── MIGRATION-LOGIN.md             ← guía paso a paso del login viejo → nuevo
 ├── COMPONENT-MATCHCARD.md         ← detalle del componente crítico
 └── mocks/
-    ├── Home.html                  ← Home (guest + auth — navbar varía)
-    ├── Login.html                 ← Login con form nombre + email
-    ├── MiProde-Locked.html        ← Mi Prode sin sesión (gate WhatsApp)
-    ├── MiProde-Auth.html          ← Mi Prode autenticado
-    ├── Premios.html               ← Página /premios · NUEVO en v6
-    └── Reglas.html                ← Página /reglas · NUEVO en v6
+    ├── Home.html                  ← Home + Top 10 ranking
+    ├── Login.html                 ← Form nombre + email
+    ├── MiProde-Locked.html        ← Sin sesión (gate WhatsApp)
+    ├── MiProde-Auth.html          ← Autenticado · 3 tabs + cards compactas
+    ├── Premios.html               ← Podio + pozo + referidos
+    ├── Reglas.html                ← Puntaje + apuestas especiales
+    └── Ranking.html               ← Lista completa + sticky bottom · NUEVO en v7
 ```
 
 > ⚠️ Los `.html` son mocks de referencia visual. NO copiarlos al codebase — recrear en React + Tailwind v4.
@@ -45,13 +48,13 @@ handoff/
 
 | Ruta | Mock | Auth | Contenido |
 |---|---|---|---|
-| `/` | `Home.html` | guest + auth | Hero + Stats + Próximos partidos + Top 10 ranking |
+| `/` | `Home.html` | guest + auth | Hero + Stats + Próximos partidos + Top 10 |
 | `/login` | `Login.html` | guest only | Form nombre + email contra DB |
 | `/mi-prode` (locked) | `MiProde-Locked.html` | sin sesión | Gate con CTA WhatsApp |
-| `/mi-prode` (auth) | `MiProde-Auth.html` | con sesión | Banner apuestas especiales + combo grupos/fases + partidos + tabla del grupo |
-| `/premios` | **`Premios.html`** | guest + auth | Podio (Oro/Plata/Bronce) + banner del pozo + card de referidos |
-| `/reglas` | **`Reglas.html`** | guest + auth | Puntaje por partido + apuestas especiales |
-| `/ranking` | (pendiente) | guest + auth | Podio + tabla completa |
+| `/mi-prode` (auth) | `MiProde-Auth.html` | con sesión | 3 tabs: Grupos / Eliminatorias / Apuestas especiales |
+| `/premios` | `Premios.html` | guest + auth | Podio (Oro/Plata/Bronce) + pozo + referidos |
+| `/reglas` | `Reglas.html` | guest + auth | Puntaje por partido + apuestas especiales |
+| `/ranking` | `Ranking.html` | guest + auth | Lista completa con search + fila del user destacada |
 
 ---
 
@@ -73,53 +76,66 @@ Todos en `globals.snippet.css`. Highlights:
 
 | Token | Hex | Uso |
 |---|---|---|
-| `--color-orange` | `#FF6B00` | CTAs primarios, "Falta cargar", strip de MatchCard abierta |
-| `--color-purple` | `#5B2D8E` | Secundario, status "Cerrado" (clases `bg-purple/18`), Balón de Oro, banner apuestas |
+| `--color-orange` | `#FF6B00` | CTAs primarios, strip de MatchCard abierta |
+| `--color-purple` | `#5B2D8E` | Secundario, Balón de Oro, slim bar apuestas |
 | `--color-yellow` | `#FFE040` | +3 exacto, premio Oro |
 | `--color-blue` | `#1565C0` | Guante de Oro |
-| `--color-mint` | `#A8F0D8` | Status "Abierto", +1 parcial, premio Plata, WhatsApp CTA, indicador ranking ↑ |
+| `--color-mint` | `#A8F0D8` | Status "Abierto", +1 parcial, premio Plata, WhatsApp CTA, ranking ↑ |
 | `--color-bg` | `#0A0A0A` | Fondo base |
 | `--color-panel` | `#141414` | Cards |
 | `--color-panel-2` | `#1C1C1C` | Cards hover |
 | `--color-line` | `rgba(255,255,255,0.08)` | Bordes |
 | `--color-text` | `#FFFFFF` | Texto principal |
 | `--color-muted` | `#8A8A8A` | Texto secundario |
-| `--color-status-live` | `#FF3B3B` | Status "En vivo" |
 | `--color-danger` | `#FF5A5A` | Errores |
 
-**Regla del naranja**: exclusivo de CTAs + urgencia. NO usarlo para badges de status (el status "Cerrado" es púrpura ahora).
+**Regla del naranja**: exclusivo de CTAs + urgencia. NO usarlo para badges de status.
 
 ### Tipografía
 
 - `Archivo Black` → display (h1, h2, números grandes, score inputs)
 - `Archivo` 500-900 → UI
-- `JetBrains Mono` → códigos de equipo (ARG, BRA), fechas
+- `JetBrains Mono` → códigos, fechas, sub-stats
 
 Cargar con `next/font/google` y exponer como CSS variables.
+
+### Patrón page-head (compartido por Premios/Reglas/Ranking/Mi Prode)
+
+```tsx
+<header className="page-head">
+  <span className="eyebrow-label">{ETIQUETA_FUNCIONAL}</span>  {/* ej: "QUÉ SE GANA" */}
+  <h1 className="page-title">{TÍTULO} <em>{PALABRA_ACENTO}</em></h1>
+  <p className="page-sub">Mundial 2026 · USA · Canadá · México</p>
+</header>
+```
+
+- Eyebrow: 12px uppercase muted, letter-spacing 0.22em
+- H1: display, clamp(48px, 9vw, 108px), uppercase, palabra en italic naranja
+- Sub: mono 13px, color muted
 
 ---
 
 ## 5. Componentes a construir
 
 ### Comunes
-- `<Navbar />` — 2 variants: **guest** (botón "Entrar" naranja) / **auth** (pill puntos + avatar con dropdown)
+- `<Navbar />` — 2 variants: **guest** (botón "Entrar" naranja) / **auth** (solo avatar con dropdown)
 - `<Footer />`
 - `<Button />` — variants: primary, ghost, wa
-- `<StatusBadge status={'open'|'closed'|'live'|'finished'} />`
+- `<StatusBadge status={'open'|'finished'} />` (eliminados live y closed)
 - `<PtsBadge variant={'exact'|'partial'|'miss'} points />`
 - **`<MatchCard />`** — ver `COMPONENT-MATCHCARD.md`
+- `<PageHead eyebrow title accent sub />` — el patrón compartido
 
 ### Home (`src/app/page.tsx`)
-- `<Hero />`, `<StatsStrip />`, `<UpcomingMatches />` (hasta 6 cards en grid 3 cols), `<Top10 />` (ranking compacto en card list)
-- **Ya no** incluye podio de premios ni grilla de reglas — cada uno vive en su página (`/premios`, `/reglas`)
+- `<Hero />`, `<StatsStrip />`, `<UpcomingMatches />` (hasta 6 cards en grid 3 cols), `<Top10 />`
+- **Ya no** incluye podio de premios ni grilla de reglas
 
+### Login (`src/app/login/page.tsx`) — ver `MIGRATION-LOGIN.md`
+
+### Mi Prode (`src/app/mi-prode/page.tsx`) — sección 6
 ### Premios (`src/app/premios/page.tsx`) — sección 7
 ### Reglas (`src/app/reglas/page.tsx`) — sección 8
-
-### Login (`src/app/login/page.tsx`)
-- Ver `MIGRATION-LOGIN.md` para migración paso a paso
-
-### Mi Prode autenticado (`src/app/mi-prode/page.tsx`) — sección 6 abajo
+### Ranking (`src/app/ranking/page.tsx`) — sección 9
 
 ---
 
@@ -128,110 +144,76 @@ Cargar con `next/font/google` y exponer como CSS variables.
 > Mock: `mocks/MiProde-Auth.html`
 
 ### 6.1 Navbar variant `auth`
-
-- **Solo el avatar** del lado derecho (sin pill de puntos/ranking — toda la info del usuario vive en el dropdown del avatar)
-- Avatar 36px gradiente purple→blue, **clickable** → abre dropdown `<UserMenu />`
-- Cursor pointer + hover effect (scale 1.05)
+- **Solo el avatar** del lado derecho (sin pill de puntos/ranking — toda la info vive en el dropdown del avatar)
+- Avatar 36px gradiente purple→blue, clickable → abre `<UserMenu />`
 
 ### 6.2 `<UserMenu />` (dropdown del avatar)
-
-Posicionado `absolute` debajo del avatar, alineado a la derecha. Tres secciones:
-
+Posicionado `absolute` debajo del avatar. Secciones:
 1. **Head** — avatar grande + eyebrow "INFORMACIÓN GENERAL" + nombre
-2. **Stats** — grid 3 columnas: Puntos (247, +12), Ranking (#34 en mint, ↑6), Aciertos (68%, 12 exactos)
-3. **Foot** — link "Cerrar sesión" (en color rojo `#FF8585`)
+2. **Stats** — grid 3 cols: Puntos / Ranking (mint) / Aciertos
+3. **Foot** — link "Cerrar sesión" en rojo
 
-> Como el navbar ya no muestra puntos/ranking, este dropdown es la **única fuente de verdad** de las stats del usuario en Mi Prode. Mantenerlo bien accesible (cursor pointer en el avatar, indicador visual claro de que es clickable).
+Comportamiento: click avatar → toggle, click fuera → cerrar, Escape → cerrar.
 
-Comportamiento:
-- Click en avatar → toggle clase `.open`
-- Click fuera del menú → cerrar
-- Tecla `Escape` → cerrar
-- Transición opacity + translateY 150ms
+### 6.3 Page head
+Patrón estándar: eyebrow "TUS PRONÓSTICOS" + h1 "Mi **Prode**" + sub mono.
 
-### 6.3 Sin sección de "user header" en el body
+### 6.4 `<SpecialsBanner />` (slim bar)
+Bar delgada (~54px) púrpura sutil. Visible si el usuario NO completó las 3 apuestas. Click "Cargar" → switch automático a tab Apuestas Especiales + scroll top. Botón X dismiss persistente.
 
-El usuario VE sus stats al abrir el dropdown del avatar. La página principal arranca directo con el banner de apuestas especiales.
+### 6.5 Toolbar
+Layout `justify-between`:
+- **Izquierda**: 3 phase tabs (Grupos / Eliminatorias / Apuestas especiales)
+- **Derecha**: acciones admin (botón "Aleatorio" ghost + delete icon-only)
 
-### 6.4 `<SpecialsBanner />` (apuestas especiales — slim bar)
+### 6.6 Tab "Grupos"
+- Combo dropdown nativo estilizado con 12 opciones (Grupo A → L, solo nombre)
+- Leyenda inline al lado: `<b>6</b> partidos · 11–22 junio`
+- `<MatchGrid />` con cards compactas (ver COMPONENT-MATCHCARD.md)
+- `<StandingsBlock />` debajo: tabla de posiciones del grupo (live)
 
-Barra delgada (~54px de altura) full-width arriba de la página. **Solo visible** si el usuario NO completó las 3 apuestas especiales. Pensada para ser descubrible pero NO dominante — el prode (los partidos) es el protagonista.
+### 6.7 Tab "Eliminatorias"
+- Combo con 5 opciones: Dieciseisavos / Octavos / Cuartos / Semifinal / Final y 3.º/4.º puesto
+- Leyenda inline: `<b>16</b> partidos · 28 jun – 02 jul`
+- `<MatchGrid />` con cards de eliminación
+- **NO se muestra** `<StandingsBlock />` en esta fase
 
-Layout (1 sola fila, flex row):
-- Icono SVG de trofeo en cuadrado púrpura chico (28×28px)
-- Copy compacto inline: `<h4>Balón, Bota y Guante de Oro sin cargar.</h4> <p>Hasta <b>+50 pts</b> antes del 11 jun.</p>`
-- CTA outline púrpura "Cargar" → abre modal `<SpecialBetsModal />` (pendiente diseñar)
-- Botón X dismiss a la derecha (oculta el banner; persistir el dismiss en localStorage o user setting para que no reaparezca en cada navegación)
+### 6.8 Tab "Apuestas especiales" ⭐ NUEVO
+Sección dedicada con 3 cards stacked:
+- **Balón de Oro** (+20, edge púrpura) — input "Nombre del jugador"
+- **Bota de Oro** (+15, edge naranja) — input "Nombre del jugador"
+- **Guante de Oro** (+15, edge azul) — input "Nombre del arquero"
 
-Colores: `bg-purple/16` con `border-purple/20` — sutiles, no llaman demasiado la atención.
-
-**Estados** (toggle entre 3):
-- Default: 0 apuestas cargadas — banner visible
-- Parcial: 1 o 2 cargadas — banner visible con copy adaptado (`Falta cargar Guante de Oro.` etc.)
-- Todas cargadas: banner NO se renderiza
-
-### 6.5 Phase tabs
-
-Pill segmentado `<button>Grupos</button> / <button>Eliminatorias</button>`. Alineado a la derecha del h1 "Mi Prode".
-
-Al cambiar:
-- Tab activa swap (background naranja)
-- Cambia el combo dropdown (12 grupos vs 5 fases)
-- Cambia el texto del `<ComboMeta />` ("6 partidos · 11–22 junio" vs "16 partidos · 28 jun – 02 jul")
-- Si está en Eliminatorias, **oculta** la `<StandingsBlock />`
-
-### 6.6 Combo dropdowns
-
-#### Combo grupos
-Native `<select>` estilizado. Opciones: `Grupo A` ... `Grupo L` (solo el nombre, sin info adicional).
-
-#### Combo eliminatorias
-Opciones: `Dieciseisavos de final`, `Octavos de final`, `Cuartos de final`, `Semifinal`, `Final y 3.º/4.º puesto`.
-
-**Crítico para v4**: el styling del `<option>` requiere:
-```css
-.group-combo select option {
-  background: #000;
-  color: #fff;
-  font-weight: 700;
-}
+Cada card:
+```tsx
+<article className="special special-{ball|boot|glove}">
+  <header className="special-head">
+    <div>
+      <h4 className="special-title">{NOMBRE}</h4>
+      <p className="special-sub">{SUBTITULO}</p>
+    </div>
+    <span className="special-pts">+{PUNTOS}</span>
+  </header>
+  <div className="special-input-wrap">
+    <label>Jugador</label>
+    <input className="special-input" />
+    <span className="special-saved">✓ Guardado</span>
+  </div>
+</article>
 ```
 
-Sin esto el dropdown nativo se ve con fondo claro en algunos browsers.
+Al final: `<div className="specials-save">` con info "Podés editarlas hasta el 11 jun · 15:30" + botón "Guardar cambios" naranja.
 
-#### Combo meta (leyenda inline)
-Span **al lado** del combo (mismo flex container con `align-items: center; gap: 18px; flex-wrap: wrap`), color muted, formato: `<b>6</b> partidos · 11–22 junio`. Cambia con la fase. NO debajo del combo — inline.
+Al estar activa esta tab:
+- Se ocultan: combo, match-grid, standings
+- Se oculta: la slim bar de recordatorio (ya estás acá)
 
-### 6.7 `<MatchGrid />` y `<MatchCard />`
-
-Ver `COMPONENT-MATCHCARD.md`. Cambios para esta vista:
-- El chip del grupo arriba muestra **jornada** también: `A · J1`, `A · J2`
-- Bottom hint usa copy editorial: "Marcador exacto. La rompiste." / "No le pegaste — mañana hay revancha." / "Aún sin guardar"
-
-### 6.8 `<StandingsBlock />` (tabla del grupo)
-
-**Embebida debajo del match grid**, no en página aparte.
-
-Estructura:
-- Header: título "Tabla del grupo" + status note "Actualizada en vivo" con dot mint
-- Tabla con columnas: `#` `Equipo` `PJ` `PTS` `GF` `GC` `DG`
-- Filas con clase `.adv` (los 2 primeros = clasifican a octavos) tienen una franja mint a la izquierda
-- Trend indicator (▲▼=) al lado del nombre del equipo
-- Diferencia de goles coloreada: mint si positivo, rojo si negativo, gris si cero
-- Legend: explicación de PJ/GF/GC/DG + indicador de "clasifica"
-
-### 6.9 `<Tiebreaks />` (desempates predictivos)
-
-Sección debajo de la tabla. Una card por cada empate (mismo PTS y DG).
-
-Cada tiebreak:
-- Header naranja: nombres de los equipos empatados + pregunta ("¿quién pasa primera?", "¿quién termina tercera?")
-- Opciones: pills con bandera + nombre, una seleccionada (highlight naranja)
-- Click toggles selection (radio behavior dentro del tiebreak)
-
-**Sugerencia de puntaje**: +2 pts por cada desempate acertado.
-
-**Lógica de cuándo mostrarlo**: solo si hay teams con `PTS` y `DG` iguales en el grupo. Si no hay empate, no se renderiza.
+### 6.9 `<StandingsBlock />` (solo en tab Grupos)
+- Header: "Tabla del grupo" + status note "Actualizada en vivo" con dot mint
+- Tabla: `#` `Equipo` `PJ` `PTS` `GF` `GC` `DG`
+- Filas `.adv` (top 2 = clasifican) con franja mint izquierda
+- Trend indicator (▲▼=) al lado del nombre
+- DG coloreada mint/rojo/gris
 
 ---
 
@@ -239,45 +221,26 @@ Cada tiebreak:
 
 > Mock: `mocks/Premios.html` · Ruta: `src/app/premios/page.tsx`
 
-Página pública (guest + auth). Header sigue el mismo patrón que `/reglas`:
-- Eyebrow uppercase muted: `QUÉ SE GANA`
-- H1 display: `Podio de premios` (premios en italic naranja)
-- Sub mono: `Mundial 2026 · USA · Canadá · México`
+Página pública. Header: eyebrow "QUÉ SE GANA" + h1 "Podio de **premios**" + sub mono.
 
-### 7.1 `<PotBanner />` (banner del pozo)
-
-Banner amarillo tenue arriba del podio. Comunica que el pozo es **dinámico** según inscriptos. Layout: icono SVG en cuadrado amarillo + título + párrafo. Copy:
-
-> **"El pozo crece con cada inscripción"**
-> Los premios actuales son **base garantizada**. Si llegamos a **más de 200 inscriptos**, el pozo acumulado **aumenta proporcionalmente**. Por cada persona que referís y se inscribe, **ganás una comisión**.
+### 7.1 `<PotBanner />`
+Banner amarillo tenue arriba. Copy:
+> **"El pozo crece con cada inscripción"** — base garantizada + si superamos 200 inscriptos el pozo aumenta proporcionalmente + comisión por referido.
 
 ### 7.2 `<PrizePodium />`
+3 cards. Cada una:
+- Cinta "CAMPEÓN" solo en 1º
+- Pill mono "1º/2º/3º Puesto"
+- Rank gigante con ordinal italic chico opacity 55%
+- Nombre del premio uppercase
+- Monto: $ mono chico + número grande italic + puntos atenuados
+- Subtítulo mono con guion
 
-3 cards en grid 1fr / 3fr (mobile / desktop). Cada card es un bloque sólido de color con jerarquía tipográfica interna:
-
-| Puesto | Color bg | Monto | Altura mínima | Rank size |
-|---|---|---|---|---|
-| 1º | `--color-yellow` | $800.000 | 360px | 120px |
-| 2º | `--color-mint` | $200.000 | 320px | 84px |
-| 3º | `#E8A87C` | $100.000 | 300px | 72px |
-
-**Cinta diagonal "CAMPEÓN"** solo en el 1º puesto (`::after` rotado 45deg).
-
-Anatomía de cada card:
-- `prize-head`: pill mono "1º Puesto" + rank gigante "1er" (letra ordinal italic 30% + opacity 55%)
-- `prize-name`: nombre del premio uppercase (Oro / Plata / Bronce)
-- `prize-amount`: `$` mono chico opacity 50% + número grande italic + puntos miles atenuados 35%
-- `prize-tag`: línea mono con guion al inicio (`— PREMIO MAYOR` / `— SUBCAMPEÓN` / `— TERCER LUGAR`)
-
-Cada card tiene una **forma decorativa orgánica distinta** (círculo abajo-der / petal arriba-der / petal abajo-izq) — evita que se vean clonadas.
+Tamaños: 1º (yellow, 360px h, rank 120px) · 2º (mint, 320px, 84px) · 3º (#E8A87C, 300px, 72px).
+Formas decorativas distintas por card.
 
 ### 7.3 `<ReferralCard />`
-
-Card panel debajo del podio. Layout grid `1.2fr .8fr`:
-- Izquierda: h3 "Más amigos, **más premio**" + copy explicando el sistema de referidos
-- Derecha: botón naranja "Compartir invitación" (icono SVG share)
-
-> NO mostrar el link de referido como texto visible — el botón abre nativamente `navigator.share()` o un menú de share (WhatsApp, copiar, etc.).
+Card panel debajo. h3 "Más amigos, **más premio**" + copy + botón naranja "Compartir invitación" con ícono share. **NO mostrar el link visible** — usar `navigator.share()` o menú nativo.
 
 ---
 
@@ -285,41 +248,67 @@ Card panel debajo del podio. Layout grid `1.2fr .8fr`:
 
 > Mock: `mocks/Reglas.html` · Ruta: `src/app/reglas/page.tsx`
 
-Página pública (guest + auth). **Layout idéntico a `/premios`** — son páginas hermanas visualmente.
-
-### Header
-- Eyebrow: `CÓMO JUGAR`
-- H1: `Reglas del juego` (juego en italic naranja)
-- Sub mono: `Mundial 2026 · USA · Canadá · México` (idéntico a premios)
+Layout idéntico a Premios. Header: eyebrow "CÓMO JUGAR" + h1 "Reglas del **juego**" + sub mono idéntico.
 
 ### `<InfoBanner />`
-Banner mint tenue (mismo formato que el pozo en premios, distinto color). Copy:
-> **"El que más le pega, gana"**
-> Pronosticá el resultado de los **80 partidos** del Mundial. Sumás puntos partido a partido. Hasta **50 puntos extra** con las apuestas especiales.
+Banner mint tenue:
+> **"El que más le pega, gana"** — 80 partidos del Mundial, sumás partido a partido + hasta 50 pts extra con las apuestas especiales.
 
-### Bloque 1: `<ScoringRules />` — Puntaje por partido
-3 cards en grid 3 cols. Cada card tiene:
-- Edge izquierdo 3px del color temático
-- Pill mono "Acierto pleno / Acierto parcial / Sin acierto"
-- Puntos grandes (display 72px) del color: yellow / mint / gris
-- Nombre uppercase + descripción muted
-
-Reglas:
+### Bloque 1: `<ScoringRules />`
+3 cards en grid 3 cols. Edge izquierdo 3px del color temático + pill mono + puntos grandes + nombre + descripción:
 - **+3 Resultado exacto** (yellow)
 - **+1 Ganador o empate** (mint)
 - **0 Incorrecto** (gris)
 
-### Bloque 2: `<SpecialBets />` — Apuestas especiales
-Mismo patrón visual que ScoringRules. Edge izquierdo + pill mono + puntos + nombre + descripción.
-
-Reglas:
+### Bloque 2: `<SpecialBets />`
+Mismo patrón:
 - **+20 Balón de Oro** (purple) — mejor jugador
 - **+15 Bota de Oro** (orange) — máximo goleador
 - **+15 Guante de Oro** (blue) — mejor arquero
 
 ---
 
-## 9. Datos Supabase
+## 9. Ranking · detalle de implementación ⭐ NUEVO
+
+> Mock: `mocks/Ranking.html` · Ruta: `src/app/ranking/page.tsx`
+
+Página pública. Header: eyebrow "TABLA EN VIVO" + h1 "**Ranking**" (todo italic naranja, sin palabra previa) + sub mono.
+
+### 9.1 Banner contextual
+- **Pre-mundial**: banner mint con dot pulsante "El ranking arranca con el primer pitazo · 11 jun 16:00"
+- **Durante**: banner equivalente con "X participantes · Actualizado en vivo"
+
+### 9.2 Search row
+- Input "Buscar participante…" con ícono lupa
+- Pill mono al lado: `<b>9</b> PARTICIPANTES` (count que se actualiza con el filtro)
+
+### 9.3 Lista de filas (max-width 880px, no full bleed)
+Container panel con filas compactas:
+- Grid `54px 1fr auto`
+- Posición (display, color por puesto: amarillo/mint/cobre top 3, muted resto)
+- Avatar 36px + nombre + sub mono "0 exactas · 0 parciales"
+- Puntos display + "pts" mono muted
+
+### 9.4 Fila del usuario destacada (en su posición real)
+La fila correspondiente al usuario logueado tiene:
+- `bg-orange/10` + `border-orange/28`
+- Pill "VOS" mono naranja al lado del nombre
+- Posición en color naranja
+
+### 9.5 Sticky bottom (UX importante)
+Cuando el usuario hace scroll y la fila real sale del viewport por **arriba**:
+- Aparece una `<aside class="you-sticky">` fixed bottom con la misma info
+- Fade in/out con IntersectionObserver
+- Lógica: mostrar solo si `!isIntersecting && boundingClientRect.top < 0`
+
+Esto evita que el usuario pierda el contexto al scrollear largo.
+
+### 9.6 Trend indicators (FUTURO)
+Por ahora NO se muestran. Cuando haya histórico de ranking, agregar al lado del nombre: ▲6 (mint), ▼2 (rojo), = (gris).
+
+---
+
+## 10. Datos Supabase
 
 ```sql
 -- Login
@@ -357,10 +346,19 @@ select
   ranking_position,
   prev_ranking_position,
   exact_predictions_count,
-  partial_predictions_count,
-  total_predictions_count
+  partial_predictions_count
 from user_stats_view
 where user_id = auth.uid();
+
+-- Ranking completo
+select
+  rank() over (order by us.total_points desc) as position,
+  u.id, u.name,
+  us.total_points,
+  us.exact_predictions_count, us.partial_predictions_count
+from profiles u
+join user_stats_view us on us.user_id = u.id
+order by us.total_points desc;
 
 -- Standings del grupo (live)
 select
@@ -372,14 +370,19 @@ from teams t
 join team_standings ts on ts.team_id = t.id
 where t.group_letter = $1
 order by ts.points desc, goal_diff desc;
+
+-- Apuestas especiales del usuario
+select bet_type, player_name
+from special_bets
+where user_id = auth.uid();
+-- bet_type: 'ball' | 'boot' | 'glove'
 ```
 
 ---
 
-## 10. Animaciones y accesibilidad (ya implementado en mocks)
-
+## 11. Accesibilidad (ya implementado en mocks)
 - `:focus-visible` global con outline naranja 2px offset 3px
-- `@media (prefers-reduced-motion: reduce)` cancela todas las animaciones
+- `@media (prefers-reduced-motion: reduce)` cancela animaciones
 - Inputs con `aria-label`
 - Dropdowns con `aria-haspopup`, `aria-expanded`, manejan `Escape`
 - Contraste 4.5:1 mínimo
@@ -387,10 +390,10 @@ order by ts.points desc, goal_diff desc;
 
 ---
 
-## 11. Schema necesario para la tabla del grupo + desempates
+## 12. Schema necesario
 
 ```sql
--- Tabla de posiciones materializada (recalcular cada vez que termina un partido)
+-- Standings materializadas (recalcular al terminar cada partido)
 create table team_standings (
   team_id uuid primary key references teams(id),
   group_letter text,
@@ -405,38 +408,40 @@ create table team_standings (
   prev_position int
 );
 
--- Pronósticos de desempate
-create table tiebreak_predictions (
+-- Apuestas especiales del usuario
+create table special_bets (
   user_id uuid references profiles(id),
-  group_letter text,
-  -- equipo que el usuario predice que pasa de los dos empatados
-  team_a_id uuid references teams(id),
-  team_b_id uuid references teams(id),
-  picked_team_id uuid references teams(id),
-  created_at timestamptz default now(),
-  primary key (user_id, group_letter, team_a_id, team_b_id)
+  bet_type text check (bet_type in ('ball', 'boot', 'glove')),
+  player_name text,
+  updated_at timestamptz default now(),
+  primary key (user_id, bet_type)
 );
 ```
 
 ---
 
-## 12. Cómo arrancar en Claude Code
+## 13. Cómo arrancar en Claude Code
 
-1. Descomprimí este folder en `docs/design/prode26/` de tu repo
-2. Si todavía no implementaste login → leer `MIGRATION-LOGIN.md` primero
-3. Prompt para arrancar las páginas nuevas (Premios + Reglas):
+1. Descomprimí este folder en `docs/design/handoff/` de tu repo
+2. Para cada página, prompt sugerido:
 
-> *Leí `docs/design/prode26/README.md` secciones 7 y 8 y los mocks `Premios.html` + `Reglas.html`. Creá las páginas en `src/app/premios/page.tsx` y `src/app/reglas/page.tsx`, públicas (guest + auth), siguiendo el mismo page-head (eyebrow + h1 + sub mono). Reutilizá el `<Navbar />` con los items "Premios" y "Reglas" linkeados. Además en la Home (`src/app/page.tsx`): sacaá las secciones de premios y reglas — ahora viven en sus propias páginas. Agregá la nueva sección `<Top10 />` del ranking debajo de "Próximos partidos".*
+> *Leí `docs/design/handoff/README.md` y el mock correspondiente en `mocks/`. Implementá `src/app/<ruta>/page.tsx` siguiendo el patrón page-head compartido (eyebrow + h1 italic + sub mono) y los componentes descritos. Hacé los queries de Supabase de la sección 10.*
 
-4. Prompt para Mi Prode auth (si no lo hiciste aún): ver instrucciones en la versión anterior del README.
+Orden sugerido:
+1. **Login** (`MIGRATION-LOGIN.md` ya hecho)
+2. **Home** (sin secciones de premios/reglas, agregar Top10)
+3. **Premios** + **Reglas** (páginas hermanas, mismo layout)
+4. **Ranking**
+5. **Mi Prode auth** (más complejo: 3 tabs + apuestas especiales)
 
 ---
 
-## 13. Qué NO hacer
+## 14. Qué NO hacer
 
 - ❌ No copiar HTML de los mocks tal cual
 - ❌ No usar logo oficial de FIFA / Copa Mundial 26
-- ❌ No agregar emoji decorativos (banderas sí, vienen del equipo en DB)
+- ❌ No agregar emoji decorativos. Banderas sí (vienen como string del equipo)
 - ❌ No usar naranja para badges de status — naranja es solo para CTAs y urgencia
-- ❌ No mostrar el `<SpecialsBanner />` si el usuario ya cargó las 3 apuestas especiales
-- ❌ No mostrar `<Tiebreaks />` si no hay equipos empatados en el grupo
+- ❌ NO incluir estados `live` o `closed` en MatchCard — solo `open` y `finished`
+- ❌ NO mostrar hints "Aún sin guardar" / "Cierra HH:MM" / "Marcador exacto" — el diseño ahora es más limpio
+- ❌ "0 incorrecto", NO "0 falló"

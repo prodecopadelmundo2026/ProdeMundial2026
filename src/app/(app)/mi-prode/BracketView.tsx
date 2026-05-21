@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import clsx from 'clsx'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Shuffle } from 'lucide-react'
+import { Shuffle, Lock, AlertTriangle } from 'lucide-react'
 import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
 import { StatusBadge } from '@/components/StatusBadge'
@@ -56,6 +56,65 @@ const STRIP_COLOR: Record<string, string> = {
 
 function isPlaceholder(name: string) {
   return name.includes('°') || name.startsWith('Ganador') || name.startsWith('Perdedor') || name === 'Mejor 3°'
+}
+
+// P-number friendly labels for unresolved knockout placeholders
+const P_NUM_INFO: Record<number, { round: string; short: string }> = {
+  73:  { round: 'D16', short: '#1'  }, 74:  { round: 'D16', short: '#2'  },
+  75:  { round: 'D16', short: '#3'  }, 76:  { round: 'D16', short: '#4'  },
+  77:  { round: 'D16', short: '#5'  }, 78:  { round: 'D16', short: '#6'  },
+  79:  { round: 'D16', short: '#7'  }, 80:  { round: 'D16', short: '#8'  },
+  81:  { round: 'D16', short: '#9'  }, 82:  { round: 'D16', short: '#10' },
+  83:  { round: 'D16', short: '#11' }, 84:  { round: 'D16', short: '#12' },
+  85:  { round: 'D16', short: '#13' }, 86:  { round: 'D16', short: '#14' },
+  87:  { round: 'D16', short: '#15' }, 88:  { round: 'D16', short: '#16' },
+  89:  { round: 'Oct.',  short: '#1' }, 90:  { round: 'Oct.',  short: '#2' },
+  91:  { round: 'Oct.',  short: '#3' }, 92:  { round: 'Oct.',  short: '#4' },
+  93:  { round: 'Oct.',  short: '#5' }, 94:  { round: 'Oct.',  short: '#6' },
+  95:  { round: 'Oct.',  short: '#7' }, 96:  { round: 'Oct.',  short: '#8' },
+  97:  { round: 'Ctos.', short: '#1' }, 98:  { round: 'Ctos.', short: '#2' },
+  99:  { round: 'Ctos.', short: '#3' }, 100: { round: 'Ctos.', short: '#4' },
+  101: { round: 'Semi', short: '1'  }, 102: { round: 'Semi', short: '2' },
+  103: { round: '3er Puesto', short: '' }, 104: { round: 'Final', short: '' },
+}
+
+// Transforms raw DB placeholder text into a human-readable label + optional context hint
+function formatPlaceholder(raw: string): { primary: string; hint: string | null } {
+  // "1° Grupo A" / "2° Grupo B" — already legible
+  if (/^[12]°\s+Grupo\s+[A-L]$/.test(raw)) return { primary: raw, hint: null }
+
+  // "3° Grupo A/B/C/D/F" — best third from a qualifying slot
+  const thirdGroups = raw.match(/^3°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
+  if (thirdGroups) return { primary: 'Mejor 3°', hint: `Grps. ${thirdGroups[1]}` }
+
+  // "Mejor 3°" (fallback after full resolution)
+  if (raw === 'Mejor 3°') return { primary: 'Mejor 3°', hint: null }
+
+  // "Ganador P73"
+  const winner = raw.match(/^Ganador\s+P(\d+)$/)
+  if (winner) {
+    const info = P_NUM_INFO[Number(winner[1])]
+    if (info) return { primary: `Gan. ${info.round}${info.short ? ` ${info.short}` : ''}`, hint: null }
+  }
+
+  // "Perdedor P101"
+  const loser = raw.match(/^Perdedor\s+P(\d+)$/)
+  if (loser) {
+    const info = P_NUM_INFO[Number(loser[1])]
+    if (info) return { primary: `Perd. ${info.round}${info.short ? ` ${info.short}` : ''}`, hint: null }
+  }
+
+  return { primary: raw, hint: null }
+}
+
+// Brief description shown below the round tabs
+const ROUND_CONTEXT: Record<string, string> = {
+  round_of_32:  '32 selecciones · campeones, subcampeones + 8 mejores terceros',
+  round_of_16:  'Ganadores de Dieciseisavos',
+  quarter:      'Ganadores de Octavos',
+  semi:         'Ganadores de Cuartos',
+  third_place:  'Perdedores de Semis disputan el bronce',
+  final:        'Ganadores de Semis disputan el título',
 }
 
 function BracketMatchCard({
@@ -110,6 +169,8 @@ function BracketMatchCard({
   const awayMeta = getTeam(awayTeam)
   const homePH = isPlaceholder(homeTeam)
   const awayPH = isPlaceholder(awayTeam)
+  const homeFmt = homePH ? formatPlaceholder(homeTeam) : null
+  const awayFmt = awayPH ? formatPlaceholder(awayTeam) : null
 
   const stageLabel = ROUND_LABELS[match.stage] ?? match.stage
   const kickoffStr = format(new Date(match.scheduled_at), 'EEE d MMM · HH:mm', { locale: es })
@@ -161,10 +222,12 @@ function BracketMatchCard({
         <div className="flex flex-col items-center gap-[10px] text-center">
           <div
             className="w-14 h-14 rounded-full grid place-items-center overflow-hidden"
-            style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}
+            style={homePH
+              ? { background: 'rgba(10,10,10,0.6)', border: '1px dashed rgba(255,255,255,0.09)' }
+              : { background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}
           >
             {homePH ? (
-              <span className="text-[16px] text-[#3a3630]">?</span>
+              <span className="text-[14px]" style={{ color: '#2e2926' }}>?</span>
             ) : homeMeta.iso2 ? (
               <img src={flagUrl(homeMeta.iso2)} alt={homeTeam} style={{ width: '38px', height: '26px', objectFit: 'contain' }} />
             ) : (
@@ -172,18 +235,26 @@ function BracketMatchCard({
             )}
           </div>
           <div>
-            <div
-              className={clsx(
-                'font-extrabold tracking-[-0.01em] leading-tight',
-                homePH ? 'text-[11px] text-[#3a3630] italic' : 'text-[15px]'
-              )}
-            >
-              {homeTeam}
-            </div>
-            {!homePH && (
-              <div className="font-mono text-[10px] text-muted tracking-[0.2em] mt-0.5">
-                {homeMeta.code}
-              </div>
+            {homePH ? (
+              <>
+                <div className="font-bold text-[11px] leading-tight" style={{ color: '#4a453f' }}>
+                  {homeFmt!.primary}
+                </div>
+                {homeFmt!.hint && (
+                  <div className="font-mono text-[9px] mt-0.5" style={{ color: '#332f2a' }}>
+                    {homeFmt!.hint}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="font-extrabold text-[15px] tracking-[-0.01em] leading-tight">
+                  {homeTeam}
+                </div>
+                <div className="font-mono text-[10px] text-muted tracking-[0.2em] mt-0.5">
+                  {homeMeta.code}
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -197,10 +268,12 @@ function BracketMatchCard({
         <div className="flex flex-col items-center gap-[10px] text-center">
           <div
             className="w-14 h-14 rounded-full grid place-items-center overflow-hidden"
-            style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}
+            style={awayPH
+              ? { background: 'rgba(10,10,10,0.6)', border: '1px dashed rgba(255,255,255,0.09)' }
+              : { background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}
           >
             {awayPH ? (
-              <span className="text-[16px] text-[#3a3630]">?</span>
+              <span className="text-[14px]" style={{ color: '#2e2926' }}>?</span>
             ) : awayMeta.iso2 ? (
               <img src={flagUrl(awayMeta.iso2)} alt={awayTeam} style={{ width: '38px', height: '26px', objectFit: 'contain' }} />
             ) : (
@@ -208,18 +281,26 @@ function BracketMatchCard({
             )}
           </div>
           <div>
-            <div
-              className={clsx(
-                'font-extrabold tracking-[-0.01em] leading-tight',
-                awayPH ? 'text-[11px] text-[#3a3630] italic' : 'text-[15px]'
-              )}
-            >
-              {awayTeam}
-            </div>
-            {!awayPH && (
-              <div className="font-mono text-[10px] text-muted tracking-[0.2em] mt-0.5">
-                {awayMeta.code}
-              </div>
+            {awayPH ? (
+              <>
+                <div className="font-bold text-[11px] leading-tight" style={{ color: '#4a453f' }}>
+                  {awayFmt!.primary}
+                </div>
+                {awayFmt!.hint && (
+                  <div className="font-mono text-[9px] mt-0.5" style={{ color: '#332f2a' }}>
+                    {awayFmt!.hint}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="font-extrabold text-[15px] tracking-[-0.01em] leading-tight">
+                  {awayTeam}
+                </div>
+                <div className="font-mono text-[10px] text-muted tracking-[0.2em] mt-0.5">
+                  {awayMeta.code}
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -744,17 +825,27 @@ export function BracketView({
     <div className="space-y-6">
       {bracketLocked && (
         <div
-          className="px-5 py-4 text-sm"
+          className="flex items-start gap-3 px-5 py-4 text-sm"
           style={{ background: '#131313', border: '1px solid #272727', borderRadius: '16px' }}
         >
-          {hasPendingTiebreakers ? (
-            <span className="font-extrabold text-white">Hay desempates pendientes. Resolvelos para armar eliminatorias.</span>
-          ) : (
-            <>
-              <span className="font-extrabold text-white">Podés explorar el bracket, pero no guardar pronósticos.</span>
-              <span className="text-muted"> Completá todos los partidos de grupos para habilitar el guardado.</span>
-            </>
-          )}
+          <span className="mt-0.5 shrink-0" style={{ color: hasPendingTiebreakers ? '#FF6B00' : '#7A5BC9' }}>
+            {hasPendingTiebreakers
+              ? <AlertTriangle size={16} strokeWidth={2.5} />
+              : <Lock size={16} strokeWidth={2.5} />}
+          </span>
+          <div>
+            {hasPendingTiebreakers ? (
+              <>
+                <p className="font-extrabold text-white leading-snug">Desempates pendientes en grupos</p>
+                <p className="text-[13px] mt-0.5 text-muted">Resolvé los desempates para que el bracket se arme correctamente.</p>
+              </>
+            ) : (
+              <>
+                <p className="font-extrabold text-white leading-snug">Bracket en modo exploración</p>
+                <p className="text-[13px] mt-0.5 text-muted">Completá todos los partidos de grupos para habilitar el guardado de pronósticos.</p>
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -935,6 +1026,31 @@ export function BracketView({
           </button>
         ))}
       </div>
+
+      {/* Round context line */}
+      {ROUND_CONTEXT[activeRound] && (
+        <p className="text-[11px] font-medium tracking-[0.03em] px-1" style={{ color: '#3e3a35' }}>
+          {ROUND_CONTEXT[activeRound]}
+        </p>
+      )}
+
+      {/* Mejores terceros info panel — only for round_of_32 */}
+      {activeRound === 'round_of_32' && (
+        <div
+          className="flex items-start gap-3 px-4 py-3 rounded-[12px]"
+          style={{ background: '#0e0e0e', border: '1px solid rgba(255,255,255,0.06)' }}
+        >
+          <svg className="mt-0.5 shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3e3a35" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          <div>
+            <p className="text-[11px] font-bold leading-snug" style={{ color: '#5a5450' }}>Mejores terceros</p>
+            <p className="text-[11px] mt-0.5 leading-snug" style={{ color: '#3e3a35' }}>
+              Los 8 mejores terceros de los 12 grupos clasifican. Su posición en el bracket depende de qué grupos los producen.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Main round matches — non-final rounds */}
       {activeRound !== 'final' && (
