@@ -531,6 +531,7 @@ export function BracketView({
   const [adminSaveState, setAdminSaveState] = useState<AdminLoadState>('idle')
   const [adminSaveError, setAdminSaveError] = useState<string | null>(null)
   const [adminSaveMessage, setAdminSaveMessage] = useState<string | null>(null)
+  const [bracketSaveError, setBracketSaveError] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -570,7 +571,13 @@ export function BracketView({
         })
         .filter((p): p is NonNullable<typeof p> => p !== null)
       if (!predictions.length) return
-      try { await upsertPredictionsBatch(predictions) } catch (error) { console.error('Error al guardar eliminatorias', error) }
+      try {
+        await upsertPredictionsBatch(predictions)
+        setBracketSaveError(false)
+      } catch (err) {
+        console.error('[BracketView] autosave failed:', err)
+        setBracketSaveError(true)
+      }
     }, 800)
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -894,6 +901,14 @@ export function BracketView({
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {bracketSaveError && (
+        <div
+          className="px-5 py-3 text-sm font-bold"
+          style={{ background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.25)', borderRadius: '16px', color: '#FF8585' }}
+        >
+          Error al guardar. Revisá tu conexión y volvé a intentarlo.
         </div>
       )}
 

@@ -22,7 +22,9 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const oauthError = searchParams.get('error')
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/'
+  // Sanitize next: must be a relative path (starts with / but not //) to prevent open redirects
+  const rawNext = searchParams.get('next') ?? '/'
+  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/'
 
   if (oauthError) {
     return NextResponse.redirect(`${origin}/login?error=auth_callback_error`)

@@ -24,6 +24,9 @@ export async function setMatchResult(
   awayScore: number,
   status: 'upcoming' | 'live' | 'finished'
 ) {
+  if (!Number.isInteger(homeScore) || homeScore < 0 || homeScore > 99) throw new Error('Goles inválidos')
+  if (!Number.isInteger(awayScore) || awayScore < 0 || awayScore > 99) throw new Error('Goles inválidos')
+
   const supabase = await requireAdmin()
 
   const { error } = await supabase
@@ -45,9 +48,13 @@ export async function setMatchResult(
 
 export async function upsertAuthorizedEmail(formData: FormData) {
   const supabase = await requireAdmin()
-  const email = String(formData.get('email') ?? '')
-  const label = String(formData.get('label') ?? '')
+  const email = String(formData.get('email') ?? '').trim().toLowerCase()
+  const label = String(formData.get('label') ?? '').trim()
   const active = formData.get('active') === 'on'
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error('Email inválido')
+  }
 
   const { error } = await supabase.rpc('admin_upsert_authorized_email', {
     p_email: email,
