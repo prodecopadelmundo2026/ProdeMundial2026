@@ -535,6 +535,10 @@ function sortTabs(keys: string[]) {
 
 const BEST_THIRDS_VIEW = '__mejores_terceros__'
 
+function tabLabel(tab: string): string {
+  return tab === BEST_THIRDS_VIEW ? 'Mejores Terceros' : tab
+}
+
 interface Props {
   grouped: Record<string, Match[]>
   predMap: PredMap
@@ -590,6 +594,11 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
         return a.name.localeCompare(b.name)
       })
   }, [tabs, grouped, localGroupPreds])
+
+  const allTabs = [...tabs, BEST_THIRDS_VIEW]
+  const currentIdx = allTabs.indexOf(activeGroup)
+  const prevTab = currentIdx > 0 ? allTabs[currentIdx - 1] : null
+  const nextTab = currentIdx < allTabs.length - 1 ? allTabs[currentIdx + 1] : null
 
   if (!tabs.length) {
     return (
@@ -661,6 +670,46 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
           </div>
         </div>
 
+        {/* Navigation arrows */}
+        <div className="flex gap-2 self-end" style={{ paddingBottom: '1px' }}>
+          <button
+            onClick={() => prevTab && setActiveGroup(prevTab)}
+            disabled={!prevTab}
+            className="grid place-items-center transition-all duration-150"
+            style={{
+              width: 52, height: 52,
+              background: prevTab ? '#141414' : '#0d0d0d',
+              border: `1px solid ${prevTab ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)'}`,
+              borderRadius: 14,
+              color: prevTab ? '#cfcfcf' : '#282828',
+              cursor: prevTab ? 'pointer' : 'default',
+            }}
+            aria-label="Grupo anterior"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+          <button
+            onClick={() => nextTab && setActiveGroup(nextTab)}
+            disabled={!nextTab}
+            className="grid place-items-center transition-all duration-150"
+            style={{
+              width: 52, height: 52,
+              background: nextTab ? '#141414' : '#0d0d0d',
+              border: `1px solid ${nextTab ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)'}`,
+              borderRadius: 14,
+              color: nextTab ? '#cfcfcf' : '#282828',
+              cursor: nextTab ? 'pointer' : 'default',
+            }}
+            aria-label="Grupo siguiente"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        </div>
+
         {/* Meta inline */}
         <span
           className="text-[13px] font-bold text-muted self-end whitespace-nowrap"
@@ -702,6 +751,53 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
           />
         </>
       )}
+
+      {/* Bottom navigation */}
+      <div
+        className="flex items-center justify-between mt-8 gap-3"
+        style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '24px' }}
+      >
+        {prevTab ? (
+          <button
+            onClick={() => setActiveGroup(prevTab)}
+            className="flex items-center gap-2 font-extrabold transition-all duration-150"
+            style={{
+              background: '#141414',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 999,
+              padding: '12px 20px',
+              fontSize: 13,
+              color: '#cfcfcf',
+              cursor: 'pointer',
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+            {tabLabel(prevTab)}
+          </button>
+        ) : <span />}
+        {nextTab ? (
+          <button
+            onClick={() => setActiveGroup(nextTab)}
+            className="flex items-center gap-2 font-extrabold transition-all duration-150"
+            style={{
+              background: 'rgba(255,107,0,0.1)',
+              border: '1px solid rgba(255,107,0,0.3)',
+              borderRadius: 999,
+              padding: '12px 20px',
+              fontSize: 13,
+              color: '#FF6B00',
+              cursor: 'pointer',
+            }}
+          >
+            {tabLabel(nextTab)}
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        ) : <span />}
+      </div>
     </div>
   )
 }
