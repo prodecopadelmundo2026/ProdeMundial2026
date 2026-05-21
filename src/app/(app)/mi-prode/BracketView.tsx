@@ -32,6 +32,7 @@ interface Props {
   groupTiebreakerMap?: Record<string, string>
   readOnly?: boolean
   clearSignal?: { version: number; stages: string[] }
+  openRandomModal?: number
 }
 
 const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'third_place', 'final'] as const
@@ -446,6 +447,7 @@ export function BracketView({
   groupTiebreakerMap = {},
   readOnly = false,
   clearSignal,
+  openRandomModal,
 }: Props) {
   const pendingTiebreakers = getPendingGroupTiebreakers(groupMatches, predMap, groupTiebreakerMap)
   const hasPendingTiebreakers = pendingTiebreakers.length > 0
@@ -669,6 +671,10 @@ export function BracketView({
       setActiveRound(visibleRounds[0])
     }
   }, [activeRound, availableRounds, visibleRounds])
+
+  useEffect(() => {
+    if (openRandomModal) setRandomModalOpen(true)
+  }, [openRandomModal])
 
   const adminEligibleByRound = availableRounds
     .map((round) => ({ round, count: getAdminEligibleMatches(round).length }))

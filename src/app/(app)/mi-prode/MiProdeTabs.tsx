@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Shuffle } from 'lucide-react'
 import type { Match } from '@/types'
 import { GroupBatchEditor } from './GroupBatchEditor'
 import { BracketView } from './BracketView'
@@ -21,6 +21,14 @@ type DeleteState = 'idle' | 'confirm' | 'deleting' | 'success' | 'error'
 const LOCAL_STORAGE_KEY = 'prode_group_preds'
 const TIEBREAKERS_STORAGE_KEY = 'prode_group_tiebreakers'
 const SPECIALS_STORAGE_KEY = 'prode_specials'
+
+function randomSpecials() {
+  const balon = ['Lionel Messi', 'Kylian Mbappe', 'Vinicius Junior', 'Jamal Musiala']
+  const bota = ['Kylian Mbappe', 'Harry Kane', 'Erling Haaland', 'Julian Alvarez']
+  const guante = ['Emiliano Martinez', 'Thibaut Courtois', 'Alisson Becker', 'Mike Maignan']
+  const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)] ?? arr[0] ?? ''
+  return { balon: pick(balon), bota: pick(bota), guante: pick(guante) }
+}
 
 const KNOCKOUT_STAGES = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'final', 'third_place']
 
@@ -86,6 +94,7 @@ export function MiProdeTabs({
   const [deleteMessage, setDeleteMessage] = useState<string | null>(null)
   const [fakeState, setFakeState] = useState<'idle' | 'confirm' | 'saving' | 'saved' | 'error'>('idle')
   const [fakeError, setFakeError] = useState<string | null>(null)
+  const [bracketModalSignal, setBracketModalSignal] = useState(0)
   const [tiebreakers, setTiebreakers] = useState<Record<string, string>>({})
   const [groupSaveStates, setGroupSaveStates] = useState<Record<string, SaveState>>(() => {
     const init: Record<string, SaveState> = {}
@@ -387,7 +396,7 @@ export function MiProdeTabs({
   return (
     <div>
       {/* Toolbar: phase tabs (left) + admin actions (right) */}
-      <div className="flex items-center justify-between gap-4 flex-wrap mb-7">
+      <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
         <div
           className="inline-flex items-center gap-1 p-[5px] rounded-full"
           style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
@@ -416,6 +425,39 @@ export function MiProdeTabs({
 
         {isAdmin && (
           <div className="flex items-center gap-2">
+            {/* Aleatorio — tab-aware */}
+            <button
+              onClick={() => {
+                if (activeTab === 'grupos') {
+                  setFakeState('confirm')
+                } else if (activeTab === 'eliminatoria') {
+                  setBracketModalSignal((v) => v + 1)
+                } else if (activeTab === 'especiales') {
+                  try {
+                    const next = randomSpecials()
+                    localStorage.setItem(SPECIALS_STORAGE_KEY, JSON.stringify(next))
+                    window.dispatchEvent(new Event('prode-specials-randomized'))
+                  } catch {}
+                }
+              }}
+              disabled={fakeState === 'saving'}
+              className="inline-flex items-center gap-2 px-4 py-[10px] rounded-[12px] font-bold text-[13px] transition-all duration-150 disabled:opacity-40"
+              style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}
+              title="Cargá pronósticos aleatorios para la fase activa"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#1c1c1c'
+                e.currentTarget.style.color = '#fff'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#141414'
+                e.currentTarget.style.color = '#cfcfcf'
+              }}
+            >
+              <Shuffle size={14} strokeWidth={2.4} style={{ color: '#A8F0D8' }} />
+              Aleatorio
+            </button>
+
+            {/* Borrar */}
             <button
               onClick={() => {
                 setDeleteModalOpen(true)
@@ -440,6 +482,52 @@ export function MiProdeTabs({
           </div>
         )}
       </div>
+
+      {/* Inline confirm bar — grupos random */}
+      {isAdmin && fakeState !== 'idle' && activeTab === 'grupos' && (
+        <div
+          className="mb-5 flex flex-wrap items-center justify-between gap-3 px-5 py-4 rounded-[16px] text-[13px]"
+          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <p className="text-muted">
+            {fakeState === 'confirm'
+              ? '¿Cargás pronósticos aleatorios para todos los partidos de grupos?'
+              : fakeState === 'saving'
+              ? 'Cargando...'
+              : fakeState === 'saved'
+              ? 'Guardado. Ya podés ir a Eliminatorias.'
+              : fakeError
+              ? `Error: ${fakeError}`
+              : ''}
+          </p>
+          {fakeState === 'confirm' && (
+            <div className="flex gap-2">
+              <button
+                onClick={handleRandomGroupPredictions}
+                className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase"
+                style={{ background: '#FF6B00', color: '#0A0A0A' }}
+              >
+                Confirmar
+              </button>
+              <button
+                onClick={() => setFakeState('idle')}
+                className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase text-muted"
+                style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
+          {(fakeState === 'saved' || fakeState === 'error') && (
+            <button
+              onClick={() => setFakeState('idle')}
+              className="text-[11px] font-bold text-muted"
+            >
+              Cerrar ×
+            </button>
+          )}
+        </div>
+      )}
 
       {deleteModalOpen && (
         <div
@@ -550,59 +638,6 @@ export function MiProdeTabs({
 
       {/* All tabs kept mounted to preserve state; only one visible at a time */}
       <div style={{ display: activeTab === 'grupos' ? undefined : 'none' }}>
-        {isAdmin && (
-          <div
-            className="mb-5 flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-sm"
-            style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}
-          >
-            <div>
-              <p className="font-extrabold text-white">Herramienta admin</p>
-              <p className="text-muted">
-                {fakeState === 'confirm'
-                  ? 'Esto cargará pronósticos aleatorios para probar el flujo. ¿Querés continuar?'
-                  : fakeState === 'saved'
-                  ? 'Guardado correctamente. Ya podés probar el flujo de eliminatorias.'
-                  : fakeState === 'error' && fakeError
-                  ? `Error real: ${fakeError}`
-                  : 'Carga pronósticos aleatorios para todos los partidos de grupos.'}
-              </p>
-            </div>
-            {fakeState === 'confirm' ? (
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={handleRandomGroupPredictions}
-                  className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
-                  style={{ background: '#FF6B00', color: '#0A0A0A' }}
-                >
-                  Confirmar
-                </button>
-                <button
-                  onClick={() => setFakeState('idle')}
-                  className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase text-muted"
-                  style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.08)' }}
-                >
-                  Cancelar
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setFakeState('confirm')}
-                disabled={fakeState === 'saving'}
-                className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
-                style={{ background: '#181818', color: fakeState === 'error' ? '#FF6B6B' : '#A8F0D8', border: '1px solid rgba(255,255,255,0.08)' }}
-              >
-                {fakeState === 'saving'
-                  ? 'Cargando...'
-                  : fakeState === 'saved'
-                  ? 'Guardado correctamente'
-                  : fakeState === 'error'
-                  ? 'Error al cargar. Reintentá.'
-                  : 'Cargar pronóstico aleatorio'}
-              </button>
-            )}
-          </div>
-        )}
-
         <GroupBatchEditor
           grouped={groupedByGroup}
           predMap={predMap}
@@ -624,6 +659,7 @@ export function MiProdeTabs({
           groupTiebreakerMap={tiebreakers}
           readOnly={!allGroupsFilled}
           clearSignal={bracketClearSignal}
+          openRandomModal={bracketModalSignal}
         />
       </div>
       <div style={{ display: activeTab === 'especiales' ? undefined : 'none' }}>
