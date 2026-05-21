@@ -20,13 +20,25 @@ const LOCAL_STORAGE_KEY = 'prode_group_preds'
 const TIEBREAKERS_STORAGE_KEY = 'prode_group_tiebreakers'
 const SPECIALS_STORAGE_KEY = 'prode_specials'
 
+const KNOCKOUT_STAGES = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'final', 'third_place']
+
+const DELETE_STAGE_LABELS: Record<string, string> = {
+  group: 'Grupos',
+  round_of_32: 'Dieciseisavos',
+  round_of_16: 'Octavos',
+  quarter: 'Cuartos',
+  semi: 'Semis',
+  final: 'Final',
+  third_place: '3er puesto',
+}
+
 const DELETE_OPTIONS: Array<{ key: DeleteOption; label: string; stages?: string[]; localOnly?: boolean }> = [
-  { key: 'groups', label: 'Fase de grupos completa', stages: ['group'] },
-  { key: 'knockout', label: 'Eliminatorias completas', stages: ['round_of_32', 'round_of_16', 'quarter', 'semi', 'final', 'third_place'] },
-  { key: 'round_of_32', label: 'Dieciseisavos', stages: ['round_of_32'] },
-  { key: 'round_of_16', label: 'Octavos', stages: ['round_of_16'] },
-  { key: 'quarter', label: 'Cuartos', stages: ['quarter'] },
-  { key: 'semi', label: 'Semis', stages: ['semi'] },
+  { key: 'groups', label: 'Fase de grupos completa', stages: ['group', ...KNOCKOUT_STAGES] },
+  { key: 'knockout', label: 'Eliminatorias completas', stages: KNOCKOUT_STAGES },
+  { key: 'round_of_32', label: 'Dieciseisavos', stages: KNOCKOUT_STAGES },
+  { key: 'round_of_16', label: 'Octavos', stages: ['round_of_16', 'quarter', 'semi', 'final', 'third_place'] },
+  { key: 'quarter', label: 'Cuartos', stages: ['quarter', 'semi', 'final', 'third_place'] },
+  { key: 'semi', label: 'Semis', stages: ['semi', 'final', 'third_place'] },
   { key: 'final', label: 'Final', stages: ['final'] },
   { key: 'third_place', label: '3er puesto', stages: ['third_place'] },
   { key: 'specials', label: 'Apuestas especiales', localOnly: true },
@@ -39,6 +51,10 @@ function formatClientError(error: unknown) {
     return String((error as { message: unknown }).message)
   }
   return String(error)
+}
+
+function formatDeleteStages(stages: string[]) {
+  return stages.map((stage) => DELETE_STAGE_LABELS[stage] ?? stage).join(', ')
 }
 
 interface Props {
@@ -246,7 +262,10 @@ export function MiProdeTabs({
     return {
       stages: [...stages],
       deleteGroupsLocally: selectedSet.has('groups'),
-      deleteKnockoutLocally: selectedSet.has('knockout') || selected.some((key) => ['round_of_32', 'round_of_16', 'quarter', 'semi', 'final', 'third_place'].includes(key)),
+      deleteKnockoutLocally:
+        selectedSet.has('groups') ||
+        selectedSet.has('knockout') ||
+        selected.some((key) => ['round_of_32', 'round_of_16', 'quarter', 'semi', 'final', 'third_place'].includes(key)),
       deleteSpecials: selectedSet.has('specials'),
       hasAnySelection: selectedSet.size > 0,
     }
@@ -267,8 +286,14 @@ export function MiProdeTabs({
       return
     }
     if (deleteState !== 'confirm') {
+      const stageMessage = scopes.stages.length
+        ? ` Fases afectadas: ${formatDeleteStages(scopes.stages)}.`
+        : ''
+      const specialsMessage = scopes.deleteSpecials ? ' Tambien se borraran apuestas especiales.' : ''
       setDeleteState('confirm')
-      setDeleteMessage('Confirmá el borrado. Solo se afectará tu usuario y partidos abiertos.')
+      setDeleteMessage(
+        `Confirma el borrado.${stageMessage}${specialsMessage} Solo se afectara tu usuario y partidos abiertos.`
+      )
       return
     }
 
@@ -426,6 +451,9 @@ export function MiProdeTabs({
                 <h2 className="mt-1 text-[22px] font-extrabold text-white">Borrar pronósticos</h2>
                 <p className="mt-1 text-[13px] text-muted">
                   Solo se borran tus pronósticos en partidos abiertos. No toca resultados, ranking ni otros usuarios.
+                </p>
+                <p className="mt-2 text-[12px] font-bold" style={{ color: '#FFB15C' }}>
+                  Las fases se borran en cascada: al borrar una ronda tambien se borran las rondas que dependen de ella.
                 </p>
               </div>
               <button
