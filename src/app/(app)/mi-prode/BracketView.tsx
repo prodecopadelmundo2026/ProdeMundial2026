@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import clsx from 'clsx'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { Shuffle } from 'lucide-react'
 import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
 import { StatusBadge } from '@/components/StatusBadge'
@@ -35,7 +36,7 @@ interface Props {
 
 const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'third_place', 'final'] as const
 type RoundKey = typeof ROUND_ORDER[number]
-type AdminPhaseValue = RoundKey | 'all'
+type AdminLoadState = 'idle' | 'saving' | 'saved' | 'error'
 
 const ROUND_LABELS: Record<string, string> = {
   round_of_32:  'Dieciseisavos',
@@ -55,10 +56,6 @@ const STRIP_COLOR: Record<string, string> = {
 
 function isPlaceholder(name: string) {
   return name.includes('°') || name.startsWith('Ganador') || name.startsWith('Perdedor') || name === 'Mejor 3°'
-}
-
-function isRoundKey(value: AdminPhaseValue): value is RoundKey {
-  return value !== 'all'
 }
 
 function BracketMatchCard({
@@ -531,7 +528,7 @@ export function BracketView({
   })
 
   const [tiebreakerMap, setTiebreakerMap] = useState<Record<string, string>>(initialTiebreakerMap)
-  const [adminSaveState, setAdminSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [adminSaveState, setAdminSaveState] = useState<AdminLoadState>('idle')
   const [adminSaveError, setAdminSaveError] = useState<string | null>(null)
   const [adminSaveMessage, setAdminSaveMessage] = useState<string | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -618,7 +615,8 @@ export function BracketView({
 
   const availableRounds = ROUND_ORDER.filter((r) => byRound[r]?.length)
   const [activeRound, setActiveRound] = useState(availableRounds[0] ?? 'round_of_32')
-  const [adminPhase, setAdminPhase] = useState<AdminPhaseValue>('all')
+  const [randomModalOpen, setRandomModalOpen] = useState(false)
+  const [adminSelectedRounds, setAdminSelectedRounds] = useState<Set<RoundKey>>(() => new Set())
 
   const now = new Date()
 
@@ -639,10 +637,6 @@ export function BracketView({
     return !isPlaceholder(homeTeam) && !isPlaceholder(awayTeam)
   }
 
-  function isRoundReady(round: RoundKey) {
-    return (byRound[round] ?? []).some(isMatchReady)
-  }
-
   function getAdminEligibleMatches(round?: RoundKey) {
     if (bracketLocked) return []
     return knockoutMatches.filter((match) => {
@@ -653,8 +647,27 @@ export function BracketView({
     })
   }
 
-  async function handleAdminRandomKnockout(round?: RoundKey) {
-    const targetMatches = getAdminEligibleMatches(round)
+  function toggleAdminRound(round: RoundKey) {
+    setAdminSelectedRounds((prev) => {
+      const next = new Set(prev)
+      if (next.has(round)) next.delete(round)
+      else next.add(round)
+      return next
+    })
+    setAdminSaveState('idle')
+    setAdminSaveError(null)
+  }
+
+  function selectAllEligibleRounds() {
+    setAdminSelectedRounds(new Set(adminEligibleByRound.filter(({ count }) => count > 0).map(({ round }) => round)))
+    setAdminSaveState('idle')
+    setAdminSaveError(null)
+  }
+
+  async function handleAdminRandomKnockout(rounds: RoundKey[]) {
+    const targetMatches = rounds.length
+      ? rounds.flatMap((round) => getAdminEligibleMatches(round))
+      : getAdminEligibleMatches()
     if (!targetMatches.length) return
     setAdminSaveState('saving')
     setAdminSaveError(null)
@@ -671,8 +684,10 @@ export function BracketView({
         }
         return next
       })
-      setAdminSaveMessage(round ? `${ROUND_LABELS[round]} cargados correctamente.` : 'Pronósticos cargados correctamente.')
+      setAdminSaveMessage('Pronosticos de eliminatorias disponibles cargados correctamente.')
       setAdminSaveState('saved')
+      setAdminSelectedRounds(new Set())
+      setRandomModalOpen(false)
       setTimeout(() => setAdminSaveState('idle'), 1800)
     } catch (error) {
       const message = formatClientError(error)
@@ -699,28 +714,24 @@ export function BracketView({
     }
   }
 
-  const visibleRounds = availableRounds.filter(isRoundReady)
+  const visibleRounds = availableRounds
 
   useEffect(() => {
-    if (visibleRounds.length && !visibleRounds.includes(activeRound as RoundKey)) {
+    if (availableRounds.length && !availableRounds.includes(activeRound as RoundKey)) {
       setActiveRound(visibleRounds[0])
     }
-  }, [activeRound, visibleRounds])
+  }, [activeRound, availableRounds, visibleRounds])
 
-  const adminEligibleByRound = visibleRounds
+  const adminEligibleByRound = availableRounds
     .map((round) => ({ round, count: getAdminEligibleMatches(round).length }))
-    .filter(({ count }) => count > 0)
   const adminAllEligibleCount = getAdminEligibleMatches().length
 
-  const selectedAdminCount = isRoundKey(adminPhase)
-    ? getAdminEligibleMatches(adminPhase).length
-    : adminAllEligibleCount
+  const selectedAdminCount = [...adminSelectedRounds].reduce(
+    (total, round) => total + getAdminEligibleMatches(round).length,
+    0
+  )
 
-  useEffect(() => {
-    if (adminPhase !== 'all' && !adminEligibleByRound.some(({ round }) => round === adminPhase)) {
-      setAdminPhase('all')
-    }
-  }, [adminPhase, adminEligibleByRound])
+  const canLoadSelectedRounds = selectedAdminCount > 0 && adminSaveState !== 'saving'
 
   return (
     <div className="space-y-6">
@@ -740,7 +751,152 @@ export function BracketView({
         </div>
       )}
 
-      {/* Round tabs */}
+      {isAdmin && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-sm"
+          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}
+        >
+          <div>
+            <p className="font-extrabold text-white">Herramienta admin eliminatorias</p>
+            <p className="text-muted">
+              {adminSaveState === 'saved'
+                ? adminSaveMessage ?? 'Pronósticos cargados correctamente.'
+                : adminSaveState === 'error' && adminSaveError
+                ? `Error real: ${adminSaveError}`
+                : 'Carga pronosticos aleatorios solo para eliminatorias disponibles. Apuestas especiales es una carga de prueba separada.'}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => {
+                setRandomModalOpen(true)
+                setAdminSaveState('idle')
+                setAdminSaveError(null)
+              }}
+              disabled={adminSaveState === 'saving' || adminAllEligibleCount === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
+              style={{ background: '#FF6B00', color: '#0A0A0A', border: '1px solid rgba(255,107,0,0.35)' }}
+            >
+              <Shuffle size={15} strokeWidth={2.5} />
+              Cargar aleatorios
+            </button>
+            <button
+              onClick={handleAdminRandomSpecials}
+              disabled={adminSaveState === 'saving'}
+              className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
+              style={{ background: '#181818', color: '#c8a8f0', border: '1px solid rgba(168,140,220,0.22)' }}
+            >
+              Cargar apuestas especiales
+            </button>
+          </div>
+        </div>
+      )}
+
+      {randomModalOpen && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center px-4 py-8"
+          style={{ background: 'rgba(0,0,0,0.72)' }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Cargar pronosticos aleatorios"
+        >
+          <div
+            className="w-full max-w-[560px] overflow-hidden"
+            style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 24, boxShadow: '0 24px 80px rgba(0,0,0,0.45)' }}
+          >
+            <div className="flex items-start justify-between gap-4 px-6 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <div>
+                <p className="text-[11px] font-extrabold tracking-[0.18em] uppercase" style={{ color: '#FF6B00' }}>
+                  Herramienta admin
+                </p>
+                <h2 className="mt-1 text-[22px] font-extrabold text-white">Cargar aleatorios</h2>
+                <p className="mt-1 text-[13px] text-muted">
+                  Elegi fases con cruces disponibles. No se cargan apuestas especiales desde este modal.
+                </p>
+              </div>
+              <button
+                onClick={() => setRandomModalOpen(false)}
+                disabled={adminSaveState === 'saving'}
+                className="grid h-9 w-9 place-items-center rounded-full text-[18px] font-bold disabled:opacity-40"
+                style={{ background: '#181818', color: '#8A8A8A', border: '1px solid rgba(255,255,255,0.08)' }}
+                aria-label="Cerrar"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="px-6 pt-5">
+              <button
+                onClick={selectAllEligibleRounds}
+                disabled={adminSaveState === 'saving' || adminAllEligibleCount === 0}
+                className="w-full rounded-[12px] px-4 py-3 text-[13px] font-extrabold uppercase disabled:opacity-40"
+                style={{ background: 'rgba(255,107,0,0.14)', color: '#fff', border: '1px solid rgba(255,107,0,0.45)' }}
+              >
+                Marcar todas las disponibles ({adminAllEligibleCount})
+              </button>
+            </div>
+
+            <div className="grid gap-2 px-6 py-5 sm:grid-cols-2">
+              {adminEligibleByRound.map(({ round, count }) => {
+                const checked = adminSelectedRounds.has(round)
+                const disabled = count === 0 || adminSaveState === 'saving'
+                return (
+                  <label
+                    key={round}
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-[12px] px-3 py-3 text-[13px] font-bold transition-all duration-150"
+                    style={{
+                      background: checked ? 'rgba(255,107,0,0.14)' : '#151515',
+                      color: disabled ? '#6f6f6f' : checked ? '#fff' : '#cfcfcf',
+                      border: checked ? '1px solid rgba(255,107,0,0.45)' : '1px solid rgba(255,255,255,0.07)',
+                    }}
+                  >
+                    <span className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={disabled}
+                        onChange={() => toggleAdminRound(round)}
+                        className="h-4 w-4 accent-[#FF6B00]"
+                      />
+                      <span>{ROUND_LABELS[round]}</span>
+                    </span>
+                    <span className="font-mono text-[11px] text-muted">{count}</span>
+                  </label>
+                )
+              })}
+            </div>
+
+            {adminSaveState === 'error' && adminSaveError && (
+              <div className="mx-6 mb-4 rounded-[12px] px-4 py-3 text-[13px] font-bold"
+                style={{ background: 'rgba(255,59,59,0.12)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.25)' }}
+              >
+                Error real: {adminSaveError}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-end gap-2 px-6 py-5" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <button
+                onClick={() => setRandomModalOpen(false)}
+                disabled={adminSaveState === 'saving'}
+                className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase text-muted disabled:opacity-40"
+                style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={() => handleAdminRandomKnockout([...adminSelectedRounds])}
+                disabled={!canLoadSelectedRounds}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
+                style={{ background: '#FF6B00', color: '#0A0A0A', border: '1px solid rgba(255,107,0,0.35)' }}
+              >
+                <Shuffle size={15} strokeWidth={2.5} />
+                {adminSaveState === 'saving' ? 'Cargando...' : `Cargar seleccion (${selectedAdminCount})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2">
         {visibleRounds.map((round) => (
           <button
@@ -762,62 +918,6 @@ export function BracketView({
           </button>
         ))}
       </div>
-
-      {isAdmin && (
-        <div
-          className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-sm"
-          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}
-        >
-          <div>
-            <p className="font-extrabold text-white">Herramienta admin eliminatorias</p>
-            <p className="text-muted">
-              {adminSaveState === 'saved'
-                ? adminSaveMessage ?? 'Pronósticos cargados correctamente.'
-                : adminSaveState === 'error' && adminSaveError
-                ? `Error real: ${adminSaveError}`
-                : 'Carga pronosticos aleatorios solo para eliminatorias disponibles. Apuestas especiales es una carga de prueba separada.'}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={adminPhase}
-              onChange={(e) => setAdminPhase(e.target.value as AdminPhaseValue)}
-              disabled={adminSaveState === 'saving'}
-              className="min-h-10 rounded-full px-4 text-[12px] font-extrabold uppercase disabled:opacity-40"
-              style={{ background: '#181818', color: '#EDE8DC', border: '1px solid rgba(255,255,255,0.08)' }}
-            >
-              <option value="all">Eliminatorias disponibles ({adminAllEligibleCount})</option>
-              {adminEligibleByRound.map(({ round, count }) => (
-                <option key={round} value={round}>
-                  {ROUND_LABELS[round]} ({count})
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={() => handleAdminRandomKnockout(isRoundKey(adminPhase) ? adminPhase : undefined)}
-              disabled={adminSaveState === 'saving' || selectedAdminCount === 0}
-              className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
-              style={{ background: adminSaveState === 'error' ? '#3a1515' : '#FF6B00', color: adminSaveState === 'error' ? '#FF6B6B' : '#0A0A0A' }}
-            >
-              {adminSaveState === 'saving'
-                ? 'Cargando...'
-                : adminSaveState === 'error'
-                ? 'Error al cargar. Reintentá.'
-                : adminPhase === 'all'
-                ? 'Cargar disponibles'
-                : `Cargar ${ROUND_LABELS[adminPhase].toLowerCase()}`}
-            </button>
-            <button
-              onClick={handleAdminRandomSpecials}
-              disabled={adminSaveState === 'saving'}
-              className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
-              style={{ background: '#181818', color: '#c8a8f0', border: '1px solid rgba(168,140,220,0.22)' }}
-            >
-              Cargar apuestas especiales
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Main round matches — non-final rounds */}
       {activeRound !== 'final' && (
