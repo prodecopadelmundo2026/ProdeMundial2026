@@ -30,6 +30,7 @@ interface Props {
   isAdmin?: boolean
   groupTiebreakerMap?: Record<string, string>
   readOnly?: boolean
+  clearSignal?: { version: number; stages: string[] }
 }
 
 const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'third_place', 'final'] as const
@@ -92,6 +93,11 @@ function BracketMatchCard({
 
   const [home, setHome] = useState(initialHome)
   const [away, setAway] = useState(initialAway)
+
+  useEffect(() => {
+    setHome(initialHome)
+    setAway(initialAway)
+  }, [initialHome, initialAway, match.id])
 
   function handleChange(field: 'home' | 'away', val: string) {
     if (!isOpen) return
@@ -354,10 +360,22 @@ const SPECIALS_ITEMS = [
 type SpecialsKey = typeof SPECIALS_ITEMS[number]['key']
 type SpecialsValues = Record<SpecialsKey, string>
 
-const RANDOM_SPECIALS: SpecialsValues = {
-  balon: 'Lionel Messi',
-  bota: 'Kylian Mbappé',
-  guante: 'Emiliano Martínez',
+const SPECIALS_TEST_VALUES: Record<SpecialsKey, string[]> = {
+  balon: ['Lionel Messi', 'Kylian Mbappe', 'Vinicius Junior', 'Jamal Musiala'],
+  bota: ['Kylian Mbappe', 'Harry Kane', 'Erling Haaland', 'Julian Alvarez'],
+  guante: ['Emiliano Martinez', 'Thibaut Courtois', 'Alisson Becker', 'Mike Maignan'],
+}
+
+function pickRandom(values: string[]) {
+  return values[Math.floor(Math.random() * values.length)] ?? values[0] ?? ''
+}
+
+function randomSpecials(): SpecialsValues {
+  return {
+    balon: pickRandom(SPECIALS_TEST_VALUES.balon),
+    bota: pickRandom(SPECIALS_TEST_VALUES.bota),
+    guante: pickRandom(SPECIALS_TEST_VALUES.guante),
+  }
 }
 
 function onlyLetters(value: string) {
@@ -383,7 +401,12 @@ function SpecialsCard() {
       setSaved(false)
     }
     function handleRandomize() {
-      setValues(RANDOM_SPECIALS)
+      try {
+        const stored = localStorage.getItem(SPECIALS_STORAGE_KEY)
+        setValues(stored ? JSON.parse(stored) : randomSpecials())
+      } catch {
+        setValues(randomSpecials())
+      }
       setSaved(true)
       setTimeout(() => setSaved(false), 1800)
     }
@@ -476,7 +499,16 @@ function SpecialsCard() {
   )
 }
 
-export function BracketView({ groupMatches, knockoutMatches, predMap, initialTiebreakerMap = {}, isAdmin = false, groupTiebreakerMap = {}, readOnly = false }: Props) {
+export function BracketView({
+  groupMatches,
+  knockoutMatches,
+  predMap,
+  initialTiebreakerMap = {},
+  isAdmin = false,
+  groupTiebreakerMap = {},
+  readOnly = false,
+  clearSignal,
+}: Props) {
   const pendingTiebreakers = getPendingGroupTiebreakers(groupMatches, predMap, groupTiebreakerMap)
   const hasPendingTiebreakers = pendingTiebreakers.length > 0
   const bracketLocked = readOnly || hasPendingTiebreakers
@@ -505,6 +537,26 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    if (!clearSignal?.version) return
+    const stagesToClear = new Set(clearSignal.stages)
+    setLocalInputs((prev) => {
+      const next = { ...prev }
+      for (const match of knockoutMatches) {
+        if (!stagesToClear.has(match.stage)) continue
+        next[match.id] = { home: '', away: '' }
+      }
+      return next
+    })
+    setTiebreakerMap((prev) => {
+      const next = { ...prev }
+      for (const match of knockoutMatches) {
+        if (stagesToClear.has(match.stage)) delete next[match.id]
+      }
+      return next
+    })
+  }, [clearSignal?.version, clearSignal?.stages, knockoutMatches])
+
+  useEffect(() => {
     if (bracketLocked) return
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(async () => {
@@ -529,6 +581,10 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
 
   // Effective predMap merges saved predictions with locally entered values
   const effectivePredMap: PredMap = { ...predMap }
+  const clearedStages = new Set(clearSignal?.stages ?? [])
+  for (const match of knockoutMatches) {
+    if (clearedStages.has(match.stage)) delete effectivePredMap[match.id]
+  }
   for (const [matchId, { home, away }] of Object.entries(localInputs)) {
     if (home !== '' && away !== '') {
       const h = parseScoreInput(home)
@@ -628,10 +684,11 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
 
   function handleAdminRandomSpecials() {
     try {
-      localStorage.setItem(SPECIALS_STORAGE_KEY, JSON.stringify(RANDOM_SPECIALS))
+      const next = randomSpecials()
+      localStorage.setItem(SPECIALS_STORAGE_KEY, JSON.stringify(next))
       window.dispatchEvent(new Event('prode-specials-randomized'))
       setAdminSaveError(null)
-      setAdminSaveMessage('Apuestas especiales cargadas correctamente.')
+      setAdminSaveMessage('Apuestas especiales de prueba cargadas correctamente.')
       setAdminSaveState('saved')
       setTimeout(() => setAdminSaveState('idle'), 1800)
     } catch (error) {
@@ -718,7 +775,7 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
                 ? adminSaveMessage ?? 'Pronósticos cargados correctamente.'
                 : adminSaveState === 'error' && adminSaveError
                 ? `Error real: ${adminSaveError}`
-                : 'Carga pronósticos aleatorios solo para cruces ya armados.'}
+                : 'Carga pronosticos aleatorios solo para eliminatorias disponibles. Apuestas especiales es una carga de prueba separada.'}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -729,7 +786,7 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
               className="min-h-10 rounded-full px-4 text-[12px] font-extrabold uppercase disabled:opacity-40"
               style={{ background: '#181818', color: '#EDE8DC', border: '1px solid rgba(255,255,255,0.08)' }}
             >
-              <option value="all">Todas disponibles ({adminAllEligibleCount})</option>
+              <option value="all">Eliminatorias disponibles ({adminAllEligibleCount})</option>
               {adminEligibleByRound.map(({ round, count }) => (
                 <option key={round} value={round}>
                   {ROUND_LABELS[round]} ({count})
@@ -747,7 +804,7 @@ export function BracketView({ groupMatches, knockoutMatches, predMap, initialTie
                 : adminSaveState === 'error'
                 ? 'Error al cargar. Reintentá.'
                 : adminPhase === 'all'
-                ? 'Cargar todas'
+                ? 'Cargar disponibles'
                 : `Cargar ${ROUND_LABELS[adminPhase].toLowerCase()}`}
             </button>
             <button

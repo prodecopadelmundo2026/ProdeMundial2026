@@ -74,7 +74,10 @@ export function MiProdeTabs({
 }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabId>('grupos')
-  const [bracketKey, setBracketKey] = useState(0)
+  const [bracketClearSignal, setBracketClearSignal] = useState<{ version: number; stages: string[] }>({
+    version: 0,
+    stages: [],
+  })
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [deleteState, setDeleteState] = useState<DeleteState>('idle')
   const [deleteSelections, setDeleteSelections] = useState<Set<DeleteOption>>(() => new Set())
@@ -187,6 +190,13 @@ export function MiProdeTabs({
   // Merge server preds with locally entered group preds for BracketView standings
   const effectivePredMap = useMemo(() => {
     const merged = { ...predMap }
+    const clearedStages = new Set(bracketClearSignal.stages)
+    if (clearedStages.has('group')) {
+      for (const match of groupMatches) delete merged[match.id]
+    }
+    for (const match of knockoutMatches) {
+      if (clearedStages.has(match.stage)) delete merged[match.id]
+    }
     for (const [matchId, { home, away }] of Object.entries(localGroupPreds)) {
       const h = parseScoreInput(home)
       const a = parseScoreInput(away)
@@ -195,7 +205,7 @@ export function MiProdeTabs({
       }
     }
     return merged
-  }, [predMap, localGroupPreds])
+  }, [predMap, localGroupPreds, bracketClearSignal, groupMatches, knockoutMatches])
 
   // All group matches have a valid prediction (server or local)
   const allGroupsFilled =
@@ -311,7 +321,9 @@ export function MiProdeTabs({
           setTiebreakers({})
           setGroupSaveStates({})
         }
-        if (scopes.deleteKnockoutLocally) setBracketKey((key) => key + 1)
+        if (scopes.deleteKnockoutLocally) {
+          setBracketClearSignal((prev) => ({ version: prev.version + 1, stages: scopes.stages }))
+        }
         if (scopes.deleteSpecials) {
           try {
             localStorage.removeItem(SPECIALS_STORAGE_KEY)
@@ -599,7 +611,6 @@ export function MiProdeTabs({
       </div>
       <div style={{ display: activeTab === 'eliminatoria' ? undefined : 'none' }}>
         <BracketView
-          key={bracketKey}
           groupMatches={groupMatches}
           knockoutMatches={knockoutMatches}
           predMap={effectivePredMap}
@@ -607,6 +618,7 @@ export function MiProdeTabs({
           isAdmin={isAdmin}
           groupTiebreakerMap={tiebreakers}
           readOnly={!allGroupsFilled}
+          clearSignal={bracketClearSignal}
         />
       </div>
     </div>
