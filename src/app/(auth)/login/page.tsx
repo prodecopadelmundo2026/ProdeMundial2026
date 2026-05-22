@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { SALES_CONTACTS, whatsappHref } from '@/lib/sales-contacts'
 
 const LOGIN_ERROR_MESSAGES: Record<string, string> = {
   unauthorized_email:
@@ -242,19 +243,33 @@ export default function LoginPage() {
             <p className="text-[#8A8A8A] text-[13px] leading-relaxed mb-3.5">
               Si usás Hotmail, Outlook o Yahoo, tenés que elegir una cuenta Google asociada a ese mismo correo cargado en Participantes habilitados.
             </p>
-            <a
-              href="https://wa.me/5491100000000?text=Hola!%20Quiero%20participar%20del%20Prode%2026"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2.5 px-[18px] py-3 rounded-full font-extrabold text-[13px] transition-colors duration-150"
-              style={{
-                background: 'rgba(168,240,216,0.08)',
-                border: '1px solid rgba(168,240,216,0.18)',
-                color: '#A8F0D8',
-              }}
-            >
-              Contactar a los organizadores
-            </a>
+            <div className="grid gap-2 text-left">
+              {SALES_CONTACTS.map((contact) => (
+                <div
+                  key={`${contact.name}-${contact.role}`}
+                  className="flex items-center justify-between gap-3 rounded-[14px] px-3 py-2"
+                  style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}
+                >
+                  <div className="min-w-0">
+                    <p className="font-extrabold text-[13px] text-white truncate">{contact.name}</p>
+                    <p className="text-[11px] text-[#8A8A8A] truncate">{contact.role}</p>
+                  </div>
+                  <a
+                    href={whatsappHref(contact.phone)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-full font-extrabold text-[12px] transition-colors duration-150"
+                    style={{
+                      background: 'rgba(168,240,216,0.08)',
+                      border: '1px solid rgba(168,240,216,0.18)',
+                      color: '#A8F0D8',
+                    }}
+                  >
+                    WhatsApp
+                  </a>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       </main>
