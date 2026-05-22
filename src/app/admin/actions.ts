@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
-import type { Match } from '@/types'
+import type { Match, Prediction } from '@/types'
 import {
   assignBestThirdsToSlots,
   buildKnockoutMap,
@@ -12,6 +12,7 @@ import {
   getPendingGroupTiebreakers,
   resolveTeamFull,
 } from '@/lib/bracket'
+import { buildMatchAuditRows } from '@/lib/ranking-audit'
 
 export type AdminToolResult = {
   ok: boolean
@@ -26,6 +27,41 @@ function adminToolError(error: unknown): AdminToolResult {
     ok: false,
     message: error instanceof Error ? error.message : 'No se pudo ejecutar la herramienta admin.',
   }
+}
+
+async function recomputeAllPredictionPoints(admin = createAdminClient()) {
+  const [{ data: matches, error: matchesError }, { data: predictions, error: predictionsError }] = await Promise.all([
+    admin.from('matches').select('*'),
+    admin.from('predictions').select('*'),
+  ])
+
+  if (matchesError) throw new Error(matchesError.message)
+  if (predictionsError) throw new Error(predictionsError.message)
+
+  const typedMatches = (matches ?? []) as Match[]
+  const typedPredictions = (predictions ?? []) as Prediction[]
+  const byUser = new Map<string, Prediction[]>()
+  for (const prediction of typedPredictions) {
+    if (!byUser.has(prediction.user_id)) byUser.set(prediction.user_id, [])
+    byUser.get(prediction.user_id)!.push(prediction)
+  }
+
+  let updated = 0
+  for (const userPredictions of byUser.values()) {
+    const auditRows = buildMatchAuditRows(typedMatches, userPredictions)
+    for (const row of auditRows) {
+      if (!row.prediction) continue
+      if ((row.prediction.points ?? null) === (row.points ?? null)) continue
+      const { error } = await admin
+        .from('predictions')
+        .update({ points: row.points })
+        .eq('id', row.prediction.id)
+      if (error) throw new Error(error.message)
+      updated++
+    }
+  }
+
+  return updated
 }
 
 export async function requireAdmin() {
@@ -68,6 +104,8 @@ export async function setMatchResult(
 
   if (error) throw new Error(error.message)
   if (!data || data.length === 0) throw new Error('No se encontró el partido o no se pudo actualizar.')
+
+  await recomputeAllPredictionPoints(admin)
 
   revalidatePath('/admin')
   revalidatePath('/ranking')
@@ -316,6 +354,8 @@ export async function adminFillMatchesRandomly() {
         .eq('id', update.id)
       if (updateErr) throw new Error(updateErr.message)
     }
+
+    await recomputeAllPredictionPoints(admin)
 
     revalidatePath('/admin')
     revalidatePath('/mi-prode')

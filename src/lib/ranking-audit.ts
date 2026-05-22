@@ -1,0 +1,212 @@
+import type { Match, Prediction } from '@/types'
+import {
+  assignBestThirdsToSlots,
+  buildKnockoutMap,
+  computeAllStandings,
+  computeBestThirdsGroups,
+  KNOCKOUT_FIXTURES,
+} from '@/lib/bracket'
+
+type ScoreMap = Record<string, { home_score: number; away_score: number }>
+type TiebreakerMap = Record<string, string>
+
+export type AuditStatus = 'exact' | 'partial' | 'incorrect' | 'pending' | 'missing'
+
+export type MatchAuditRow = {
+  match: Match
+  prediction?: Prediction
+  stage: Match['stage']
+  predictedHome: string
+  predictedAway: string
+  officialHome: string
+  officialAway: string
+  predictedScore: string
+  officialScore: string
+  status: AuditStatus
+  points: number | null
+  crossMatches: boolean | null
+}
+
+function sign(value: number) {
+  if (value > 0) return 1
+  if (value < 0) return -1
+  return 0
+}
+
+function scorePoints(prediction: Prediction, match: Match) {
+  if (match.status !== 'finished' || match.home_score == null || match.away_score == null) return null
+  if (prediction.home_score === match.home_score && prediction.away_score === match.away_score) return 3
+  if (sign(prediction.home_score - prediction.away_score) === sign(match.home_score - match.away_score)) return 1
+  return 0
+}
+
+function formatScore(home: number | null | undefined, away: number | null | undefined) {
+  return home == null || away == null ? 'Pendiente' : `${home} - ${away}`
+}
+
+function buildScoreMap(matches: Match[]): ScoreMap {
+  return Object.fromEntries(
+    matches
+      .filter((match) => match.home_score != null && match.away_score != null)
+      .map((match) => [match.id, { home_score: match.home_score!, away_score: match.away_score! }])
+  )
+}
+
+function isUnresolvedTeam(team: string) {
+  return (
+    /^(\d)(?:Â°|°)\s+Grupo\s+[A-L]/.test(team) ||
+    /^3(?:Â°|°)\s+Grupo\s+[A-L]/.test(team) ||
+    team.startsWith('Ganador') ||
+    team.startsWith('Perdedor') ||
+    team.includes('Mejor 3')
+  )
+}
+
+function resolveSlot(
+  placeholder: string,
+  standings: Record<string, string[]>,
+  pMap: Record<number, Match>,
+  predMap: ScoreMap,
+  tiebreakerMap: TiebreakerMap,
+  bestThirdsGroups: Set<string>,
+  thirdSlotAssignment: Record<string, string>,
+  mode: 'official' | 'prediction',
+  depth = 0
+): string {
+  if (depth > 8) return placeholder
+
+  const direct = placeholder.match(/^(\d)(?:Â°|°)\s+Grupo\s+([A-L])$/)
+  if (direct) {
+    const pos = Number(direct[1]) - 1
+    return standings[direct[2]]?.[pos] ?? placeholder
+  }
+
+  const third = placeholder.match(/^3(?:Â°|°)\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
+  if (third) {
+    const groups = third[1]
+    const assigned = thirdSlotAssignment[groups]
+    if (assigned) return standings[assigned]?.[2] ?? 'Mejor 3°'
+    const candidates = groups.split('/').filter((group) => bestThirdsGroups.has(group))
+    if (candidates.length === 1) return standings[candidates[0]]?.[2] ?? 'Mejor 3°'
+    return 'Mejor 3°'
+  }
+
+  const knockout = placeholder.match(/^(Ganador|Perdedor)\s+P(\d+)$/)
+  if (!knockout) return placeholder
+
+  const pNum = Number(knockout[2])
+  const fixture = KNOCKOUT_FIXTURES[pNum]
+  const match = pMap[pNum]
+  if (!fixture || !match) return placeholder
+
+  const home = resolveSlot(fixture[0], standings, pMap, predMap, tiebreakerMap, bestThirdsGroups, thirdSlotAssignment, mode, depth + 1)
+  const away = resolveSlot(fixture[1], standings, pMap, predMap, tiebreakerMap, bestThirdsGroups, thirdSlotAssignment, mode, depth + 1)
+  const score = predMap[match.id]
+  const fallback = `${knockout[1]} P${pNum}`
+
+  if (!score) return fallback
+  if (score.home_score === score.away_score) {
+    if (mode === 'official') return fallback
+    const tiebreaker = tiebreakerMap[match.id]
+    if (!tiebreaker) return fallback
+    const homeWins = tiebreaker === home
+    return knockout[1] === 'Ganador'
+      ? (homeWins ? home : away)
+      : (homeWins ? away : home)
+  }
+
+  const homeWins = score.home_score > score.away_score
+  return knockout[1] === 'Ganador'
+    ? (homeWins ? home : away)
+    : (homeWins ? away : home)
+}
+
+function buildResolvedTeams(
+  match: Match,
+  allMatches: Match[],
+  predMap: ScoreMap,
+  tiebreakerMap: TiebreakerMap,
+  mode: 'official' | 'prediction'
+) {
+  if (match.stage === 'group') {
+    return { home: match.home_team, away: match.away_team }
+  }
+
+  const groupMatches = allMatches.filter((item) => item.stage === 'group')
+  const knockoutMatches = allMatches.filter((item) => item.stage !== 'group')
+  const standings = computeAllStandings(groupMatches, predMap, tiebreakerMap)
+  const bestThirdsGroups = computeBestThirdsGroups(groupMatches, predMap, tiebreakerMap)
+  const thirdSlotAssignment = assignBestThirdsToSlots(bestThirdsGroups)
+  const pMap = buildKnockoutMap(knockoutMatches)
+
+  return {
+    home: resolveSlot(match.home_team, standings, pMap, predMap, tiebreakerMap, bestThirdsGroups, thirdSlotAssignment, mode),
+    away: resolveSlot(match.away_team, standings, pMap, predMap, tiebreakerMap, bestThirdsGroups, thirdSlotAssignment, mode),
+  }
+}
+
+export function buildMatchAuditRows(matches: Match[], predictions: Prediction[]): MatchAuditRow[] {
+  const officialScoreMap = buildScoreMap(matches.filter((match) => match.status === 'finished'))
+  const predictionByMatch = new Map(predictions.map((prediction) => [prediction.match_id, prediction]))
+  const predMap: ScoreMap = Object.fromEntries(
+    predictions.map((prediction) => [
+      prediction.match_id,
+      { home_score: prediction.home_score, away_score: prediction.away_score },
+    ])
+  )
+  const tiebreakerMap: TiebreakerMap = Object.fromEntries(
+    predictions
+      .filter((prediction) => prediction.tiebreaker_team)
+      .map((prediction) => [prediction.match_id, prediction.tiebreaker_team!])
+  )
+
+  return matches.map((match) => {
+    const prediction = predictionByMatch.get(match.id)
+    const officialTeams = buildResolvedTeams(match, matches, officialScoreMap, {}, 'official')
+    const predictedTeams = prediction
+      ? buildResolvedTeams(match, matches, predMap, tiebreakerMap, 'prediction')
+      : { home: match.home_team, away: match.away_team }
+    const hasOfficialResult = match.status === 'finished' && match.home_score != null && match.away_score != null
+    const crossMatches = match.stage === 'group'
+      ? true
+      : !isUnresolvedTeam(predictedTeams.home) &&
+        !isUnresolvedTeam(predictedTeams.away) &&
+        predictedTeams.home === officialTeams.home &&
+        predictedTeams.away === officialTeams.away
+    const rawPoints = prediction ? scorePoints(prediction, match) : null
+    const points = !prediction || !hasOfficialResult
+      ? null
+      : match.stage === 'group' || crossMatches
+      ? rawPoints
+      : 0
+    const status: AuditStatus = !prediction
+      ? 'missing'
+      : !hasOfficialResult
+      ? 'pending'
+      : points === 3
+      ? 'exact'
+      : points === 1
+      ? 'partial'
+      : 'incorrect'
+
+    return {
+      match,
+      prediction,
+      stage: match.stage,
+      predictedHome: predictedTeams.home,
+      predictedAway: predictedTeams.away,
+      officialHome: officialTeams.home,
+      officialAway: officialTeams.away,
+      predictedScore: prediction ? formatScore(prediction.home_score, prediction.away_score) : 'Sin cargar',
+      officialScore: formatScore(match.home_score, match.away_score),
+      status,
+      points,
+      crossMatches: match.stage === 'group' || !prediction ? null : crossMatches,
+    }
+  })
+}
+
+export function calculateAuditedPredictionPoints(match: Match, allMatches: Match[], userPredictions: Prediction[]) {
+  const row = buildMatchAuditRows(allMatches, userPredictions).find((item) => item.match.id === match.id)
+  return row?.points ?? null
+}

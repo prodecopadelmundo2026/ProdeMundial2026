@@ -22,7 +22,7 @@ export type BestThirdStanding = TeamStanding & {
 }
 
 // Maps each P-number to its original [home_placeholder, away_placeholder] as stored in DB
-const KNOCKOUT_FIXTURES: Record<number, [string, string]> = {
+export const KNOCKOUT_FIXTURES: Record<number, [string, string]> = {
   73:  ['2° Grupo A',  '2° Grupo B'],
   74:  ['1° Grupo E',  '3° Grupo A/B/C/D/F'],
   75:  ['1° Grupo F',  '2° Grupo C'],
