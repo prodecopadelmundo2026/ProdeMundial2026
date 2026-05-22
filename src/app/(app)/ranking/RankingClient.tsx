@@ -21,7 +21,7 @@ function RankRow({
 }: {
   entry: RankingEntry
   isMe: boolean
-  innerRef?: React.Ref<HTMLAnchorElement>
+  innerRef?: React.Ref<HTMLDivElement>
 }) {
   const posColor = isMe ? '#FF6B00' : (TOP3_COLOR[entry.rank] ?? '#4a4a4a')
 
@@ -109,7 +109,7 @@ export function RankingClient({
   userId?: string
 }) {
   const [search, setSearch] = useState('')
-  const meRowRef = useRef<HTMLAnchorElement | null>(null)
+  const meRowRef = useRef<HTMLDivElement | null>(null)
   const stickyRef = useRef<HTMLElement | null>(null)
 
   const filtered = search.trim()
