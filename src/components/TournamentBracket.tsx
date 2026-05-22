@@ -5,14 +5,15 @@ import { getTeam, flagUrl } from '@/lib/teams'
 import {
   computeAllStandings,
   buildKnockoutMap,
-  resolveTeamFull,
   computeBestThirdsGroups,
   assignBestThirdsToSlots,
+  KNOCKOUT_FIXTURES,
 } from '@/lib/bracket'
 
 export type BracketMode = 'official' | 'prode' | 'audit'
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type TbMap = Record<string, string>
+type BracketSource = 'prediction' | 'official'
 
 export interface TournamentBracketProps {
   mode: BracketMode
@@ -70,6 +71,41 @@ function buildOfficialPredMap(matches: Match[]): PredMap {
   return map
 }
 
+function hasScore(map: PredMap, match?: Match): boolean {
+  return Boolean(match && map[match.id])
+}
+
+function buildScopedStandings(groupMatches: Match[], scoreMap: PredMap, tiebreakerMap: TbMap) {
+  const byGroup: Record<string, Match[]> = {}
+  for (const match of groupMatches) {
+    if (!match.group) continue
+    if (!byGroup[match.group]) byGroup[match.group] = []
+    byGroup[match.group].push(match)
+  }
+
+  const completeGroupMatches = Object.values(byGroup).flatMap((matches) =>
+    matches.every((match) => hasScore(scoreMap, match)) ? matches : []
+  )
+
+  return computeAllStandings(completeGroupMatches, scoreMap, tiebreakerMap)
+}
+
+function buildThirdSlotData(groupMatches: Match[], scoreMap: PredMap, tiebreakerMap: TbMap) {
+  const canResolveThirds =
+    groupMatches.length > 0 &&
+    groupMatches.every((match) => hasScore(scoreMap, match))
+
+  if (!canResolveThirds) {
+    return { bestThirdsGroups: new Set<string>(), thirdSlotAssignment: {} as Record<string, string> }
+  }
+
+  const bestThirdsGroups = computeBestThirdsGroups(groupMatches, scoreMap, tiebreakerMap)
+  return {
+    bestThirdsGroups,
+    thirdSlotAssignment: assignBestThirdsToSlots(bestThirdsGroups),
+  }
+}
+
 function getWinner(
   homeTeam: string,
   awayTeam: string,
@@ -105,6 +141,67 @@ function shortName(raw: string): string {
 
 // ── Compact match card ────────────────────────────────────────────────────────
 
+function TeamRow({
+  name,
+  score,
+  won,
+  isPH,
+}: {
+  name: string
+  score?: number
+  won: boolean
+  isPH: boolean
+}) {
+  const meta = !isPH ? getTeam(name) : null
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 4,
+      padding: '0 6px',
+      height: '50%',
+      background: won ? 'rgba(255,107,0,0.18)' : 'transparent',
+      minWidth: 0,
+    }}>
+      {/* flag */}
+      <div style={{ width: 16, height: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {!isPH && meta?.iso2 ? (
+          <img src={flagUrl(meta.iso2)} alt={name} style={{ width: 16, height: 11, objectFit: 'contain' }} />
+        ) : (
+          <span style={{ fontSize: 9, color: '#2e2926' }}>?</span>
+        )}
+      </div>
+      {/* name */}
+      <span style={{
+        flex: 1,
+        minWidth: 0,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        fontSize: 11,
+        fontWeight: won ? 800 : 500,
+        color: isPH ? '#333' : won ? '#ffffff' : '#8a8a8a',
+      }}>
+        {isPH ? shortName(name) : name}
+      </span>
+      {/* score */}
+      {score !== undefined && (
+        <span style={{
+          flexShrink: 0,
+          fontSize: 12,
+          fontWeight: 800,
+          color: won ? '#FF6B00' : '#4a4a4a',
+          minWidth: 12,
+          textAlign: 'right',
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          {score}
+        </span>
+      )}
+    </div>
+  )
+}
+
 function BracketCard({
   homeTeam,
   awayTeam,
@@ -129,67 +226,6 @@ function BracketCard({
     auditStatus === 'correct' ? 'rgba(168,240,216,0.35)' :
     auditStatus === 'wrong'   ? 'rgba(255,59,59,0.35)'   :
     'rgba(255,255,255,0.09)'
-
-  function TeamRow({
-    name,
-    score,
-    won,
-    isPH,
-  }: {
-    name: string
-    score?: number
-    won: boolean
-    isPH: boolean
-  }) {
-    const meta = !isPH ? getTeam(name) : null
-    return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4,
-        padding: '0 6px',
-        height: '50%',
-        background: won ? 'rgba(255,107,0,0.18)' : 'transparent',
-        minWidth: 0,
-      }}>
-        {/* flag */}
-        <div style={{ width: 16, height: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {!isPH && meta?.iso2 ? (
-            <img src={flagUrl(meta.iso2)} alt={name} style={{ width: 16, height: 11, objectFit: 'contain' }} />
-          ) : (
-            <span style={{ fontSize: 9, color: '#2e2926' }}>?</span>
-          )}
-        </div>
-        {/* name */}
-        <span style={{
-          flex: 1,
-          minWidth: 0,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          fontSize: 11,
-          fontWeight: won ? 800 : 500,
-          color: isPH ? '#333' : won ? '#ffffff' : '#8a8a8a',
-        }}>
-          {isPH ? shortName(name) : name}
-        </span>
-        {/* score */}
-        {score !== undefined && (
-          <span style={{
-            flexShrink: 0,
-            fontSize: 12,
-            fontWeight: 800,
-            color: won ? '#FF6B00' : '#4a4a4a',
-            minWidth: 12,
-            textAlign: 'right',
-            fontVariantNumeric: 'tabular-nums',
-          }}>
-            {score}
-          </span>
-        )}
-      </div>
-    )
-  }
 
   return (
     <div style={{
@@ -337,45 +373,96 @@ export function TournamentBracket({
   predMap = {},
   tiebreakerMap = {},
 }: TournamentBracketProps) {
-  // Effective pred maps by mode
   const officialGroupPredMap  = buildOfficialPredMap(groupMatches)
   const officialKoMapRaw      = buildOfficialPredMap(knockoutMatches)
+  const officialMap           = { ...officialGroupPredMap, ...officialKoMapRaw }
 
-  // User's bracket resolution data
-  const userStandings   = computeAllStandings(groupMatches, mode === 'official' ? officialGroupPredMap : predMap, tiebreakerMap)
-  const pMap            = buildKnockoutMap(knockoutMatches)
-  const userBestThirds  = computeBestThirdsGroups(groupMatches, mode === 'official' ? officialGroupPredMap : predMap, tiebreakerMap)
-  const userThirdSlots  = userBestThirds.size > 0 ? assignBestThirdsToSlots(userBestThirds) : {}
-  const userPredMap     = mode === 'official' ? { ...officialGroupPredMap, ...officialKoMapRaw } : predMap
+  const pMap = buildKnockoutMap(knockoutMatches)
 
-  // Official bracket resolution data (for audit comparison)
-  const officialStandings  = computeAllStandings(groupMatches, officialGroupPredMap, {})
-  const officialBestThirds = computeBestThirdsGroups(groupMatches, officialGroupPredMap, {})
-  const officialThirdSlots = officialBestThirds.size > 0 ? assignBestThirdsToSlots(officialBestThirds) : {}
+  const predictionStandings = buildScopedStandings(groupMatches, predMap, tiebreakerMap)
+  const predictionThirds = buildThirdSlotData(groupMatches, predMap, tiebreakerMap)
+  const officialStandings = buildScopedStandings(groupMatches, officialGroupPredMap, {})
+  const officialThirds = buildThirdSlotData(groupMatches, officialGroupPredMap, {})
 
-  function resolve(placeholder: string): string {
-    return resolveTeamFull(
-      placeholder, userStandings, pMap, userPredMap, tiebreakerMap,
-      0, userBestThirds, userThirdSlots,
-    )
+  function getContext(source: BracketSource) {
+    return source === 'official'
+      ? {
+          scoreMap: officialMap,
+          standings: officialStandings,
+          bestThirdsGroups: officialThirds.bestThirdsGroups,
+          thirdSlotAssignment: officialThirds.thirdSlotAssignment,
+          tiebreakers: {},
+        }
+      : {
+          scoreMap: predMap,
+          standings: predictionStandings,
+          bestThirdsGroups: predictionThirds.bestThirdsGroups,
+          thirdSlotAssignment: predictionThirds.thirdSlotAssignment,
+          tiebreakers: tiebreakerMap,
+        }
   }
 
-  function resolveOfficial(placeholder: string): string {
-    return resolveTeamFull(
-      placeholder, officialStandings, pMap, officialKoMapRaw, {},
-      0, officialBestThirds, officialThirdSlots,
-    )
+  function resolveFromSource(placeholder: string, source: BracketSource, depth = 0): string {
+    const context = getContext(source)
+    if (depth > 8) return placeholder
+
+    const direct = placeholder.match(/^(\d)Â°\s+Grupo\s+([A-L])$/)
+    if (direct) {
+      const pos = Number(direct[1]) - 1
+      return context.standings[direct[2]]?.[pos] ?? placeholder
+    }
+
+    const third = placeholder.match(/^3Â°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
+    if (third) {
+      const groups = third[1]
+      const assigned = context.thirdSlotAssignment[groups]
+      if (assigned) return context.standings[assigned]?.[2] ?? 'Mejor 3Â°'
+      const candidates = groups.split('/').filter((group) => context.bestThirdsGroups.has(group))
+      if (candidates.length === 1) return context.standings[candidates[0]]?.[2] ?? 'Mejor 3Â°'
+      return 'Mejor 3Â°'
+    }
+
+    const knockout = placeholder.match(/^(Ganador|Perdedor)\s+P(\d+)$/)
+    if (!knockout) return placeholder
+
+    const pNum = Number(knockout[2])
+    const fixture = KNOCKOUT_FIXTURES[pNum]
+    const match = pMap[pNum]
+    const fallback = `${knockout[1]} P${pNum}`
+    if (!fixture || !match) return fallback
+
+    const home = resolveFromSource(fixture[0], source, depth + 1)
+    const away = resolveFromSource(fixture[1], source, depth + 1)
+    const score = context.scoreMap[match.id]
+    if (!score) return fallback
+
+    if (score.home_score === score.away_score) {
+      if (source === 'official') return fallback
+      const tiebreaker = context.tiebreakers[match.id]
+      if (!tiebreaker) return fallback
+      const homeWins = tiebreaker === home
+      return knockout[1] === 'Ganador'
+        ? (homeWins ? home : away)
+        : (homeWins ? away : home)
+    }
+
+    const homeWins = score.home_score > score.away_score
+    return knockout[1] === 'Ganador'
+      ? (homeWins ? home : away)
+      : (homeWins ? away : home)
   }
 
   function getMatchData(pNum: number) {
     const match    = pMap[pNum] ?? null
     const rawHome  = match?.home_team ?? ''
     const rawAway  = match?.away_team ?? ''
+    const source: BracketSource = mode === 'official' ? 'official' : 'prediction'
+    const scoreMap = source === 'official' ? officialMap : predMap
 
-    const homeTeam = rawHome ? resolve(rawHome) : `P${pNum}H`
-    const awayTeam = rawAway ? resolve(rawAway) : `P${pNum}A`
+    const homeTeam = rawHome ? resolveFromSource(rawHome, source) : `P${pNum}H`
+    const awayTeam = rawAway ? resolveFromSource(rawAway, source) : `P${pNum}A`
 
-    const pred = match ? userPredMap[match.id] : undefined
+    const pred = match ? scoreMap[match.id] : undefined
     const tb   = match ? tiebreakerMap[match.id] : undefined
 
     const homeScore = pred?.home_score
@@ -387,8 +474,8 @@ export function TournamentBracket({
     if (mode === 'audit' && match) {
       const offPred = officialKoMapRaw[match.id]
       if (offPred) {
-        const offHome   = rawHome ? resolveOfficial(rawHome) : ''
-        const offAway   = rawAway ? resolveOfficial(rawAway) : ''
+        const offHome   = rawHome ? resolveFromSource(rawHome, 'official') : ''
+        const offAway   = rawAway ? resolveFromSource(rawAway, 'official') : ''
         const offWinner = getWinner(offHome, offAway, offPred)
         if (offWinner && winner) {
           auditStatus = offWinner === winner ? 'correct' : 'wrong'
