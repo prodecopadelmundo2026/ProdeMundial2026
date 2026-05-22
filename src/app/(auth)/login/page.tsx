@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 
 const LOGIN_ERROR_MESSAGES: Record<string, string> = {
   unauthorized_email:
-    'Tu correo no está autorizado para ingresar. Usá exactamente el mismo correo cargado en la lista blanca.',
+    'Tu correo no está autorizado para ingresar. Usá exactamente el mismo correo cargado en Participantes habilitados.',
   auth_method_mismatch:
     'Este ingreso usa Google. Si tu correo es Hotmail, Outlook o Yahoo, solo funciona si ese mismo correo está asociado a una cuenta Google habilitada.',
   auth_callback_error:
@@ -240,7 +240,7 @@ export default function LoginPage() {
             style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
           >
             <p className="text-[#8A8A8A] text-[13px] leading-relaxed mb-3.5">
-              Si usás Hotmail, Outlook o Yahoo, tenés que elegir una cuenta Google asociada a ese mismo correo cargado en la lista blanca.
+              Si usás Hotmail, Outlook o Yahoo, tenés que elegir una cuenta Google asociada a ese mismo correo cargado en Participantes habilitados.
             </p>
             <a
               href="https://wa.me/5491100000000?text=Hola!%20Quiero%20participar%20del%20Prode%2026"

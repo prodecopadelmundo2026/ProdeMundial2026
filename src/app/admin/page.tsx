@@ -20,7 +20,7 @@ import {
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
 
 function hasOfficialScore(match: Match) {
-  return match.home_score != null && match.away_score != null
+  return match.status === 'finished' && match.home_score != null && match.away_score != null
 }
 
 function isResolvedTeam(name: string) {
@@ -44,6 +44,10 @@ function stageLabel(stage: Match['stage']) {
     final: 'Final',
   }
   return labels[stage] ?? stage
+}
+
+function sameTableLine(a: { pts: number; gd: number; gf: number }, b: { pts: number; gd: number; gf: number }) {
+  return a.pts === b.pts && a.gd === b.gd && a.gf === b.gf
 }
 
 export default async function AdminPage() {
@@ -77,11 +81,44 @@ export default async function AdminPage() {
     ? getPendingGroupTiebreakers(groupMatches, officialScoreMap)
     : []
   const groupsCanResolve = groupResultsComplete && pendingOfficialTiebreakers.length === 0
+  const bestThirdsTableForAudit = groupResultsComplete ? computeBestThirdsTable(groupMatches, officialScoreMap) : []
   const officialStandings = groupsCanResolve ? computeAllStandings(groupMatches, officialScoreMap) : {}
   const bestThirdsGroups = groupsCanResolve ? computeBestThirdsGroups(groupMatches, officialScoreMap) : new Set<string>()
   const thirdSlotAssignment = groupsCanResolve ? assignBestThirdsToSlots(bestThirdsGroups) : {}
   const knockoutMap = buildKnockoutMap(knockoutMatches)
-  const bestThirdsTable = groupsCanResolve ? computeBestThirdsTable(groupMatches, officialScoreMap) : []
+  const bestThirdsTable = groupsCanResolve ? bestThirdsTableForAudit : []
+
+  const pendingOfficialTiebreakerDetails = pendingOfficialTiebreakers.map((pending) => {
+    if (pending.startsWith('Grupo ')) {
+      const group = pending.replace('Grupo ', '')
+      const standings = computeGroupStandingsDetailed(
+        groupMatches.filter((m) => m.group === group),
+        officialScoreMap,
+        {},
+        `Grupo ${group}`
+      )
+      for (let i = 0; i < standings.length; i++) {
+        const tied = standings.filter((team) => sameTableLine(team, standings[i]))
+        const affectsClassification = tied.length > 1 && tied.some((team) => standings.indexOf(team) <= 2)
+        if (affectsClassification) {
+          return `${pending}: empate pendiente entre ${tied.map((team) => team.name).join(', ')} (mismos puntos, diferencia y goles a favor).`
+        }
+      }
+      return `${pending}: empate pendiente en posiciones de clasificacion.`
+    }
+
+    if (pending === 'Mejores terceros') {
+      for (let i = 0; i < bestThirdsTableForAudit.length; i++) {
+        const tied = bestThirdsTableForAudit.filter((team) => sameTableLine(team, bestThirdsTableForAudit[i]))
+        const crossesCut = tied.length > 1 && tied.some((team) => bestThirdsTableForAudit.indexOf(team) <= 7) && tied.some((team) => bestThirdsTableForAudit.indexOf(team) >= 8)
+        if (crossesCut) {
+          return `Mejores terceros: empate pendiente entre ${tied.map((team) => `${team.name} (${team.group})`).join(', ')}.`
+        }
+      }
+    }
+
+    return pending
+  })
 
   function resolveOfficialTeam(placeholder: string) {
     if (!groupsCanResolve) return placeholder
@@ -95,6 +132,32 @@ export default async function AdminPage() {
       bestThirdsGroups,
       thirdSlotAssignment
     )
+  }
+
+  function groupBlockReason(group: string) {
+    const groupDone = groupMatches
+      .filter((m) => m.group === group)
+      .every(hasOfficialScore)
+    if (!groupDone) return `Falta completar resultados finalizados del Grupo ${group}.`
+    const detail = pendingOfficialTiebreakerDetails.find((item) => item.startsWith(`Grupo ${group}:`))
+    return detail ?? `Falta resolver un empate pendiente del Grupo ${group}.`
+  }
+
+  function blockReasonForSlot(raw: string, resolved: string) {
+    const winner = resolved.match(/^(Ganador|Perdedor)\s+P(\d+)$/) ?? raw.match(/^(Ganador|Perdedor)\s+P(\d+)$/)
+    if (winner) return `Falta resultado finalizado del partido P${winner[2]}.`
+
+    const directGroup = raw.match(/^(\d)°\s+Grupo\s+([A-L])$/) ?? resolved.match(/^(\d)°\s+Grupo\s+([A-L])$/)
+    if (directGroup) return groupBlockReason(directGroup[2])
+
+    const thirdGroup = raw.match(/^3°\s+Grupo\s+([A-L](?:\/[A-L])*)$/) ?? resolved.match(/^3°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
+    if (thirdGroup || resolved === 'Mejor 3°') {
+      if (!groupResultsComplete) return 'Falta completar resultados finalizados de todos los grupos para resolver mejores terceros.'
+      const detail = pendingOfficialTiebreakerDetails.find((item) => item.startsWith('Mejores terceros:'))
+      return detail ?? 'Falta resolver la combinacion de mejores terceros.'
+    }
+
+    return 'Este cruce todavia no puede cargarse porque falta resolver una instancia previa.'
   }
 
   const groups: Record<string, Match[]> = {}
@@ -123,13 +186,22 @@ export default async function AdminPage() {
             >
               Panel <em className="not-italic italic" style={{ color: '#FF6B00' }}>Admin</em>
             </h1>
-            <Link
-              href="/admin/whitelist"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-extrabold text-[12px] uppercase transition-all duration-150"
-              style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.1)', color: '#cfcfcf' }}
-            >
-              Lista blanca
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-extrabold text-[12px] uppercase transition-all duration-150"
+                style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.1)', color: '#cfcfcf' }}
+              >
+                Volver al inicio
+              </Link>
+              <Link
+                href="/admin/whitelist"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-extrabold text-[12px] uppercase transition-all duration-150"
+                style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.1)', color: '#cfcfcf' }}
+              >
+                Participantes habilitados
+              </Link>
+            </div>
           </div>
           <p className="font-mono text-[12px] font-bold text-muted tracking-[0.04em] mt-[8px]">
             Carga de resultados · Mundial 2026
@@ -148,7 +220,7 @@ export default async function AdminPage() {
               {groupsCanResolve
                 ? 'Grupos completos: eliminatorias resueltas automaticamente desde resultados oficiales.'
                 : groupResultsComplete
-                ? `Hay desempates pendientes: ${pendingOfficialTiebreakers.join(', ')}.`
+                ? `Hay desempates pendientes: ${pendingOfficialTiebreakerDetails.join(' ')}`
                 : 'Carga todos los resultados de fase de grupos para resolver eliminatorias.'}
             </p>
           </div>
@@ -234,9 +306,12 @@ export default async function AdminPage() {
                   {groupMatches.map((match) => {
                     const resolvedHome = match.stage === 'group' ? match.home_team : resolveOfficialTeam(match.home_team)
                     const resolvedAway = match.stage === 'group' ? match.away_team : resolveOfficialTeam(match.away_team)
-                    const knockoutUnresolved = match.stage !== 'group' && (!isResolvedTeam(resolvedHome) || !isResolvedTeam(resolvedAway))
-                    const disabledReason = knockoutUnresolved
-                      ? 'Este cruce todavia no puede cargarse: faltan resultados previos o desempates para resolver los equipos.'
+                    const homeUnresolved = match.stage !== 'group' && !isResolvedTeam(resolvedHome)
+                    const awayUnresolved = match.stage !== 'group' && !isResolvedTeam(resolvedAway)
+                    const disabledReason = homeUnresolved
+                      ? blockReasonForSlot(match.home_team, resolvedHome)
+                      : awayUnresolved
+                      ? blockReasonForSlot(match.away_team, resolvedAway)
                       : null
                     return (
                     <div

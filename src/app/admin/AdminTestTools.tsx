@@ -2,7 +2,7 @@
 
 import { useTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { adminResetMatchResults, adminFillMatchesRandomly } from './actions'
+import { adminResetMatchResults, adminFillMatchesRandomly, type AdminToolResult } from './actions'
 
 type State = 'idle' | 'confirm-reset' | 'confirm-fill' | 'confirm-both' | 'working' | 'done' | 'error'
 
@@ -12,15 +12,19 @@ export function AdminTestTools() {
   const [message, setMessage] = useState<string | null>(null)
   const [, startTransition] = useTransition()
 
-  function clear() { setState('idle'); setMessage(null) }
+  function clear() {
+    setState('idle')
+    setMessage(null)
+  }
 
-  function run(action: () => Promise<string>) {
+  function run(action: () => Promise<AdminToolResult>) {
     setState('working')
     startTransition(async () => {
       try {
-        setMessage(await action())
-        setState('done')
-        router.refresh()
+        const result = await action()
+        setMessage(result.message)
+        setState(result.ok ? 'done' : 'error')
+        if (result.ok) router.refresh()
       } catch (err) {
         setMessage(err instanceof Error ? err.message : 'Error desconocido')
         setState('error')
@@ -51,7 +55,6 @@ export function AdminTestTools() {
         marginBottom: '32px',
       }}
     >
-      {/* Header */}
       <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '10px' }}>
         <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', background: 'rgba(255,177,92,0.12)', color: '#FFB15C', border: '1px solid rgba(255,177,92,0.2)', padding: '3px 8px', borderRadius: '999px' }}>
           Dev
@@ -59,29 +62,27 @@ export function AdminTestTools() {
         <p style={{ fontSize: '13px', fontWeight: 700, color: '#cfcfcf' }}>Herramientas de prueba</p>
       </div>
 
-      {/* Body */}
       <div style={{ padding: '16px 20px' }}>
-
         {state === 'idle' && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             <button style={pill({ background: 'rgba(255,59,59,0.12)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.2)' })} onClick={() => setState('confirm-reset')}>
-              1 · Borrar resultados
+              1 - Borrar resultados
             </button>
             <button style={pill({ background: 'rgba(255,107,0,0.1)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.2)' })} onClick={() => setState('confirm-fill')}>
-              2 · Completar aleatorio
+              2 - Completar aleatorio
             </button>
             <button style={pill({ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.1)' })} onClick={() => setState('confirm-both')}>
-              3 · Reset + completar
+              3 - Reset + completar
             </button>
           </div>
         )}
 
         {state === 'confirm-reset' && (
           <Confirm
-            text={<>¿Borrar todos los resultados y volver los partidos a <strong style={{ color: '#fff' }}>Próximo</strong>?</>}
-            confirmLabel="Sí, borrar"
+            text={<>Borrar todos los resultados y volver los partidos a <strong style={{ color: '#fff' }}>Proximo</strong>?</>}
+            confirmLabel="Si, borrar"
             confirmStyle={{ background: 'rgba(255,59,59,0.15)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.3)' }}
-            onConfirm={() => run(async () => { await adminResetMatchResults(); return 'Resultados borrados. Todos los partidos volvieron a Próximo.' })}
+            onConfirm={() => run(adminResetMatchResults)}
             onCancel={clear}
             pill={pill}
           />
@@ -89,10 +90,10 @@ export function AdminTestTools() {
 
         {state === 'confirm-fill' && (
           <Confirm
-            text={<>¿Completar todos los partidos con goles aleatorios y marcarlos como <strong style={{ color: '#fff' }}>Finalizado</strong>?</>}
-            confirmLabel="Sí, completar"
+            text={<>Completar todos los partidos con goles aleatorios y marcarlos como <strong style={{ color: '#fff' }}>Finalizado</strong>?</>}
+            confirmLabel="Si, completar"
             confirmStyle={{ background: 'rgba(255,107,0,0.15)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.3)' }}
-            onConfirm={() => run(async () => { const n = await adminFillMatchesRandomly(); return `${n} partidos completados con scores aleatorios.` })}
+            onConfirm={() => run(adminFillMatchesRandomly)}
             onCancel={clear}
             pill={pill}
           />
@@ -100,13 +101,16 @@ export function AdminTestTools() {
 
         {state === 'confirm-both' && (
           <Confirm
-            text={<>¿<strong style={{ color: '#fff' }}>Borrar resultados</strong> y luego completar todo con goles aleatorios?</>}
-            confirmLabel="Sí, reset + completar"
+            text={<>Borrar resultados y luego completar todo con goles aleatorios?</>}
+            confirmLabel="Si, reset + completar"
             confirmStyle={{ background: '#141414', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.3)' }}
             onConfirm={() => run(async () => {
-              await adminResetMatchResults()
-              const n = await adminFillMatchesRandomly()
-              return `Reset completo · ${n} partidos completados con scores aleatorios.`
+              const reset = await adminResetMatchResults()
+              if (!reset.ok) return reset
+              const fill = await adminFillMatchesRandomly()
+              return fill.ok
+                ? { ok: true, message: `Reset completo. ${fill.message}`, count: fill.count }
+                : fill
             })}
             onCancel={clear}
             pill={pill}
@@ -114,7 +118,7 @@ export function AdminTestTools() {
         )}
 
         {state === 'working' && (
-          <p style={{ fontSize: '13px', color: '#8A8A8A', fontStyle: 'italic' }}>Procesando…</p>
+          <p style={{ fontSize: '13px', color: '#8A8A8A', fontStyle: 'italic' }}>Procesando...</p>
         )}
 
         {state === 'done' && (
@@ -130,7 +134,6 @@ export function AdminTestTools() {
             <button style={pill({ background: '#1a1a1a', color: '#8A8A8A', border: '1px solid rgba(255,255,255,0.06)' })} onClick={clear}>Cerrar</button>
           </div>
         )}
-
       </div>
     </div>
   )

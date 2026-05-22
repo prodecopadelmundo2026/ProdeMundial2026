@@ -154,13 +154,13 @@ export function UserMenu({ initial, name, pts, rank, isAdmin = false }: Props) {
             style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
           >
             <Link
-              href="/admin/whitelist"
+              href="/admin"
               className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] font-bold text-[14px] text-left transition-colors duration-150"
               style={{ color: '#A8F0D8' }}
               onClick={() => setOpen(false)}
               role="menuitem"
             >
-              Lista blanca
+              Modo Admin
             </Link>
           </div>
         )}

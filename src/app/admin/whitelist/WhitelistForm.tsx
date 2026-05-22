@@ -40,7 +40,7 @@ export function WhitelistForm({ rows, query }: Props) {
       try {
         await upsertAuthorizedEmail(formData)
         setEditing(null)
-        setOk('Lista blanca actualizada.')
+        setOk('Participantes habilitados actualizados.')
       } catch (err) {
         setError(err instanceof Error ? err.message : 'No se pudo guardar el email.')
       }
@@ -171,7 +171,7 @@ export function WhitelistForm({ rows, query }: Props) {
         style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}
       >
         <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-          <p className="font-extrabold text-[13px] text-white">Emails autorizados</p>
+          <p className="font-extrabold text-[13px] text-white">Participantes habilitados</p>
           <p className="text-[11px] text-muted mt-0.5">{safeRows.length} registros</p>
         </div>
 
