@@ -28,6 +28,25 @@ export default async function AdminWhitelistPage({ searchParams }: Props) {
   })
 
   const rows = Array.isArray(data) ? (data as AuthorizedEmailRow[]) : []
+  const emails = rows.map((row) => row.email.toLowerCase().trim())
+  const { data: profiles } = emails.length > 0
+    ? await supabase
+      .from('profiles')
+      .select('id, email, name, is_admin')
+      .in('email', emails)
+    : { data: [] }
+  const profileByEmail = new Map(
+    (profiles ?? []).map((profile) => [String(profile.email).toLowerCase().trim(), profile])
+  )
+  const enrichedRows: AuthorizedEmailRow[] = rows.map((row) => {
+    const rowProfile = profileByEmail.get(row.email.toLowerCase().trim())
+    return {
+      ...row,
+      profile_id: rowProfile?.id ?? null,
+      profile_name: rowProfile?.name ?? null,
+      is_admin: Boolean(rowProfile?.is_admin),
+    }
+  })
 
   return (
     <div style={{ padding: '20px 16px clamp(40px, 8vw, 72px)' }}>
@@ -77,7 +96,7 @@ export default async function AdminWhitelistPage({ searchParams }: Props) {
           </div>
         )}
 
-        <WhitelistForm rows={rows} query={query} />
+        <WhitelistForm rows={enrichedRows} query={query} />
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import Link from 'next/link'
 import type { RankingEntry } from '@/types'
 
 function initials(name: string): string {
@@ -25,21 +26,22 @@ function RankRow({
   const posColor = isMe ? '#FF6B00' : (TOP3_COLOR[entry.rank] ?? '#4a4a4a')
 
   return (
-    <div
-      ref={innerRef}
-      className="grid items-center gap-[14px] rounded-[14px] px-[14px] py-3 transition-colors duration-150"
-      style={{
-        gridTemplateColumns: '54px 1fr auto',
-        background: isMe ? 'rgba(255,107,0,0.1)' : 'transparent',
-        border: isMe ? '1px solid rgba(255,107,0,0.28)' : '1px solid transparent',
-      }}
-      onMouseEnter={(e) => {
-        if (!isMe) (e.currentTarget as HTMLElement).style.background = '#1c1c1c'
-      }}
-      onMouseLeave={(e) => {
-        if (!isMe) (e.currentTarget as HTMLElement).style.background = 'transparent'
-      }}
-    >
+    <Link href={`/ranking/${entry.user_id}`} className="block">
+      <div
+        ref={innerRef}
+        className="grid items-center gap-[14px] rounded-[14px] px-[14px] py-3 transition-colors duration-150"
+        style={{
+          gridTemplateColumns: '54px 1fr auto',
+          background: isMe ? 'rgba(255,107,0,0.1)' : 'transparent',
+          border: isMe ? '1px solid rgba(255,107,0,0.28)' : '1px solid transparent',
+        }}
+        onMouseEnter={(e) => {
+          if (!isMe) (e.currentTarget as HTMLElement).style.background = '#1c1c1c'
+        }}
+        onMouseLeave={(e) => {
+          if (!isMe) (e.currentTarget as HTMLElement).style.background = 'transparent'
+        }}
+      >
       {/* Posición */}
       <span
         className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums"
@@ -80,21 +82,22 @@ function RankRow({
       </div>
 
       {/* Puntos */}
-      <div className="text-right shrink-0">
-        <span
-          className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums"
-          style={{ color: entry.total_points === 0 ? '#8A8A8A' : undefined }}
-        >
-          {entry.total_points}
-        </span>
-        <span
-          className="font-mono text-[10px] font-bold tracking-[0.16em] uppercase ml-1.5"
-          style={{ color: '#8A8A8A' }}
-        >
-          pts
-        </span>
+        <div className="text-right shrink-0">
+          <span
+            className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums"
+            style={{ color: entry.total_points === 0 ? '#8A8A8A' : undefined }}
+          >
+            {entry.total_points}
+          </span>
+          <span
+            className="font-mono text-[10px] font-bold tracking-[0.16em] uppercase ml-1.5"
+            style={{ color: '#8A8A8A' }}
+          >
+            pts
+          </span>
+        </div>
       </div>
-    </div>
+    </Link>
   )
 }
 

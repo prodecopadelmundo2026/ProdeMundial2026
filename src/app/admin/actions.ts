@@ -4,13 +4,22 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import type { Match } from '@/types'
-import { getPendingGroupTiebreakers } from '@/lib/bracket'
+import {
+  assignBestThirdsToSlots,
+  buildKnockoutMap,
+  computeAllStandings,
+  computeBestThirdsGroups,
+  getPendingGroupTiebreakers,
+  resolveTeamFull,
+} from '@/lib/bracket'
 
 export type AdminToolResult = {
   ok: boolean
   message: string
   count?: number
 }
+
+type ScoreMap = Record<string, { home_score: number; away_score: number }>
 
 function adminToolError(error: unknown): AdminToolResult {
   return {
@@ -31,6 +40,7 @@ export async function requireAdmin() {
     .single()
 
   if (!profile?.is_admin) throw new Error('Sin permisos de administrador')
+  return user
 }
 
 export async function setMatchResult(
@@ -104,7 +114,111 @@ export async function setAuthorizedEmailActive(email: string, active: boolean) {
 
 // ─── Test tools (operan sobre resultados de partidos, no sobre predicciones) ──
 
+export async function deactivateParticipant(email: string): Promise<AdminToolResult> {
+  try {
+    await setAuthorizedEmailActive(email, false)
+    return { ok: true, message: 'Participante desactivado.' }
+  } catch (error) {
+    return adminToolError(error)
+  }
+}
+
+export async function setParticipantAdminRole(email: string, isAdmin: boolean): Promise<AdminToolResult> {
+  try {
+    const currentUser = await requireAdmin()
+    const normalizedEmail = email.toLowerCase().trim()
+    if (!normalizedEmail) throw new Error('Email inválido')
+
+    const admin = createAdminClient()
+    const { data: profile, error: profileErr } = await admin
+      .from('profiles')
+      .select('id, email, is_admin')
+      .eq('email', normalizedEmail)
+      .maybeSingle()
+
+    if (profileErr) throw new Error(profileErr.message)
+    if (!profile) throw new Error('El participante todavía no tiene perfil. Primero debe ingresar con ese correo.')
+    if (!isAdmin && profile.id === currentUser.id) {
+      throw new Error('No podés quitarte tu propio rol admin desde esta pantalla.')
+    }
+
+    const { error } = await admin
+      .from('profiles')
+      .update({ is_admin: isAdmin, updated_at: new Date().toISOString() })
+      .eq('id', profile.id)
+
+    if (error) throw new Error(error.message)
+
+    revalidatePath('/admin')
+    revalidatePath('/admin/whitelist')
+    return {
+      ok: true,
+      message: isAdmin ? 'Rol admin otorgado.' : 'Rol admin quitado.',
+    }
+  } catch (error) {
+    return adminToolError(error)
+  }
+}
+
 const ALL_STAGES = ['group', 'round_of_32', 'round_of_16', 'quarter', 'semi', 'final', 'third_place']
+const KNOCKOUT_STAGES: Match['stage'][] = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'third_place', 'final']
+
+function randomGroupScore() {
+  return Math.floor(Math.random() * 5)
+}
+
+function randomKnockoutScore() {
+  let home = randomGroupScore()
+  let away = randomGroupScore()
+  if (home === away) away = (away + 1) % 5
+  return { home_score: home, away_score: away }
+}
+
+function isResolvedTeamName(name: string) {
+  return !(
+    /^(\d)(?:Â°|°)\s+Grupo\s+[A-L]/.test(name) ||
+    /^3(?:Â°|°)\s+Grupo\s+[A-L]/.test(name) ||
+    name.startsWith('Ganador') ||
+    name.startsWith('Perdedor') ||
+    name.includes('Mejor 3')
+  )
+}
+
+function buildOfficialScoreMap(matches: Match[]): ScoreMap {
+  return Object.fromEntries(
+    matches
+      .filter((m) => m.home_score != null && m.away_score != null)
+      .map((m) => [m.id, { home_score: m.home_score!, away_score: m.away_score! }])
+  )
+}
+
+function applyMatchUpdates(matches: Match[], updates: Array<{ id: string; home_score: number; away_score: number }>) {
+  const byId = new Map(updates.map((u) => [u.id, u]))
+  return matches.map((match) => {
+    const update = byId.get(match.id)
+    if (!update) return match
+    return {
+      ...match,
+      home_score: update.home_score,
+      away_score: update.away_score,
+      status: 'finished' as const,
+    }
+  })
+}
+
+function resolveRoundTeams(match: Match, workingMatches: Match[]) {
+  const groupMatches = workingMatches.filter((m) => m.stage === 'group')
+  const knockoutMatches = workingMatches.filter((m) => m.stage !== 'group')
+  const scoreMap = buildOfficialScoreMap(workingMatches)
+  const standings = computeAllStandings(groupMatches, scoreMap)
+  const bestThirdsGroups = computeBestThirdsGroups(groupMatches, scoreMap)
+  const thirdSlotAssignment = assignBestThirdsToSlots(bestThirdsGroups)
+  const knockoutMap = buildKnockoutMap(knockoutMatches)
+
+  const home = resolveTeamFull(match.home_team, standings, knockoutMap, scoreMap, {}, 0, bestThirdsGroups, thirdSlotAssignment)
+  const away = resolveTeamFull(match.away_team, standings, knockoutMap, scoreMap, {}, 0, bestThirdsGroups, thirdSlotAssignment)
+  return { home, away }
+}
 
 export async function adminResetMatchResults() {
   try {
@@ -146,44 +260,52 @@ export async function adminFillMatchesRandomly() {
     if (error) throw new Error(error.message)
     if (!matches?.length) return { ok: true, message: 'No hay partidos para completar.', count: 0 }
 
-    const typedMatches = matches as Match[]
+    let workingMatches = (matches as Match[]).sort((a, b) => {
+      const stageDiff = ALL_STAGES.indexOf(a.stage) - ALL_STAGES.indexOf(b.stage)
+      if (stageDiff !== 0) return stageDiff
+      return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
+    })
+    const groupMatches = workingMatches.filter((m) => m.stage === 'group')
+    const allUpdates: Array<{ id: string; home_score: number; away_score: number; status: 'finished' }> = []
+    let groupUpdates: Array<{ id: string; home_score: number; away_score: number }> = []
 
-    function rnd() {
-      return Math.floor(Math.random() * 5)
-    }
-
-    function buildUpdates() {
-      return typedMatches.map((m) => {
-        let h = rnd()
-        let a = rnd()
-
-        if (m.stage !== 'group' && h === a) {
-          a = (a + 1) % 5
-        }
-
-        return {
-          id: m.id,
-          home_score: h,
-          away_score: a,
-          status: 'finished' as const,
-        }
-      })
-    }
-
-    let updates = buildUpdates()
-    const groupMatches = typedMatches.filter((m) => m.stage === 'group')
-
-    for (let attempt = 0; attempt < 80; attempt++) {
+    for (let attempt = 0; attempt < 150; attempt++) {
+      groupUpdates = groupMatches.map((m) => ({
+        id: m.id,
+        home_score: randomGroupScore(),
+        away_score: randomGroupScore(),
+      }))
       const scoreMap = Object.fromEntries(
-        updates
-          .filter((m) => groupMatches.some((gm) => gm.id === m.id))
-          .map((m) => [m.id, { home_score: m.home_score, away_score: m.away_score }])
+        groupUpdates.map((m) => [m.id, { home_score: m.home_score, away_score: m.away_score }])
       )
       if (getPendingGroupTiebreakers(groupMatches, scoreMap).length === 0) break
-      updates = buildUpdates()
     }
 
-    for (const update of updates) {
+    workingMatches = applyMatchUpdates(workingMatches, groupUpdates)
+    const pendingTiebreakers = getPendingGroupTiebreakers(groupMatches, buildOfficialScoreMap(workingMatches))
+    if (pendingTiebreakers.length > 0) {
+      throw new Error(`No se pudo completar aleatorio sin desempates pendientes: ${pendingTiebreakers.join(', ')}.`)
+    }
+    allUpdates.push(...groupUpdates.map((u) => ({ ...u, status: 'finished' as const })))
+
+    for (const stage of KNOCKOUT_STAGES) {
+      const stageMatches = workingMatches.filter((m) => m.stage === stage)
+      if (stageMatches.length === 0) continue
+
+      const stageUpdates: Array<{ id: string; home_score: number; away_score: number }> = []
+      for (const match of stageMatches) {
+        const { home, away } = resolveRoundTeams(match, workingMatches)
+        if (!isResolvedTeamName(home) || !isResolvedTeamName(away)) {
+          throw new Error(`No se pudo completar ${stage}: falta resolver ${home} vs ${away}.`)
+        }
+        stageUpdates.push({ id: match.id, ...randomKnockoutScore() })
+      }
+
+      workingMatches = applyMatchUpdates(workingMatches, stageUpdates)
+      allUpdates.push(...stageUpdates.map((u) => ({ ...u, status: 'finished' as const })))
+    }
+
+    for (const update of allUpdates) {
       const { error: updateErr } = await admin
         .from('matches')
         .update({
@@ -201,8 +323,8 @@ export async function adminFillMatchesRandomly() {
     revalidatePath('/')
     return {
       ok: true,
-      message: `${typedMatches.length} partidos completados con scores aleatorios.`,
-      count: typedMatches.length,
+      message: `${allUpdates.length} partidos del Mundial completados con resultados aleatorios.`,
+      count: allUpdates.length,
     }
   } catch (error) {
     return adminToolError(error)

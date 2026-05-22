@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { setMatchResult } from './actions'
 import type { Match } from '@/types'
 
@@ -17,6 +18,15 @@ export function AdminMatchForm({
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const router = useRouter()
+
+  useEffect(() => {
+    setHome(match.home_score?.toString() ?? '')
+    setAway(match.away_score?.toString() ?? '')
+    setStatus(match.status)
+    setError(null)
+    setOk(false)
+  }, [match.id, match.home_score, match.away_score, match.status])
 
   const bothScoresSet = home !== '' && away !== ''
   const pointsWillCalculate = bothScoresSet && status === 'finished'
@@ -48,6 +58,7 @@ export function AdminMatchForm({
       try {
         await setMatchResult(match.id, Number(home), Number(away), status)
         setOk(true)
+        router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error desconocido')
       }

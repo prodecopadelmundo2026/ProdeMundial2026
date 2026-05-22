@@ -1,7 +1,12 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { setAuthorizedEmailActive, upsertAuthorizedEmail } from '../actions'
+import {
+  deactivateParticipant,
+  setAuthorizedEmailActive,
+  setParticipantAdminRole,
+  upsertAuthorizedEmail,
+} from '../actions'
 
 export type AuthorizedEmailRow = {
   email: string
@@ -9,6 +14,9 @@ export type AuthorizedEmailRow = {
   active: boolean
   created_at: string
   updated_at: string
+  profile_id?: string | null
+  profile_name?: string | null
+  is_admin?: boolean | null
 }
 
 type Props = {
@@ -55,6 +63,30 @@ export function WhitelistForm({ rows, query }: Props) {
         setOk(row.active ? 'Email desactivado.' : 'Email activado.')
       } catch (err) {
         setError(err instanceof Error ? err.message : 'No se pudo actualizar el estado.')
+      }
+    })
+  }
+
+  function removeParticipant(row: AuthorizedEmailRow) {
+    clearMessages()
+    startTransition(async () => {
+      const result = await deactivateParticipant(row.email)
+      if (result.ok) {
+        setOk(result.message)
+      } else {
+        setError(result.message)
+      }
+    })
+  }
+
+  function toggleAdmin(row: AuthorizedEmailRow) {
+    clearMessages()
+    startTransition(async () => {
+      const result = await setParticipantAdminRole(row.email, !row.is_admin)
+      if (result.ok) {
+        setOk(result.message)
+      } else {
+        setError(result.message)
       }
     })
   }
@@ -202,8 +234,20 @@ export function WhitelistForm({ rows, query }: Props) {
                       >
                         {row.active ? 'Activo' : 'Inactivo'}
                       </span>
+                      <span
+                        className="text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-[0.08em] uppercase"
+                        style={
+                          row.is_admin
+                            ? { background: 'rgba(255,107,0,0.12)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.22)' }
+                            : { background: '#1a1a1a', color: '#4a4a4a' }
+                        }
+                      >
+                        {row.profile_id ? (row.is_admin ? 'Admin' : 'Usuario') : 'Sin perfil'}
+                      </span>
                     </div>
-                    <p className="mt-0.5 text-[12px] text-muted">{row.label ?? 'Sin nombre'}</p>
+                    <p className="mt-0.5 text-[12px] text-muted">
+                      {row.label ?? row.profile_name ?? 'Sin nombre'}
+                    </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button
@@ -226,6 +270,28 @@ export function WhitelistForm({ rows, query }: Props) {
                       }
                     >
                       {row.active ? 'Desactivar' : 'Activar'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleAdmin(row)}
+                      disabled={isPending || !row.profile_id}
+                      className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150 disabled:opacity-40"
+                      style={
+                        row.is_admin
+                          ? { background: 'rgba(255,59,59,0.1)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.2)' }
+                          : { background: 'rgba(255,107,0,0.1)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.2)' }
+                      }
+                    >
+                      {row.is_admin ? 'Quitar admin' : 'Dar admin'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeParticipant(row)}
+                      disabled={isPending || !row.active}
+                      className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150 disabled:opacity-40"
+                      style={{ background: 'rgba(255,59,59,0.1)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.2)' }}
+                    >
+                      Eliminar participante
                     </button>
                   </div>
                 </div>
