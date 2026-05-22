@@ -29,7 +29,6 @@ export async function setMatchResult(
 
   await requireAdmin()
 
-  // Use service-role client to bypass RLS — admin writes always need this
   const admin = createAdminClient()
 
   const { data, error } = await admin
@@ -52,15 +51,10 @@ export async function setMatchResult(
 }
 
 export async function upsertAuthorizedEmail(formData: FormData) {
-  // RPCs with internal current_user_is_admin() check need the user's session
-  // (auth.uid() must be set) — use createClient(), NOT createAdminClient()
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('No autenticado')
-  const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
-  if (!profile?.is_admin) throw new Error('Sin permisos de administrador')
+  await requireAdmin()
 
-  const email = String(formData.get('email') ?? '').trim().toLowerCase()
+  const email = String(formData.get('email') ?? '').toLowerCase().trim()
   const label = String(formData.get('label') ?? '').trim()
   const active = formData.get('active') === 'on'
 
@@ -81,13 +75,10 @@ export async function upsertAuthorizedEmail(formData: FormData) {
 
 export async function setAuthorizedEmailActive(email: string, active: boolean) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('No autenticado')
-  const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
-  if (!profile?.is_admin) throw new Error('Sin permisos de administrador')
+  await requireAdmin()
 
   const { error } = await supabase.rpc('admin_set_authorized_email_active', {
-    p_email: email,
+    p_email: email.toLowerCase().trim(),
     p_active: active,
   })
 
@@ -104,14 +95,12 @@ export async function adminResetMatchResults() {
   await requireAdmin()
   const admin = createAdminClient()
 
-  // Limpiar puntos de todas las predicciones
   const { error: predErr } = await admin
     .from('predictions')
     .update({ points: null })
     .gte('created_at', '2000-01-01')
   if (predErr) throw new Error(predErr.message)
 
-  // Borrar scores y volver a 'upcoming' usando el stage como filtro universal
   const { error: matchErr } = await admin
     .from('matches')
     .update({ home_score: null, away_score: null, status: 'upcoming' })
@@ -132,19 +121,30 @@ export async function adminFillMatchesRandomly() {
     .from('matches')
     .select('id, stage')
     .in('stage', ALL_STAGES)
+
   if (error) throw new Error(error.message)
   if (!matches?.length) return 0
 
-  function rnd() { return Math.floor(Math.random() * 5) }
+  function rnd() {
+    return Math.floor(Math.random() * 5)
+  }
 
   const updates = matches.map((m) => {
     let h = rnd()
     let a = rnd()
-    if (m.stage !== 'group' && h === a) a = (a + 1) % 5
-    return { id: m.id, home_score: h, away_score: a, status: 'finished' as const }
+
+    if (m.stage !== 'group' && h === a) {
+      a = (a + 1) % 5
+    }
+
+    return {
+      id: m.id,
+      home_score: h,
+      away_score: a,
+      status: 'finished' as const,
+    }
   })
 
-  // Upsert row a row para que el trigger de puntos corra por cada partido
   const { error: upsertErr } = await admin.from('matches').upsert(updates)
   if (upsertErr) throw new Error(upsertErr.message)
 

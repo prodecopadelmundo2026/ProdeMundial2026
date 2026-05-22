@@ -6,7 +6,9 @@ import { createClient } from '@/lib/supabase/client'
 
 const LOGIN_ERROR_MESSAGES: Record<string, string> = {
   unauthorized_email:
-    'El correo seleccionado no está habilitado para participar. Verificá que estés ingresando con el mismo email que informaste al momento de la inscripción.',
+    'Tu correo no está autorizado para ingresar. Usá exactamente el mismo correo cargado en la lista blanca.',
+  auth_method_mismatch:
+    'Este ingreso usa Google. Si tu correo es Hotmail, Outlook o Yahoo, solo funciona si ese mismo correo está asociado a una cuenta Google habilitada.',
   auth_callback_error:
     'No pudimos completar el inicio de sesión con Google. Volvé a intentarlo.',
   missing_code:
@@ -178,7 +180,7 @@ export default function LoginPage() {
               Entrá<br />al <em className="not-italic" style={{ color: '#FF6B00' }}>Prode</em>
             </h1>
             <p className="mt-3 text-[#bdbdbd] text-[15px] leading-relaxed font-medium">
-              Elegí tu cuenta de Google. Si el mail está en la lista de inscriptos, entrás a la cancha.
+              Elegí tu cuenta de Google. Si ese correo está en la lista de inscriptos, entrás a la cancha.
             </p>
           </div>
 
@@ -238,7 +240,7 @@ export default function LoginPage() {
             style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
           >
             <p className="text-[#8A8A8A] text-[13px] leading-relaxed mb-3.5">
-              Si no podés ingresar, verificá que estés usando el mismo email que informaste al inscribirte.
+              Si usás Hotmail, Outlook o Yahoo, tenés que elegir una cuenta Google asociada a ese mismo correo cargado en la lista blanca.
             </p>
             <a
               href="https://wa.me/5491100000000?text=Hola!%20Quiero%20participar%20del%20Prode%2026"

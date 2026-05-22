@@ -64,15 +64,17 @@ export async function GET(request: NextRequest) {
   }
 
   const { user } = data
-  if (!user.email) {
+  const selectedEmail = user.email?.toLowerCase().trim() ?? ''
+
+  if (!selectedEmail) {
     await supabase.auth.signOut()
-    return redirectToLoginWithClearedSession(request, origin)
+    return NextResponse.redirect(`${origin}/login?error=auth_method_mismatch`)
   }
 
   const name: string =
     user.user_metadata?.full_name ??
     user.user_metadata?.name ??
-    user.email?.split('@')[0] ??
+    selectedEmail.split('@')[0] ??
     'Jugador'
   const avatarUrl: string | null = user.user_metadata?.avatar_url ?? null
 
@@ -82,8 +84,16 @@ export async function GET(request: NextRequest) {
   })
 
   if (accessError) {
+    console.error('[auth/callback] complete_google_sign_in failed', {
+      email: selectedEmail,
+      provider: user.app_metadata?.provider,
+      error: accessError,
+    })
     await supabase.auth.signOut()
-    return redirectToLoginWithClearedSession(request, origin)
+    if (accessError.message.toLowerCase().includes('email no autorizado')) {
+      return redirectToLoginWithClearedSession(request, origin)
+    }
+    return NextResponse.redirect(`${origin}/login?error=auth_callback_error`)
   }
 
   return NextResponse.redirect(`${origin}${next}`)

@@ -737,7 +737,7 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
           <div ref={matchesTopRef} style={{ scrollMarginTop: '80px' }} />
 
           {/* Matches grid — autosave via MatchCard */}
-          <div className="grid grid-cols-1 min-[720px]:grid-cols-2 min-[1100px]:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 min-[720px]:grid-cols-2 min-[1100px]:grid-cols-3 gap-4 items-stretch">
             {currentGroupMatches.map((match) => (
               <MatchCard
                 key={match.id}
