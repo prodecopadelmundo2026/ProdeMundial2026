@@ -98,22 +98,24 @@ export async function setAuthorizedEmailActive(email: string, active: boolean) {
 
 // ─── Test tools (operan sobre resultados de partidos, no sobre predicciones) ──
 
+const ALL_STAGES = ['group', 'round_of_32', 'round_of_16', 'quarter', 'semi', 'final', 'third_place']
+
 export async function adminResetMatchResults() {
   await requireAdmin()
   const admin = createAdminClient()
 
-  // Limpiar puntos calculados (ya no hay resultado contra el cual comparar)
+  // Limpiar puntos de todas las predicciones
   const { error: predErr } = await admin
     .from('predictions')
     .update({ points: null })
-    .not('id', 'is', null)
+    .gte('created_at', '2000-01-01')
   if (predErr) throw new Error(predErr.message)
 
-  // Borrar scores y volver todos a 'upcoming'
+  // Borrar scores y volver a 'upcoming' usando el stage como filtro universal
   const { error: matchErr } = await admin
     .from('matches')
     .update({ home_score: null, away_score: null, status: 'upcoming' })
-    .not('id', 'is', null)
+    .in('stage', ALL_STAGES)
   if (matchErr) throw new Error(matchErr.message)
 
   revalidatePath('/admin')
@@ -129,6 +131,7 @@ export async function adminFillMatchesRandomly() {
   const { data: matches, error } = await admin
     .from('matches')
     .select('id, stage')
+    .in('stage', ALL_STAGES)
   if (error) throw new Error(error.message)
   if (!matches?.length) return 0
 
@@ -137,12 +140,11 @@ export async function adminFillMatchesRandomly() {
   const updates = matches.map((m) => {
     let h = rnd()
     let a = rnd()
-    // Eliminatorias no pueden terminar empatadas
     if (m.stage !== 'group' && h === a) a = (a + 1) % 5
     return { id: m.id, home_score: h, away_score: a, status: 'finished' as const }
   })
 
-  // Upsert: solo actualiza las columnas especificadas, el trigger de puntos corre por cada fila
+  // Upsert row a row para que el trigger de puntos corra por cada partido
   const { error: upsertErr } = await admin.from('matches').upsert(updates)
   if (upsertErr) throw new Error(upsertErr.message)
 

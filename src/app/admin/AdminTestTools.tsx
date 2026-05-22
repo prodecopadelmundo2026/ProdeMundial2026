@@ -1,11 +1,13 @@
 'use client'
 
 import { useTransition, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { adminResetMatchResults, adminFillMatchesRandomly } from './actions'
 
 type State = 'idle' | 'confirm-reset' | 'confirm-fill' | 'confirm-both' | 'working' | 'done' | 'error'
 
 export function AdminTestTools() {
+  const router = useRouter()
   const [state, setState] = useState<State>('idle')
   const [message, setMessage] = useState<string | null>(null)
   const [, startTransition] = useTransition()
@@ -18,6 +20,7 @@ export function AdminTestTools() {
       try {
         setMessage(await action())
         setState('done')
+        router.refresh()
       } catch (err) {
         setMessage(err instanceof Error ? err.message : 'Error desconocido')
         setState('error')
