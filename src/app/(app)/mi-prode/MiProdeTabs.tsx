@@ -7,6 +7,7 @@ import type { Match } from '@/types'
 import { GroupBatchEditor } from './GroupBatchEditor'
 import { BracketView } from './BracketView'
 import { SpecialsTab } from './SpecialsTab'
+import { TournamentBracket } from '@/components/TournamentBracket'
 import { SpecialsBanner } from './SpecialsBanner'
 import { deletePredictionsByStages, generateRandomGroupPredictions } from '@/app/(app)/fixture/actions'
 import { parseScoreInput } from '@/lib/score-input'
@@ -14,7 +15,7 @@ import { parseScoreInput } from '@/lib/score-input'
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 
-type TabId = 'grupos' | 'eliminatoria' | 'especiales'
+type TabId = 'grupos' | 'eliminatoria' | 'llave' | 'especiales'
 type DeleteOption = 'groups' | 'knockout' | 'round_of_32' | 'round_of_16' | 'quarter' | 'semi' | 'final' | 'third_place' | 'specials' | 'all'
 type DeleteState = 'idle' | 'confirm' | 'deleting' | 'success' | 'error'
 
@@ -401,7 +402,7 @@ export function MiProdeTabs({
           className="inline-flex items-center gap-[3px] p-[4px] rounded-full"
           style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
         >
-          {(['grupos', 'eliminatoria', 'especiales'] as TabId[]).map((tab) => (
+          {(['grupos', 'eliminatoria', 'llave', 'especiales'] as TabId[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -418,7 +419,7 @@ export function MiProdeTabs({
                 if (activeTab !== tab) e.currentTarget.style.color = '#8A8A8A'
               }}
             >
-              {tab === 'grupos' ? 'Grupos' : tab === 'eliminatoria' ? 'Eliminatorias' : 'Especiales'}
+              {tab === 'grupos' ? 'Grupos' : tab === 'eliminatoria' ? 'Eliminatorias' : tab === 'llave' ? 'Llave' : 'Especiales'}
             </button>
           ))}
         </div>
@@ -660,6 +661,18 @@ export function MiProdeTabs({
           readOnly={false}
           clearSignal={bracketClearSignal}
           openRandomModal={bracketModalSignal}
+        />
+      </div>
+      <div style={{ display: activeTab === 'llave' ? undefined : 'none' }}>
+        <p className="text-[11px] font-medium mb-4 px-1" style={{ color: '#3e3a35' }}>
+          Tu bracket según tus pronósticos de grupos y eliminatorias. Vista de solo lectura.
+        </p>
+        <TournamentBracket
+          mode="prode"
+          groupMatches={groupMatches}
+          knockoutMatches={knockoutMatches}
+          predMap={effectivePredMap}
+          tiebreakerMap={tiebreakerMap}
         />
       </div>
       <div style={{ display: activeTab === 'especiales' ? undefined : 'none' }}>

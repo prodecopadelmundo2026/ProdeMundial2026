@@ -16,6 +16,7 @@ import {
   getPendingGroupTiebreakers,
   resolveTeamFull,
 } from '@/lib/bracket'
+import { AdminBracketSection } from './AdminBracketSection'
 
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
 
@@ -429,6 +430,15 @@ export default async function AdminPage() {
             ))}
           </div>
         )}
+
+        {/* Official bracket section */}
+        {matches && matches.length > 0 && (
+          <AdminBracketSection
+            groupMatches={(matches as Match[]).filter((m) => m.stage === 'group')}
+            knockoutMatches={(matches as Match[]).filter((m) => m.stage !== 'group')}
+          />
+        )}
+
       </div>
     </div>
   )
