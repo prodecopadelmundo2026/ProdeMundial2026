@@ -12,6 +12,15 @@ interface TeamStats {
   played: number
 }
 
+export type TeamStanding = TeamStats & {
+  gd: number
+}
+
+export type BestThirdStanding = TeamStanding & {
+  group: string
+  qualified: boolean
+}
+
 // Maps each P-number to its original [home_placeholder, away_placeholder] as stored in DB
 const KNOCKOUT_FIXTURES: Record<number, [string, string]> = {
   73:  ['2° Grupo A',  '2° Grupo B'],
@@ -386,6 +395,16 @@ function computeGroupStats(groupMatches: Match[], predMap: PredMap): TeamStats[]
   })
 }
 
+export function computeGroupStandingsDetailed(
+  groupMatches: Match[],
+  predMap: PredMap,
+  tiebreakerMap: TiebreakerMap = {},
+  groupKey?: string
+): TeamStanding[] {
+  return applyGroupTiebreakers(computeGroupStats(groupMatches, predMap), tiebreakerMap, groupKey)
+    .map((team) => ({ ...team, gd: team.gf - team.ga }))
+}
+
 function getThirdPlaceStats(
   allGroupMatches: Match[],
   predMap: PredMap,
@@ -433,6 +452,19 @@ function sortThirds<T extends TeamStats & { group: string }>(thirds: T[], tiebre
     if (picked === b.name) return 1
     return a.group.localeCompare(b.group)
   })
+}
+
+export function computeBestThirdsTable(
+  allGroupMatches: Match[],
+  predMap: PredMap,
+  tiebreakerMap: TiebreakerMap = {}
+): BestThirdStanding[] {
+  const thirds = sortThirds(getThirdPlaceStats(allGroupMatches, predMap, tiebreakerMap), tiebreakerMap)
+  return thirds.map((team, index) => ({
+    ...team,
+    gd: team.gf - team.ga,
+    qualified: index < 8,
+  }))
 }
 
 // Given the 8 qualifying best-thirds groups, find which group fills each slot via backtracking.

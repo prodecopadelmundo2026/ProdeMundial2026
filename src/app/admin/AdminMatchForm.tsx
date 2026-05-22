@@ -4,7 +4,13 @@ import { useState, useTransition } from 'react'
 import { setMatchResult } from './actions'
 import type { Match } from '@/types'
 
-export function AdminMatchForm({ match }: { match: Match }) {
+export function AdminMatchForm({
+  match,
+  disabledReason,
+}: {
+  match: Match
+  disabledReason?: string | null
+}) {
   const [home, setHome] = useState(match.home_score?.toString() ?? '')
   const [away, setAway] = useState(match.away_score?.toString() ?? '')
   const [status, setStatus] = useState<Match['status']>(match.status)
@@ -15,6 +21,7 @@ export function AdminMatchForm({ match }: { match: Match }) {
   const bothScoresSet = home !== '' && away !== ''
   const pointsWillCalculate = bothScoresSet && status === 'finished'
   const scoresButNotFinished = bothScoresSet && status !== 'finished'
+  const isDisabled = Boolean(disabledReason)
 
   function handleScoreChange(field: 'home' | 'away', val: string) {
     if (field === 'home') setHome(val)
@@ -78,6 +85,7 @@ export function AdminMatchForm({ match }: { match: Match }) {
             min={0}
             max={30}
             value={home}
+            disabled={isDisabled || isPending}
             onChange={(e) => handleScoreChange('home', e.target.value)}
             style={inputStyle}
             onFocus={(e) => {
@@ -96,6 +104,7 @@ export function AdminMatchForm({ match }: { match: Match }) {
             min={0}
             max={30}
             value={away}
+            disabled={isDisabled || isPending}
             onChange={(e) => handleScoreChange('away', e.target.value)}
             style={inputStyle}
             onFocus={(e) => {
@@ -114,6 +123,7 @@ export function AdminMatchForm({ match }: { match: Match }) {
         <div className="relative">
           <select
             value={status}
+            disabled={isDisabled || isPending}
             onChange={(e) => { setStatus(e.target.value as Match['status']); setOk(false) }}
             style={{
               background: status === 'finished' ? 'rgba(168,240,216,0.08)' : status === 'live' ? 'rgba(255,59,59,0.1)' : '#131313',
@@ -148,7 +158,7 @@ export function AdminMatchForm({ match }: { match: Match }) {
         {/* Submit */}
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isDisabled || isPending}
           className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase transition-all duration-150 disabled:opacity-40"
           style={{ background: '#FF6B00', color: '#0A0A0A' }}
           onMouseEnter={(e) => { if (!isPending) e.currentTarget.style.background = '#ff7d1a' }}
@@ -166,6 +176,12 @@ export function AdminMatchForm({ match }: { match: Match }) {
           <span className="text-[12px] font-bold" style={{ color: '#FF6B6B' }}>{error}</span>
         )}
       </div>
+
+      {disabledReason && (
+        <p className="text-[11px] font-bold" style={{ color: '#FFB15C' }}>
+          {disabledReason}
+        </p>
+      )}
 
       {/* Warning: scores set but status isn't finished */}
       {scoresButNotFinished && (
