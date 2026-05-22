@@ -246,16 +246,17 @@ export function resolveTeamFull(
   const thirdMatch = placeholder.match(/^3°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
   if (thirdMatch) {
     const groupsStr = thirdMatch[1]
+    const fallback = `Mejor 3° de ${groupsStr}`
     if (thirdSlotAssignment && thirdSlotAssignment[groupsStr]) {
-      return standings[thirdSlotAssignment[groupsStr]]?.[2] ?? 'Mejor 3°'
+      return standings[thirdSlotAssignment[groupsStr]]?.[2] ?? fallback
     }
     if (bestThirdsGroups && bestThirdsGroups.size > 0) {
       const qualifying = groupsStr.split('/').filter((g) => bestThirdsGroups.has(g))
       if (qualifying.length === 1) {
-        return standings[qualifying[0]]?.[2] ?? 'Mejor 3°'
+        return standings[qualifying[0]]?.[2] ?? fallback
       }
     }
-    return 'Mejor 3°'
+    return fallback
   }
 
   // "Ganador P74" / "Perdedor P101"

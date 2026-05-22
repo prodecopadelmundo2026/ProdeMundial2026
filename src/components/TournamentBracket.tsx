@@ -119,24 +119,31 @@ function getWinner(
 }
 
 function isPlaceholderName(name: string): boolean {
+  const normalized = normalizePlaceholderName(name)
   return (
-    name.includes('°') ||
-    name.startsWith('Ganador') ||
-    name.startsWith('Perdedor') ||
-    name === 'Mejor 3°'
+    normalized.includes('°') ||
+    normalized.startsWith('Ganador') ||
+    normalized.startsWith('Perdedor') ||
+    normalized === 'Mejor 3°'
   )
 }
 
+function normalizePlaceholderName(name: string): string {
+  return name.replace(/Ã‚Â°|Â°/g, '°')
+}
+
 function shortName(raw: string): string {
-  if (raw === 'Mejor 3°') return 'Mejor 3°'
-  const m = raw.match(/^([12])°\s+Grupo\s+([A-L])$/)
+  const normalized = normalizePlaceholderName(raw)
+  if (normalized === 'Mejor 3°') return 'Mejor 3°'
+  const m = normalized.match(/^([12])°\s+Grupo\s+([A-L])$/)
   if (m) return `${m[1]}° Grp ${m[2]}`
-  if (/^3°\s+Grupo\s+/.test(raw)) return 'Mejor 3°'
-  const win = raw.match(/^Ganador\s+P(\d+)$/)
+  const third = normalized.match(/^3°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
+  if (third) return `Mejor 3° de ${third[1]}`
+  const win = normalized.match(/^Ganador\s+P(\d+)$/)
   if (win) return `Gan.P${win[1]}`
-  const los = raw.match(/^Perdedor\s+P(\d+)$/)
+  const los = normalized.match(/^Perdedor\s+P(\d+)$/)
   if (los) return `Perd.P${los[1]}`
-  return raw.slice(0, 13)
+  return normalized.slice(0, 13)
 }
 
 // ── Compact match card ────────────────────────────────────────────────────────
@@ -404,26 +411,28 @@ export function TournamentBracket({
 
   function resolveFromSource(placeholder: string, source: BracketSource, depth = 0): string {
     const context = getContext(source)
-    if (depth > 8) return placeholder
+    const normalized = normalizePlaceholderName(placeholder)
+    if (depth > 8) return normalized
 
-    const direct = placeholder.match(/^(\d)Â°\s+Grupo\s+([A-L])$/)
+    const direct = normalized.match(/^(\d)°\s+Grupo\s+([A-L])$/)
     if (direct) {
       const pos = Number(direct[1]) - 1
-      return context.standings[direct[2]]?.[pos] ?? placeholder
+      return context.standings[direct[2]]?.[pos] ?? normalized
     }
 
-    const third = placeholder.match(/^3Â°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
+    const third = normalized.match(/^3°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
     if (third) {
       const groups = third[1]
       const assigned = context.thirdSlotAssignment[groups]
-      if (assigned) return context.standings[assigned]?.[2] ?? 'Mejor 3Â°'
+      const fallback = `Mejor 3° de ${groups}`
+      if (assigned) return context.standings[assigned]?.[2] ?? fallback
       const candidates = groups.split('/').filter((group) => context.bestThirdsGroups.has(group))
-      if (candidates.length === 1) return context.standings[candidates[0]]?.[2] ?? 'Mejor 3Â°'
-      return 'Mejor 3Â°'
+      if (candidates.length === 1) return context.standings[candidates[0]]?.[2] ?? fallback
+      return fallback
     }
 
-    const knockout = placeholder.match(/^(Ganador|Perdedor)\s+P(\d+)$/)
-    if (!knockout) return placeholder
+    const knockout = normalized.match(/^(Ganador|Perdedor)\s+P(\d+)$/)
+    if (!knockout) return normalized
 
     const pNum = Number(knockout[2])
     const fixture = KNOCKOUT_FIXTURES[pNum]
@@ -462,8 +471,10 @@ export function TournamentBracket({
     const homeTeam = rawHome ? resolveFromSource(rawHome, source) : `P${pNum}H`
     const awayTeam = rawAway ? resolveFromSource(rawAway, source) : `P${pNum}A`
 
-    const pred = match ? scoreMap[match.id] : undefined
+    const rawPred = match ? scoreMap[match.id] : undefined
     const tb   = match ? tiebreakerMap[match.id] : undefined
+    const teamsResolved = !isPlaceholderName(homeTeam) && !isPlaceholderName(awayTeam)
+    const pred = teamsResolved ? rawPred : undefined
 
     const homeScore = pred?.home_score
     const awayScore = pred?.away_score
@@ -476,7 +487,8 @@ export function TournamentBracket({
       if (offPred) {
         const offHome   = rawHome ? resolveFromSource(rawHome, 'official') : ''
         const offAway   = rawAway ? resolveFromSource(rawAway, 'official') : ''
-        const offWinner = getWinner(offHome, offAway, offPred)
+        const offTeamsResolved = !isPlaceholderName(offHome) && !isPlaceholderName(offAway)
+        const offWinner = offTeamsResolved ? getWinner(offHome, offAway, offPred) : null
         if (offWinner && winner) {
           auditStatus = offWinner === winner ? 'correct' : 'wrong'
         } else {
