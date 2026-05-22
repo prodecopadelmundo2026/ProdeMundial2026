@@ -1,4 +1,4 @@
-import type { Match, Prediction } from '@/types'
+import type { Match, Prediction, RankingEntry } from '@/types'
 import {
   assignBestThirdsToSlots,
   buildKnockoutMap,
@@ -25,6 +25,13 @@ export type MatchAuditRow = {
   status: AuditStatus
   points: number | null
   crossMatches: boolean | null
+}
+
+export type RankingAuditSummary = {
+  total_points: number
+  exact_predictions: number
+  correct_result_predictions: number
+  incorrect_predictions: number
 }
 
 function sign(value: number) {
@@ -209,4 +216,52 @@ export function buildMatchAuditRows(matches: Match[], predictions: Prediction[])
 export function calculateAuditedPredictionPoints(match: Match, allMatches: Match[], userPredictions: Prediction[]) {
   const row = buildMatchAuditRows(allMatches, userPredictions).find((item) => item.match.id === match.id)
   return row?.points ?? null
+}
+
+export function summarizeAuditRows(rows: MatchAuditRow[]): RankingAuditSummary {
+  return {
+    total_points: rows.reduce((total, row) => total + (row.points ?? 0), 0),
+    exact_predictions: rows.filter((row) => row.status === 'exact').length,
+    correct_result_predictions: rows.filter((row) => row.status === 'partial').length,
+    incorrect_predictions: rows.filter((row) => row.status === 'incorrect').length,
+  }
+}
+
+export function buildAuditedRankingEntries(
+  matches: Match[],
+  predictions: Prediction[],
+  participants: Array<{ user_id: string; name: string; avatar_url: string | null }>
+): RankingEntry[] {
+  const predictionsByUser = new Map<string, Prediction[]>()
+  for (const prediction of predictions) {
+    if (!predictionsByUser.has(prediction.user_id)) predictionsByUser.set(prediction.user_id, [])
+    predictionsByUser.get(prediction.user_id)!.push(prediction)
+  }
+
+  return participants
+    .map((participant) => {
+      const rows = buildMatchAuditRows(matches, predictionsByUser.get(participant.user_id) ?? [])
+      const summary = summarizeAuditRows(rows)
+      return {
+        user_id: participant.user_id,
+        name: participant.name,
+        avatar_url: participant.avatar_url,
+        ...summary,
+        rank: 0,
+      }
+    })
+    .sort((a, b) => {
+      if (b.total_points !== a.total_points) return b.total_points - a.total_points
+      if (b.exact_predictions !== a.exact_predictions) return b.exact_predictions - a.exact_predictions
+      return a.name.localeCompare(b.name)
+    })
+    .map((entry, index, sorted) => {
+      const previous = sorted[index - 1]
+      const rank = previous &&
+        previous.total_points === entry.total_points &&
+        previous.exact_predictions === entry.exact_predictions
+        ? previous.rank
+        : index + 1
+      return { ...entry, rank }
+    })
 }

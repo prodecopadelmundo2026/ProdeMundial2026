@@ -46,6 +46,20 @@ function stageLabel(stage: Match['stage']) {
   return labels[stage] ?? stage
 }
 
+function adminSectionId(key: string) {
+  const map: Record<string, string> = {
+    Clasificacion: 'admin-section-clasificacion',
+    Grupos: 'admin-section-grupos',
+    Dieciseisavos: 'admin-section-dieciseisavos',
+    Octavos: 'admin-section-octavos',
+    Cuartos: 'admin-section-cuartos',
+    Semifinales: 'admin-section-semis',
+    '3er puesto': 'admin-section-tercer-puesto',
+    Final: 'admin-section-final',
+  }
+  return map[key] ?? `admin-section-${key.toLowerCase().replace(/\s+/g, '-')}`
+}
+
 function sameTableLine(a: { pts: number; gd: number; gf: number }, b: { pts: number; gd: number; gf: number }) {
   return a.pts === b.pts && a.gd === b.gd && a.gf === b.gf
 }
@@ -166,6 +180,18 @@ export default async function AdminPage() {
     if (!groups[key]) groups[key] = []
     groups[key].push(m)
   }
+  const groupEntries = Object.entries(groups).filter(([groupName]) => groupName.startsWith('Grupo '))
+  const knockoutEntries = Object.entries(groups).filter(([groupName]) => !groupName.startsWith('Grupo '))
+  const adminSections = [
+    { label: 'Clasificación', href: '#admin-section-clasificacion' },
+    { label: 'Grupos', href: '#admin-section-grupos' },
+    { label: 'Dieciseisavos', href: '#admin-section-dieciseisavos' },
+    { label: 'Octavos', href: '#admin-section-octavos' },
+    { label: 'Cuartos', href: '#admin-section-cuartos' },
+    { label: 'Semis', href: '#admin-section-semis' },
+    { label: 'Tercer puesto', href: '#admin-section-tercer-puesto' },
+    { label: 'Final', href: '#admin-section-final' },
+  ]
 
   return (
     <div style={{ padding: '20px 16px clamp(40px, 8vw, 72px)' }}>
@@ -210,7 +236,40 @@ export default async function AdminPage() {
 
         <AdminTestTools />
 
+        <div className="mb-6">
+          <details className="md:hidden rounded-[16px]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <summary className="cursor-pointer px-4 py-3 font-extrabold text-[12px] uppercase" style={{ color: '#cfcfcf' }}>
+              Elegir sección
+            </summary>
+            <div className="grid gap-2 px-3 pb-3">
+              {adminSections.map((section) => (
+                <a
+                  key={section.href}
+                  href={section.href}
+                  className="rounded-[12px] px-3 py-3 text-[12px] font-extrabold uppercase"
+                  style={{ background: '#0A0A0A', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.08)' }}
+                >
+                  {section.label}
+                </a>
+              ))}
+            </div>
+          </details>
+          <div className="hidden md:flex flex-wrap gap-2">
+            {adminSections.map((section) => (
+              <a
+                key={section.href}
+                href={section.href}
+                className="rounded-full px-4 py-2 text-[12px] font-extrabold uppercase transition-colors duration-150"
+                style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.1)' }}
+              >
+                {section.label}
+              </a>
+            ))}
+          </div>
+        </div>
+
         <div
+          id="admin-section-clasificacion"
           className="mb-8 rounded-[16px] overflow-hidden"
           style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}
         >
@@ -294,8 +353,14 @@ export default async function AdminPage() {
           </div>
         ) : (
           <div className="space-y-8">
-            {Object.entries(groups).map(([groupName, groupMatches]) => (
-              <div key={groupName}>
+            {[...groupEntries, ...knockoutEntries].map(([groupName, groupMatches], sectionIndex) => (
+              <div
+                key={groupName}
+                id={groupName.startsWith('Grupo ')
+                  ? sectionIndex === 0 ? adminSectionId('Grupos') : undefined
+                  : adminSectionId(groupName)}
+                style={{ scrollMarginTop: '20px' }}
+              >
                 <p
                   className="text-[10px] font-extrabold tracking-[0.2em] uppercase mb-3"
                   style={{ color: '#4a4a4a' }}

@@ -43,5 +43,6 @@ export type RankingEntry = {
   total_points: number
   exact_predictions: number
   correct_result_predictions: number
+  incorrect_predictions?: number
   rank: number
 }

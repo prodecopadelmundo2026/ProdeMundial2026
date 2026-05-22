@@ -1,17 +1,36 @@
 import { createClient } from '@/lib/supabase/server'
-import type { RankingEntry } from '@/types'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { buildAuditedRankingEntries } from '@/lib/ranking-audit'
+import type { Match, Prediction } from '@/types'
 import { RankingClient } from './RankingClient'
 
 export default async function RankingPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const admin = createAdminClient()
 
-  const { data: ranking } = await supabase
-    .from('ranking_entries')
-    .select('*')
-    .order('rank', { ascending: true })
+  const [{ data: participants }, { data: matches }, { data: predictions }] = await Promise.all([
+    supabase
+      .from('ranking_entries')
+      .select('user_id, name, avatar_url'),
+    supabase
+      .from('matches')
+      .select('*')
+      .order('scheduled_at', { ascending: true }),
+    admin
+      .from('predictions')
+      .select('*'),
+  ])
 
-  const entries = (ranking ?? []) as RankingEntry[]
+  const entries = buildAuditedRankingEntries(
+    (matches ?? []) as Match[],
+    (predictions ?? []) as Prediction[],
+    (participants ?? []).map((participant) => ({
+      user_id: participant.user_id,
+      name: participant.name,
+      avatar_url: participant.avatar_url,
+    }))
+  )
 
   return (
     <div style={{ padding: 'clamp(40px,8vw,64px) 20px clamp(60px,12vw,100px)' }}>

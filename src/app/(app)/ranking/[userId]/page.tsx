@@ -3,8 +3,14 @@ import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/server'
-import { buildMatchAuditRows, type AuditStatus, type MatchAuditRow } from '@/lib/ranking-audit'
-import type { Match, Prediction, RankingEntry } from '@/types'
+import { createAdminClient } from '@/lib/supabase/admin'
+import {
+  buildAuditedRankingEntries,
+  buildMatchAuditRows,
+  type AuditStatus,
+  type MatchAuditRow,
+} from '@/lib/ranking-audit'
+import type { Match, Prediction } from '@/types'
 
 type StageKey = Match['stage'] | 'specials'
 
@@ -171,17 +177,26 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     ? query.result
     : null
   const supabase = await createClient()
+  const admin = createAdminClient()
 
-  const [{ data: ranking }, { data: predictions }, { data: matches }] = await Promise.all([
-    supabase.from('ranking_entries').select('*').eq('user_id', userId).maybeSingle(),
-    supabase.from('predictions').select('*').eq('user_id', userId),
+  const [{ data: participants }, { data: userPredictions }, { data: allPredictions }, { data: matches }] = await Promise.all([
+    supabase.from('ranking_entries').select('user_id, name, avatar_url'),
+    admin.from('predictions').select('*').eq('user_id', userId),
+    admin.from('predictions').select('*'),
     supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
   ])
 
-  if (!ranking) notFound()
+  const participantRows = (participants ?? []).map((participant) => ({
+    user_id: participant.user_id,
+    name: participant.name,
+    avatar_url: participant.avatar_url,
+  }))
+  const typedMatches = (matches ?? []) as Match[]
+  const rankingEntries = buildAuditedRankingEntries(typedMatches, (allPredictions ?? []) as Prediction[], participantRows)
+  const entry = rankingEntries.find((rankingEntry) => rankingEntry.user_id === userId)
+  if (!entry) notFound()
 
-  const entry = ranking as RankingEntry
-  const auditRows = buildMatchAuditRows((matches ?? []) as Match[], (predictions ?? []) as Prediction[])
+  const auditRows = buildMatchAuditRows(typedMatches, (userPredictions ?? []) as Prediction[])
   const visibleRows = auditRows.filter((row) => {
     if (activeStage === 'specials') return false
     if (row.stage !== activeStage) return false

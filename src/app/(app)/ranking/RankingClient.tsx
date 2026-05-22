@@ -76,7 +76,7 @@ function RankRow({
             )}
           </div>
           <div className="font-mono text-[10px] font-bold tracking-[0.16em] uppercase text-muted truncate">
-            {entry.exact_predictions ?? 0} exactas · {entry.correct_result_predictions ?? 0} parciales
+            {entry.exact_predictions ?? 0} exactas · {entry.correct_result_predictions ?? 0} parciales · {entry.incorrect_predictions ?? 0} incorrectas
           </div>
         </div>
       </div>
@@ -226,7 +226,7 @@ export function RankingClient({
                   </span>
                 </div>
                 <div className="font-mono text-[10px] font-bold tracking-[0.16em] uppercase text-muted truncate">
-                  {meEntry.exact_predictions ?? 0} exactas · {meEntry.correct_result_predictions ?? 0} parciales
+                  {meEntry.exact_predictions ?? 0} exactas · {meEntry.correct_result_predictions ?? 0} parciales · {meEntry.incorrect_predictions ?? 0} incorrectas
                 </div>
               </div>
             </div>
