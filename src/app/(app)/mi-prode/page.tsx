@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import type { Match } from '@/types'
+import type { Match, RankingEntry } from '@/types'
 import { MiProdeTabs } from './MiProdeTabs'
+import { UserHeader } from './UserHeader'
 
 type PredRow = {
   match_id: string
@@ -17,17 +18,19 @@ export default async function MiProdePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: allMatches }, { data: predictions }, { data: profile }] = await Promise.all([
+  const [{ data: allMatches }, { data: predictions }, { data: profile }, { data: rankingRow }] = await Promise.all([
     supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
     supabase
       .from('predictions')
       .select('match_id, home_score, away_score, points, tiebreaker_team, match:matches(status)')
       .eq('user_id', user.id),
-    supabase.from('profiles').select('is_admin').eq('id', user.id).maybeSingle(),
+    supabase.from('profiles').select('is_admin, name').eq('id', user.id).maybeSingle(),
+    supabase.from('ranking_entries').select('*').eq('user_id', user.id).maybeSingle(),
   ])
 
   const matches = (allMatches ?? []) as Match[]
   const userPredictions = (predictions ?? []) as PredRow[]
+  const ranking = rankingRow as RankingEntry | null
 
   const groupMatches = matches.filter((m) => m.stage === 'group')
   const knockoutMatches = matches.filter((m) => m.stage !== 'group')
@@ -44,6 +47,8 @@ export default async function MiProdePage() {
       .filter((p) => p.tiebreaker_team)
       .map((p) => [p.match_id, p.tiebreaker_team!])
   )
+
+  const finishedMatchesCount = matches.filter((m) => m.status === 'finished').length
 
   return (
     <div style={{ padding: '20px 16px clamp(40px, 8vw, 72px)' }}>
@@ -67,6 +72,18 @@ export default async function MiProdePage() {
             Mundial 2026 · USA · Canadá · México
           </p>
         </div>
+
+        {/* User stats header */}
+        <UserHeader
+          name={profile?.name ?? user.email ?? 'Participante'}
+          totalPoints={ranking?.total_points ?? 0}
+          rank={ranking?.rank ?? null}
+          exactPredictions={ranking?.exact_predictions ?? 0}
+          partialPredictions={ranking?.correct_result_predictions ?? 0}
+          finishedMatchesCount={finishedMatchesCount}
+          filledCount={userPredictions.length}
+          totalCount={matches.length}
+        />
 
         <MiProdeTabs
           groupMatches={groupMatches}

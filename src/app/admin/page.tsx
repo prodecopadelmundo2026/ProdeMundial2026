@@ -5,6 +5,7 @@ import { es } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/server'
 import type { Match } from '@/types'
 import { AdminMatchForm } from './AdminMatchForm'
+import { AdminTestTools } from './AdminTestTools'
 
 export default async function AdminPage() {
   const supabase = await createClient()
@@ -62,6 +63,8 @@ export default async function AdminPage() {
             Carga de resultados · Mundial 2026
           </p>
         </div>
+
+        <AdminTestTools />
 
         {!matches?.length ? (
           <div
