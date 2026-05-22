@@ -22,6 +22,15 @@ export type AdminToolResult = {
 
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
 
+function revalidateCorePaths() {
+  revalidatePath('/admin')
+  revalidatePath('/fixture')
+  revalidatePath('/mi-prode')
+  revalidatePath('/ranking')
+  revalidatePath('/ranking/[userId]', 'page')
+  revalidatePath('/')
+}
+
 function adminToolError(error: unknown): AdminToolResult {
   return {
     ok: false,
@@ -107,10 +116,7 @@ export async function setMatchResult(
 
   await recomputeAllPredictionPoints(admin)
 
-  revalidatePath('/admin')
-  revalidatePath('/ranking')
-  revalidatePath('/mi-prode')
-  revalidatePath('/')
+  revalidateCorePaths()
 }
 
 export async function upsertAuthorizedEmail(formData: FormData) {
@@ -205,6 +211,47 @@ function randomGroupScore() {
   return Math.floor(Math.random() * 5)
 }
 
+function shuffle<T>(items: T[]) {
+  const copy = [...items]
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const tmp = copy[i]
+    copy[i] = copy[j]
+    copy[j] = tmp
+  }
+  return copy
+}
+
+function buildResolvableGroupUpdates(groupMatches: Match[]) {
+  const updates: Array<{ id: string; home_score: number; away_score: number }> = []
+  const byGroup: Record<string, Match[]> = {}
+
+  for (const match of groupMatches) {
+    if (!match.group) continue
+    if (!byGroup[match.group]) byGroup[match.group] = []
+    byGroup[match.group].push(match)
+  }
+
+  for (const matches of Object.values(byGroup)) {
+    const teams = Array.from(new Set(matches.flatMap((match) => [match.home_team, match.away_team])))
+    const rank = new Map(shuffle(teams).map((team, index) => [team, index]))
+
+    for (const match of matches) {
+      const homeRank = rank.get(match.home_team) ?? 99
+      const awayRank = rank.get(match.away_team) ?? 99
+      const homeWins = homeRank < awayRank
+      const diff = Math.max(1, Math.abs(homeRank - awayRank))
+      updates.push({
+        id: match.id,
+        home_score: homeWins ? diff + 1 : 0,
+        away_score: homeWins ? 0 : diff + 1,
+      })
+    }
+  }
+
+  return updates
+}
+
 function randomKnockoutScore() {
   let home = randomGroupScore()
   let away = randomGroupScore()
@@ -275,11 +322,8 @@ export async function adminResetMatchResults() {
       .in('stage', ALL_STAGES)
     if (matchErr) throw new Error(matchErr.message)
 
-    revalidatePath('/admin')
-    revalidatePath('/mi-prode')
-    revalidatePath('/ranking')
-    revalidatePath('/')
-    return { ok: true, message: 'Resultados borrados. Todos los partidos volvieron a Proximo.' }
+    revalidateCorePaths()
+    return { ok: true, message: 'Resultados borrados. Todos los partidos volvieron a pendiente.' }
   } catch (error) {
     return adminToolError(error)
   }
@@ -307,17 +351,7 @@ export async function adminFillMatchesRandomly() {
     const allUpdates: Array<{ id: string; home_score: number; away_score: number; status: 'finished' }> = []
     let groupUpdates: Array<{ id: string; home_score: number; away_score: number }> = []
 
-    for (let attempt = 0; attempt < 150; attempt++) {
-      groupUpdates = groupMatches.map((m) => ({
-        id: m.id,
-        home_score: randomGroupScore(),
-        away_score: randomGroupScore(),
-      }))
-      const scoreMap = Object.fromEntries(
-        groupUpdates.map((m) => [m.id, { home_score: m.home_score, away_score: m.away_score }])
-      )
-      if (getPendingGroupTiebreakers(groupMatches, scoreMap).length === 0) break
-    }
+    groupUpdates = buildResolvableGroupUpdates(groupMatches)
 
     workingMatches = applyMatchUpdates(workingMatches, groupUpdates)
     const pendingTiebreakers = getPendingGroupTiebreakers(groupMatches, buildOfficialScoreMap(workingMatches))
@@ -357,10 +391,7 @@ export async function adminFillMatchesRandomly() {
 
     await recomputeAllPredictionPoints(admin)
 
-    revalidatePath('/admin')
-    revalidatePath('/mi-prode')
-    revalidatePath('/ranking')
-    revalidatePath('/')
+    revalidateCorePaths()
     return {
       ok: true,
       message: `${allUpdates.length} partidos del Mundial completados con resultados aleatorios.`,

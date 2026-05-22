@@ -328,6 +328,7 @@ export default async function HomePage() {
                   match={match}
                   prediction={predictionMap[match.id] ?? null}
                   readOnly
+                  showPrediction={Boolean(user)}
                 />
               ))}
             </div>

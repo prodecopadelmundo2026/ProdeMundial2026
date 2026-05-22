@@ -48,9 +48,10 @@ type Props = {
   onValuesChange?: (home: string, away: string) => void
   onSaveStateChange?: (state: 'idle' | 'dirty' | 'saving' | 'saved' | 'error') => void
   readOnly?: boolean
+  showPrediction?: boolean
 }
 
-export function MatchCard({ match, prediction, noAutosave, initialHome, initialAway, onValuesChange, onSaveStateChange, readOnly }: Props) {
+export function MatchCard({ match, prediction, noAutosave, initialHome, initialAway, onValuesChange, onSaveStateChange, readOnly, showPrediction = true }: Props) {
   const now = new Date()
   const lockedAt = new Date(match.locked_at)
   const isOpen = match.status === 'upcoming' && now < lockedAt
@@ -132,7 +133,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
     ? { home_score: Number(home), away_score: Number(away) }
     : null
   const ptsBadge =
-    hasRealScore && predObj && match.home_score != null && match.away_score != null
+    showPrediction && hasRealScore && predObj && match.home_score != null && match.away_score != null
       ? calcPoints(predObj, { home_score: match.home_score, away_score: match.away_score })
       : null
 
@@ -220,6 +221,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
         <>
           <div className="flex flex-col gap-[8px]">
             {/* Pronóstico */}
+            {showPrediction && (
             <div>
               <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] mb-[5px]" style={{ color: '#4a4a4a' }}>
                 Pronóstico
@@ -235,6 +237,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
                 )}
               </div>
             </div>
+            )}
             {/* Resultado final */}
             <div>
               <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] mb-[5px]" style={{ color: '#9a9a9a' }}>
@@ -260,7 +263,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
       ) : (
         <>
           {/* Pronóstico read-only (home page, vista pública) */}
-          {readOnly && prediction && (
+          {showPrediction && readOnly && prediction && (
             <div
               className="flex items-center justify-between px-3 py-2 rounded-[10px] text-[11px] font-bold"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
