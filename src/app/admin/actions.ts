@@ -232,7 +232,7 @@ function buildResolvableGroupUpdates(groupMatches: Match[]) {
     byGroup[match.group].push(match)
   }
 
-  for (const matches of Object.values(byGroup)) {
+  for (const [groupIndex, matches] of Object.values(byGroup).entries()) {
     const teams = Array.from(new Set(matches.flatMap((match) => [match.home_team, match.away_team])))
     const rank = new Map(shuffle(teams).map((team, index) => [team, index]))
 
@@ -240,11 +240,19 @@ function buildResolvableGroupUpdates(groupMatches: Match[]) {
       const homeRank = rank.get(match.home_team) ?? 99
       const awayRank = rank.get(match.away_team) ?? 99
       const homeWins = homeRank < awayRank
-      const diff = Math.max(1, Math.abs(homeRank - awayRank))
+      const bestRank = Math.min(homeRank, awayRank)
+      const worstRank = Math.max(homeRank, awayRank)
+      const winnerGoals =
+        bestRank === 0 && worstRank === 2 ? 4 + groupIndex :
+        bestRank === 1 && worstRank === 2 ? 3 + groupIndex :
+        bestRank === 2 && worstRank === 3 ? 2 + groupIndex :
+        bestRank === 0 && worstRank === 3 ? 5 :
+        bestRank === 1 && worstRank === 3 ? 4 :
+        3
       updates.push({
         id: match.id,
-        home_score: homeWins ? diff + 1 : 0,
-        away_score: homeWins ? 0 : diff + 1,
+        home_score: homeWins ? winnerGoals : 0,
+        away_score: homeWins ? 0 : winnerGoals,
       })
     }
   }

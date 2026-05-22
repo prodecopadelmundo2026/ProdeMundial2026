@@ -311,6 +311,11 @@ interface BestThirdsViewProps {
 }
 
 function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewProps) {
+  const displayThirds = useMemo(
+    () => applyTiebreakersToThirds(thirds, tiebreakers),
+    [thirds, tiebreakers]
+  )
+
   if (!thirds.length) {
     return (
       <p className="text-muted text-[14px] py-8 text-center">
@@ -318,12 +323,6 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
       </p>
     )
   }
-
-  // Re-sort applying tiebreaker picks so the table updates live
-  const displayThirds = useMemo(
-    () => applyTiebreakersToThirds(thirds, tiebreakers),
-    [thirds, tiebreakers]
-  )
 
   const tieGroups: number[][] = []
   let i = 0
