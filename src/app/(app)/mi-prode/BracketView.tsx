@@ -421,12 +421,26 @@ export function BracketView({
   clearSignal,
   openRandomModal,
 }: Props) {
-  const pendingTiebreakers = getPendingGroupTiebreakers(groupMatches, predMap, groupTiebreakerMap)
+  const groupBuckets = groupMatches.reduce<Record<string, Match[]>>((acc, match) => {
+    if (!match.group) return acc
+    if (!acc[match.group]) acc[match.group] = []
+    acc[match.group].push(match)
+    return acc
+  }, {})
+  const completeGroupMatches = Object.values(groupBuckets).flatMap((matches) =>
+    matches.every((match) => Boolean(predMap[match.id])) ? matches : []
+  )
+  const allGroupsComplete =
+    groupMatches.length > 0 &&
+    completeGroupMatches.length === groupMatches.length
+  const pendingTiebreakers = getPendingGroupTiebreakers(completeGroupMatches, predMap, groupTiebreakerMap)
   const hasPendingTiebreakers = pendingTiebreakers.length > 0
   const bracketLocked = readOnly || hasPendingTiebreakers
-  const standings = computeAllStandings(groupMatches, predMap, groupTiebreakerMap)
+  const standings = computeAllStandings(completeGroupMatches, predMap, groupTiebreakerMap)
   const pMap = buildKnockoutMap(knockoutMatches)
-  const bestThirdsGroups = computeBestThirdsGroups(groupMatches, predMap, groupTiebreakerMap)
+  const bestThirdsGroups = allGroupsComplete && !hasPendingTiebreakers
+    ? computeBestThirdsGroups(groupMatches, predMap, groupTiebreakerMap)
+    : new Set<string>()
   const thirdSlotAssignment = bestThirdsGroups.size > 0 ? assignBestThirdsToSlots(bestThirdsGroups) : {}
 
   // Local inputs: matchId → { home, away } (starts from predMap)

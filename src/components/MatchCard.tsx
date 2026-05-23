@@ -54,7 +54,7 @@ type Props = {
 export function MatchCard({ match, prediction, noAutosave, initialHome, initialAway, onValuesChange, onSaveStateChange, readOnly, showPrediction = true }: Props) {
   const now = new Date()
   const lockedAt = new Date(match.locked_at)
-  const isOpen = match.status === 'upcoming' && now < lockedAt
+  const isOpen = match.status === 'upcoming' && now < lockedAt && !readOnly
   const hasRealScore = (match.status === 'finished' || match.status === 'live')
     && match.home_score != null && match.away_score != null
   const isInputLocked = !isOpen

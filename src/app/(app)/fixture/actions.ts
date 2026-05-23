@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { assertProdeOpen } from '@/lib/prode-lock'
 
 function assertValidScore(score: number) {
   if (!Number.isInteger(score) || score < 0 || score > 99) {
@@ -86,6 +87,7 @@ export async function upsertPrediction(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
+  await assertProdeOpen(supabase)
   assertValidScore(homeScore)
   assertValidScore(awayScore)
 
@@ -122,6 +124,7 @@ export async function upsertPredictionsBatch(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
+  await assertProdeOpen(supabase)
   for (const prediction of predictions) {
     assertValidScore(prediction.homeScore)
     assertValidScore(prediction.awayScore)
@@ -170,6 +173,7 @@ export async function deleteGroupPredictions() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
+  await assertProdeOpen(supabase)
 
   const { data, error } = await supabase.rpc('delete_predictions_by_stages', {
     p_stages: ['group'],
@@ -187,6 +191,7 @@ export async function deletePredictionsByStages(stages: string[]) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
+  await assertProdeOpen(supabase)
 
   const uniqueStages = [...new Set(stages)].filter(Boolean)
   if (!uniqueStages.length) return 0
@@ -208,6 +213,7 @@ export async function deletePredictionsByStages(stages: string[]) {
 
 export async function generateRandomGroupPredictions() {
   const { supabase } = await requireAdmin()
+  await assertProdeOpen(supabase)
 
   const { data: groupMatches, error: matchesError } = await supabase
     .from('matches')
@@ -240,6 +246,7 @@ export async function generateRandomGroupPredictions() {
 
 export async function generateRandomKnockoutPredictions(matchIds: string[]) {
   const { supabase } = await requireAdmin()
+  await assertProdeOpen(supabase)
   const uniqueMatchIds = [...new Set(matchIds)]
   if (!uniqueMatchIds.length) return []
 

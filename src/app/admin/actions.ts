@@ -13,6 +13,7 @@ import {
   resolveTeamFull,
 } from '@/lib/bracket'
 import { buildMatchAuditRows } from '@/lib/ranking-audit'
+import { getProdeLockState } from '@/lib/prode-lock'
 
 export type AdminToolResult = {
   ok: boolean
@@ -142,6 +143,47 @@ export async function upsertAuthorizedEmail(formData: FormData) {
   revalidatePath('/admin/whitelist')
 }
 
+export async function updateAuthorizedEmail(formData: FormData) {
+  await requireAdmin()
+  const admin = createAdminClient()
+
+  const originalEmail = String(formData.get('original_email') ?? '').toLowerCase().trim()
+  const email = String(formData.get('email') ?? '').toLowerCase().trim()
+  const label = String(formData.get('label') ?? '').trim()
+  const active = formData.get('active') === 'on'
+
+  if (!originalEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(originalEmail)) {
+    throw new Error('Email original invalido')
+  }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error('Email invalido')
+  }
+
+  if (email !== originalEmail) {
+    const { data: duplicate, error: duplicateError } = await admin
+      .from('authorized_emails')
+      .select('email')
+      .eq('email', email)
+      .maybeSingle()
+
+    if (duplicateError) throw new Error(duplicateError.message)
+    if (duplicate) throw new Error('Ya existe un participante habilitado con ese email.')
+  }
+
+  const { error } = await admin
+    .from('authorized_emails')
+    .update({
+      email,
+      label: label || null,
+      active,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('email', originalEmail)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/whitelist')
+}
+
 export async function setAuthorizedEmailActive(email: string, active: boolean) {
   const supabase = await createClient()
   await requireAdmin()
@@ -154,6 +196,26 @@ export async function setAuthorizedEmailActive(email: string, active: boolean) {
   if (error) throw new Error(error.message)
 
   revalidatePath('/admin/whitelist')
+}
+
+export async function toggleProdeLockOverride() {
+  await requireAdmin()
+  const admin = createAdminClient()
+  const state = await getProdeLockState(admin)
+  const nextValue = state.locked ? 'unlocked' : 'locked'
+
+  const { error } = await admin
+    .from('app_settings')
+    .upsert({
+      key: 'prode_lock_override',
+      value: nextValue,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'key' })
+
+  if (error) throw new Error(error.message)
+
+  revalidateCorePaths()
+  revalidatePath('/admin')
 }
 
 // ─── Test tools (operan sobre resultados de partidos, no sobre predicciones) ──

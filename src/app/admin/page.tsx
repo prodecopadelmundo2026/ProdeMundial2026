@@ -17,6 +17,8 @@ import {
   resolveTeamFull,
 } from '@/lib/bracket'
 import { AdminBracketSection } from './AdminBracketSection'
+import { getProdeLockState } from '@/lib/prode-lock'
+import { toggleProdeLockOverride } from './actions'
 
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
 
@@ -84,6 +86,7 @@ export default async function AdminPage() {
     .order('scheduled_at', { ascending: true })
 
   const allMatches = (matches ?? []) as Match[]
+  const prodeLock = await getProdeLockState(supabase)
   const groupMatches = allMatches.filter((m) => m.stage === 'group')
   const knockoutMatches = allMatches.filter((m) => m.stage !== 'group')
   const officialScoreMap: ScoreMap = Object.fromEntries(
@@ -234,6 +237,35 @@ export default async function AdminPage() {
             Carga de resultados · Mundial 2026
           </p>
         </div>
+
+        <form
+          action={toggleProdeLockOverride}
+          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
+          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <div>
+            <p className="font-extrabold text-white text-[13px] leading-snug">Estado del Prode</p>
+            <p className="text-[12px] mt-0.5 text-muted">
+              {prodeLock.locked ? 'Apuestas bloqueadas' : 'Apuestas abiertas'}
+              {prodeLock.override
+                ? ` - override manual: ${prodeLock.override === 'locked' ? 'bloqueado' : 'desbloqueado'}`
+                : prodeLock.automaticLocked
+                ? ' - bloqueo automatico por resultado oficial'
+                : ' - sin resultados oficiales cargados'}
+            </p>
+          </div>
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase"
+            style={{
+              background: prodeLock.locked ? 'rgba(168,240,216,0.12)' : 'rgba(255,107,0,0.16)',
+              color: prodeLock.locked ? '#A8F0D8' : '#FF6B00',
+              border: prodeLock.locked ? '1px solid rgba(168,240,216,0.3)' : '1px solid rgba(255,107,0,0.3)',
+            }}
+          >
+            {prodeLock.locked ? 'Desbloquear Prode' : 'Bloquear Prode'}
+          </button>
+        </form>
 
         <AdminTestTools />
 

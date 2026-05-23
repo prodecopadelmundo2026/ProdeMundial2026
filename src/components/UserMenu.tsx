@@ -10,10 +10,11 @@ interface Props {
   name: string
   pts?: number | null
   rank?: number | null
+  exact?: number | null
   isAdmin?: boolean
 }
 
-export function UserMenu({ initial, name, pts, rank, isAdmin = false }: Props) {
+export function UserMenu({ initial, name, pts, rank, exact, isAdmin = false }: Props) {
   const [open, setOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const [logoutError, setLogoutError] = useState<string | null>(null)
@@ -140,10 +141,10 @@ export function UserMenu({ initial, name, pts, rank, isAdmin = false }: Props) {
           </div>
           <div className="text-center px-1.5 py-1">
             <div className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums">
-              -
+              {exact ?? '-'}
             </div>
             <div className="text-[9px] font-extrabold tracking-[0.18em] uppercase text-muted mt-1.5">
-              Aciertos
+              Exactas
             </div>
           </div>
         </div>

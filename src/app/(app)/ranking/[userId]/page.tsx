@@ -30,11 +30,17 @@ const STAGES: Array<{ key: StageKey; label: string }> = [
   { key: 'specials', label: 'Especiales' },
 ]
 
-const SPECIAL_AUDIT_ROWS = [
+const SPECIAL_AUDIT_ROWS: Array<{ key: keyof SpecialBetsRow; label: string; prompt: string; points: number }> = [
   { key: 'balon', label: 'Balon de Oro', prompt: 'Mejor jugador del torneo', points: 20 },
   { key: 'bota', label: 'Bota de Oro', prompt: 'Maximo goleador del torneo', points: 15 },
   { key: 'guante', label: 'Guante de Oro', prompt: 'Mejor arquero del torneo', points: 15 },
 ]
+
+type SpecialBetsRow = {
+  balon: string | null
+  bota: string | null
+  guante: string | null
+}
 
 const STATUS_LABELS: Record<AuditStatus, { text: string; color: string }> = {
   exact: { text: 'Exacto', color: '#A8F0D8' },
@@ -144,7 +150,7 @@ function MatchAuditCard({ row }: { row: MatchAuditRow }) {
   )
 }
 
-function SpecialAuditCard({ row }: { row: typeof SPECIAL_AUDIT_ROWS[number] }) {
+function SpecialAuditCard({ row, value }: { row: typeof SPECIAL_AUDIT_ROWS[number]; value: string | null }) {
   return (
     <div
       className="grid gap-3 px-5 py-4 md:grid-cols-[1fr_1fr_1fr_auto] md:items-center"
@@ -154,7 +160,7 @@ function SpecialAuditCard({ row }: { row: typeof SPECIAL_AUDIT_ROWS[number] }) {
         <p className="font-bold text-[13px] text-white">{row.label}</p>
         <p className="font-mono text-[10px] text-muted mt-1">{row.prompt} - hasta {row.points} pts</p>
       </div>
-      <AuditMetric label="Respuesta del usuario" value="Pendiente de persistencia" />
+      <AuditMetric label="Respuesta del usuario" value={value || 'Sin cargar'} />
       <AuditMetric label="Resultado oficial" value="Pendiente" />
       <div className="flex flex-wrap items-center gap-3 md:justify-end">
         <ResultBadge status="pending" />
@@ -163,9 +169,11 @@ function SpecialAuditCard({ row }: { row: typeof SPECIAL_AUDIT_ROWS[number] }) {
           <span className="font-mono text-[10px] font-bold tracking-[0.14em] uppercase ml-1 text-muted">pts</span>
         </p>
       </div>
-      <p className="md:col-span-4 text-[11px] font-bold text-muted">
-        Las apuestas especiales todavia no tienen scoring oficial persistido. Quedan visibles para auditoria futura y revision manual.
-      </p>
+      {!value && (
+        <p className="md:col-span-4 text-[11px] font-bold text-muted">
+          El usuario todavia no cargo esta apuesta especial.
+        </p>
+      )}
     </div>
   )
 }
@@ -179,11 +187,12 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   const supabase = await createClient()
   const admin = createAdminClient()
 
-  const [{ data: participants }, { data: userPredictions }, { data: allPredictions }, { data: matches }] = await Promise.all([
+  const [{ data: participants }, { data: userPredictions }, { data: allPredictions }, { data: matches }, { data: specialBets }] = await Promise.all([
     supabase.from('ranking_entries').select('user_id, name, avatar_url'),
     admin.from('predictions').select('*').eq('user_id', userId),
     admin.from('predictions').select('*'),
     supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
+    admin.from('special_bets').select('balon, bota, guante').eq('user_id', userId).maybeSingle(),
   ])
 
   const participantRows = (participants ?? []).map((participant) => ({
@@ -305,7 +314,13 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
           </div>
 
           {activeStage === 'specials' ? (
-            SPECIAL_AUDIT_ROWS.map((row) => <SpecialAuditCard key={row.key} row={row} />)
+            SPECIAL_AUDIT_ROWS.map((row) => (
+              <SpecialAuditCard
+                key={row.key}
+                row={row}
+                value={(specialBets as SpecialBetsRow | null)?.[row.key] ?? null}
+              />
+            ))
           ) : visibleRows.length > 0 ? (
             visibleRows.map((row) => <MatchAuditCard key={row.match.id} row={row} />)
           ) : (

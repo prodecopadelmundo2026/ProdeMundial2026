@@ -4,14 +4,22 @@ import { MessageCircle, X } from 'lucide-react'
 import { useState } from 'react'
 import { SALES_CONTACTS, whatsappHref } from '@/lib/sales-contacts'
 
-export function WhatsAppSupportButton() {
+type Props = {
+  placement?: 'floating' | 'nav'
+}
+
+export function WhatsAppSupportButton({ placement = 'floating' }: Props) {
   const [open, setOpen] = useState(false)
+  const isNav = placement === 'nav'
 
   return (
-    <div className="fixed bottom-4 right-4 z-[80] flex flex-col items-end gap-3 sm:bottom-6 sm:right-6">
+    <div className={isNav ? 'relative z-[80]' : 'fixed bottom-4 right-4 z-[80] hidden flex-col items-end gap-3 min-[880px]:flex sm:bottom-6 sm:right-6'}>
       {open && (
         <div
-          className="w-[min(330px,calc(100vw-32px))] rounded-[18px] p-3 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)]"
+          className={isNav
+            ? 'fixed left-4 right-4 top-[66px] rounded-[18px] p-3 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)] min-[540px]:left-1/2 min-[540px]:right-auto min-[540px]:w-[330px] min-[540px]:-translate-x-1/2'
+            : 'w-[min(330px,calc(100vw-32px))] rounded-[18px] p-3 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)]'
+          }
           style={{
             background: 'rgba(20,20,20,0.98)',
             border: '1px solid rgba(255,255,255,0.12)',
@@ -58,10 +66,13 @@ export function WhatsAppSupportButton() {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex h-12 items-center justify-center gap-2 rounded-full px-5 text-[14px] font-extrabold text-[#0A0A0A] shadow-[0_16px_38px_-18px_rgba(168,240,216,0.85)] transition-transform hover:-translate-y-0.5"
+        className={isNav
+          ? 'inline-flex h-9 items-center justify-center gap-1.5 rounded-full px-3 text-[12px] font-extrabold text-[#0A0A0A] shadow-[0_10px_26px_-18px_rgba(168,240,216,0.85)]'
+          : 'inline-flex h-12 items-center justify-center gap-2 rounded-full px-5 text-[14px] font-extrabold text-[#0A0A0A] shadow-[0_16px_38px_-18px_rgba(168,240,216,0.85)] transition-transform hover:-translate-y-0.5'
+        }
         style={{ background: '#A8F0D8' }}
       >
-        <MessageCircle size={18} aria-hidden="true" />
+        <MessageCircle size={isNav ? 15 : 18} aria-hidden="true" />
         Consultas
       </button>
     </div>

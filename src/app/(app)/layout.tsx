@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { NavLinks } from './NavLinks'
 import { UserMenu } from '@/components/UserMenu'
+import { WhatsAppSupportButton } from '@/components/WhatsAppSupportButton'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -14,14 +15,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         supabase.from('profiles').select('name, is_admin').eq('id', user.id).maybeSingle(),
         supabase
           .from('ranking_entries')
-          .select('rank, total_points')
+          .select('rank, total_points, exact_predictions')
           .eq('user_id', user.id)
           .maybeSingle(),
       ])
     : [{ data: null }, { data: null }]
 
   const userName = profile?.name ?? 'U'
-  const entry = rankRow as { rank: number; total_points: number } | null
+  const entry = rankRow as { rank: number; total_points: number; exact_predictions: number } | null
   const initial = userName[0]?.toUpperCase() ?? 'U'
 
   return (
@@ -35,8 +36,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           borderColor: 'rgba(255,255,255,0.08)',
         }}
       >
-        <div className="max-w-[1280px] mx-auto px-4 h-[56px] flex items-center justify-between">
+        <div className="relative max-w-[1280px] mx-auto px-4 h-[56px] flex items-center justify-between">
           <NavLinks isLoggedIn={!!user} />
+          <div className="absolute left-1/2 -translate-x-1/2 min-[880px]:hidden">
+            <WhatsAppSupportButton placement="nav" />
+          </div>
 
           {/* Right side */}
           <div className="flex items-center gap-[10px] shrink-0">
@@ -46,6 +50,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 name={userName}
                 pts={entry?.total_points}
                 rank={entry?.rank}
+                exact={entry?.exact_predictions}
                 isAdmin={Boolean(profile?.is_admin)}
               />
             ) : (

@@ -1,32 +1,62 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { saveSpecialBets, type SpecialBetsValues } from './actions'
 
 const SPECIALS_STORAGE_KEY = 'prode_specials'
 
 const AWARDS = [
-  { key: 'balon', label: 'Balón de Oro', sub: 'Mejor jugador del torneo', pts: '+20', color: '#5B2D8E', inputLabel: 'Jugador' },
-  { key: 'bota', label: 'Bota de Oro', sub: 'Máximo goleador del torneo', pts: '+15', color: '#FF6B00', inputLabel: 'Jugador' },
+  { key: 'balon', label: 'Balon de Oro', sub: 'Mejor jugador del torneo', pts: '+20', color: '#5B2D8E', inputLabel: 'Jugador' },
+  { key: 'bota', label: 'Bota de Oro', sub: 'Maximo goleador del torneo', pts: '+15', color: '#FF6B00', inputLabel: 'Jugador' },
   { key: 'guante', label: 'Guante de Oro', sub: 'Mejor arquero del torneo', pts: '+15', color: '#1565C0', inputLabel: 'Arquero' },
 ] as const
 
 type Key = typeof AWARDS[number]['key']
-type Values = Record<Key, string>
+type Values = SpecialBetsValues
+
+type Props = {
+  initialValues: Values
+  readOnly?: boolean
+}
 
 function onlyLetters(value: string) {
   return value.replace(/[^a-zA-ZÀ-ÿ\s]/g, '')
 }
 
-export function SpecialsTab() {
-  const [values, setValues] = useState<Values>({ balon: '', bota: '', guante: '' })
+function hasAnyValue(values: Values) {
+  return Boolean(values.balon || values.bota || values.guante)
+}
+
+export function SpecialsTab({ initialValues, readOnly = false }: Props) {
+  const [values, setValues] = useState<Values>(initialValues)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  async function persist(next: Values) {
+    if (readOnly) return
+    try {
+      await saveSpecialBets(next)
+      try { localStorage.setItem(SPECIALS_STORAGE_KEY, JSON.stringify(next)) } catch {}
+      setSaveError(null)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 1800)
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'No se pudieron guardar las apuestas especiales.')
+    }
+  }
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem(SPECIALS_STORAGE_KEY)
-      if (stored) setValues(JSON.parse(stored))
+      if (!stored) return
+      const parsed = JSON.parse(stored) as Values
+      if (!hasAnyValue(initialValues)) {
+        setValues(parsed)
+        void persist(parsed)
+      }
     } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -37,10 +67,11 @@ export function SpecialsTab() {
     function handleRandomize() {
       try {
         const stored = localStorage.getItem(SPECIALS_STORAGE_KEY)
-        if (stored) setValues(JSON.parse(stored))
+        if (!stored) return
+        const parsed = JSON.parse(stored) as Values
+        setValues(parsed)
+        void persist(parsed)
       } catch {}
-      setSaved(true)
-      setTimeout(() => setSaved(false), 1800)
     }
     window.addEventListener('prode-specials-cleared', handleClear)
     window.addEventListener('prode-specials-randomized', handleRandomize)
@@ -48,24 +79,22 @@ export function SpecialsTab() {
       window.removeEventListener('prode-specials-cleared', handleClear)
       window.removeEventListener('prode-specials-randomized', handleRandomize)
     }
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly])
 
   function handleChange(key: Key, raw: string) {
+    if (readOnly) return
     const cleaned = onlyLetters(raw)
     const next = { ...values, [key]: cleaned }
     setValues(next)
     setSaved(false)
+    setSaveError(null)
     if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => {
-      try { localStorage.setItem(SPECIALS_STORAGE_KEY, JSON.stringify(next)) } catch {}
-      setSaved(true)
-      setTimeout(() => setSaved(false), 1800)
-    }, 600)
+    saveTimer.current = setTimeout(() => void persist(next), 600)
   }
 
   return (
     <div>
-      {/* Section head */}
       <div style={{ marginBottom: '22px', maxWidth: '560px' }}>
         <h3
           className="font-display uppercase leading-none tracking-[-0.02em]"
@@ -74,12 +103,11 @@ export function SpecialsTab() {
           Apuestas <em className="not-italic italic" style={{ color: '#5B2D8E' }}>especiales</em>
         </h3>
         <p className="text-[14px] mt-2 leading-[1.5]" style={{ color: '#8A8A8A' }}>
-          Cargá quien creés que se va a llevar cada distinción. Solo se evalúan al final del torneo.{' '}
+          Carga quien crees que se va a llevar cada distincion. Solo se evaluan al final del torneo.{' '}
           <b className="text-white font-extrabold">Cierran el 11 de junio.</b>
         </p>
       </div>
 
-      {/* Cards grid */}
       <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-[14px]">
         {AWARDS.map(({ key, label, sub, pts, color, inputLabel }) => (
           <article
@@ -90,27 +118,15 @@ export function SpecialsTab() {
               border: '1px solid rgba(255,255,255,0.08)',
               padding: '20px',
             }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)'
-              ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.16)'
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.transform = ''
-              ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'
-            }}
           >
-            {/* Left strip */}
             <span
               className="absolute left-0 top-0 bottom-0 rounded-l-[18px]"
               style={{ width: 4, background: color }}
             />
 
-            {/* Header */}
             <header className="flex items-start justify-between gap-3">
               <div>
-                <p
-                  className="font-display text-[18px] uppercase leading-none tracking-[-0.01em] text-white"
-                >
+                <p className="font-display text-[18px] uppercase leading-none tracking-[-0.01em] text-white">
                   {label}
                 </p>
                 <p className="text-[12px] font-semibold mt-[6px] leading-[1.4]" style={{ color: '#8A8A8A' }}>
@@ -125,7 +141,6 @@ export function SpecialsTab() {
               </span>
             </header>
 
-            {/* Input */}
             <div className="flex flex-col gap-[6px]">
               <label
                 htmlFor={`sp-${key}`}
@@ -138,16 +153,18 @@ export function SpecialsTab() {
                 id={`sp-${key}`}
                 type="text"
                 value={values[key]}
+                disabled={readOnly}
                 onChange={(e) => handleChange(key, e.target.value)}
                 placeholder="Nombre del jugador"
                 maxLength={40}
-                className="w-full outline-none font-bold text-[15px] text-white placeholder:font-medium placeholder:text-[#555] rounded-[12px] transition-all duration-150"
+                className="w-full outline-none font-bold text-[15px] text-white placeholder:font-medium placeholder:text-[#555] rounded-[12px] transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-70"
                 style={{
                   background: '#0A0A0A',
                   border: '1px solid rgba(255,255,255,0.08)',
                   padding: '14px 16px',
                 }}
                 onFocus={(e) => {
+                  if (readOnly) return
                   e.target.style.borderColor = color
                   e.target.style.background = '#0d0d0d'
                   e.target.style.boxShadow = '0 0 0 4px rgba(255,255,255,0.04)'
@@ -160,9 +177,6 @@ export function SpecialsTab() {
               />
               {saved && values[key] && (
                 <span className="inline-flex items-center gap-[6px] text-[11px] font-bold" style={{ color: '#A8F0D8' }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
                   Guardado
                 </span>
               )}
@@ -171,20 +185,25 @@ export function SpecialsTab() {
         ))}
       </div>
 
-      {/* Save footer */}
       <div
         className="mt-[22px] flex items-center justify-between gap-[14px] flex-wrap px-5 py-4 rounded-[14px]"
         style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
       >
         <span className="text-[13px]" style={{ color: '#8A8A8A' }}>
-          Podés editarlas hasta el{' '}
-          <b className="font-mono text-[12px] font-extrabold tracking-[0.1em] uppercase text-white">11 jun · 15:30</b>
+          {readOnly ? (
+            'Las apuestas especiales estan bloqueadas.'
+          ) : (
+            <>
+              Podes editarlas hasta el{' '}
+              <b className="font-mono text-[12px] font-extrabold tracking-[0.1em] uppercase text-white">11 jun - 15:30</b>
+            </>
+          )}
         </span>
         <span
           className="font-mono text-[11px] font-bold tracking-[0.06em] transition-colors duration-300"
-          style={{ color: saved ? '#A8F0D8' : '#4a4a4a' }}
+          style={{ color: saveError ? '#FF6B6B' : saved ? '#A8F0D8' : '#4a4a4a' }}
         >
-          {saved ? 'Guardado ✓' : 'Guardado automático'}
+          {saveError ?? (saved ? 'Guardado' : 'Guardado automatico')}
         </span>
       </div>
     </div>

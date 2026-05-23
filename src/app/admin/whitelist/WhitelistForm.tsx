@@ -5,6 +5,7 @@ import {
   deactivateParticipant,
   setAuthorizedEmailActive,
   setParticipantAdminRole,
+  updateAuthorizedEmail,
   upsertAuthorizedEmail,
 } from '../actions'
 
@@ -46,7 +47,8 @@ export function WhitelistForm({ rows, query }: Props) {
     clearMessages()
     startTransition(async () => {
       try {
-        await upsertAuthorizedEmail(formData)
+        if (editing) await updateAuthorizedEmail(formData)
+        else await upsertAuthorizedEmail(formData)
         setEditing(null)
         setOk('Participantes habilitados actualizados.')
       } catch (err) {
@@ -134,20 +136,15 @@ export function WhitelistForm({ rows, query }: Props) {
           </p>
         </div>
         <div className="px-5 py-4 grid gap-3 min-[640px]:grid-cols-[1fr_1fr_auto]">
+          {editing && <input type="hidden" name="original_email" value={editing.email} />}
           <input
             key={editing?.email ?? 'new-email'}
             name="email"
             type="email"
             required
-            readOnly={Boolean(editing)}
             defaultValue={editing?.email ?? ''}
             placeholder="participante@email.com"
-            style={{
-              ...inputStyle,
-              background: editing ? '#0d0d0d' : '#0A0A0A',
-              color: editing ? '#4a4a4a' : '#ffffff',
-              cursor: editing ? 'not-allowed' : 'text',
-            }}
+            style={inputStyle}
           />
           <input
             key={editing?.email ? `${editing.email}-label` : 'new-label'}

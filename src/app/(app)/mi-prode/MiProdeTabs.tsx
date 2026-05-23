@@ -11,6 +11,8 @@ import { TournamentBracket } from '@/components/TournamentBracket'
 import { SpecialsBanner } from './SpecialsBanner'
 import { deletePredictionsByStages, generateRandomGroupPredictions } from '@/app/(app)/fixture/actions'
 import { parseScoreInput } from '@/lib/score-input'
+import type { ProdeLockState } from '@/lib/prode-lock'
+import { deleteSpecialBets, saveSpecialBets, type SpecialBetsValues } from './actions'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
@@ -74,6 +76,9 @@ interface Props {
   predMap: PredMap
   tiebreakerMap: Record<string, string>
   isAdmin: boolean
+  prodeLocked: boolean
+  lockState: ProdeLockState
+  initialSpecialBets: SpecialBetsValues
 }
 
 export function MiProdeTabs({
@@ -82,6 +87,9 @@ export function MiProdeTabs({
   predMap,
   tiebreakerMap,
   isAdmin,
+  prodeLocked,
+  lockState,
+  initialSpecialBets,
 }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabId>('grupos')
@@ -176,6 +184,7 @@ export function MiProdeTabs({
   }, [localGroupPreds])
 
   function handleTiebreaker(key: string, team: string | null) {
+    if (prodeLocked) return
     setTiebreakers((prev) => {
       if (!team) {
         const { [key]: _, ...rest } = prev
@@ -186,6 +195,7 @@ export function MiProdeTabs({
   }
 
   function handleGroupPredChange(matchId: string, home: string, away: string) {
+    if (prodeLocked) return
     setLocalGroupPreds((prev) => ({ ...prev, [matchId]: { home, away } }))
   }
 
@@ -301,6 +311,11 @@ export function MiProdeTabs({
   }
 
   function handleDeleteSelectedPredictions() {
+    if (prodeLocked) {
+      setDeleteState('error')
+      setDeleteMessage('El Prode esta bloqueado. No se pueden editar apuestas.')
+      return
+    }
     const scopes = resolveDeleteScopes()
     if (!scopes.hasAnySelection) {
       setDeleteState('error')
@@ -338,6 +353,7 @@ export function MiProdeTabs({
         }
         if (scopes.deleteSpecials) {
           try {
+            await deleteSpecialBets()
             localStorage.removeItem(SPECIALS_STORAGE_KEY)
             window.dispatchEvent(new Event('prode-specials-cleared'))
           } catch {}
@@ -360,6 +376,7 @@ export function MiProdeTabs({
   }
 
   async function handleRandomGroupPredictions() {
+    if (prodeLocked) return
     setFakeState('saving')
     setFakeError(null)
     try {
@@ -396,6 +413,20 @@ export function MiProdeTabs({
 
   return (
     <div>
+      {prodeLocked && (
+        <div
+          className="mb-5 rounded-[16px] px-5 py-4 text-[13px] font-bold"
+          style={{ background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.22)', color: '#FFB15C' }}
+        >
+          El Prode esta bloqueado. Las apuestas quedan en modo solo lectura.
+          {lockState.override === 'locked'
+            ? ' Bloqueo manual admin activo.'
+            : lockState.automaticLocked
+            ? ' Ya hay al menos un resultado oficial cargado.'
+            : ''}
+        </div>
+      )}
+
       {/* Toolbar: phase tabs (left) + admin actions (right) */}
       <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
         <div
@@ -429,6 +460,7 @@ export function MiProdeTabs({
             {/* Aleatorio — tab-aware */}
             <button
               onClick={() => {
+                if (prodeLocked) return
                 if (activeTab === 'grupos') {
                   setFakeState('confirm')
                 } else if (activeTab === 'eliminatoria') {
@@ -437,11 +469,12 @@ export function MiProdeTabs({
                   try {
                     const next = randomSpecials()
                     localStorage.setItem(SPECIALS_STORAGE_KEY, JSON.stringify(next))
+                    void saveSpecialBets(next)
                     window.dispatchEvent(new Event('prode-specials-randomized'))
                   } catch {}
                 }
               }}
-              disabled={fakeState === 'saving'}
+              disabled={fakeState === 'saving' || prodeLocked}
               className="inline-flex items-center gap-[6px] px-3 py-[7px] rounded-[10px] font-bold text-[12px] transition-all duration-150 disabled:opacity-40"
               style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}
               title="Cargá pronósticos aleatorios para la fase activa"
@@ -461,10 +494,12 @@ export function MiProdeTabs({
             {/* Borrar */}
             <button
               onClick={() => {
+                if (prodeLocked) return
                 setDeleteModalOpen(true)
                 setDeleteState('idle')
                 setDeleteMessage(null)
               }}
+              disabled={prodeLocked}
               className="grid h-[34px] w-[34px] place-items-center rounded-[10px] transition-all duration-150"
               style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.08)' }}
               title="Borrar pronósticos"
@@ -647,6 +682,7 @@ export function MiProdeTabs({
           onMatchSaveStateChange={handleGroupSaveStateChange}
           tiebreakers={tiebreakers}
           onTiebreaker={handleTiebreaker}
+          readOnly={prodeLocked}
         />
 
       </div>
@@ -658,7 +694,7 @@ export function MiProdeTabs({
           initialTiebreakerMap={tiebreakerMap}
           isAdmin={isAdmin}
           groupTiebreakerMap={tiebreakers}
-          readOnly={false}
+          readOnly={prodeLocked}
           clearSignal={bracketClearSignal}
           openRandomModal={bracketModalSignal}
         />
@@ -672,11 +708,11 @@ export function MiProdeTabs({
           groupMatches={groupMatches}
           knockoutMatches={knockoutMatches}
           predMap={effectivePredMap}
-          tiebreakerMap={tiebreakerMap}
+          tiebreakerMap={{ ...tiebreakerMap, ...tiebreakers }}
         />
       </div>
       <div style={{ display: activeTab === 'especiales' ? undefined : 'none' }}>
-        <SpecialsTab />
+        <SpecialsTab initialValues={initialSpecialBets} readOnly={prodeLocked} />
       </div>
     </div>
   )
