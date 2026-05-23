@@ -4,6 +4,7 @@ import { MatchCard } from '@/components/MatchCard'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import type { Match } from '@/types'
 import { formatRank, rankMedal } from '@/lib/ranking-display'
+import { ReferralShareButton } from '@/components/ReferralShareButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -92,6 +93,7 @@ export default async function HomePage() {
     { count: myPredsCount },
     { data: upcoming },
     { data: topRanking },
+    { data: profile },
   ] = await Promise.all([
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
     user
@@ -108,6 +110,9 @@ export default async function HomePage() {
       .select('user_id, name, total_points, rank, exact_predictions, correct_result_predictions')
       .order('rank', { ascending: true })
       .limit(10),
+    user
+      ? supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
 
   const hasMyPredictions = (myPredsCount ?? 0) > 0
@@ -255,6 +260,12 @@ export default async function HomePage() {
               >
                 Ver el ranking
               </Link>
+              <ReferralShareButton
+                name={profile?.name}
+                email={user?.email}
+                userId={user?.id}
+                className="inline-flex items-center gap-[10px] rounded-full px-[22px] py-[18px] text-[15px] font-extrabold transition-transform hover:-translate-y-0.5"
+              />
             </div>
           </div>
 

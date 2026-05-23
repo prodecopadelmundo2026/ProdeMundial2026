@@ -238,7 +238,7 @@ export function buildAuditedRankingEntries(
     predictionsByUser.get(prediction.user_id)!.push(prediction)
   }
 
-  return participants
+  const sortedEntries = participants
     .map((participant) => {
       const rows = buildMatchAuditRows(matches, predictionsByUser.get(participant.user_id) ?? [])
       const summary = summarizeAuditRows(rows)
@@ -253,17 +253,19 @@ export function buildAuditedRankingEntries(
     .sort((a, b) => {
       if (b.total_points !== a.total_points) return b.total_points - a.total_points
       if (b.exact_predictions !== a.exact_predictions) return b.exact_predictions - a.exact_predictions
-      if (b.correct_result_predictions !== a.correct_result_predictions) return b.correct_result_predictions - a.correct_result_predictions
       return a.name.localeCompare(b.name)
     })
-    .map((entry, index, sorted) => {
-      const previous = sorted[index - 1]
-      const rank = previous &&
-        previous.total_points === entry.total_points &&
-        previous.exact_predictions === entry.exact_predictions &&
-        previous.correct_result_predictions === entry.correct_result_predictions
-        ? previous.rank
-        : index + 1
-      return { ...entry, rank }
-    })
+
+  let currentRank = 0
+  return sortedEntries.map((entry, index, sorted) => {
+    const previous = sorted[index - 1]
+    if (
+      !previous ||
+      previous.total_points !== entry.total_points ||
+      previous.exact_predictions !== entry.exact_predictions
+    ) {
+      currentRank = index + 1
+    }
+    return { ...entry, rank: currentRank }
+  })
 }

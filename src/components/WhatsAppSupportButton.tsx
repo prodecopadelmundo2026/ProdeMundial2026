@@ -17,7 +17,7 @@ export function WhatsAppSupportButton({ placement = 'floating' }: Props) {
       {open && (
         <div
           className={isNav
-            ? 'fixed left-3 right-3 top-[66px] isolate z-[120] overflow-hidden rounded-[20px] border border-[#303030] bg-[#111111] p-4 shadow-2xl min-[540px]:left-1/2 min-[540px]:right-auto min-[540px]:w-[350px] min-[540px]:-translate-x-1/2'
+            ? 'fixed left-1/2 top-[68px] isolate z-[1000] max-h-[calc(100dvh-92px)] w-[calc(100vw-32px)] max-w-[430px] -translate-x-1/2 overflow-y-auto rounded-[20px] border border-[#303030] bg-[#111111] p-4 shadow-2xl'
             : 'relative isolate z-[120] w-[min(350px,calc(100vw-24px))] overflow-hidden rounded-[20px] border border-[#303030] bg-[#111111] p-4 shadow-2xl'
           }
         >
@@ -43,11 +43,12 @@ export function WhatsAppSupportButton({ placement = 'floating' }: Props) {
                 href={whatsappHref(contact.phone)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between gap-3 rounded-[14px] border border-[#303030] bg-[#181818] px-3 py-3 transition-colors hover:bg-[#202020]"
+                className="flex min-h-[68px] items-center justify-between gap-3 rounded-[14px] border border-[#303030] bg-[#181818] px-4 py-3 transition-colors hover:bg-[#202020]"
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-[13px] font-extrabold text-white">{contact.name}</span>
-                  <span className="block truncate text-[11px] font-semibold text-[#8A8A8A]">{contact.role}</span>
+                  <span className="block truncate text-[14px] font-extrabold text-white">{contact.name}</span>
+                  <span className="mt-0.5 block truncate text-[12px] font-semibold text-[#A8F0D8]">Consultar por WhatsApp</span>
+                  <span className="mt-0.5 block truncate text-[11px] font-semibold text-[#8A8A8A]">{contact.role}</span>
                 </span>
                 <MessageCircle size={18} className="shrink-0 text-[#A8F0D8]" aria-hidden="true" />
               </a>

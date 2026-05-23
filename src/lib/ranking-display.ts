@@ -12,16 +12,15 @@ export const RANK_MEDALS: Record<number, string> = {
 }
 
 export const PRIZE_TIE_RULES = [
-  'Empate en 1°: se divide 1° + 2° y el siguiente puesto pasa a 3°.',
-  'Empate en 2°: se divide 2° + 3°.',
-  'Empate múltiple: se suman los premios involucrados y se dividen entre los empatados.',
+  'Orden: puntos y, si empatan, mayor cantidad de exactas.',
+  'Si siguen empatados, comparten el bloque de premio que corresponda.',
+  'Si el empate empieza en 3°, comparten solo el tercer premio.',
 ] as const
 
 export function isSameRankingLine(a: RankingDisplayEntry, b: RankingDisplayEntry) {
   return (
     a.total_points === b.total_points &&
-    a.exact_predictions === b.exact_predictions &&
-    a.correct_result_predictions === b.correct_result_predictions
+    a.exact_predictions === b.exact_predictions
   )
 }
 
@@ -30,9 +29,22 @@ export function isSharedRank(entry: RankingDisplayEntry, entries: RankingDisplay
 }
 
 export function formatRank(entry: RankingDisplayEntry, entries: RankingDisplayEntry[]) {
-  return `${isSharedRank(entry, entries) ? 'T' : '#'}${entry.rank}`
+  const sharedEntries = entries.filter((other) => isSameRankingLine(other, entry))
+  if (sharedEntries.length <= 1) return `#${entry.rank}`
+
+  const endRank = entry.rank + sharedEntries.length - 1
+  if (entry.rank < 3 && endRank <= 3) return `#${entry.rank}-${endRank}`
+  return `#${entry.rank}`
 }
 
 export function rankMedal(rank: number) {
   return RANK_MEDALS[rank] ?? null
+}
+
+export function hasPrizeTie(entries: RankingDisplayEntry[]) {
+  return entries.some((entry) => {
+    const sharedEntries = entries.filter((other) => isSameRankingLine(other, entry))
+    if (sharedEntries.length <= 1) return false
+    return entry.rank <= 3
+  })
 }

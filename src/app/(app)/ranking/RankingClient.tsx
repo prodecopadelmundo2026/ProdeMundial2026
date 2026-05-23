@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import type { RankingEntry } from '@/types'
-import { formatRank, rankMedal } from '@/lib/ranking-display'
+import { formatRank, hasPrizeTie, rankMedal } from '@/lib/ranking-display'
 
 function initials(name: string): string {
   return name.trim()[0]?.toUpperCase() ?? '?'
@@ -33,9 +33,8 @@ function RankRow({
     <Link href={`/ranking/${entry.user_id}`} className="block">
       <div
         ref={innerRef}
-        className="grid items-center gap-[14px] rounded-[14px] px-[14px] py-3 transition-colors duration-150"
+        className="grid grid-cols-[54px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors duration-150 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:gap-[14px] sm:px-[14px]"
         style={{
-          gridTemplateColumns: '72px 1fr auto',
           background: isMe ? 'rgba(255,107,0,0.1)' : 'transparent',
           border: isMe ? '1px solid rgba(255,107,0,0.28)' : '1px solid transparent',
         }}
@@ -48,7 +47,7 @@ function RankRow({
       >
       {/* Posición */}
       <span
-        className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums"
+        className="font-display text-[19px] leading-none tabular-nums sm:text-[22px]"
         style={{ color: posColor }}
       >
         {medal ? `${medal} ` : ''}{formatRank(entry, entries)}
@@ -57,7 +56,7 @@ function RankRow({
       {/* Usuario */}
       <div className="flex items-center gap-3 min-w-0">
         <div
-          className="w-9 h-9 rounded-full shrink-0 grid place-items-center font-bold text-[14px] text-white"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[14px] font-bold text-white"
           style={{
             background: entry.rank === 1
               ? 'linear-gradient(135deg, #FF6B00, #FFE040)'
@@ -68,7 +67,7 @@ function RankRow({
           {initials(entry.name)}
         </div>
         <div className="min-w-0 flex flex-col gap-0.5">
-          <div className="font-extrabold text-[14px] tracking-[-0.01em] truncate flex items-center gap-2">
+          <div className="flex items-center gap-2 truncate text-[14px] font-extrabold">
             {entry.name}
             {isMe && (
               <span
@@ -79,7 +78,7 @@ function RankRow({
               </span>
             )}
           </div>
-          <div className="font-mono text-[10px] font-bold tracking-[0.16em] uppercase text-muted truncate">
+          <div className="truncate font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted sm:tracking-[0.16em]">
             {entry.exact_predictions ?? 0} exactas · {entry.correct_result_predictions ?? 0} parciales · {entry.incorrect_predictions ?? 0} incorrectas
           </div>
         </div>
@@ -88,13 +87,13 @@ function RankRow({
       {/* Puntos */}
         <div className="text-right shrink-0">
           <span
-            className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums"
+            className="font-display text-[21px] leading-none tabular-nums sm:text-[22px]"
             style={{ color: entry.total_points === 0 ? '#8A8A8A' : undefined }}
           >
             {entry.total_points}
           </span>
           <span
-            className="font-mono text-[10px] font-bold tracking-[0.16em] uppercase ml-1.5"
+            className="ml-1 font-mono text-[9px] font-bold uppercase tracking-[0.12em] sm:ml-1.5 sm:text-[10px] sm:tracking-[0.16em]"
             style={{ color: '#8A8A8A' }}
           >
             pts
@@ -123,6 +122,7 @@ export function RankingClient({
     : entries
 
   const meEntry = entries.find((e) => e.user_id === userId)
+  const showPrizeTieNote = hasPrizeTie(entries)
 
   useEffect(() => {
     const me = meRowRef.current
@@ -170,12 +170,21 @@ export function RankingClient({
           />
         </div>
         <div
-          className="font-mono text-[11px] font-bold tracking-[0.1em] px-4 py-3 rounded-[14px] whitespace-nowrap"
+          className="whitespace-nowrap rounded-[14px] px-3 py-3 font-mono text-[10px] font-bold uppercase tracking-[0.08em] sm:px-4 sm:text-[11px] sm:tracking-[0.1em]"
           style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#8A8A8A' }}
         >
-          <b className="text-white">{filtered.length}</b> PARTICIPANTES
+          <b className="text-white">{filtered.length}</b> JUGADORES
         </div>
       </div>
+
+      {showPrizeTieNote && (
+        <div
+          className="mb-5 rounded-[16px] px-4 py-3 text-[12px] font-semibold leading-relaxed sm:text-[13px]"
+          style={{ background: 'rgba(168,240,216,0.07)', border: '1px solid rgba(168,240,216,0.18)', color: '#cfcfcf' }}
+        >
+          <strong className="font-extrabold text-white">Empate:</strong> los jugadores igualados en puntos y exactas comparten el premio correspondiente. Si el empate excede el podio, la aclaración vale solo para los puestos premiados.
+        </div>
+      )}
 
       {/* Lista */}
       <div
@@ -207,21 +216,21 @@ export function RankingClient({
           aria-label="Tu posición en el ranking"
         >
           <div
-            className="grid items-center gap-[14px] rounded-[14px] px-[14px] py-3"
-            style={{ gridTemplateColumns: '72px 1fr auto', background: 'rgba(255,107,0,0.1)' }}
+            className="grid grid-cols-[54px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:gap-[14px] sm:px-[14px]"
+            style={{ background: 'rgba(255,107,0,0.1)' }}
           >
-            <span className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums" style={{ color: '#FF6B00' }}>
+            <span className="font-display text-[19px] leading-none tabular-nums sm:text-[22px]" style={{ color: '#FF6B00' }}>
               {rankMedal(meEntry.rank) ? `${rankMedal(meEntry.rank)} ` : ''}{formatRank(meEntry, entries)}
             </span>
             <div className="flex items-center gap-3 min-w-0">
               <div
-                className="w-9 h-9 rounded-full shrink-0 grid place-items-center font-bold text-[14px] text-white"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[14px] font-bold text-white"
                 style={{ background: 'linear-gradient(135deg, #5B2D8E, #1565C0)', border: '2px solid #2a2a2a' }}
               >
                 {initials(meEntry.name)}
               </div>
               <div className="min-w-0 flex flex-col gap-0.5">
-                <div className="font-extrabold text-[14px] tracking-[-0.01em] truncate flex items-center gap-2">
+                <div className="flex items-center gap-2 truncate text-[14px] font-extrabold">
                   {meEntry.name}
                   <span
                     className="font-mono text-[9px] font-extrabold tracking-[0.18em] px-[7px] py-[2px] rounded-[6px] shrink-0"
@@ -230,19 +239,19 @@ export function RankingClient({
                     VOS
                   </span>
                 </div>
-                <div className="font-mono text-[10px] font-bold tracking-[0.16em] uppercase text-muted truncate">
+                <div className="truncate font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted sm:tracking-[0.16em]">
                   {meEntry.exact_predictions ?? 0} exactas · {meEntry.correct_result_predictions ?? 0} parciales · {meEntry.incorrect_predictions ?? 0} incorrectas
                 </div>
               </div>
             </div>
             <div className="text-right shrink-0">
               <span
-                className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums"
+                className="font-display text-[21px] leading-none tabular-nums sm:text-[22px]"
                 style={{ color: meEntry.total_points === 0 ? '#8A8A8A' : undefined }}
               >
                 {meEntry.total_points}
               </span>
-              <span className="font-mono text-[10px] font-bold tracking-[0.16em] uppercase ml-1.5" style={{ color: '#8A8A8A' }}>
+              <span className="ml-1 font-mono text-[9px] font-bold uppercase tracking-[0.12em] sm:ml-1.5 sm:text-[10px] sm:tracking-[0.16em]" style={{ color: '#8A8A8A' }}>
                 pts
               </span>
             </div>
