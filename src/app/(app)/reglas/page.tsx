@@ -52,11 +52,11 @@ const SPECIAL_RULES = [
 const GENERAL_RULES = [
   {
     title: 'Cómo funciona el Prode',
-    desc: 'Elegí TODO el Mundial 2026: cargá la fase de grupos, armá tus eliminatorias, decidí quién avanza, quién queda afuera y quién se consagra campeón. Cada acierto suma puntos durante el torneo y también podés sumar extra con las apuestas especiales.',
+    desc: 'Completás toda la Copa del Mundo: fase de grupos, eliminatorias, campeón y apuestas especiales. Después seguís el ranking en vivo y competís por entrar al podio final.',
   },
   {
     title: 'Carga de pronósticos',
-    desc: 'Cada apuesta se carga antes del inicio del partido o según el cierre que marque el sistema. Una vez que el partido queda bloqueado, no se puede modificar.',
+    desc: 'La carga completa del Prode se hace antes del Mundial. 24 horas antes del partido inicial se bloquean pronósticos y apuestas; desde ese momento no se puede modificar nada y solo se siguen resultados, puntos y ranking.',
   },
   {
     title: 'Premios',
