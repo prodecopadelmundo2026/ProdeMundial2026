@@ -24,6 +24,11 @@ type SpecialBetsRow = {
   guante: string | null
 }
 
+type RawMatchRow = Match & {
+  group_name?: string | null
+  group_key?: string | null
+}
+
 function normalizeStage(stage: string | null | undefined, group: string | null | undefined): Match['stage'] {
   const value = String(stage ?? '').trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_')
   if (value === 'group' || value === 'groups' || value === 'fase_de_grupos' || value === 'grupos') return 'group'
@@ -34,6 +39,24 @@ function normalizeStage(stage: string | null | undefined, group: string | null |
   if (value === 'third_place' || value === 'tercer_puesto' || value === '3er_puesto') return 'third_place'
   if (value === 'final') return 'final'
   return group ? 'group' : 'group'
+}
+
+function normalizeGroup(value: string | null | undefined): string | null {
+  const normalized = String(value ?? '').trim()
+  if (!normalized) return null
+  const groupMatch = normalized.match(/(?:grupo|group)\s+([A-L])/i)
+  if (groupMatch) return groupMatch[1].toUpperCase()
+  if (/^[A-L]$/i.test(normalized)) return normalized.toUpperCase()
+  return normalized
+}
+
+function normalizeMatchRow(match: RawMatchRow): Match {
+  const group = normalizeGroup(match.group ?? match.group_name ?? match.group_key)
+  return {
+    ...match,
+    group,
+    stage: normalizeStage(match.stage, group),
+  }
 }
 
 async function loadSpecialBets(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<SpecialBetsRow | null> {
@@ -72,10 +95,7 @@ export default async function MiProdePage() {
     getProdeLockState(supabase),
   ])
 
-  const matches = ((allMatches ?? []) as Match[]).map((match) => ({
-    ...match,
-    stage: normalizeStage(match.stage, match.group),
-  }))
+  const matches = ((allMatches ?? []) as RawMatchRow[]).map(normalizeMatchRow)
   const userPredictions = (predictions ?? []) as PredRow[]
 
   const groupMatches = matches.filter((m) => m.stage === 'group')
@@ -121,6 +141,7 @@ export default async function MiProdePage() {
     normalizedStageCounts: stageCounts,
     finalGroupMatchesCount: groupMatches.length,
     finalKnockoutMatchesCount: knockoutMatches.length,
+    finalGroups: Array.from(new Set(groupMatches.map((match) => match.group).filter(Boolean))),
   })
 
   const predMap = Object.fromEntries(

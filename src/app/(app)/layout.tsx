@@ -48,6 +48,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     : []
   const entry = user ? auditedEntries.find((rankingEntry) => rankingEntry.user_id === user.id) ?? null : null
   const initial = userName[0]?.toUpperCase() ?? 'U'
+  const userIsAdmin = Boolean(profile?.is_admin)
+
+  console.info('[app-layout] navbar profile', {
+    userId: user?.id ?? null,
+    userEmail: user?.email ?? null,
+    profile: profile ? { id: profile.id, email: profile.email, name: profile.name, is_admin: profile.is_admin } : null,
+    userIsAdmin,
+  })
 
   return (
     <div className="min-h-full flex flex-col">
@@ -76,7 +84,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 rank={entry?.rank}
                 sharedRank={entry ? isSharedRank(entry, auditedEntries) : false}
                 exact={entry?.exact_predictions}
-                isAdmin={Boolean(profile?.is_admin)}
+                isAdmin={userIsAdmin}
               />
             ) : (
               <Link

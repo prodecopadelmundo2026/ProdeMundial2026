@@ -17,21 +17,36 @@ export async function getCurrentProfile(user: AuthUserLike): Promise<CurrentProf
   const admin = createAdminClient()
   const normalizedEmail = user.email?.toLowerCase().trim() ?? ''
 
-  const { data: byId } = await admin
-    .from('profiles')
-    .select('id, email, name, avatar_url, is_admin')
-    .eq('id', user.id)
-    .maybeSingle()
+  const [byIdResult, byEmailResult] = await Promise.all([
+    admin
+      .from('profiles')
+      .select('id, email, name, avatar_url, is_admin')
+      .eq('id', user.id)
+      .maybeSingle(),
+    normalizedEmail
+      ? admin
+          .from('profiles')
+          .select('id, email, name, avatar_url, is_admin')
+          .ilike('email', normalizedEmail)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ])
 
-  if (byId) return byId as CurrentProfile
+  const byId = (byIdResult.data as CurrentProfile | null) ?? null
+  const byEmail = (byEmailResult.data as CurrentProfile | null) ?? null
 
-  if (!normalizedEmail) return null
+  console.info('[current-profile] resolved', {
+    authUserId: user.id,
+    authEmail: normalizedEmail || null,
+    byId: byId ? { id: byId.id, email: byId.email, is_admin: byId.is_admin } : null,
+    byEmail: byEmail ? { id: byEmail.id, email: byEmail.email, is_admin: byEmail.is_admin } : null,
+    byIdError: byIdResult.error?.message ?? null,
+    byEmailError: byEmailResult.error?.message ?? null,
+  })
 
-  const { data: byEmail } = await admin
-    .from('profiles')
-    .select('id, email, name, avatar_url, is_admin')
-    .eq('email', normalizedEmail)
-    .maybeSingle()
+  if (byEmail?.is_admin) return byEmail
+  if (byId?.is_admin) return byId
+  if (byId && byEmail) return { ...byId, is_admin: Boolean(byId.is_admin || byEmail.is_admin) }
 
-  return (byEmail as CurrentProfile | null) ?? null
+  return byId ?? byEmail
 }

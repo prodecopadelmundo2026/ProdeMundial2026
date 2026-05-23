@@ -25,6 +25,10 @@ export function UserMenu({ initial, name, pts, rank, sharedRank = false, exact, 
   const showRank = (pts ?? 0) > 0 && Boolean(rank)
 
   useEffect(() => {
+    console.info('[user-menu] props', { name, initial, isAdmin })
+  }, [name, initial, isAdmin])
+
+  useEffect(() => {
     if (!open) return
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)

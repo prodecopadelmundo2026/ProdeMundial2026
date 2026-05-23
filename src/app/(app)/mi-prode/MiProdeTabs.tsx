@@ -116,11 +116,30 @@ export function MiProdeTabs({
 
   const groupedByGroup: Record<string, Match[]> = {}
   for (const m of groupMatches) {
-    if (!m.group) continue
-    const key = `Grupo ${m.group}`
+    const key = m.group ? `Grupo ${m.group}` : 'Grupo sin asignar'
     if (!groupedByGroup[key]) groupedByGroup[key] = []
     groupedByGroup[key].push(m)
   }
+
+  useEffect(() => {
+    console.info('[mi-prode-tabs] props', {
+      groupMatchesCount: groupMatches.length,
+      knockoutMatchesCount: knockoutMatches.length,
+      groupedKeys: Object.keys(groupedByGroup),
+      firstGroupMatch: groupMatches[0]
+        ? {
+            id: groupMatches[0].id,
+            home_team: groupMatches[0].home_team,
+            away_team: groupMatches[0].away_team,
+            scheduled_at: groupMatches[0].scheduled_at,
+            stage: groupMatches[0].stage,
+            group: groupMatches[0].group,
+            status: groupMatches[0].status,
+          }
+        : null,
+      isAdmin,
+    })
+  }, [groupMatches, knockoutMatches, isAdmin])
 
   // Flat local predictions for group matches (matchId → {home, away})
   const [localGroupPreds, setLocalGroupPreds] = useState<Record<string, { home: string; away: string }>>(() => {
