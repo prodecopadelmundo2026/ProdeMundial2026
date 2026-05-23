@@ -198,6 +198,14 @@ function SpecialAuditCard({ row, value }: { row: typeof SPECIAL_AUDIT_ROWS[numbe
   )
 }
 
+function EmptyState({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="px-5 py-8 text-[13px] font-semibold leading-relaxed text-muted">
+      {children}
+    </p>
+  )
+}
+
 export default async function ParticipantRankingPage({ params, searchParams }: Props) {
   const [{ userId }, query] = await Promise.all([params, searchParams])
   const activeStage = STAGES.some((stage) => stage.key === query.stage) ? query.stage! : 'group'
@@ -225,8 +233,12 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   const entry = rankingEntries.find((rankingEntry) => rankingEntry.user_id === userId)
   if (!entry) notFound()
   const rankingStarted = rankingEntries.some((rankingEntry) => rankingEntry.total_points > 0)
+  const typedUserPredictions = (userPredictions ?? []) as Prediction[]
+  const hasPredictions = typedUserPredictions.length > 0
+  const hasOfficialResults = typedMatches.some((match) => match.status === 'finished' && match.home_score != null && match.away_score != null)
+  const hasSpecialBets = Boolean(specialBets?.balon || specialBets?.bota || specialBets?.guante)
 
-  const auditRows = buildMatchAuditRows(typedMatches, (userPredictions ?? []) as Prediction[])
+  const auditRows = hasPredictions ? buildMatchAuditRows(typedMatches, typedUserPredictions) : []
   const visibleRows = auditRows.filter((row) => {
     if (activeStage === 'specials') return false
     if (row.stage !== activeStage) return false
@@ -261,6 +273,18 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
           <SummaryLink label="Parciales" value={statusCount(auditRows, 'partial')} href={filterHref(userId, activeStage, 'partial', activeResult)} active={activeResult === 'partial'} />
           <SummaryLink label="Incorrectas" value={statusCount(auditRows, 'incorrect')} href={filterHref(userId, activeStage, 'incorrect', activeResult)} active={activeResult === 'incorrect'} />
         </div>
+
+        {!hasPredictions && (
+          <div className="mb-4 rounded-[16px] px-4 py-4 text-[13px] font-semibold leading-relaxed text-muted" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+            Este participante todavía no cargó pronósticos.
+          </div>
+        )}
+
+        {!hasOfficialResults && (
+          <div className="mb-4 rounded-[16px] px-4 py-4 text-[13px] font-semibold leading-relaxed text-muted" style={{ background: 'rgba(168,240,216,0.07)', border: '1px solid rgba(168,240,216,0.18)' }}>
+            Todavía no hay puntos para auditar.
+          </div>
+        )}
 
         <details className="md:hidden mb-4 rounded-[16px]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
           <summary className="cursor-pointer px-4 py-3 font-extrabold text-[12px] uppercase" style={{ color: '#cfcfcf' }}>
@@ -334,7 +358,9 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
             </p>
           </div>
 
-          {activeStage === 'specials' ? (
+          {activeStage === 'specials' && !hasSpecialBets ? (
+            <EmptyState>Apuestas especiales sin cargar.</EmptyState>
+          ) : activeStage === 'specials' ? (
             SPECIAL_AUDIT_ROWS.map((row) => (
               <SpecialAuditCard
                 key={row.key}
@@ -342,10 +368,12 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                 value={specialBets?.[row.key] ?? null}
               />
             ))
+          ) : !hasPredictions ? (
+            <EmptyState>Este participante todavía no cargó pronósticos.</EmptyState>
           ) : visibleRows.length > 0 ? (
             visibleRows.map((row) => <MatchAuditCard key={row.match.id} row={row} />)
           ) : (
-            <p className="px-5 py-8 text-[13px] text-muted">No hay partidos para este filtro.</p>
+            <EmptyState>No hay partidos para este filtro.</EmptyState>
           )}
         </div>
       </div>
