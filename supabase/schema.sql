@@ -35,8 +35,8 @@ CREATE TABLE public.predictions (
   id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     uuid        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   match_id    uuid        NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,
-  home_score  int         NOT NULL CHECK (home_score >= 0),
-  away_score  int         NOT NULL CHECK (away_score >= 0),
+  home_score  int         NOT NULL CHECK (home_score BETWEEN 0 AND 99),
+  away_score  int         NOT NULL CHECK (away_score BETWEEN 0 AND 99),
   points      int,                    -- null = partido no finalizado; 0/1/3 = calculado
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now(),

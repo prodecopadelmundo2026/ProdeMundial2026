@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Prode 26 — Mi Prode</title>
+<meta name="description" content="Mi Prode — cargá tus pronósticos del Mundial 2026." />
+<meta name="theme-color" content="#FF6B00" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23FF6B00'/><text x='50%25' y='53%25' text-anchor='middle' dominant-baseline='middle' font-family='Archivo Black,Impact,sans-serif' font-weight='900' font-size='32' fill='%230A0A0A' letter-spacing='-2'>26</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --orange:#FF6B00;--purple:#5B2D8E;--yellow:#FFE040;--blue:#1565C0;--mint:#A8F0D8;
+    --bg:#0A0A0A;--panel:#141414;--panel-2:#1c1c1c;--line:rgba(255,255,255,.08);
+    --text:#FFFFFF;--muted:#8A8A8A;
+    --radius:24px;--radius-sm:14px;
+    --display:'Archivo Black',system-ui,sans-serif;
+    --sans:'Archivo',system-ui,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased;min-height:100vh;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;border:none;cursor:pointer;background:none;color:inherit}
+
+  /* ─── NAV (guest) ─── */
+  .nav{position:sticky;top:0;z-index:50;background:rgba(10,10,10,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  .nav-inner{max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;gap:18px}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--display);letter-spacing:-.02em}
+  .brand-mark{width:36px;height:36px;border-radius:10px;background:var(--orange);display:grid;place-items:center;font-family:var(--display);font-size:14px;color:#000;transform:rotate(-6deg)}
+  .brand-mark span{transform:rotate(6deg)}
+  .brand-name{font-size:18px}.brand-name b{color:var(--orange)}
+  .nav-links{display:none;gap:28px;font-weight:600;font-size:14px}
+  .nav-links a{color:#cfcfcf;padding:6px 0;position:relative;transition:color .15s}
+  .nav-links a:hover{color:#fff}
+  .nav-links a.active{color:#fff}
+  .nav-links a.active::after{content:"";position:absolute;left:0;right:0;bottom:-16px;height:3px;background:var(--orange);border-radius:2px 2px 0 0}
+  .btn-enter{
+    background:var(--orange);color:#0A0A0A;padding:10px 20px;border-radius:999px;
+    font-weight:800;font-size:14px;letter-spacing:.01em;
+    box-shadow:0 6px 18px -8px rgba(255,107,0,.6);
+    transition:transform .15s, box-shadow .2s;
+  }
+  .btn-enter:hover{transform:translateY(-1px);box-shadow:0 12px 24px -8px rgba(255,107,0,.8)}
+  @media (min-width:880px){.nav-links{display:flex}}
+
+  /* ─── PAGE ─── */
+  .page{
+    position:relative;
+    min-height:calc(100vh - 65px);
+    padding:80px 20px 100px;
+    overflow:hidden;
+  }
+  .page-inner{
+    max-width:1280px;margin:0 auto;
+    position:relative;z-index:3;
+  }
+
+  /* Page header */
+  .page-head{
+    display:flex;align-items:end;justify-content:space-between;gap:24px;flex-wrap:wrap;
+    margin-bottom:48px;
+  }
+  .page-head h1{
+    font-family:var(--display);
+    font-size:clamp(48px,9vw,96px);
+    line-height:.92;letter-spacing:-.04em;text-transform:uppercase;
+  }
+  .page-head h1 em{font-style:italic;color:var(--orange)}
+  .page-head .crumb{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:11px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
+    margin-bottom:14px;
+  }
+  .page-head .crumb .dot{width:6px;height:6px;border-radius:50%;background:var(--orange)}
+
+  /* ─── LOCK CARD ─── */
+  .lock-wrap{
+    display:grid;gap:24px;
+    grid-template-columns:1fr;
+    align-items:stretch;
+  }
+  @media (min-width:980px){.lock-wrap{grid-template-columns:1.05fr .95fr}}
+
+  .lock-card{
+    position:relative;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:32px;
+    padding:48px 36px;
+    overflow:hidden;
+  }
+  .lock-card::before{
+    content:"";position:absolute;left:-30%;top:-30%;width:60%;height:60%;
+    background:var(--purple);border-radius:0 0 100% 0;opacity:.5;
+    filter:blur(2px);
+  }
+  .lock-card::after{
+    content:"";position:absolute;right:-25%;bottom:-30%;width:55%;height:55%;
+    background:var(--orange);border-radius:100% 0 0 0;opacity:.4;
+    filter:blur(2px);
+  }
+  .lock-card > *{position:relative;z-index:2}
+
+  .lock-badge{
+    display:inline-flex;align-items:center;gap:10px;
+    padding:10px 16px;border-radius:999px;
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.16);
+    backdrop-filter:blur(8px);
+    font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;
+    margin-bottom:24px;
+  }
+  .lock-badge svg{flex-shrink:0}
+
+  .lock-title{
+    font-family:var(--display);
+    font-size:clamp(40px,6vw,64px);
+    line-height:.94;letter-spacing:-.03em;text-transform:uppercase;
+    color:#fff;
+  }
+  .lock-title em{font-style:italic;color:var(--mint)}
+
+  .lock-body{
+    margin-top:20px;
+    font-size:17px;line-height:1.55;color:#d6d6d6;font-weight:500;
+    max-width:480px;
+  }
+  .lock-body b{color:#fff;font-weight:800}
+
+  .lock-ctas{
+    margin-top:32px;display:flex;flex-wrap:wrap;gap:12px;
+  }
+  .btn{
+    display:inline-flex;align-items:center;gap:10px;
+    padding:18px 26px;border-radius:999px;
+    font-weight:800;font-size:15px;letter-spacing:.01em;
+    transition:transform .15s, box-shadow .2s, background .2s;
+    white-space:nowrap;
+  }
+  .btn-wa{
+    background:var(--mint);color:#0A0A0A;
+    box-shadow:0 10px 28px -10px rgba(168,240,216,.5);
+  }
+  .btn-wa:hover{transform:translateY(-2px);box-shadow:0 18px 36px -10px rgba(168,240,216,.7)}
+  .btn-secondary{
+    background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.16);
+  }
+  .btn-secondary:hover{background:rgba(255,255,255,.14)}
+  .btn-secondary svg{transition:transform .2s}
+  .btn-secondary:hover svg{transform:translateX(3px)}
+
+  .lock-note{
+    margin-top:24px;display:flex;align-items:center;gap:10px;
+    color:var(--muted);font-size:13px;font-weight:600;
+  }
+  .lock-note .pulse{
+    width:8px;height:8px;border-radius:50%;background:var(--orange);
+    animation:pulse 1.6s infinite;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(255,107,0,.7)}
+    70%{box-shadow:0 0 0 8px rgba(255,107,0,0)}
+    100%{box-shadow:0 0 0 0 rgba(255,107,0,0)}
+  }
+
+  /* ─── PREVIEW BLURRED ─── */
+  .preview{
+    position:relative;
+    background:#0d0d0d;
+    border:1px solid var(--line);
+    border-radius:32px;
+    padding:28px;
+    overflow:hidden;
+    min-height:480px;
+    display:flex;flex-direction:column;gap:14px;
+  }
+  .preview-label{
+    font-size:11px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
+    margin-bottom:6px;
+  }
+  .preview-tabs{
+    display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;
+    filter:blur(4px);opacity:.7;
+  }
+  .preview-tabs span{
+    padding:8px 14px;border-radius:999px;
+    background:var(--panel);border:1px solid var(--line);
+    font-size:12px;font-weight:800;
+  }
+  .preview-tabs span.on{background:var(--orange);color:#0A0A0A;border-color:var(--orange)}
+
+  .match-mini{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:18px;
+    position:relative;
+    filter:blur(5px) saturate(.8);
+    opacity:.85;
+    user-select:none;pointer-events:none;
+  }
+  .match-mini::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--orange);border-radius:18px 0 0 18px;
+  }
+  .mini-top{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-weight:800;letter-spacing:.18em;text-transform:uppercase;margin-bottom:14px}
+  .mini-teams{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;margin-bottom:12px}
+  .mini-flag{width:42px;height:42px;border-radius:50%;background:#0A0A0A;border:1px solid var(--line);display:grid;place-items:center;font-size:22px;margin:0 auto}
+  .mini-team-name{font-weight:800;font-size:13px;text-align:center;margin-top:6px}
+  .mini-vs{font-family:var(--display);font-size:13px;color:var(--muted);letter-spacing:.18em;text-align:center}
+  .mini-score{background:#0A0A0A;border:1px solid var(--line);border-radius:12px;padding:8px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}
+  .mini-score span{height:34px;display:grid;place-items:center;font-family:var(--display);font-size:22px;color:#fff}
+  .mini-sep{color:#3a3a3a}
+
+  /* gradient mask over preview */
+  .preview-mask{
+    position:absolute;left:0;right:0;bottom:0;height:50%;
+    background:linear-gradient(180deg, transparent 0%, #0d0d0d 80%);
+    pointer-events:none;
+  }
+  .preview-stamp{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-8deg);
+    background:#0A0A0A;border:2px dashed rgba(255,255,255,.3);
+    color:#fff;
+    padding:14px 22px;border-radius:14px;
+    font-family:var(--display);font-size:18px;letter-spacing:.06em;text-transform:uppercase;
+    z-index:5;
+    white-space:nowrap;
+    display:inline-flex;align-items:center;gap:12px;
+  }
+  .preview-stamp .lock-ico{
+    width:22px;height:22px;flex-shrink:0;color:var(--orange);
+  }
+  .preview-stamp small{display:block;font-family:var(--sans);font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.18em;margin-top:4px}
+
+  /* ─── BG decoration ─── */
+  .canvas{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.35}
+  .blob{position:absolute;border-radius:9999px;animation:float 28s ease-in-out infinite}
+  .blob.q{border-radius:50% 0 50% 0}
+  @keyframes float{0%,100%{transform:translate(0,0) rotate(0)}50%{transform:translate(20px,-30px) rotate(8deg)}}
+  .b1{top:-100px;right:-60px;width:340px;height:340px;background:var(--purple)}
+  .b2{bottom:-120px;left:-80px;width:280px;height:280px;background:var(--blue);animation-delay:-8s}
+  .canvas::before{content:"";position:absolute;inset:0;background:radial-gradient(70% 60% at 50% 50%, transparent 0%, rgba(10,10,10,.7) 60%, rgba(10,10,10,.98) 100%)}
+
+  /* ─── HELP STRIP ─── */
+  .help-strip{
+    margin-top:48px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:24px;
+    padding:28px;
+    display:grid;gap:24px;
+    grid-template-columns:1fr;
+  }
+  @media (min-width:780px){.help-strip{grid-template-columns:repeat(3,1fr)}}
+  .help-item h4{
+    font-family:var(--display);font-size:14px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--orange);margin-bottom:8px;
+  }
+  .help-item p{color:#cfcfcf;font-size:14px;line-height:1.55;font-weight:500}
+
+  /* A11y */
+  :focus{outline:none}
+  :focus-visible{outline:2px solid var(--orange);outline-offset:3px;border-radius:8px}
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important}
+    .blob{animation:none !important}
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html">
+      <span class="brand-mark"><span>26</span></span>
+      <span class="brand-name">PRODE <b>26</b></span>
+    </a>
+    <nav class="nav-links">
+      <a href="index.html">Inicio</a>
+      <a href="mi-prode.html" class="active">Mi Prode</a>
+      <a href="#">Ranking</a>
+      <a href="#">Premios</a>
+      <a href="#">Reglas</a>
+    </nav>
+    <a class="btn-enter" href="login.html">Entrar</a>
+  </div>
+</header>
+
+<main class="page">
+  <div class="canvas" aria-hidden="true">
+    <span class="blob b1"></span>
+    <span class="blob q b2"></span>
+  </div>
+
+  <div class="page-inner">
+    <div class="page-head">
+      <div>
+        <span class="crumb"><span class="dot"></span>Sección</span>
+        <h1>Mi <em>Prode</em></h1>
+      </div>
+    </div>
+
+    <div class="lock-wrap">
+
+      <!-- Lock card -->
+      <section class="lock-card">
+        <span class="lock-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Acceso reservado
+        </span>
+        <h2 class="lock-title">Para participar,<br/><em>ponete en contacto</em><br/>con los organizadores.</h2>
+        <p class="lock-body">
+          El Prode 26 es <b>solo para inscriptos</b>. Escribinos por WhatsApp,
+          te damos el alta y empezás a cargar tus pronósticos en minutos.
+        </p>
+
+        <div class="lock-ctas">
+          <a class="btn btn-wa" href="https://wa.me/5491100000000?text=Hola!%20Quiero%20participar%20del%20Prode%2026" target="_blank" rel="noopener">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.7-.8-1.9-.9-.3-.1-.5-.1-.7.1-.2.3-.8.9-1 1.1-.2.2-.4.2-.6.1-.3-.1-1.2-.4-2.2-1.3-.8-.7-1.4-1.6-1.5-1.9-.2-.3 0-.4.1-.5l.4-.5c.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.7-1.8c-.2-.4-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.3.3-1 .9-1 2.2 0 1.3.9 2.6 1.1 2.8.1.2 1.8 2.9 4.5 4.1 1.7.7 2.3.8 3.1.7.5-.1 1.4-.6 1.6-1.1.2-.5.2-1 .1-1.1l-.4-.2zM12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.5 1.3 4.9L2 22l5.2-1.3c1.4.8 3 1.2 4.7 1.2 5.5 0 10-4.5 10-10S17.5 2 12 2zm6 16c-1.6 1.6-3.8 2.5-6 2.5-1.4 0-2.9-.4-4.1-1.1l-.3-.2-3.1.8.8-3-.2-.3C4.4 15.5 4 13.8 4 12c0-4.4 3.6-8 8-8s8 3.6 8 8c0 2.2-.9 4.3-2.5 5.9z"/></svg>
+            Escribir por WhatsApp
+          </a>
+          <a class="btn btn-secondary" href="login.html">
+            Ya estoy inscripto
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+
+        <div class="lock-note">
+          <span class="pulse"></span>
+          <span>Cierre de inscripción: <b style="color:#fff">10 jun 2026</b></span>
+        </div>
+      </section>
+
+      <!-- Preview blurred -->
+      <aside class="preview" aria-hidden="true">
+        <div class="preview-label">Vista previa · 80 partidos te esperan</div>
+        <div class="preview-tabs">
+          <span class="on">Todos</span>
+          <span>Pendientes</span>
+          <span>Jugados</span>
+          <span>Acertados</span>
+        </div>
+
+        <div class="match-mini">
+          <div class="mini-top"><span>GRUPO A · JUE 11 JUN</span><span>ABIERTO</span></div>
+          <div class="mini-teams">
+            <div><div class="mini-flag">🇲🇽</div><div class="mini-team-name">México</div></div>
+            <div class="mini-vs">VS</div>
+            <div><div class="mini-flag">🇨🇦</div><div class="mini-team-name">Canadá</div></div>
+          </div>
+          <div class="mini-score"><span>2</span><span class="mini-sep">—</span><span>1</span></div>
+        </div>
+
+        <div class="match-mini">
+          <div class="mini-top"><span>GRUPO C · HOY 21:00</span><span>EN VIVO</span></div>
+          <div class="mini-teams">
+            <div><div class="mini-flag">🇦🇷</div><div class="mini-team-name">Argentina</div></div>
+            <div class="mini-vs">2 — 0</div>
+            <div><div class="mini-flag">🇲🇦</div><div class="mini-team-name">Marruecos</div></div>
+          </div>
+          <div class="mini-score"><span>2</span><span class="mini-sep">—</span><span>1</span></div>
+        </div>
+
+        <div class="match-mini">
+          <div class="mini-top"><span>GRUPO B · MIÉ 10 JUN</span><span>FINAL</span></div>
+          <div class="mini-teams">
+            <div><div class="mini-flag">🇪🇸</div><div class="mini-team-name">España</div></div>
+            <div class="mini-vs">3 — 1</div>
+            <div><div class="mini-flag">🇯🇵</div><div class="mini-team-name">Japón</div></div>
+          </div>
+          <div class="mini-score"><span>3</span><span class="mini-sep">—</span><span>1</span></div>
+        </div>
+
+        <div class="preview-stamp">
+          <svg class="lock-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span>Bloqueado<small>Activá tu cuenta para cargar</small></span>
+        </div>
+        <div class="preview-mask"></div>
+      </aside>
+
+    </div>
+
+    <!-- Help strip -->
+    <section class="help-strip">
+      <div class="help-item">
+        <h4>1. Pedí el alta</h4>
+        <p>Escribinos por WhatsApp con tu nombre completo y mail. Te damos de alta en la base.</p>
+      </div>
+      <div class="help-item">
+        <h4>2. Iniciá sesión</h4>
+        <p>Con el mail que nos pasaste, entrá a "Mi Prode" y ya podés cargar tus pronósticos.</p>
+      </div>
+      <div class="help-item">
+        <h4>3. Sumá puntos</h4>
+        <p>Cargá el resultado de los 80 partidos. Ganan los tres del podio + apuestas especiales.</p>
+      </div>
+    </section>
+  </div>
+</main>
+
+</body>
+</html>

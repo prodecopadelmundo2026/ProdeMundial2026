@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Prode 26 — Mi Prode</title>
+<meta name="description" content="Mi Prode — cargá tus pronósticos del Mundial 2026." />
+<meta name="theme-color" content="#FF6B00" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23FF6B00'/><text x='50%25' y='53%25' text-anchor='middle' dominant-baseline='middle' font-family='Archivo Black,Impact,sans-serif' font-weight='900' font-size='32' fill='%230A0A0A' letter-spacing='-2'>26</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --orange:#FF6B00;--purple:#5B2D8E;--yellow:#FFE040;--blue:#1565C0;--mint:#A8F0D8;
+    --bg:#0A0A0A;--panel:#141414;--panel-2:#1c1c1c;--line:rgba(255,255,255,.08);
+    --text:#FFFFFF;--muted:#8A8A8A;
+    --radius:24px;--radius-sm:14px;
+    --display:'Archivo Black',system-ui,sans-serif;
+    --sans:'Archivo',system-ui,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;border:none;cursor:pointer;background:none;color:inherit}
+
+  /* ─── NAV (auth) ─── */
+  .nav{position:sticky;top:0;z-index:50;background:rgba(10,10,10,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  .nav-inner{max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;gap:18px}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--display);letter-spacing:-.02em}
+  .brand-mark{width:36px;height:36px;border-radius:10px;background:var(--orange);display:grid;place-items:center;font-family:var(--display);font-size:14px;color:#000;transform:rotate(-6deg)}
+  .brand-mark span{transform:rotate(6deg)}
+  .brand-name{font-size:18px}.brand-name b{color:var(--orange)}
+  .nav-links{display:none;gap:28px;font-weight:600;font-size:14px}
+  .nav-links a{color:#cfcfcf;padding:6px 0;position:relative;transition:color .15s}
+  .nav-links a:hover{color:#fff}
+  .nav-links a.active{color:#fff}
+  .nav-links a.active::after{content:"";position:absolute;left:0;right:0;bottom:-16px;height:3px;background:var(--orange);border-radius:2px 2px 0 0}
+  .nav-user{display:flex;align-items:center;gap:10px}
+  .nav-pts{
+    display:none;align-items:center;gap:8px;
+    background:var(--panel);border:1px solid var(--line);
+    padding:8px 12px;border-radius:999px;font-size:13px;font-weight:700;
+  }
+  .nav-pts .dot{width:8px;height:8px;border-radius:50%;background:var(--mint)}
+  .nav-pts em{font-style:normal;color:var(--muted);font-weight:600}
+  .nav-avatar{
+    width:36px;height:36px;border-radius:50%;
+    background:linear-gradient(135deg,var(--purple),var(--blue));
+    display:grid;place-items:center;font-weight:800;font-size:13px;
+    border:2px solid #2a2a2a;
+    cursor:pointer;
+    transition:transform .15s, border-color .15s;
+  }
+  .nav-avatar:hover{transform:scale(1.05);border-color:#3a3a3a}
+
+  /* ─── USER MENU (avatar dropdown) ─── */
+  .user-menu-wrap{position:relative}
+  .user-menu{
+    position:absolute;top:calc(100% + 12px);right:0;
+    width:min(320px, calc(100vw - 32px));
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:6px;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,.7);
+    z-index:60;
+    opacity:0;transform:translateY(-6px) scale(.98);pointer-events:none;
+    transition:opacity .15s, transform .15s;
+  }
+  .user-menu.open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
+
+  .um-head{
+    padding:18px 18px 14px;
+    border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:12px;
+  }
+  .um-av{
+    width:44px;height:44px;border-radius:50%;
+    background:linear-gradient(135deg,var(--purple),var(--blue));
+    display:grid;place-items:center;font-family:var(--display);font-size:16px;color:#fff;
+    border:2px solid #2a2a2a;flex-shrink:0;
+  }
+  .um-eyebrow{font-size:10px;color:var(--muted);font-weight:800;letter-spacing:.22em;text-transform:uppercase}
+  .um-name{font-family:var(--display);font-size:18px;letter-spacing:-.02em;line-height:1;margin-top:4px}
+
+  .um-stats{
+    display:grid;grid-template-columns:repeat(3,1fr);
+    padding:14px 8px;
+    border-bottom:1px solid var(--line);
+  }
+  .um-stat{
+    text-align:center;padding:4px 6px;
+    border-right:1px solid var(--line);
+  }
+  .um-stat:last-child{border-right:none}
+  .um-stat-num{
+    font-family:var(--display);font-size:22px;line-height:1;letter-spacing:-.03em;
+    font-variant-numeric:tabular-nums;
+  }
+  .um-stat-num.pos{color:var(--mint)}
+  .um-stat-num em{font-style:normal;color:var(--muted);font-size:.7em}
+  .um-stat-lbl{font-size:9px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+  .um-stat-meta{display:block;font-size:10px;font-weight:700;color:var(--muted);margin-top:3px}
+
+  .um-foot{padding:6px;display:flex;flex-direction:column;gap:2px}
+  .um-link{
+    display:flex;align-items:center;gap:10px;
+    padding:11px 12px;border-radius:10px;
+    font-weight:700;font-size:14px;color:#cfcfcf;text-align:left;
+    transition:background .15s, color .15s;
+  }
+  .um-link:hover{background:var(--panel-2);color:#fff}
+  .um-link.danger{color:#FF8585}
+  .um-link.danger:hover{background:rgba(255,90,90,.08);color:#FF6B6B}
+  @media (min-width:880px){.nav-links{display:flex}.nav-pts{display:flex}}
+
+  /* ─── PAGE WRAPPER ─── */
+  .page{padding:32px 20px 100px}
+  .page-inner{max-width:1280px;margin:0 auto}
+
+  /* ─── USER HEADER ─── */
+  .user-header{margin-bottom:32px}
+
+  .user-card{
+    position:relative;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:28px 28px 24px;
+    overflow:hidden;
+  }
+  .user-card::before{
+    content:"";position:absolute;right:-30%;top:-30%;width:60%;height:60%;
+    background:var(--orange);border-radius:50%;opacity:.08;filter:blur(20px);
+  }
+  .user-card > *{position:relative;z-index:2}
+  .user-top{
+    display:flex;align-items:center;gap:14px;margin-bottom:18px;
+  }
+  .user-top .av{
+    width:56px;height:56px;border-radius:50%;
+    background:linear-gradient(135deg,var(--purple),var(--blue));
+    display:grid;place-items:center;font-family:var(--display);font-size:20px;
+    border:2px solid #2a2a2a;
+    flex-shrink:0;
+  }
+  .user-top .greet{font-size:11px;color:var(--muted);font-weight:800;letter-spacing:.22em;text-transform:uppercase}
+  .user-top .name{font-family:var(--display);font-size:clamp(24px,4vw,32px);letter-spacing:-.02em;line-height:1;margin-top:4px}
+  .user-stats{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:0;
+    margin-top:4px;
+  }
+  .user-stat{
+    padding:14px 14px 14px 0;
+    border-right:1px solid var(--line);
+  }
+  .user-stat:last-child{border-right:none;padding-right:0}
+  .user-stat:not(:first-child){padding-left:14px}
+  .user-stat-num{
+    font-family:var(--display);font-size:clamp(26px,3.5vw,34px);line-height:1;letter-spacing:-.03em;
+    font-variant-numeric:tabular-nums;
+  }
+  .user-stat-num.pos{color:var(--mint)}
+  .user-stat-lbl{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+  .user-stat-meta{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-top:4px}
+
+  /* Progress card */
+  .progress-card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:28px;
+    display:flex;flex-direction:column;justify-content:space-between;
+    gap:18px;
+    position:relative;
+    overflow:hidden;
+  }
+  .progress-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .progress-head .lbl{font-size:11px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+  .progress-head .v{font-family:var(--display);font-size:clamp(28px,4vw,36px);line-height:1;letter-spacing:-.03em;margin-top:6px}
+  .progress-head .v em{font-style:normal;color:var(--muted);font-size:.6em;letter-spacing:-.02em}
+  .progress-deadline{
+    text-align:right;
+    font-size:11px;font-weight:800;color:var(--orange);letter-spacing:.18em;text-transform:uppercase;
+  }
+  .progress-deadline b{display:block;color:#fff;font-size:14px;letter-spacing:-.01em;font-weight:800;text-transform:none;margin-top:4px;font-family:var(--mono)}
+  .progress-bar{
+    position:relative;height:10px;border-radius:999px;
+    background:#0a0a0a;border:1px solid var(--line);
+    overflow:hidden;
+  }
+  .progress-bar .fill{
+    position:absolute;left:0;top:0;bottom:0;
+    background:linear-gradient(90deg, var(--orange), var(--yellow));
+    border-radius:999px;
+    transition:width .4s ease;
+  }
+  .progress-foot{display:flex;justify-content:space-between;font-size:12px;font-weight:700}
+  .progress-foot .left{color:#fff}
+  .progress-foot .right{color:var(--muted)}
+
+  /* ─── SPECIAL BETS REMINDER (slim bar) ─── */
+  .specials-banner{
+    margin-bottom:24px;
+    background:rgba(91,45,142,.16);
+    border:1px solid rgba(168,140,220,.2);
+    border-radius:14px;
+    padding:12px 16px;
+    display:flex;align-items:center;gap:14px;
+    font-size:13px;
+  }
+  .specials-icon{
+    width:28px;height:28px;border-radius:8px;
+    background:var(--purple);
+    display:grid;place-items:center;
+    flex-shrink:0;
+    color:#fff;
+  }
+  .specials-icon svg{display:block;width:14px;height:14px}
+  .specials-content{
+    flex:1;min-width:0;
+    display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+    line-height:1.3;
+  }
+  .specials-content h4{
+    display:inline;font-family:var(--sans);font-size:13px;font-weight:800;
+    text-transform:none;letter-spacing:0;
+  }
+  .specials-content p{display:inline;color:#cfcfcf;font-size:13px;font-weight:500}
+  .specials-content p b{color:var(--mint);font-weight:800;font-family:var(--mono);font-size:12px}
+  .specials-cta{
+    display:inline-flex;align-items:center;gap:6px;
+    background:transparent;color:#fff;
+    padding:6px 12px;border-radius:999px;
+    border:1px solid rgba(168,140,220,.4);
+    font-weight:800;font-size:12px;letter-spacing:.02em;
+    transition:background .15s, border-color .15s;
+    flex-shrink:0;
+  }
+  .specials-cta:hover{background:var(--purple);border-color:var(--purple)}
+  .specials-dismiss{
+    width:24px;height:24px;border-radius:6px;
+    display:grid;place-items:center;color:var(--muted);
+    transition:background .15s, color .15s;
+    flex-shrink:0;
+  }
+  .specials-dismiss:hover{background:rgba(255,255,255,.06);color:#fff}
+
+  /* ─── PAGE HEAD (hermano de Premios/Reglas/Ranking) ─── */
+  .page-head{margin-bottom:32px}
+  .eyebrow-label{
+    display:inline-block;
+    font-family:var(--sans);font-size:12px;font-weight:800;
+    letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
+    margin-bottom:18px;
+  }
+  .page-title{
+    font-family:var(--display);
+    font-size:clamp(48px,9vw,108px);
+    line-height:.9;letter-spacing:-.04em;text-transform:uppercase;
+  }
+  .page-title em{font-style:italic;color:var(--orange)}
+  .page-sub{
+    margin-top:14px;
+    font-family:var(--mono);font-size:13px;font-weight:700;
+    color:var(--muted);letter-spacing:.04em;
+  }
+
+  /* ─── TOOLBAR ─── */
+  .toolbar{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:16px;flex-wrap:wrap;
+    margin-bottom:28px;
+  }
+  .toolbar-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .icon-btn{
+    width:40px;height:40px;border-radius:12px;
+    background:var(--panel);border:1px solid var(--line);
+    display:grid;place-items:center;color:#cfcfcf;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .icon-btn:hover{background:var(--panel-2);color:#fff}
+  .icon-btn.danger:hover{color:#FF8585;border-color:rgba(255,90,90,.3)}
+  .btn-admin{
+    display:inline-flex;align-items:center;gap:8px;
+    background:var(--panel);border:1px solid var(--line);
+    color:#cfcfcf;
+    padding:10px 16px;border-radius:12px;
+    font-weight:700;font-size:13px;letter-spacing:.02em;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .btn-admin:hover{background:var(--panel-2);color:#fff;border-color:rgba(255,255,255,.18)}
+  .btn-admin svg{color:var(--mint)}
+
+  /* ─── SECTION HEADER ─── */
+  .sec-head{
+    display:flex;align-items:end;justify-content:space-between;gap:24px;flex-wrap:wrap;
+    margin-bottom:20px;
+  }
+  .sec-title{
+    font-family:var(--display);
+    font-size:clamp(28px,4.5vw,40px);
+    line-height:.94;letter-spacing:-.03em;text-transform:uppercase;
+  }
+  .sec-title em{font-style:italic;color:var(--orange)}
+
+  /* ─── PHASE TABS ─── */
+  .phase-tabs{
+    display:inline-flex;background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:999px;padding:5px;gap:4px;
+    margin-bottom:20px;flex-wrap:wrap;
+  }
+  .phase-tabs button{
+    padding:10px 18px;border-radius:999px;
+    font-weight:800;font-size:13px;color:var(--muted);
+    transition:background .15s, color .15s;
+    white-space:nowrap;
+  }
+  .phase-tabs button.on{background:var(--orange);color:#0A0A0A}
+  .phase-tabs button:not(.on):hover{color:#fff}
+
+  /* ─── SPECIALS SECTION (tab dedicada) ─── */
+  .specials-section{margin-top:8px}
+  .specials-head{margin-bottom:22px;max-width:560px}
+  .specials-head h3{
+    font-family:var(--display);font-size:clamp(24px,3vw,32px);
+    text-transform:uppercase;letter-spacing:-.02em;line-height:1;
+  }
+  .specials-head h3 em{font-style:italic;color:var(--purple)}
+  .specials-head p{margin-top:8px;color:var(--muted);font-size:14px;line-height:1.5}
+  .specials-head p b{color:#fff;font-weight:800}
+  .specials-grid{
+    display:grid;gap:14px;
+    grid-template-columns:1fr;
+  }
+  @media (min-width:780px){.specials-grid{grid-template-columns:repeat(3,1fr)}}
+
+  .special{
+    position:relative;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:20px;
+    overflow:hidden;
+    display:flex;flex-direction:column;gap:18px;
+    transition:transform .2s, border-color .2s;
+  }
+  .special:hover{transform:translateY(-3px);border-color:rgba(255,255,255,.16)}
+  .special::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+    background:currentColor;
+  }
+  .special.special-ball{color:var(--purple)}
+  .special.special-boot{color:var(--orange)}
+  .special.special-glove{color:var(--blue)}
+
+  .special-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .special-title{
+    font-family:var(--display);font-size:18px;letter-spacing:-.01em;
+    text-transform:uppercase;line-height:1;color:#fff;
+  }
+  .special-sub{margin-top:6px;font-size:12px;color:var(--muted);font-weight:600;line-height:1.4}
+  .special-pts{
+    font-family:var(--display);font-size:36px;line-height:.85;letter-spacing:-.04em;
+    color:currentColor;flex-shrink:0;
+  }
+
+  .special-input-wrap{display:flex;flex-direction:column;gap:6px}
+  .special-input-label{
+    font-size:10px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
+  }
+  .special-input{
+    width:100%;background:#0A0A0A;border:1px solid var(--line);
+    color:#fff;padding:14px 16px;border-radius:12px;
+    font-family:var(--sans);font-size:15px;font-weight:700;
+    outline:none;transition:border-color .15s, background .15s, box-shadow .15s;
+  }
+  .special-input::placeholder{color:#555;font-weight:500}
+  .special-input:focus{border-color:currentColor;background:#0d0d0d;box-shadow:0 0 0 4px rgba(255,255,255,.04)}
+  .special-input.has-value{color:#fff}
+
+  .special-saved{
+    display:none;align-items:center;gap:6px;
+    font-size:11px;font-weight:700;color:var(--mint);
+  }
+  .special-saved.show{display:inline-flex}
+  .special-saved svg{width:12px;height:12px}
+
+  .specials-save{
+    margin-top:22px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    padding:16px 20px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+  }
+  .specials-save-info{font-size:13px;color:var(--muted)}
+  .specials-save-info b{color:#fff;font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+  .specials-save-btn{
+    background:var(--orange);color:#0A0A0A;
+    padding:12px 22px;border-radius:999px;
+    font-weight:800;font-size:13px;letter-spacing:.02em;
+    transition:transform .15s, box-shadow .2s;
+  }
+  .specials-save-btn:hover{transform:translateY(-1px);box-shadow:0 10px 24px -8px rgba(255,107,0,.6)}
+
+  /* ─── GROUP DROPDOWN (combo) ─── */
+  .combo-row{
+    display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+    margin-bottom:28px;
+  }
+  .combo-meta{
+    font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.02em;
+    align-self:end;padding-bottom:18px;white-space:nowrap;
+  }
+  .combo-meta b{color:#fff;font-weight:800}
+  .group-combo-wrap{
+    display:flex;flex-direction:column;gap:6px;
+    width:280px;max-width:100%;
+  }
+  .group-combo-wrap label{
+    font-size:11px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
+  }
+  .group-combo{
+    position:relative;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    transition:border-color .15s, background .15s;
+  }
+  .group-combo:hover{border-color:rgba(255,255,255,.18);background:var(--panel-2)}
+  .group-combo select{
+    appearance:none;-webkit-appearance:none;
+    width:100%;background:transparent;color:#fff;
+    font-family:var(--sans);font-weight:800;font-size:16px;
+    padding:16px 50px 16px 18px;
+    border:none;outline:none;cursor:pointer;
+  }
+  .group-combo select option{
+    background:#000;color:#fff;
+    font-weight:700;font-size:15px;
+    padding:10px;
+  }
+  .group-combo svg{
+    position:absolute;right:18px;top:50%;transform:translateY(-50%);
+    pointer-events:none;color:var(--muted);
+  }
+
+  /* ─── STANDINGS ─── */
+  .standings-block{
+    margin-top:24px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:24px;
+  }
+  .standings-head{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    margin-bottom:18px;
+  }
+  .standings-head h4{
+    font-family:var(--display);font-size:14px;letter-spacing:.18em;text-transform:uppercase;
+  }
+  .standings-head .status-note{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);
+  }
+  .standings-head .status-note .d{width:6px;height:6px;border-radius:50%;background:var(--mint)}
+
+  .standings-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  .standings-table thead th{
+    text-align:right;padding:10px 8px;
+    font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.2em;text-transform:uppercase;
+    border-bottom:1px solid var(--line);
+  }
+  .standings-table thead th:first-child{text-align:center;width:36px}
+  .standings-table thead th:nth-child(2){text-align:left}
+  .standings-table tbody tr{transition:background .15s}
+  .standings-table tbody tr:hover{background:rgba(255,255,255,.02)}
+  .standings-table tbody td{padding:14px 8px;text-align:right;font-size:14px;font-weight:700;border-bottom:1px solid rgba(255,255,255,.04)}
+  .standings-table tbody tr:last-child td{border-bottom:none}
+  .standings-table tbody tr.adv td:first-child{position:relative}
+  .standings-table tbody tr.adv td:first-child::before{
+    content:"";position:absolute;left:-12px;top:50%;transform:translateY(-50%);
+    width:3px;height:60%;background:var(--mint);border-radius:2px;
+  }
+  .standings-table .rank{text-align:center;font-family:var(--display);font-size:18px;color:var(--orange);letter-spacing:-.02em}
+  .standings-table .team-cell{text-align:left;display:flex;align-items:center;gap:10px}
+  .standings-table .team-cell .flag-sm{
+    width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+    background:#0A0A0A;border:1px solid var(--line);font-size:14px;flex-shrink:0;
+  }
+  .standings-table .team-cell .nm{font-weight:800;font-size:14px;letter-spacing:-.01em}
+  .standings-table .team-cell .trend{
+    display:inline-grid;place-items:center;
+    width:18px;height:18px;border-radius:6px;
+    font-family:var(--mono);font-size:10px;font-weight:800;
+    margin-left:6px;
+  }
+  .standings-table .trend.up{background:rgba(168,240,216,.18);color:var(--mint)}
+  .standings-table .trend.down{background:rgba(255,90,90,.18);color:#FF8585}
+  .standings-table .trend.same{background:rgba(255,255,255,.06);color:var(--muted)}
+  .standings-table .pts{color:#fff;font-family:var(--display);font-size:16px;letter-spacing:-.01em}
+  .standings-table .gd.pos{color:var(--mint)}
+  .standings-table .gd.neg{color:#FF8585}
+  .standings-table .gd.zero{color:var(--muted)}
+
+  .standings-legend{
+    display:flex;flex-wrap:wrap;gap:14px;
+    margin-top:14px;padding-top:14px;border-top:1px solid var(--line);
+    font-size:11px;font-weight:700;color:var(--muted);
+  }
+  .legend-item{display:inline-flex;align-items:center;gap:6px}
+  .legend-item .sw{width:10px;height:10px;border-radius:3px}
+  .legend-item .sw.adv{background:var(--mint)}
+
+  /* ─── TIE-BREAKERS ─── */
+  .tiebreaks{margin-top:20px;display:flex;flex-direction:column;gap:12px}
+  .tiebreak{
+    background:#0a0a0a;
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:16px 18px;
+  }
+  .tiebreak-head{
+    font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--orange);margin-bottom:12px;
+    display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+  }
+  .tiebreak-head em{font-style:normal;color:#fff;letter-spacing:.02em}
+  .tiebreak-head .q{color:var(--muted);font-weight:700}
+  .tiebreak-options{display:flex;flex-wrap:wrap;gap:8px}
+  .tb-opt{
+    display:inline-flex;align-items:center;gap:10px;
+    padding:10px 16px 10px 10px;border-radius:12px;
+    background:var(--panel);border:1px solid var(--line);
+    font-weight:800;font-size:14px;color:#fff;
+    transition:background .15s, border-color .15s, transform .15s;
+  }
+  .tb-opt .flag-sm{width:24px;height:24px;border-radius:50%;background:#000;border:1px solid var(--line);display:grid;place-items:center;font-size:14px;flex-shrink:0}
+  .tb-opt:hover{background:var(--panel-2);border-color:rgba(255,255,255,.18)}
+  .tb-opt.on{
+    background:var(--orange);color:#0A0A0A;border-color:var(--orange);
+    box-shadow:0 6px 16px -8px rgba(255,107,0,.5);
+  }
+  .tb-opt.on .flag-sm{background:rgba(0,0,0,.1)}
+
+  /* ─── GROUP STANDINGS MINI ─── */
+  .group-section{margin-bottom:48px}
+  .group-section-head{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    margin-bottom:18px;
+  }
+  .group-section-title{
+    display:flex;align-items:baseline;gap:14px;
+  }
+  .group-section-title h3{
+    font-family:var(--display);font-size:24px;letter-spacing:-.02em;text-transform:uppercase;
+  }
+  .group-section-title h3 em{font-style:italic;color:var(--orange)}
+  .group-section-title .meta{
+    font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.18em;text-transform:uppercase;
+  }
+  .group-section-cta{
+    font-size:13px;font-weight:700;color:var(--muted);
+    display:inline-flex;align-items:center;gap:6px;
+    transition:color .15s;
+  }
+  .group-section-cta:hover{color:#fff}
+
+  /* ─── MATCH GRID ─── */
+  .match-grid{display:grid;gap:12px;grid-template-columns:1fr}
+  @media (min-width:640px){.match-grid{grid-template-columns:repeat(2,1fr)}}
+  @media (min-width:1024px){.match-grid{grid-template-columns:repeat(3,1fr)}}
+  @media (min-width:1280px){.match-grid{grid-template-columns:repeat(4,1fr)}}
+
+  .match{
+    position:relative;background:var(--panel);
+    border:1px solid var(--line);border-radius:18px;
+    padding:14px 14px 12px;
+    transition:transform .2s, border-color .2s;
+    overflow:hidden;
+  }
+  .match:hover{transform:translateY(-3px);border-color:rgba(255,255,255,.18)}
+  .match::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--orange)}
+  .match.finished::before{background:#3a3a3a}
+
+  .match-top{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:12px;font-size:11px;gap:8px;
+  }
+  .match-meta{display:flex;align-items:center;gap:8px;color:var(--muted);font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:10px;min-width:0;overflow:hidden}
+  .match-meta .grp{background:#0A0A0A;color:#fff;padding:3px 6px;border-radius:5px;border:1px solid var(--line);font-size:9px;flex-shrink:0}
+  .match-meta .date{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .status{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:3px 8px;border-radius:999px;
+    font-size:9px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+    flex-shrink:0;
+  }
+  .status .d{width:5px;height:5px;border-radius:50%}
+  .status.open{background:rgba(168,240,216,.14);color:var(--mint)}
+  .status.open .d{background:var(--mint)}
+  .status.finished{background:rgba(255,255,255,.06);color:#9a9a9a}
+  .status.finished .d{background:#9a9a9a}
+  @keyframes blink{50%{opacity:.2}}
+
+  .teams{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:10px}
+  .team{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;min-width:0}
+  .team.away{order:3}
+  .flag{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:20px;background:#0A0A0A;border:1px solid var(--line)}
+  .team-name{font-weight:800;font-size:12px;letter-spacing:-.01em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .team-code{display:none}
+  .vs{font-family:var(--display);font-size:11px;color:var(--muted);letter-spacing:.14em}
+
+  .score-context{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:8px;padding:8px 12px;border-radius:10px;
+    font-weight:800;gap:10px;
+  }
+  .score-context .label{display:inline-flex;align-items:center;gap:6px;text-transform:uppercase;letter-spacing:.16em;font-size:9px}
+  .score-context .score{font-family:var(--display);font-size:16px;letter-spacing:-.02em;color:#fff;font-variant-numeric:tabular-nums}
+  .score-context.final{background:rgba(255,255,255,.04);border:1px solid var(--line);color:#9a9a9a}
+
+  .pred-label{display:none}
+
+  .score-row{
+    display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;
+    background:#0A0A0A;border:1px solid var(--line);
+    border-radius:12px;padding:6px;
+  }
+  .score-input{
+    width:100%;height:42px;text-align:center;
+    background:transparent;border:none;color:#fff;
+    font-family:var(--display);font-size:26px;letter-spacing:-.03em;
+    border-radius:8px;transition:background .15s;outline:none;
+    font-variant-numeric:tabular-nums;
+  }
+  .score-input:focus{background:rgba(255,107,0,.12);box-shadow:inset 0 0 0 2px var(--orange)}
+  .score-input:disabled{color:#fff;-webkit-text-fill-color:#fff;opacity:1;cursor:not-allowed}
+  .score-sep{font-family:var(--display);font-size:18px;color:#3a3a3a}
+  .score-row.locked{background:#0d0d0d}
+
+  .match-bottom{
+    margin-top:10px;display:flex;align-items:center;justify-content:flex-end;gap:8px;
+    font-size:11px;
+  }
+  .pts-badge{
+    display:inline-flex;align-items:center;gap:4px;
+    padding:3px 8px;border-radius:999px;font-weight:800;font-size:10px;letter-spacing:.04em;
+    flex-shrink:0;
+  }
+  .pts-badge.exact{background:var(--yellow);color:#0A0A0A}
+  .pts-badge.partial{background:var(--mint);color:#0A0A0A}
+  .pts-badge.miss{background:#2a2a2a;color:#9a9a9a}
+  .pts-badge .pts{font-family:var(--display);font-size:11px}
+
+  /* Empty state for "no matches in filter" */
+  .empty{
+    grid-column:1/-1;
+    background:var(--panel);border:1px dashed var(--line);
+    border-radius:var(--radius);padding:48px 24px;
+    text-align:center;
+  }
+  .empty h4{font-family:var(--display);font-size:18px;text-transform:uppercase;margin-bottom:8px}
+  .empty p{color:var(--muted);font-size:14px;line-height:1.5;max-width:380px;margin:0 auto}
+
+  /* ─── STICKY SAVE BAR ─── */
+  .save-bar{
+    position:fixed;left:50%;transform:translateX(-50%);
+    bottom:24px;z-index:60;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:8px 8px 8px 20px;
+    display:none;align-items:center;gap:16px;
+    box-shadow:0 20px 60px -10px rgba(0,0,0,.6);
+    max-width:calc(100vw - 40px);
+  }
+  .save-bar.show{display:inline-flex;animation:rise .25s ease-out}
+  @keyframes rise{from{transform:translate(-50%,20px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+  .save-bar .info{font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:10px;white-space:nowrap}
+  .save-bar .info .dot{width:8px;height:8px;border-radius:50%;background:var(--orange);animation:blink 1s infinite}
+  .save-bar button{
+    background:var(--orange);color:#0A0A0A;
+    padding:10px 18px;border-radius:999px;font-weight:800;font-size:13px;
+    transition:transform .15s, box-shadow .2s;
+  }
+  .save-bar button:hover{transform:translateY(-1px);box-shadow:0 10px 24px -8px rgba(255,107,0,.6)}
+
+  /* A11y */
+  :focus{outline:none}
+  :focus-visible{outline:2px solid var(--orange);outline-offset:3px;border-radius:8px}
+  .score-input:focus-visible,.input:focus-visible{outline:none}
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important}
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html">
+      <span class="brand-mark"><span>26</span></span>
+      <span class="brand-name">PRODE <b>26</b></span>
+    </a>
+    <nav class="nav-links">
+      <a href="index.html">Inicio</a>
+      <a href="#" class="active">Mi Prode</a>
+      <a href="#">Ranking</a>
+      <a href="#">Premios</a>
+      <a href="#">Reglas</a>
+    </nav>
+    <div class="nav-user">
+      <div class="user-menu-wrap">
+        <button class="nav-avatar" id="avatarBtn" aria-haspopup="true" aria-expanded="false" aria-label="Abrir menú de usuario">M</button>
+        <div class="user-menu" id="userMenu" role="menu">
+          <div class="um-head">
+            <div class="um-av">M</div>
+            <div>
+              <div class="um-eyebrow">Información general</div>
+              <div class="um-name">Mateo Fernández</div>
+            </div>
+          </div>
+          <div class="um-stats">
+            <div class="um-stat">
+              <div class="um-stat-num">247</div>
+              <div class="um-stat-lbl">Puntos</div>
+              <span class="um-stat-meta">+12 esta semana</span>
+            </div>
+            <div class="um-stat">
+              <div class="um-stat-num pos">#34</div>
+              <div class="um-stat-lbl">Ranking</div>
+              <span class="um-stat-meta">↑ 6 puestos</span>
+            </div>
+            <div class="um-stat">
+              <div class="um-stat-num">68<em>%</em></div>
+              <div class="um-stat-lbl">Aciertos</div>
+              <span class="um-stat-meta">12 exactos · 17 parciales</span>
+            </div>
+          </div>
+          <div class="um-foot">
+            <a href="index.html" class="um-link danger">Cerrar sesión</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+  <div class="page-inner">
+
+    <!-- ═══ PAGE HEAD (hermano de Premios/Reglas/Ranking) ═══ -->
+    <div class="page-head">
+      <span class="eyebrow-label">Tus pronósticos</span>
+      <h1 class="page-title">Mi <em>Prode</em></h1>
+      <p class="page-sub">Mundial 2026 · USA · Canadá · México</p>
+    </div>
+
+    <!-- ═══ SPECIALS BANNER (slim) ═══ -->
+    <aside class="specials-banner" id="specialsBanner">
+      <div class="specials-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+      </div>
+      <div class="specials-content">
+        <h4>Balón, Bota y Guante de Oro sin cargar.</h4>
+        <p>Hasta <b>+50 pts</b> antes del 11 jun.</p>
+      </div>
+      <a class="specials-cta" href="#">Cargar</a>
+      <button class="specials-dismiss" aria-label="Cerrar aviso" onclick="document.getElementById('specialsBanner').style.display='none'">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </aside>
+
+    <!-- ═══ TOOLBAR (acciones + fase) ═══ -->
+    <div class="toolbar">
+      <div class="phase-tabs" role="tablist">
+        <button class="on" role="tab" data-tab="grupos">Grupos</button>
+        <button role="tab" data-tab="elim">Eliminatorias</button>
+        <button role="tab" data-tab="especiales">Apuestas especiales</button>
+      </div>
+      <div class="toolbar-actions">
+        <button class="btn-admin" type="button" title="Carga pronósticos aleatorios en todos los partidos">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+          Aleatorio
+        </button>
+        <button class="icon-btn danger" type="button" title="Borrar todos los pronósticos del grupo" aria-label="Borrar pronósticos del grupo">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══ GROUP DROPDOWN ═══ -->
+    <div class="combo-row" id="comboRow">
+      <div class="group-combo-wrap" id="comboGroups">
+        <label for="groupSelect">Seleccionar grupo</label>
+        <div class="group-combo">
+          <select id="groupSelect">
+            <option>Grupo A</option>
+            <option>Grupo B</option>
+            <option>Grupo C</option>
+            <option>Grupo D</option>
+            <option>Grupo E</option>
+            <option>Grupo F</option>
+            <option>Grupo G</option>
+            <option>Grupo H</option>
+            <option>Grupo I</option>
+            <option>Grupo J</option>
+            <option>Grupo K</option>
+            <option>Grupo L</option>
+          </select>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+      </div>
+
+      <!-- ═══ ELIM DROPDOWN ═══ -->
+      <div class="group-combo-wrap" id="comboElim" style="display:none">
+        <label for="elimSelect">Seleccionar fase</label>
+        <div class="group-combo">
+          <select id="elimSelect">
+            <option>Dieciseisavos de final</option>
+            <option>Octavos de final</option>
+            <option>Cuartos de final</option>
+            <option>Semifinal</option>
+            <option>Final y 3.º/4.º puesto</option>
+          </select>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+      </div>
+
+      <div class="combo-meta" id="comboMeta">6 partidos · 11–22 junio</div>
+    </div>
+
+    <!-- ═══ GROUP A — SECTION (Grupos / Eliminatorias) ═══ -->
+    <section class="group-section" id="phaseSection">
+      <div class="match-grid">
+
+        <!-- PENDIENTE -->
+        <article class="match open">
+          <div class="match-top">
+            <div class="match-meta">
+              <span class="grp">A · J1</span>
+              <span>Jue 11 Jun · 16:00</span>
+            </div>
+            <span class="status open"><span class="d"></span>Abierto</span>
+          </div>
+          <div class="teams">
+            <div class="team home">
+              <div class="flag">🇲🇽</div>
+              <div><div class="team-name">México</div></div>
+            </div>
+            <div class="vs">VS</div>
+            <div class="team away">
+              <div class="flag">🇿🇦</div>
+              <div><div class="team-name">Sudáfrica</div></div>
+            </div>
+          </div>
+          <div class="score-row">
+            <input class="score-input" type="number" min="0" max="20" placeholder="–"/>
+            <span class="score-sep">—</span>
+            <input class="score-input" type="number" min="0" max="20" placeholder="–"/>
+          </div>
+        </article>
+
+        <!-- ABIERTO GUARDADO -->
+        <article class="match open">
+          <div class="match-top">
+            <div class="match-meta">
+              <span class="grp">A · J1</span>
+              <span>Jue 11 Jun · 23:00</span>
+            </div>
+            <span class="status open"><span class="d"></span>Abierto</span>
+          </div>
+          <div class="teams">
+            <div class="team home">
+              <div class="flag">🇰🇷</div>
+              <div><div class="team-name">Corea del Sur</div></div>
+            </div>
+            <div class="vs">VS</div>
+            <div class="team away">
+              <div class="flag">🇨🇿</div>
+              <div><div class="team-name">Chequia</div></div>
+            </div>
+          </div>
+          <div class="score-row">
+            <input class="score-input" type="number" value="1"/>
+            <span class="score-sep">—</span>
+            <input class="score-input" type="number" value="0"/>
+          </div>
+        </article>
+
+        <!-- FINALIZADO EXACTO -->
+        <article class="match finished">
+          <div class="match-top">
+            <div class="match-meta">
+              <span class="grp">A · J1</span>
+              <span>Mié 10 Jun · 21:00</span>
+            </div>
+            <span class="status finished"><span class="d"></span>Finalizado</span>
+          </div>
+          <div class="teams">
+            <div class="team home">
+              <div class="flag">🇸🇦</div>
+              <div><div class="team-name">Arabia Saudí</div></div>
+            </div>
+            <div class="vs">VS</div>
+            <div class="team away">
+              <div class="flag">🇿🇦</div>
+              <div><div class="team-name">Sudáfrica</div></div>
+            </div>
+          </div>
+          <div class="score-context final">
+            <span class="label">Resultado final</span>
+            <span class="score">1 — 2</span>
+          </div>
+          <div class="score-row locked">
+            <input class="score-input" type="number" value="1" disabled/>
+            <span class="score-sep">—</span>
+            <input class="score-input" type="number" value="2" disabled/>
+          </div>
+          <div class="match-bottom">
+            <span class="pts-badge exact"><span class="pts">+3</span>exacto</span>
+          </div>
+        </article>
+
+        <!-- FINALIZADO PARCIAL -->
+        <article class="match finished">
+          <div class="match-top">
+            <div class="match-meta">
+              <span class="grp">A · J2</span>
+              <span>Sáb 13 Jun · 19:00</span>
+            </div>
+            <span class="status finished"><span class="d"></span>Finalizado</span>
+          </div>
+          <div class="teams">
+            <div class="team home">
+              <div class="flag">🇰🇷</div>
+              <div><div class="team-name">Corea del Sur</div></div>
+            </div>
+            <div class="vs">VS</div>
+            <div class="team away">
+              <div class="flag">🇲🇽</div>
+              <div><div class="team-name">México</div></div>
+            </div>
+          </div>
+          <div class="score-context final">
+            <span class="label">Resultado final</span>
+            <span class="score">0 — 3</span>
+          </div>
+          <div class="score-row locked">
+            <input class="score-input" type="number" value="1" disabled/>
+            <span class="score-sep">—</span>
+            <input class="score-input" type="number" value="1" disabled/>
+          </div>
+          <div class="match-bottom">
+            <span class="pts-badge miss"><span class="pts">0</span>incorrecto</span>
+          </div>
+        </article>
+
+      </div>
+
+      <!-- ═══ TABLA DEL GRUPO ═══ -->
+      <div class="standings-block">
+        <div class="standings-head">
+          <h4>Tabla del grupo</h4>
+          <span class="status-note"><span class="d"></span>Actualizada en vivo</span>
+        </div>
+
+        <table class="standings-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Equipo</th>
+              <th>PJ</th>
+              <th>PTS</th>
+              <th>GF</th>
+              <th>GC</th>
+              <th>DG</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="adv">
+              <td class="rank">1</td>
+              <td>
+                <div class="team-cell">
+                  <span class="flag-sm">🇨🇿</span>
+                  <span class="nm">Chequia</span>
+                  <span class="trend up" title="Subió 1 puesto">▲1</span>
+                </div>
+              </td>
+              <td>2</td>
+              <td class="pts">5</td>
+              <td>4</td>
+              <td>2</td>
+              <td class="gd pos">+2</td>
+            </tr>
+            <tr class="adv">
+              <td class="rank">2</td>
+              <td>
+                <div class="team-cell">
+                  <span class="flag-sm">🇿🇦</span>
+                  <span class="nm">Sudáfrica</span>
+                  <span class="trend same" title="Sin cambios">=</span>
+                </div>
+              </td>
+              <td>2</td>
+              <td class="pts">5</td>
+              <td>4</td>
+              <td>2</td>
+              <td class="gd pos">+2</td>
+            </tr>
+            <tr>
+              <td class="rank">3</td>
+              <td>
+                <div class="team-cell">
+                  <span class="flag-sm">🇰🇷</span>
+                  <span class="nm">Corea del Sur</span>
+                  <span class="trend down" title="Bajó 1 puesto">▼1</span>
+                </div>
+              </td>
+              <td>2</td>
+              <td class="pts">2</td>
+              <td>1</td>
+              <td>3</td>
+              <td class="gd neg">−2</td>
+            </tr>
+            <tr>
+              <td class="rank">4</td>
+              <td>
+                <div class="team-cell">
+                  <span class="flag-sm">🇲🇽</span>
+                  <span class="nm">México</span>
+                  <span class="trend same" title="Sin cambios">=</span>
+                </div>
+              </td>
+              <td>2</td>
+              <td class="pts">2</td>
+              <td>1</td>
+              <td>3</td>
+              <td class="gd neg">−2</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="standings-legend">
+          <span class="legend-item"><span class="sw adv"></span>Clasifica a octavos</span>
+          <span class="legend-item">PJ = jugados · GF = goles a favor · GC = goles en contra · DG = diferencia</span>
+        </div>
+
+        <!-- DESEMPATES -->
+        <div class="tiebreaks">
+          <div class="tiebreak">
+            <div class="tiebreak-head">
+              <em>Chequia y Sudáfrica</em>
+              <span class="q">están empatadas · ¿quién pasa primera?</span>
+            </div>
+            <div class="tiebreak-options">
+              <button class="tb-opt on" aria-pressed="true">
+                <span class="flag-sm">🇨🇿</span>
+                <span>Chequia</span>
+              </button>
+              <button class="tb-opt" aria-pressed="false">
+                <span class="flag-sm">🇿🇦</span>
+                <span>Sudáfrica</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="tiebreak">
+            <div class="tiebreak-head">
+              <em>Corea del Sur y México</em>
+              <span class="q">están empatadas · ¿quién termina tercera?</span>
+            </div>
+            <div class="tiebreak-options">
+              <button class="tb-opt" aria-pressed="false">
+                <span class="flag-sm">🇰🇷</span>
+                <span>Corea del Sur</span>
+              </button>
+              <button class="tb-opt on" aria-pressed="true">
+                <span class="flag-sm">🇲🇽</span>
+                <span>México</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- ═══ APUESTAS ESPECIALES SECTION ═══ -->
+    <section class="specials-section" id="specialsSection" style="display:none">
+      <div class="specials-head">
+        <h3>Apuestas <em>especiales</em></h3>
+        <p>Cargá quien creés que se va a llevar cada distinción. Solo se evalúan al final del torneo. <b>Cierran el 11 de junio.</b></p>
+      </div>
+
+      <div class="specials-grid">
+        <article class="special special-ball">
+          <header class="special-head">
+            <div>
+              <div class="special-title">Balón de Oro</div>
+              <div class="special-sub">Mejor jugador del torneo</div>
+            </div>
+            <span class="special-pts">+20</span>
+          </header>
+          <div class="special-input-wrap">
+            <label class="special-input-label" for="sp-ball">Jugador</label>
+            <input id="sp-ball" class="special-input" type="text" placeholder="Nombre del jugador" value="Lionel Messi" />
+            <span class="special-saved show"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Guardado</span>
+          </div>
+        </article>
+
+        <article class="special special-boot">
+          <header class="special-head">
+            <div>
+              <div class="special-title">Bota de Oro</div>
+              <div class="special-sub">Máximo goleador del torneo</div>
+            </div>
+            <span class="special-pts">+15</span>
+          </header>
+          <div class="special-input-wrap">
+            <label class="special-input-label" for="sp-boot">Jugador</label>
+            <input id="sp-boot" class="special-input" type="text" placeholder="Nombre del jugador" value="Kylian Mbappé" />
+            <span class="special-saved show"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Guardado</span>
+          </div>
+        </article>
+
+        <article class="special special-glove">
+          <header class="special-head">
+            <div>
+              <div class="special-title">Guante de Oro</div>
+              <div class="special-sub">Mejor arquero del torneo</div>
+            </div>
+            <span class="special-pts">+15</span>
+          </header>
+          <div class="special-input-wrap">
+            <label class="special-input-label" for="sp-glove">Arquero</label>
+            <input id="sp-glove" class="special-input" type="text" placeholder="Nombre del arquero" value="Emiliano Martínez" />
+            <span class="special-saved show"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Guardado</span>
+          </div>
+        </article>
+      </div>
+
+      <div class="specials-save">
+        <span class="specials-save-info">Podés editarlas hasta el <b>11 jun · 15:30</b></span>
+        <button class="specials-save-btn" type="button">Guardar cambios</button>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- ═══ STICKY SAVE BAR ═══ -->
+<div class="save-bar" id="saveBar">
+  <span class="info"><span class="dot"></span>1 cambio sin guardar</span>
+  <button onclick="document.getElementById('saveBar').classList.remove('show')">Guardar</button>
+</div>
+
+<script>
+  // Tie-break options: toggle
+  document.querySelectorAll('.tiebreak').forEach(tb => {
+    tb.querySelectorAll('.tb-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        tb.querySelectorAll('.tb-opt').forEach(b => {
+          b.classList.remove('on');
+          b.setAttribute('aria-pressed','false');
+        });
+        btn.classList.add('on');
+        btn.setAttribute('aria-pressed','true');
+      });
+    });
+  });
+
+  // Group rail: switch active
+  document.querySelectorAll('.group-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.group-chip').forEach(c => c.classList.remove('on'));
+      chip.classList.add('on');
+    });
+  });
+
+  // Filter chips: switch active
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('on'));
+      chip.classList.add('on');
+    });
+  });
+
+  // Phase tabs: switch active + swap dropdowns + show/hide sections
+  const phaseSection = document.getElementById('phaseSection');
+  const specialsSection = document.getElementById('specialsSection');
+  const comboRow = document.getElementById('comboRow');
+  const standings = document.querySelector('.standings-block');
+  const comboGroups = document.getElementById('comboGroups');
+  const comboElim = document.getElementById('comboElim');
+  const comboMeta = document.getElementById('comboMeta');
+  const specialsBanner = document.getElementById('specialsBanner');
+
+  function switchTab(tab) {
+    document.querySelectorAll('.phase-tabs button').forEach(b => {
+      b.classList.toggle('on', b.dataset.tab === tab);
+    });
+
+    const isElim = tab === 'elim';
+    const isSpecials = tab === 'especiales';
+
+    // Show/hide secciones principales
+    comboRow.style.display = isSpecials ? 'none' : '';
+    phaseSection.style.display = isSpecials ? 'none' : '';
+    specialsSection.style.display = isSpecials ? '' : 'none';
+
+    // Combo y standings dentro de la fase de torneo
+    if (!isSpecials) {
+      comboGroups.style.display = isElim ? 'none' : '';
+      comboElim.style.display = isElim ? '' : 'none';
+      standings.style.display = isElim ? 'none' : '';
+      comboMeta.textContent = isElim ? '16 partidos · 28 jun – 02 jul' : '6 partidos · 11–22 junio';
+    }
+
+    // Ocultar la slim bar cuando ya estás en Apuestas Especiales
+    if (specialsBanner) {
+      specialsBanner.style.display = isSpecials ? 'none' : '';
+    }
+  }
+
+  document.querySelectorAll('.phase-tabs button').forEach(b => {
+    b.addEventListener('click', () => switchTab(b.dataset.tab));
+  });
+
+  // Slim bar "Cargar" → switch to apuestas tab
+  const specialsCta = document.querySelector('.specials-cta');
+  if (specialsCta) {
+    specialsCta.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchTab('especiales');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+
+  // User menu (avatar dropdown)
+  const avatarBtn = document.getElementById('avatarBtn');
+  const userMenu = document.getElementById('userMenu');
+  avatarBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = userMenu.classList.toggle('open');
+    avatarBtn.setAttribute('aria-expanded', open);
+  });
+  document.addEventListener('click', (e) => {
+    if (!userMenu.contains(e.target) && e.target !== avatarBtn) {
+      userMenu.classList.remove('open');
+      avatarBtn.setAttribute('aria-expanded', false);
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      userMenu.classList.remove('open');
+      avatarBtn.setAttribute('aria-expanded', false);
+    }
+  });
+
+  // Show sticky save bar when user edits any score input
+  let saveTimer;
+  document.querySelectorAll('.score-input:not([disabled])').forEach(inp => {
+    inp.addEventListener('input', () => {
+      document.getElementById('saveBar').classList.add('show');
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        document.getElementById('saveBar').classList.remove('show');
+      }, 5000);
+    });
+  });
+
+  // Score input clamp
+  document.querySelectorAll('.score-input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      let v = parseInt(e.target.value, 10);
+      if (isNaN(v)) return;
+      if (v < 0) e.target.value = 0;
+      if (v > 20) e.target.value = 20;
+    });
+  });
+</script>
+
+</body>
+</html>

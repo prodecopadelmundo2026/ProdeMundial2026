@@ -1,7 +1,14 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { buildAuditedRankingEntries } from '@/lib/ranking-audit'
+import type { Match, Prediction } from '@/types'
 import { NavLinks } from './NavLinks'
 import { UserMenu } from '@/components/UserMenu'
+import { WhatsAppSupportButton } from '@/components/WhatsAppSupportButton'
+import { isSharedRank } from '@/lib/ranking-display'
+
+export const dynamic = 'force-dynamic'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -9,19 +16,28 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [{ data: profile }, { data: rankRow }] = user
+  const [{ data: profile }, { data: participants }, { data: matches }, { data: predictions }] = user
     ? await Promise.all([
         supabase.from('profiles').select('name, is_admin').eq('id', user.id).maybeSingle(),
-        supabase
-          .from('ranking_entries')
-          .select('rank, total_points')
-          .eq('user_id', user.id)
-          .maybeSingle(),
+        supabase.from('ranking_entries').select('user_id, name, avatar_url'),
+        supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
+        createAdminClient().from('predictions').select('*'),
       ])
-    : [{ data: null }, { data: null }]
+    : [{ data: null }, { data: null }, { data: null }, { data: null }]
 
   const userName = profile?.name ?? 'U'
-  const entry = rankRow as { rank: number; total_points: number } | null
+  const auditedEntries = user
+    ? buildAuditedRankingEntries(
+        (matches ?? []) as Match[],
+        (predictions ?? []) as Prediction[],
+        (participants ?? []).map((participant) => ({
+          user_id: participant.user_id,
+          name: participant.name,
+          avatar_url: participant.avatar_url,
+        }))
+      )
+    : []
+  const entry = user ? auditedEntries.find((rankingEntry) => rankingEntry.user_id === user.id) ?? null : null
   const initial = userName[0]?.toUpperCase() ?? 'U'
 
   return (
@@ -35,16 +51,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           borderColor: 'rgba(255,255,255,0.08)',
         }}
       >
-        <div className="max-w-[1280px] mx-auto px-5 h-[60px] flex items-center justify-between gap-[18px]">
-          {/* Brand */}
-          <Link
-            href="/"
-            className="flex items-center font-display text-[18px] tracking-[-0.02em] shrink-0"
-          >
-            PRODE <b className="text-orange ml-[6px]">26'</b>
-          </Link>
-
+        <div className="relative max-w-[1280px] mx-auto px-4 h-[56px] flex items-center justify-between">
           <NavLinks isLoggedIn={!!user} />
+          <div className="absolute left-1/2 -translate-x-1/2 min-[880px]:hidden">
+            <WhatsAppSupportButton placement="nav" />
+          </div>
 
           {/* Right side */}
           <div className="flex items-center gap-[10px] shrink-0">
@@ -54,6 +65,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 name={userName}
                 pts={entry?.total_points}
                 rank={entry?.rank}
+                sharedRank={entry ? isSharedRank(entry, auditedEntries) : false}
+                exact={entry?.exact_predictions}
                 isAdmin={Boolean(profile?.is_admin)}
               />
             ) : (

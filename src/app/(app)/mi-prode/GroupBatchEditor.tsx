@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import type { Match } from '@/types'
 import { MatchCard } from '@/components/MatchCard'
 import { getTeam, flagUrl } from '@/lib/teams'
@@ -90,6 +90,40 @@ function applyTiebreakers(
     i = j
   }
   return result
+}
+
+// Re-sort best thirds list applying tiebreaker picks
+function applyTiebreakersToThirds(
+  thirds: BestThirdTeam[],
+  tiebreakers: Record<string, string>
+): BestThirdTeam[] {
+  return [...thirds].sort((a, b) => {
+    if (b.pts !== a.pts) return b.pts - a.pts
+    const gdB = b.gf - b.ga, gdA = a.gf - a.ga
+    if (gdB !== gdA) return gdB - gdA
+    if (b.gf !== a.gf) return b.gf - a.gf
+
+    // N-team rank key: "3rd-rank-A-B-C" = "A,B,C"
+    const rankKey = Object.keys(tiebreakers).find(k => {
+      if (!k.startsWith('3rd-rank-')) return false
+      const names = k.slice('3rd-rank-'.length).split('-')
+      return names.includes(a.name) && names.includes(b.name)
+    })
+    if (rankKey) {
+      const ranked = tiebreakers[rankKey].split(',')
+      const ai = ranked.indexOf(a.name)
+      const bi = ranked.indexOf(b.name)
+      if (ai !== -1 && bi !== -1) return ai - bi
+    }
+
+    // 2-team pairwise key fallback
+    const k1 = `3rd-${a.name}-vs-${b.name}`
+    const k2 = `3rd-${b.name}-vs-${a.name}`
+    const picked = tiebreakers[k1] || tiebreakers[k2]
+    if (picked === a.name) return -1
+    if (picked === b.name) return 1
+    return a.name.localeCompare(b.name)
+  })
 }
 
 function TeamFlag({ name }: { name: string }) {
@@ -277,6 +311,11 @@ interface BestThirdsViewProps {
 }
 
 function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewProps) {
+  const displayThirds = useMemo(
+    () => applyTiebreakersToThirds(thirds, tiebreakers),
+    [thirds, tiebreakers]
+  )
+
   if (!thirds.length) {
     return (
       <p className="text-muted text-[14px] py-8 text-center">
@@ -287,9 +326,9 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
 
   const tieGroups: number[][] = []
   let i = 0
-  while (i < thirds.length) {
+  while (i < displayThirds.length) {
     let j = i + 1
-    while (j < thirds.length && areTied(thirds[j], thirds[i])) j++
+    while (j < displayThirds.length && areTied(displayThirds[j], displayThirds[i])) j++
     if (j > i + 1) tieGroups.push(Array.from({ length: j - i }, (_, k) => i + k))
     i = j
   }
@@ -325,7 +364,7 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
           <span className="text-center">GD</span>
         </div>
 
-        {thirds.map((team, idx) => {
+        {displayThirds.map((team, idx) => {
           const advances = idx < 8
           const isTied = tiedIndices.has(idx)
           return (
@@ -334,7 +373,7 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
               className="grid items-center px-4 py-[10px]"
               style={{
                 gridTemplateColumns: '24px 40px 1fr 36px 36px 36px',
-                borderBottom: idx < thirds.length - 1 ? '1px solid rgba(255,255,255,0.05)' : undefined,
+                borderBottom: idx < displayThirds.length - 1 ? '1px solid rgba(255,255,255,0.05)' : undefined,
                 background: advances ? 'rgba(168,240,216,0.03)' : undefined,
               }}
             >
@@ -377,18 +416,23 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
         })}
       </div>
 
-      {/* Tiebreaker for positions around 8th place */}
+      {/* Tiebreaker — when the tie includes at least one team in the top 8 */}
       {tieGroups.map((group) => {
-        const criticalPos = group.some((idx) => idx === 7 || idx === 8)
-        if (!criticalPos) return null
-        const teams = group.map((idx) => thirds[idx])
-        const pairs: [BestThirdTeam, BestThirdTeam][] = []
-        for (let k = 0; k < teams.length - 1; k++) {
-          pairs.push([teams[k], teams[k + 1]])
-        }
-        return pairs.map(([teamA, teamB]) => {
+        const touchesTop8 = group.some(idx => idx <= 7)
+        if (!touchesTop8) return null
+        const spansTop8 = group.some(idx => idx <= 7) && group.some(idx => idx >= 8)
+        const teams = group.map(idx => displayThirds[idx])
+
+        if (teams.length === 2) {
+          const [teamA, teamB] = teams
           const key = `3rd-${teamA.name}-vs-${teamB.name}`
-          const picked = tiebreakers[key]
+          const altKey = `3rd-${teamB.name}-vs-${teamA.name}`
+          const picked = tiebreakers[key] || tiebreakers[altKey]
+          const canonicalKey = tiebreakers[key] !== undefined ? key : altKey
+          const question = spansTop8 ? '¿Quién pasa?' : '¿Quién queda mejor posicionado?'
+          const subtitle = spansTop8
+            ? `${teamA.name} y ${teamB.name} están empatadas en el límite del 8vo puesto.`
+            : `${teamA.name} y ${teamB.name} están empatadas dentro del top 8.`
           return (
             <div
               key={key}
@@ -396,16 +440,14 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
               style={{ background: '#0A0A0A', border: '1px solid rgba(255,107,0,0.28)' }}
             >
               <p className="text-[10px] font-extrabold tracking-[0.1em] uppercase mb-1" style={{ color: '#FF6B00' }}>
-                ¿Quién pasa?
+                {question}
               </p>
-              <p className="text-[12px] text-muted mb-2">
-                {teamA.name} y {teamB.name} están empatadas. ¿Quién creés que es mejor tercera?
-              </p>
+              <p className="text-[12px] text-muted mb-2">{subtitle}</p>
               <div className="flex gap-2">
                 {[teamA, teamB].map((team) => (
                   <button
                     key={team.name}
-                    onClick={() => onTiebreaker(key, picked === team.name ? null : team.name)}
+                    onClick={() => onTiebreaker(canonicalKey, picked === team.name ? null : team.name)}
                     className="flex items-center gap-2 px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150"
                     style={
                       picked === team.name
@@ -420,7 +462,67 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
               </div>
             </div>
           )
-        })
+        }
+
+        // 3+ teams: single ranking question
+        const rankKey = `3rd-rank-${teams.map(t => t.name).sort().join('-')}`
+        const currentRanking: string[] = tiebreakers[rankKey]
+          ? tiebreakers[rankKey].split(',')
+          : []
+        const question = spansTop8 ? 'Ordenar mejores terceros' : 'Ordenar posición dentro del top 8'
+        const subtitle = spansTop8
+          ? `${teams.length} equipos empatados. Hacé clic en orden de mejor a peor para definir quién pasa al 8vo puesto.`
+          : `${teams.length} equipos empatados dentro del top 8. Definí su posición relativa.`
+
+        return (
+          <div
+            key={rankKey}
+            className="mt-3 rounded-[14px] px-4 py-3"
+            style={{ background: '#0A0A0A', border: '1px solid rgba(255,107,0,0.28)' }}
+          >
+            <p className="text-[10px] font-extrabold tracking-[0.1em] uppercase mb-1" style={{ color: '#FF6B00' }}>
+              {question}
+            </p>
+            <p className="text-[12px] text-muted mb-3">{subtitle}</p>
+            <div className="flex gap-2 flex-wrap">
+              {teams.map((team) => {
+                const rankIdx = currentRanking.indexOf(team.name)
+                const isRanked = rankIdx !== -1
+                return (
+                  <button
+                    key={team.name}
+                    onClick={() => {
+                      let next: string[]
+                      if (isRanked) {
+                        next = currentRanking.filter(n => n !== team.name)
+                      } else {
+                        next = [...currentRanking, team.name]
+                      }
+                      onTiebreaker(rankKey, next.length ? next.join(',') : null)
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150"
+                    style={
+                      isRanked
+                        ? { background: '#FF6B00', color: '#0A0A0A' }
+                        : { background: '#1a1a1a', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.08)' }
+                    }
+                  >
+                    {isRanked && (
+                      <span
+                        className="text-[10px] font-extrabold w-4 h-4 rounded-full grid place-items-center shrink-0"
+                        style={{ background: 'rgba(0,0,0,0.25)' }}
+                      >
+                        {rankIdx + 1}
+                      </span>
+                    )}
+                    <TeamFlag name={team.name} />
+                    {team.name}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )
       })}
     </div>
   )
@@ -432,27 +534,33 @@ function sortTabs(keys: string[]) {
 
 const BEST_THIRDS_VIEW = '__mejores_terceros__'
 
+function tabLabel(tab: string): string {
+  return tab === BEST_THIRDS_VIEW ? 'Mejores Terceros' : tab
+}
+
 interface Props {
   grouped: Record<string, Match[]>
   predMap: PredMap
   localGroupPreds: Record<string, LocalPred>
   onGroupPredChange: (matchId: string, home: string, away: string) => void
+  onMatchSaveStateChange?: (matchId: string, state: 'idle' | 'dirty' | 'saving' | 'saved' | 'error') => void
+  tiebreakers: Record<string, string>
+  onTiebreaker: (key: string, team: string | null) => void
+  readOnly?: boolean
 }
 
-export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPredChange }: Props) {
+export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPredChange, onMatchSaveStateChange, tiebreakers, onTiebreaker, readOnly = false }: Props) {
   const tabs = sortTabs(Object.keys(grouped))
   const [activeGroup, setActiveGroup] = useState(tabs[0] ?? '')
-  const [tiebreakers, setTiebreakers] = useState<Record<string, string>>({})
+  const matchesTopRef = useRef<HTMLDivElement>(null)
+  const prevGroupRef = useRef(activeGroup)
 
-  function handleTiebreaker(key: string, team: string | null) {
-    setTiebreakers((prev) => {
-      if (!team) {
-        const { [key]: _removed, ...rest } = prev
-        return rest
-      }
-      return { ...prev, [key]: team }
-    })
-  }
+  useEffect(() => {
+    if (activeGroup !== prevGroupRef.current) {
+      prevGroupRef.current = activeGroup
+      matchesTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [activeGroup])
 
   const currentGroupMatches = grouped[activeGroup] ?? []
 
@@ -496,6 +604,11 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
       })
   }, [tabs, grouped, localGroupPreds])
 
+  const allTabs = [...tabs, BEST_THIRDS_VIEW]
+  const currentIdx = allTabs.indexOf(activeGroup)
+  const prevTab = currentIdx > 0 ? allTabs[currentIdx - 1] : null
+  const nextTab = currentIdx < allTabs.length - 1 ? allTabs[currentIdx + 1] : null
+
   if (!tabs.length) {
     return (
       <div
@@ -512,79 +625,119 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
 
   return (
     <div>
-      {/* Combo row — select + meta inline */}
-      <div className="flex items-start gap-[18px] flex-wrap mb-7">
-        <div className="flex flex-col gap-1.5 w-[280px] max-w-full">
-          <label className="text-[11px] font-extrabold tracking-[0.22em] uppercase text-muted">
-            Seleccioná el grupo
-          </label>
-          <div
-            className="relative transition-[border-color,background] duration-150"
-            style={{
-              background: '#141414',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '14px',
-            }}
-            onMouseEnter={(e) => {
-              const el = e.currentTarget as HTMLElement
-              el.style.borderColor = 'rgba(255,255,255,.18)'
-              el.style.background = '#1C1C1C'
-            }}
-            onMouseLeave={(e) => {
-              const el = e.currentTarget as HTMLElement
-              el.style.borderColor = 'rgba(255,255,255,.08)'
-              el.style.background = '#141414'
-            }}
-          >
-            <select
-              value={activeGroup}
-              onChange={(e) => setActiveGroup(e.target.value)}
-              className="w-full bg-transparent text-white font-extrabold text-[16px] outline-none cursor-pointer"
+      {/* Combo row — dropdown + arrows always inline, meta wraps below on narrow */}
+      <div className="flex items-end gap-3 flex-wrap mb-5">
+        {/* Dropdown + arrows: flex-1 so they fill available width together */}
+        <div className="flex items-end gap-2 flex-1" style={{ minWidth: 0 }}>
+          <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+            <label className="text-[11px] font-extrabold tracking-[0.22em] uppercase text-muted">
+              Seleccioná el grupo
+            </label>
+            <div
+              className="relative transition-[border-color,background] duration-150"
               style={{
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                padding: '16px 50px 16px 18px',
-                border: 'none',
+                background: '#141414',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '14px',
+                width: '100%',
+              }}
+              onMouseEnter={(e) => {
+                const el = e.currentTarget as HTMLElement
+                el.style.borderColor = 'rgba(255,255,255,.18)'
+                el.style.background = '#1C1C1C'
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget as HTMLElement
+                el.style.borderColor = 'rgba(255,255,255,.08)'
+                el.style.background = '#141414'
               }}
             >
-              {tabs.map((tab) => (
-                <option key={tab} value={tab} style={{ background: '#000', color: '#fff', fontWeight: 700 }}>
-                  {tab}
+              <select
+                value={activeGroup}
+                onChange={(e) => setActiveGroup(e.target.value)}
+                className="w-full bg-transparent text-white font-extrabold text-[15px] outline-none cursor-pointer"
+                style={{
+                  appearance: 'none',
+                  WebkitAppearance: 'none',
+                  padding: '11px 44px 11px 14px',
+                  border: 'none',
+                }}
+              >
+                {tabs.map((tab) => (
+                  <option key={tab} value={tab} style={{ background: '#000', color: '#fff', fontWeight: 700 }}>
+                    {tab}
+                  </option>
+                ))}
+                <option value={BEST_THIRDS_VIEW} style={{ background: '#000', color: '#fff', fontWeight: 700 }}>
+                  Mejores Terceros
                 </option>
-              ))}
-              <option value={BEST_THIRDS_VIEW} style={{ background: '#000', color: '#fff', fontWeight: 700 }}>
-                Mejores Terceros
-              </option>
-            </select>
-            <svg
-              className="absolute right-[18px] top-1/2 -translate-y-1/2 pointer-events-none text-muted"
-              width="16" height="16" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              </select>
+              <svg
+                className="absolute right-[14px] top-1/2 -translate-y-1/2 pointer-events-none text-muted"
+                width="15" height="15" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Navigation arrows — inline with dropdown */}
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={() => prevTab && setActiveGroup(prevTab)}
+              disabled={!prevTab}
+              className="grid place-items-center transition-all duration-150"
+              style={{
+                width: 44, height: 44,
+                background: prevTab ? '#141414' : '#0d0d0d',
+                border: `1px solid ${prevTab ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)'}`,
+                borderRadius: 12,
+                color: prevTab ? '#cfcfcf' : '#282828',
+                cursor: prevTab ? 'pointer' : 'default',
+              }}
+              aria-label="Grupo anterior"
             >
-              <path d="M6 9l6 6 6-6" />
-            </svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+            <button
+              onClick={() => nextTab && setActiveGroup(nextTab)}
+              disabled={!nextTab}
+              className="grid place-items-center transition-all duration-150"
+              style={{
+                width: 44, height: 44,
+                background: nextTab ? '#141414' : '#0d0d0d',
+                border: `1px solid ${nextTab ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)'}`,
+                borderRadius: 12,
+                color: nextTab ? '#cfcfcf' : '#282828',
+                cursor: nextTab ? 'pointer' : 'default',
+              }}
+              aria-label="Grupo siguiente"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </button>
           </div>
         </div>
 
-        {/* Meta inline */}
-        <span
-          className="text-[13px] font-bold text-muted self-end whitespace-nowrap"
-          style={{ paddingBottom: '18px', letterSpacing: '0.02em' }}
-        >
-          <b className="text-white font-extrabold">6</b> partidos · 11–22 junio
-        </span>
       </div>
 
       {activeGroup === BEST_THIRDS_VIEW ? (
         <BestThirdsView
           thirds={bestThirds}
           tiebreakers={tiebreakers}
-          onTiebreaker={handleTiebreaker}
+          onTiebreaker={onTiebreaker}
         />
       ) : (
         <>
+          {/* Scroll anchor — placed above the grid so arrows land here */}
+          <div ref={matchesTopRef} style={{ scrollMarginTop: '80px' }} />
+
           {/* Matches grid — autosave via MatchCard */}
-          <div className="grid grid-cols-1 min-[720px]:grid-cols-2 min-[1100px]:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 min-[720px]:grid-cols-2 min-[1100px]:grid-cols-3 gap-4 items-stretch">
             {currentGroupMatches.map((match) => (
               <MatchCard
                 key={match.id}
@@ -593,6 +746,8 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
                 initialHome={currentGroupPreds[match.id]?.home}
                 initialAway={currentGroupPreds[match.id]?.away}
                 onValuesChange={(home, away) => onGroupPredChange(match.id, home, away)}
+                onSaveStateChange={(state) => onMatchSaveStateChange?.(match.id, state)}
+                readOnly={readOnly}
               />
             ))}
           </div>
@@ -601,12 +756,58 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
           <StandingsTable
             standings={standings}
             tiebreakers={tiebreakers}
-            onTiebreaker={handleTiebreaker}
+            onTiebreaker={onTiebreaker}
             groupKey={activeGroup}
           />
-
         </>
       )}
+
+      {/* Bottom navigation */}
+      <div
+        className="flex items-center justify-between mt-8 gap-3"
+        style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '24px' }}
+      >
+        {prevTab ? (
+          <button
+            onClick={() => setActiveGroup(prevTab)}
+            className="flex items-center gap-2 font-extrabold transition-all duration-150"
+            style={{
+              background: '#141414',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 999,
+              padding: '12px 20px',
+              fontSize: 13,
+              color: '#cfcfcf',
+              cursor: 'pointer',
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+            {tabLabel(prevTab)}
+          </button>
+        ) : <span />}
+        {nextTab ? (
+          <button
+            onClick={() => setActiveGroup(nextTab)}
+            className="flex items-center gap-2 font-extrabold transition-all duration-150"
+            style={{
+              background: 'rgba(255,107,0,0.1)',
+              border: '1px solid rgba(255,107,0,0.3)',
+              borderRadius: 999,
+              padding: '12px 20px',
+              fontSize: 13,
+              color: '#FF6B00',
+              cursor: 'pointer',
+            }}
+          >
+            {tabLabel(nextTab)}
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        ) : <span />}
+      </div>
     </div>
   )
 }

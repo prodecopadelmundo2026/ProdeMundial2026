@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { requireAdmin } from '../actions'
+import { createClient } from '@/lib/supabase/server'
 import { WhitelistForm, type AuthorizedEmailRow } from './WhitelistForm'
 
 type Props = {
@@ -10,41 +10,93 @@ type Props = {
 export default async function AdminWhitelistPage({ searchParams }: Props) {
   const { q } = await searchParams
   const query = q?.trim() ?? ''
-  let supabase
 
-  try {
-    supabase = await requireAdmin()
-  } catch {
-    redirect('/')
-  }
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/')
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (!profile?.is_admin) redirect('/')
 
   const { data, error } = await supabase.rpc('admin_list_authorized_emails', {
     p_query: query,
   })
 
-  if (error) {
-    throw new Error(error.message)
-  }
+  const rows = Array.isArray(data) ? (data as AuthorizedEmailRow[]) : []
+  const emails = rows.map((row) => row.email.toLowerCase().trim())
+  const { data: profiles } = emails.length > 0
+    ? await supabase
+      .from('profiles')
+      .select('id, email, name, is_admin')
+      .in('email', emails)
+    : { data: [] }
+  const profileByEmail = new Map(
+    (profiles ?? []).map((profile) => [String(profile.email).toLowerCase().trim(), profile])
+  )
+  const enrichedRows: AuthorizedEmailRow[] = rows.map((row) => {
+    const rowProfile = profileByEmail.get(row.email.toLowerCase().trim())
+    return {
+      ...row,
+      profile_id: rowProfile?.id ?? null,
+      profile_name: rowProfile?.name ?? null,
+      is_admin: Boolean(rowProfile?.is_admin),
+    }
+  })
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Lista blanca</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Administrá los emails habilitados para participar.
-            </p>
-          </div>
-          <Link
-            href="/admin"
-            className="inline-flex min-h-10 items-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-bold text-gray-700"
+    <div style={{ padding: '20px 16px clamp(40px, 8vw, 72px)' }}>
+      <div className="max-w-[860px] mx-auto">
+        <div style={{ marginBottom: '28px' }}>
+          <span
+            className="inline-block font-sans text-[11px] font-extrabold tracking-[0.22em] uppercase text-muted"
+            style={{ marginBottom: '10px' }}
           >
-            Volver al panel
-          </Link>
+            Herramienta admin
+          </span>
+          <div className="flex items-end justify-between gap-4 flex-wrap">
+            <h1
+              className="font-display uppercase leading-[.9] tracking-[-0.04em]"
+              style={{ fontSize: 'clamp(36px, 6vw, 72px)' }}
+            >
+              Participantes <em className="not-italic italic" style={{ color: '#FF6B00' }}>Habilitados</em>
+            </h1>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-extrabold text-[12px] uppercase transition-all duration-150"
+                style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.1)', color: '#cfcfcf' }}
+              >
+                Volver al inicio
+              </Link>
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-extrabold text-[12px] uppercase transition-all duration-150"
+                style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.1)', color: '#cfcfcf' }}
+              >
+                Panel Admin
+              </Link>
+            </div>
+          </div>
+          <p className="font-mono text-[12px] font-bold text-muted tracking-[0.04em] mt-[8px]">
+            Emails habilitados para participar
+          </p>
         </div>
 
-        <WhitelistForm rows={(data ?? []) as AuthorizedEmailRow[]} query={query} />
+        {error && (
+          <div
+            className="mb-6 px-5 py-4 rounded-[16px] text-[13px] font-bold"
+            style={{ background: 'rgba(255,59,59,0.1)', border: '1px solid rgba(255,59,59,0.2)', color: '#FF6B6B' }}
+          >
+            Error al cargar participantes: {error.message}
+          </div>
+        )}
+
+        <WhitelistForm rows={enrichedRows} query={query} />
       </div>
     </div>
   )

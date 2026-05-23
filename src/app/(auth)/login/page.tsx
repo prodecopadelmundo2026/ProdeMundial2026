@@ -3,10 +3,13 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { SALES_CONTACTS, whatsappHref } from '@/lib/sales-contacts'
 
 const LOGIN_ERROR_MESSAGES: Record<string, string> = {
   unauthorized_email:
-    'El correo seleccionado no está habilitado para participar. Verificá que estés ingresando con el mismo email que informaste al momento de la inscripción.',
+    'Tu correo no está autorizado para ingresar. Usá exactamente el mismo correo cargado en Participantes habilitados.',
+  auth_method_mismatch:
+    'Este ingreso usa Google. Si tu correo es Hotmail, Outlook o Yahoo, solo funciona si ese mismo correo está asociado a una cuenta Google habilitada.',
   auth_callback_error:
     'No pudimos completar el inicio de sesión con Google. Volvé a intentarlo.',
   missing_code:
@@ -62,11 +65,11 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col"
+      className="flex h-dvh flex-col overflow-hidden"
       style={{ background: '#0A0A0A', color: '#fff', fontFamily: 'var(--font-archivo, system-ui, sans-serif)' }}
     >
       <header
-        className="sticky top-0 z-50 border-b"
+        className="z-50 shrink-0 border-b"
         style={{
           background: 'rgba(10,10,10,0.78)',
           backdropFilter: 'blur(14px)',
@@ -74,7 +77,7 @@ export default function LoginPage() {
           borderColor: 'rgba(255,255,255,0.08)',
         }}
       >
-        <div className="relative max-w-[1280px] mx-auto px-5 h-[60px] flex items-center">
+        <div className="relative max-w-[1280px] mx-auto px-5 h-[56px] flex items-center">
           <Link
             href="/"
             className="flex items-center text-[18px] tracking-[-0.02em] shrink-0"
@@ -102,8 +105,8 @@ export default function LoginPage() {
       </header>
 
       <main
-        className="flex-1 grid place-items-center"
-        style={{ padding: '60px 20px', position: 'relative', overflow: 'hidden' }}
+        className="grid min-h-0 flex-1 place-items-center overflow-y-auto"
+        style={{ padding: 'clamp(14px, 3vh, 32px) 20px', position: 'relative' }}
       >
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true" style={{ opacity: 0.5 }}>
           <span
@@ -155,17 +158,20 @@ export default function LoginPage() {
         <section
           className="relative z-10 w-full"
           style={{
-            maxWidth: '460px',
+            width: '100%',
+            maxWidth: 'min(460px, calc(100vw - 40px))',
+            minWidth: 0,
+            boxSizing: 'border-box',
             background: '#141414',
             border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: '24px',
-            padding: '40px 32px 32px',
+            padding: 'clamp(24px, 4vh, 34px) clamp(20px, 4vw, 32px) clamp(20px, 3vh, 28px)',
             boxShadow: '0 40px 100px -30px rgba(0,0,0,.6)',
           }}
         >
-          <div className="mb-7">
+          <div className="mb-5">
             <div
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-[18px] text-[11px] font-extrabold tracking-[0.18em] uppercase"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-[14px] text-[11px] font-extrabold tracking-[0.18em] uppercase"
               style={{ background: 'rgba(168,240,216,0.1)', color: '#A8F0D8' }}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-[#A8F0D8]" />
@@ -178,7 +184,7 @@ export default function LoginPage() {
               Entrá<br />al <em className="not-italic" style={{ color: '#FF6B00' }}>Prode</em>
             </h1>
             <p className="mt-3 text-[#bdbdbd] text-[15px] leading-relaxed font-medium">
-              Elegí tu cuenta de Google. Si el mail está en la lista de inscriptos, entrás a la cancha.
+              Elegí tu cuenta de Google. Si ese correo está en la lista de inscriptos, entrás a la cancha.
             </p>
           </div>
 
@@ -218,7 +224,7 @@ export default function LoginPage() {
                 background: '#fff',
                 border: '1px solid rgba(255,255,255,0.12)',
                 color: '#141414',
-                padding: '17px 20px',
+                padding: '15px 20px',
                 borderRadius: '14px',
                 boxShadow: '0 16px 34px -18px rgba(255,255,255,.7)',
               }}
@@ -234,25 +240,42 @@ export default function LoginPage() {
           </div>
 
           <div
-            className="mt-7 pt-6 text-center"
+            className="mt-5 pt-5 text-center"
             style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
           >
-            <p className="text-[#8A8A8A] text-[13px] leading-relaxed mb-3.5">
-              Si no podés ingresar, verificá que estés usando el mismo email que informaste al inscribirte.
+            <p className="text-[#8A8A8A] text-[12px] leading-relaxed mb-3">
+              Si usás Hotmail, Outlook o Yahoo, tenés que elegir una cuenta Google asociada a ese mismo correo cargado en Participantes habilitados.
             </p>
-            <a
-              href="https://wa.me/5491100000000?text=Hola!%20Quiero%20participar%20del%20Prode%2026"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2.5 px-[18px] py-3 rounded-full font-extrabold text-[13px] transition-colors duration-150"
-              style={{
-                background: 'rgba(168,240,216,0.08)',
-                border: '1px solid rgba(168,240,216,0.18)',
-                color: '#A8F0D8',
-              }}
-            >
-              Contactar a los organizadores
-            </a>
+            <p className="text-[#bdbdbd] text-[12px] leading-relaxed mb-3 font-semibold">
+              Si todavía no tenés acceso, escribinos por WhatsApp.
+            </p>
+            <div className="grid gap-2 text-left">
+              {SALES_CONTACTS.map((contact) => (
+                <div
+                  key={`${contact.name}-${contact.role}`}
+                  className="flex items-center justify-between gap-3 rounded-[14px] px-3 py-1.5"
+                  style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}
+                >
+                  <div className="min-w-0">
+                    <p className="font-extrabold text-[13px] text-white truncate">{contact.name}</p>
+                    <p className="text-[11px] text-[#8A8A8A] truncate">{contact.role}</p>
+                  </div>
+                  <a
+                    href={whatsappHref(contact.phone)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-full font-extrabold text-[12px] transition-colors duration-150"
+                    style={{
+                      background: 'rgba(168,240,216,0.08)',
+                      border: '1px solid rgba(168,240,216,0.18)',
+                      color: '#A8F0D8',
+                    }}
+                  >
+                    WhatsApp
+                  </a>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       </main>

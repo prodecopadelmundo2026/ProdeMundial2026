@@ -22,6 +22,7 @@ export type Prediction = {
   home_score: number
   away_score: number
   points: number | null
+  tiebreaker_team?: string | null
   created_at: string
   updated_at: string
 }
@@ -42,5 +43,6 @@ export type RankingEntry = {
   total_points: number
   exact_predictions: number
   correct_result_predictions: number
+  incorrect_predictions?: number
   rank: number
 }

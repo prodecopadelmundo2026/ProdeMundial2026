@@ -1,8 +1,13 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Loader2 } from 'lucide-react'
-import { setAuthorizedEmailActive, upsertAuthorizedEmail } from '../actions'
+import {
+  deactivateParticipant,
+  setAuthorizedEmailActive,
+  setParticipantAdminRole,
+  updateAuthorizedEmail,
+  upsertAuthorizedEmail,
+} from '../actions'
 
 export type AuthorizedEmailRow = {
   email: string
@@ -10,6 +15,9 @@ export type AuthorizedEmailRow = {
   active: boolean
   created_at: string
   updated_at: string
+  profile_id?: string | null
+  profile_name?: string | null
+  is_admin?: boolean | null
 }
 
 type Props = {
@@ -18,13 +26,15 @@ type Props = {
 }
 
 export function WhitelistForm({ rows, query }: Props) {
+  const safeRows = Array.isArray(rows) ? rows : []
+
   const [editing, setEditing] = useState<AuthorizedEmailRow | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const title = useMemo(
-    () => (editing ? `Editar ${editing.email}` : 'Agregar email autorizado'),
+    () => (editing ? `Editar ${editing.email}` : 'Agregar email'),
     [editing]
   )
 
@@ -37,9 +47,10 @@ export function WhitelistForm({ rows, query }: Props) {
     clearMessages()
     startTransition(async () => {
       try {
-        await upsertAuthorizedEmail(formData)
+        if (editing) await updateAuthorizedEmail(formData)
+        else await upsertAuthorizedEmail(formData)
         setEditing(null)
-        setOk('Lista blanca actualizada.')
+        setOk('Participantes habilitados actualizados.')
       } catch (err) {
         setError(err instanceof Error ? err.message : 'No se pudo guardar el email.')
       }
@@ -58,130 +69,231 @@ export function WhitelistForm({ rows, query }: Props) {
     })
   }
 
+  function removeParticipant(row: AuthorizedEmailRow) {
+    clearMessages()
+    startTransition(async () => {
+      const result = await deactivateParticipant(row.email)
+      if (result.ok) {
+        setOk(result.message)
+      } else {
+        setError(result.message)
+      }
+    })
+  }
+
+  function toggleAdmin(row: AuthorizedEmailRow) {
+    clearMessages()
+    startTransition(async () => {
+      const result = await setParticipantAdminRole(row.email, !row.is_admin)
+      if (result.ok) {
+        setOk(result.message)
+      } else {
+        setError(result.message)
+      }
+    })
+  }
+
+  const inputStyle: React.CSSProperties = {
+    background: '#0A0A0A',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '10px',
+    padding: '10px 14px',
+    fontSize: '13px',
+    color: '#ffffff',
+    outline: 'none',
+    width: '100%',
+  }
+
   return (
-    <div className="space-y-6">
-      <form action="/admin/whitelist" className="flex flex-col gap-2 sm:flex-row">
+    <div className="space-y-5">
+
+      {/* Search bar */}
+      <form action="/admin/whitelist" className="flex gap-2">
         <input
           name="q"
           defaultValue={query}
-          placeholder="Buscar por email o nombre"
-          className="min-h-11 flex-1 rounded-lg border border-gray-200 px-3 text-sm text-gray-900 outline-none focus:border-green-600"
+          placeholder="Buscar por email o nombre..."
+          style={{ ...inputStyle, flex: 1 }}
         />
         <button
           type="submit"
-          className="min-h-11 rounded-lg px-4 text-sm font-bold text-white"
-          style={{ backgroundColor: '#0a3d1f' }}
+          className="px-4 py-2 rounded-[10px] font-extrabold text-[12px] uppercase transition-all duration-150 shrink-0"
+          style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.1)', color: '#cfcfcf' }}
         >
           Buscar
         </button>
       </form>
 
-      <form action={handleSubmit} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-bold text-gray-900">{title}</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+      {/* Add / Edit form */}
+      <form
+        action={handleSubmit}
+        className="rounded-[16px] overflow-hidden"
+        style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}
+      >
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          <p className="text-[11px] font-extrabold tracking-[0.18em] uppercase" style={{ color: '#FF6B00' }}>
+            {title}
+          </p>
+        </div>
+        <div className="px-5 py-4 grid gap-3 min-[640px]:grid-cols-[1fr_1fr_auto]">
+          {editing && <input type="hidden" name="original_email" value={editing.email} />}
           <input
             key={editing?.email ?? 'new-email'}
             name="email"
             type="email"
             required
-            readOnly={Boolean(editing)}
             defaultValue={editing?.email ?? ''}
             placeholder="participante@email.com"
-            className="min-h-11 rounded-lg border border-gray-200 px-3 text-sm text-gray-900 outline-none read-only:bg-gray-50 focus:border-green-600"
+            style={inputStyle}
           />
           <input
             key={editing?.email ? `${editing.email}-label` : 'new-label'}
             name="label"
             defaultValue={editing?.label ?? ''}
             placeholder="Nombre o referencia"
-            className="min-h-11 rounded-lg border border-gray-200 px-3 text-sm text-gray-900 outline-none focus:border-green-600"
+            style={inputStyle}
           />
-          <label className="flex min-h-11 items-center gap-2 rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-700">
+          <label
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-[10px] font-bold text-[12px] cursor-pointer"
+            style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)', color: '#cfcfcf', whiteSpace: 'nowrap' }}
+          >
             <input
               key={editing?.email ? `${editing.email}-active` : 'new-active'}
               name="active"
               type="checkbox"
               defaultChecked={editing?.active ?? true}
-              className="h-4 w-4"
+              className="h-4 w-4 accent-[#FF6B00]"
             />
             Activo
           </label>
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div
+          className="px-5 py-4 flex flex-wrap items-center gap-3"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
+        >
           <button
             type="submit"
             disabled={isPending}
-            className="inline-flex min-h-10 items-center justify-center rounded-lg px-4 text-sm font-bold text-white disabled:opacity-50"
-            style={{ backgroundColor: '#0a3d1f' }}
+            className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase transition-all duration-150 disabled:opacity-40"
+            style={{ background: '#FF6B00', color: '#0A0A0A' }}
           >
-            {isPending ? <Loader2 size={16} className="animate-spin" /> : 'Guardar'}
+            {isPending ? 'Guardando…' : 'Guardar'}
           </button>
           {editing && (
             <button
               type="button"
-              onClick={() => {
-                setEditing(null)
-                clearMessages()
-              }}
-              className="min-h-10 rounded-lg border border-gray-200 px-4 text-sm font-bold text-gray-700"
+              onClick={() => { setEditing(null); clearMessages() }}
+              className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase text-muted"
+              style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.08)' }}
             >
               Cancelar
             </button>
           )}
-          {ok && <span className="text-sm font-medium text-green-700">{ok}</span>}
-          {error && <span className="text-sm font-medium text-red-600">{error}</span>}
+          {ok && <span className="text-[12px] font-bold" style={{ color: '#A8F0D8' }}>{ok}</span>}
+          {error && <span className="text-[12px] font-bold" style={{ color: '#FF6B6B' }}>{error}</span>}
         </div>
       </form>
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="border-b border-gray-200 px-5 py-4">
-          <h2 className="font-bold text-gray-900">Emails autorizados</h2>
-          <p className="text-sm text-gray-500">{rows.length} registros visibles</p>
+      {/* List */}
+      <div
+        className="rounded-[16px] overflow-hidden"
+        style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}
+      >
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          <p className="font-extrabold text-[13px] text-white">Participantes habilitados</p>
+          <p className="text-[11px] text-muted mt-0.5">{safeRows.length} registros</p>
         </div>
-        {!rows.length ? (
-          <p className="px-5 py-6 text-sm text-gray-500">No hay emails para mostrar.</p>
+
+        {safeRows.length === 0 ? (
+          <p className="px-5 py-6 text-[13px] text-muted">
+            {query ? `Sin resultados para "${query}".` : 'No hay emails registrados.'}
+          </p>
         ) : (
-          <div className="divide-y divide-gray-100">
-            {rows.map((row) => (
-              <div key={row.email} className="grid gap-3 px-5 py-4 md:grid-cols-[1fr_auto] md:items-center">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold text-gray-900">{row.email}</p>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                        row.active
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
-                      {row.active ? 'Activo' : 'Inactivo'}
-                    </span>
+          <div>
+            {safeRows.map((row) => {
+              if (!row || typeof row.email !== 'string') return null
+              return (
+                <div
+                  key={row.email}
+                  className="grid gap-3 px-5 py-4 min-[640px]:grid-cols-[1fr_auto] min-[640px]:items-center"
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                >
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-bold text-[13px] text-white">{row.email}</p>
+                      <span
+                        className="text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-[0.08em] uppercase"
+                        style={
+                          row.active
+                            ? { background: 'rgba(168,240,216,0.1)', color: '#A8F0D8', border: '1px solid rgba(168,240,216,0.2)' }
+                            : { background: '#1a1a1a', color: '#4a4a4a' }
+                        }
+                      >
+                        {row.active ? 'Activo' : 'Inactivo'}
+                      </span>
+                      <span
+                        className="text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-[0.08em] uppercase"
+                        style={
+                          row.is_admin
+                            ? { background: 'rgba(255,107,0,0.12)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.22)' }
+                            : { background: '#1a1a1a', color: '#4a4a4a' }
+                        }
+                      >
+                        {row.profile_id ? (row.is_admin ? 'Admin' : 'Usuario') : 'Sin perfil'}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-[12px] text-muted">
+                      {row.label ?? row.profile_name ?? 'Sin nombre'}
+                    </p>
                   </div>
-                  <p className="mt-1 text-sm text-gray-500">{row.label || 'Sin nombre'}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setEditing(row); clearMessages() }}
+                      className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150"
+                      style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggle(row)}
+                      disabled={isPending}
+                      className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150 disabled:opacity-40"
+                      style={
+                        row.active
+                          ? { background: 'rgba(255,59,59,0.1)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.2)' }
+                          : { background: 'rgba(168,240,216,0.08)', color: '#A8F0D8', border: '1px solid rgba(168,240,216,0.15)' }
+                      }
+                    >
+                      {row.active ? 'Desactivar' : 'Activar'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleAdmin(row)}
+                      disabled={isPending || !row.profile_id}
+                      className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150 disabled:opacity-40"
+                      style={
+                        row.is_admin
+                          ? { background: 'rgba(255,59,59,0.1)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.2)' }
+                          : { background: 'rgba(255,107,0,0.1)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.2)' }
+                      }
+                    >
+                      {row.is_admin ? 'Quitar admin' : 'Dar admin'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeParticipant(row)}
+                      disabled={isPending || !row.active}
+                      className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150 disabled:opacity-40"
+                      style={{ background: 'rgba(255,59,59,0.1)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.2)' }}
+                    >
+                      Eliminar participante
+                    </button>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditing(row)
-                      clearMessages()
-                    }}
-                    className="min-h-9 rounded-lg border border-gray-200 px-3 text-sm font-bold text-gray-700"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggle(row)}
-                    disabled={isPending}
-                    className="min-h-9 rounded-lg px-3 text-sm font-bold text-white disabled:opacity-50"
-                    style={{ backgroundColor: row.active ? '#6b7280' : '#0a3d1f' }}
-                  >
-                    {row.active ? 'Desactivar' : 'Activar'}
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

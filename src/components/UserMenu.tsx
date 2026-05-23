@@ -4,16 +4,19 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { rankMedal } from '@/lib/ranking-display'
 
 interface Props {
   initial: string
   name: string
   pts?: number | null
   rank?: number | null
+  sharedRank?: boolean
+  exact?: number | null
   isAdmin?: boolean
 }
 
-export function UserMenu({ initial, name, pts, rank, isAdmin = false }: Props) {
+export function UserMenu({ initial, name, pts, rank, sharedRank = false, exact, isAdmin = false }: Props) {
   const [open, setOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const [logoutError, setLogoutError] = useState<string | null>(null)
@@ -132,7 +135,7 @@ export function UserMenu({ initial, name, pts, rank, isAdmin = false }: Props) {
               className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums"
               style={{ color: '#A8F0D8' }}
             >
-              {rank ? `#${rank}` : '-'}
+              {rank ? `${rankMedal(rank) ? `${rankMedal(rank)} ` : ''}${sharedRank ? 'T' : '#'}${rank}` : '-'}
             </div>
             <div className="text-[9px] font-extrabold tracking-[0.18em] uppercase text-muted mt-1.5">
               Ranking
@@ -140,10 +143,10 @@ export function UserMenu({ initial, name, pts, rank, isAdmin = false }: Props) {
           </div>
           <div className="text-center px-1.5 py-1">
             <div className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums">
-              -
+              {exact ?? '-'}
             </div>
             <div className="text-[9px] font-extrabold tracking-[0.18em] uppercase text-muted mt-1.5">
-              Aciertos
+              Exactas
             </div>
           </div>
         </div>
@@ -154,13 +157,13 @@ export function UserMenu({ initial, name, pts, rank, isAdmin = false }: Props) {
             style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
           >
             <Link
-              href="/admin/whitelist"
+              href="/admin"
               className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] font-bold text-[14px] text-left transition-colors duration-150"
               style={{ color: '#A8F0D8' }}
               onClick={() => setOpen(false)}
               role="menuitem"
             >
-              Lista blanca
+              Modo Admin
             </Link>
           </div>
         )}

@@ -1,6 +1,7 @@
 export type TeamMeta = { code: string; flag: string; iso2: string }
 
 const TEAMS: Record<string, TeamMeta> = {
+  'República Checa':      { code: 'CZE', flag: '🇨🇿', iso2: 'cz' },
   // Grupo A
   'México':               { code: 'MEX', flag: '🇲🇽', iso2: 'mx' },
   'Sudáfrica':            { code: 'RSA', flag: '🇿🇦', iso2: 'za' },

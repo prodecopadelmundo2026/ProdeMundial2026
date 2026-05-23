@@ -3,6 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 import { MatchCard } from '@/components/MatchCard'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import type { Match } from '@/types'
+import { formatRank, rankMedal } from '@/lib/ranking-display'
+import { ReferralShareButton } from '@/components/ReferralShareButton'
+
+export const dynamic = 'force-dynamic'
 
 /* ─── Sub-components ───────────────────────────────────────────── */
 
@@ -65,6 +69,35 @@ function SectionHead({ title, orange, sub, link }: { title: string; orange: stri
   )
 }
 
+type RankingEntry = {
+  user_id: string
+  name: string
+  total_points: number
+  rank: number
+  exact_predictions: number
+  correct_result_predictions: number
+}
+
+function RankMark({
+  entry,
+  entries,
+  color,
+}: {
+  entry: RankingEntry
+  entries: RankingEntry[]
+  color: string
+}) {
+  const medal = rankMedal(entry.rank)
+  return (
+    <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap leading-none" style={{ color }}>
+      {medal && <span className="text-[16px] leading-none min-[720px]:text-[18px]" aria-hidden="true">{medal}</span>}
+      <span className="font-display text-[20px] leading-none tabular-nums min-[720px]:text-[22px]">
+        {formatRank(entry, entries)}
+      </span>
+    </span>
+  )
+}
+
 /* ─── Page ─────────────────────────────────────────────────────── */
 
 export default async function HomePage() {
@@ -72,20 +105,24 @@ export default async function HomePage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  const todayStart = new Date()
+  todayStart.setUTCHours(0, 0, 0, 0)
+
   const [
     { count: participantes },
-    { count: misPronosticos },
+    { count: myPredsCount },
     { data: upcoming },
     { data: topRanking },
+    { data: profile },
   ] = await Promise.all([
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
     user
-      ? supabase.from('predictions').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
-      : Promise.resolve({ count: 0, data: null, error: null }),
+      ? supabase.from('predictions').select('*', { count: 'exact', head: true }).limit(1)
+      : Promise.resolve({ count: 0 }),
     supabase
       .from('matches')
       .select('*')
-      .in('status', ['upcoming', 'live'])
+      .gte('scheduled_at', todayStart.toISOString())
       .order('scheduled_at', { ascending: true })
       .limit(16),
     supabase
@@ -93,16 +130,42 @@ export default async function HomePage() {
       .select('user_id, name, total_points, rank, exact_predictions, correct_result_predictions')
       .order('rank', { ascending: true })
       .limit(10),
+    user
+      ? supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
 
+  const hasMyPredictions = (myPredsCount ?? 0) > 0
+
+  const typedTopRanking = (topRanking ?? []) as RankingEntry[]
+  const isInTop10 = user ? typedTopRanking.some(e => e.user_id === user.id) : false
+
+  let myRanking: RankingEntry | null = null
+  if (user && !isInTop10) {
+    const { data } = await supabase
+      .from('ranking_entries')
+      .select('user_id, name, total_points, rank, exact_predictions, correct_result_predictions')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    myRanking = data as RankingEntry | null
+  }
+
   const allUpcoming = (upcoming ?? []) as Match[]
-  // Only show matches from the first scheduled day
   const firstDay = allUpcoming[0]
     ? new Date(allUpcoming[0].scheduled_at).toDateString()
     : null
-  const matches = firstDay
+  const firstDayMatches = firstDay
     ? allUpcoming.filter((m) => new Date(m.scheduled_at).toDateString() === firstDay)
     : []
+  // Up to 3 matches: fill from first day, complement with next day if needed
+  const matches = firstDayMatches.length >= 3
+    ? firstDayMatches.slice(0, 3)
+    : [
+        ...firstDayMatches,
+        ...allUpcoming
+          .filter((m) => new Date(m.scheduled_at).toDateString() !== firstDay)
+          .slice(0, 3 - firstDayMatches.length),
+      ]
 
   const predictionMap: Record<string, { home_score: number; away_score: number }> = {}
   if (user && matches.length > 0) {
@@ -120,12 +183,16 @@ export default async function HomePage() {
     }
   }
 
+  const rankColors: Record<number, string> = { 1: '#FFE040', 2: '#A8F0D8', 3: '#E8A87C' }
+  const showPreTournamentBanner = typedTopRanking.every(e => e.total_points === 0)
+  const displayedRanking = myRanking ? [...typedTopRanking, myRanking] : typedTopRanking
+
   return (
     <>
       {/* ─── HERO ──────────────────────────────────────────────── */}
       <section
-        className="relative overflow-hidden min-h-[760px] flex items-center"
-        style={{ padding: '64px 20px 80px', isolation: 'isolate' }}
+        className="relative overflow-hidden min-h-[420px] min-[980px]:min-h-[760px] flex items-center"
+        style={{ padding: 'clamp(40px, 8vw, 64px) 20px clamp(48px, 10vw, 80px)', isolation: 'isolate' }}
       >
         {/* Animated blobs */}
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
@@ -185,7 +252,7 @@ export default async function HomePage() {
 
             <p className="mt-6 text-[17px] leading-relaxed font-medium max-w-[520px]" style={{ color: '#d6d6d6' }}>
               Pronósticos partido a partido, ranking en vivo y premios para el podio.
-              Cargá tu prode antes del cierre de cada partido.
+              Cargá tu prode antes del inicio del Mundial.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3 items-center">
@@ -193,7 +260,7 @@ export default async function HomePage() {
                 href="/mi-prode"
                 className="inline-flex items-center gap-[10px] px-[26px] py-[18px] rounded-full font-extrabold text-[15px] bg-orange text-bg transition-transform duration-150 hover:-translate-y-0.5 group shadow-[0_10px_28px_-10px_rgba(255,107,0,.6)] hover:shadow-[0_18px_36px_-10px_rgba(255,107,0,.8)]"
               >
-                {user && (misPronosticos ?? 0) > 0 ? 'Ver mi prode' : 'Hacer mi prode'}
+                {user && hasMyPredictions ? 'Ver mi prode' : 'Hacer mi prode'}
                 <svg
                   className="w-[18px] h-[18px] transition-transform duration-200 group-hover:translate-x-1"
                   viewBox="0 0 24 24"
@@ -213,6 +280,12 @@ export default async function HomePage() {
               >
                 Ver el ranking
               </Link>
+              <ReferralShareButton
+                name={profile?.name}
+                email={user?.email}
+                userId={user?.id}
+                className="inline-flex items-center gap-[10px] rounded-full px-[22px] py-[18px] text-[15px] font-extrabold transition-transform hover:-translate-y-0.5"
+              />
             </div>
           </div>
 
@@ -264,21 +337,20 @@ export default async function HomePage() {
         className="bg-orange text-bg overflow-hidden"
         style={{ borderTop: '2px solid #0A0A0A', borderBottom: '2px solid #0A0A0A' }}
       >
-        <div className="max-w-[1280px] mx-auto px-5 py-7 grid grid-cols-2 min-[780px]:grid-cols-4 gap-5">
+        <div className="max-w-[1280px] mx-auto px-5 py-7 grid grid-cols-3 gap-5">
           <StatItem num={participantes ?? 0} label="Participantes" live />
-          <StatItem num={misPronosticos ?? 0} label="Mis pronósticos" />
           <StatItem num={290} label="Puntos en juego" />
           <StatItem num={80} label="Partidos · 48 selecciones" />
         </div>
       </div>
 
       {/* ─── UPCOMING MATCHES ───────────────────────────────────── */}
-      <section style={{ padding: '80px 20px' }}>
+      <section style={{ padding: 'clamp(40px, 10vw, 80px) 20px' }}>
         <div className="max-w-[1280px] mx-auto">
           <SectionHead
             title="Próximos"
             orange="partidos"
-            sub="Cargá tu pronóstico antes del cierre. Cada partido suma — y los nervios también."
+            sub="Pegále al resultado y sumá puntos al ranking partido a partido"
             link={{ href: '/fixture', label: 'Ver fixture completo' }}
           />
           {matches.length === 0 ? (
@@ -291,6 +363,7 @@ export default async function HomePage() {
                   match={match}
                   prediction={predictionMap[match.id] ?? null}
                   readOnly
+                  showPrediction={Boolean(user)}
                 />
               ))}
             </div>
@@ -299,85 +372,165 @@ export default async function HomePage() {
       </section>
 
       {/* ─── TOP 10 RANKING ────────────────────────────────────── */}
-      {topRanking && topRanking.length > 0 && (
-        <section style={{ padding: '80px 20px' }}>
-          <div className="max-w-[860px] mx-auto">
-            <div className="flex items-end justify-between gap-4 mb-8 flex-wrap">
-              <div>
-                <div
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-3 text-[11px] font-extrabold tracking-[0.18em] uppercase"
-                  style={{ background: 'rgba(168,240,216,0.1)', color: '#A8F0D8' }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-mint" style={{ animation: 'pulse-dot 1.6s infinite' }} />
-                  EN VIVO
-                </div>
-                <h2 className="font-display text-[clamp(28px,4vw,40px)] leading-[.92] tracking-[-0.03em] uppercase">
-                  Top 10
-                </h2>
-              </div>
-              <Link
-                href="/ranking"
-                className="text-[13px] font-extrabold tracking-[0.08em] uppercase text-orange hover:text-white transition-colors"
-              >
-                Ver ranking completo →
-              </Link>
-            </div>
+      <section style={{ padding: 'clamp(40px, 10vw, 80px) 20px' }}>
+        <div className="max-w-[1280px] mx-auto">
+          <SectionHead
+            title="Top"
+            orange="10"
+            sub="Los que la están rompiendo. Tocá cualquier jugador para ver su Prode completo: pronósticos, aciertos, errores y puntos partido por partido."
+            link={{ href: '/ranking', label: 'Ver ranking completo' }}
+          />
 
-            <div className="flex flex-col gap-2">
-              {(topRanking as Array<{ user_id: string; name: string; total_points: number; rank: number; exact_predictions: number; correct_result_predictions: number }>).map((entry) => {
+          {showPreTournamentBanner && (
+            <div
+              className="flex items-center gap-3 rounded-[16px] mb-[18px] text-[13px]"
+              style={{
+                background: 'rgba(168,240,216,.08)',
+                border: '1px solid rgba(168,240,216,.18)',
+                padding: '14px 18px',
+                color: '#cfcfcf',
+              }}
+            >
+              <span
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{ background: '#A8F0D8', animation: 'pulse-dot 1.6s infinite' }}
+              />
+              <span>
+                El ranking arranca con el primer pitazo · <strong className="text-white font-extrabold">11 de junio, 16:00</strong>
+              </span>
+            </div>
+          )}
+
+          {typedTopRanking.length > 0 && (
+            <div
+              className="flex flex-col gap-[6px] rounded-[24px]"
+              style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', padding: '10px' }}
+            >
+              {typedTopRanking.map((entry) => {
                 const isMe = user?.id === entry.user_id
-                const medals: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' }
+                const rankColor = rankColors[entry.rank] ?? (isMe ? '#FF6B00' : '#8A8A8A')
                 return (
-                  <div
+                  <Link
                     key={entry.user_id}
-                    className="flex items-center gap-4 rounded-[18px] px-5 py-3.5"
+                    href={`/ranking/${entry.user_id}`}
+                    className="grid grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors hover:bg-panel-2 min-[720px]:grid-cols-[96px_minmax(0,1fr)_auto] min-[720px]:gap-[14px] min-[720px]:px-[14px]"
                     style={{
-                      background: isMe ? 'rgba(255,107,0,0.08)' : '#141414',
-                      border: `1px solid ${isMe ? 'rgba(255,107,0,0.25)' : 'rgba(255,255,255,0.07)'}`,
+                      ...(isMe ? { background: 'rgba(255,107,0,.1)', border: '1px solid rgba(255,107,0,.22)' } : {}),
                     }}
                   >
-                    <div
-                      className="w-9 shrink-0 text-center font-display text-[16px]"
-                      style={{ color: entry.rank <= 3 ? ['#FFE040','#C0C0C0','#CD7F32'][entry.rank - 1] : '#4a4a4a' }}
-                    >
-                      {medals[entry.rank] ?? `#${entry.rank}`}
+                    <RankMark entry={entry} entries={typedTopRanking} color={rankColor} />
+                    <div className="flex min-w-0 items-center gap-2.5 min-[720px]:gap-3">
+                      <div
+                        className="w-9 h-9 rounded-full shrink-0 grid place-items-center font-display text-[14px] text-white"
+                        style={{
+                          background: isMe ? 'linear-gradient(135deg,#FF6B00,#FF9A3C)' : 'linear-gradient(135deg,#5B2D8E,#1565C0)',
+                          border: '2px solid #2a2a2a',
+                        }}
+                      >
+                        {entry.name?.[0]?.toUpperCase() ?? '?'}
+                      </div>
+                      <div className="flex flex-col min-w-0 gap-0.5">
+                        <span className="truncate text-[14px] font-bold leading-tight">
+                          {entry.name}
+                          {isMe && (
+                            <span
+                              className="inline-block ml-2 font-mono font-extrabold rounded-[6px]"
+                              style={{ fontSize: 9, letterSpacing: '.18em', padding: '2px 7px', background: '#FF6B00', color: '#0A0A0A', verticalAlign: '1px' }}
+                            >
+                              VOS
+                            </span>
+                          )}
+                        </span>
+                        <span
+                          className="font-mono font-bold uppercase truncate"
+                          style={{ fontSize: 10, color: '#8A8A8A', letterSpacing: '.16em' }}
+                        >
+                          {entry.exact_predictions ?? 0} exactas · {entry.correct_result_predictions ?? 0} parciales
+                        </span>
+                      </div>
                     </div>
-                    <div
-                      className="w-8 h-8 rounded-full shrink-0 grid place-items-center font-bold text-[12px]"
-                      style={{
-                        background: isMe ? 'linear-gradient(135deg,#FF6B00,#FF9A3C)' : 'linear-gradient(135deg,#5B2D8E,#1565C0)',
-                        border: '2px solid rgba(255,255,255,0.1)',
-                      }}
-                    >
-                      {entry.name?.[0]?.toUpperCase() ?? '?'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="font-bold text-[14px] truncate block">
-                        {entry.name}
-                        {isMe && <span className="ml-2 text-[10px] font-extrabold tracking-[0.1em] text-orange">VOS</span>}
-                      </span>
-                      <span className="text-muted text-[11px] font-semibold hidden min-[480px]:block">
-                        {entry.exact_predictions ?? 0} exactas · {entry.correct_result_predictions ?? 0} resultado
-                      </span>
-                    </div>
-                    <div className="shrink-0 font-display text-[24px] leading-none tracking-[-0.03em]"
-                      style={{ color: entry.rank <= 3 ? ['#FFE040','#C0C0C0','#CD7F32'][entry.rank - 1] : isMe ? '#FF6B00' : '#fff' }}
+                    <span
+                      className="font-display text-right leading-none tracking-[-0.03em] tabular-nums"
+                      style={{ fontSize: 22 }}
                     >
                       {entry.total_points}
-                      <span className="text-muted text-[10px] font-extrabold tracking-[0.1em] ml-1">pts</span>
-                    </div>
-                  </div>
+                      <em
+                        className="not-italic font-mono font-bold uppercase ml-[6px]"
+                        style={{ fontSize: '0.55em', color: '#8A8A8A', letterSpacing: '.16em' }}
+                      >
+                        pts
+                      </em>
+                    </span>
+                  </Link>
                 )
               })}
+
+              {user && myRanking && (
+                <>
+                  <div
+                    className="text-center font-mono"
+                    style={{ fontSize: 10, letterSpacing: '.2em', color: '#3a3a3a', padding: '6px 0', marginTop: 6 }}
+                  >
+                    · · ·
+                  </div>
+                  <div
+                    className="grid grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 min-[720px]:grid-cols-[96px_minmax(0,1fr)_auto] min-[720px]:gap-[14px] min-[720px]:px-[14px]"
+                    style={{
+                      background: 'rgba(255,107,0,.1)',
+                      border: '1px solid rgba(255,107,0,.22)',
+                      marginTop: 6,
+                    }}
+                  >
+                    <RankMark entry={myRanking} entries={displayedRanking} color="#FF6B00" />
+                    <div className="flex min-w-0 items-center gap-2.5 min-[720px]:gap-3">
+                      <div
+                        className="w-9 h-9 rounded-full shrink-0 grid place-items-center font-display text-[14px] text-white"
+                        style={{ background: 'linear-gradient(135deg,#FF6B00,#FF9A3C)', border: '2px solid #2a2a2a' }}
+                      >
+                        {myRanking.name?.[0]?.toUpperCase() ?? '?'}
+                      </div>
+                      <div className="flex flex-col min-w-0 gap-0.5">
+                        <span className="truncate text-[14px] font-bold leading-tight">
+                          {myRanking.name}
+                          <span
+                            className="inline-block ml-2 font-mono font-extrabold rounded-[6px]"
+                            style={{ fontSize: 9, letterSpacing: '.18em', padding: '2px 7px', background: '#FF6B00', color: '#0A0A0A', verticalAlign: '1px' }}
+                          >
+                            VOS
+                          </span>
+                        </span>
+                        <span
+                          className="font-mono font-bold uppercase truncate"
+                          style={{ fontSize: 10, color: '#8A8A8A', letterSpacing: '.16em' }}
+                        >
+                          {myRanking.exact_predictions ?? 0} exactas · {myRanking.correct_result_predictions ?? 0} parciales
+                        </span>
+                      </div>
+                    </div>
+                    <span
+                      className="font-display text-right leading-none tracking-[-0.03em] tabular-nums"
+                      style={{ fontSize: 22 }}
+                    >
+                      {myRanking.total_points}
+                      <em
+                        className="not-italic font-mono font-bold uppercase ml-[6px]"
+                        style={{ fontSize: '0.55em', color: '#8A8A8A', letterSpacing: '.16em' }}
+                      >
+                        pts
+                      </em>
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
-          </div>
-        </section>
-      )}
+          )}
+        </div>
+      </section>
 
       {/* ─── FOOTER ─────────────────────────────────────────────── */}
       <footer
         className="bg-[#070707]"
-        style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '50px 20px 40px' }}
+        style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: 'clamp(32px, 6vw, 50px) 20px clamp(24px, 5vw, 40px)' }}
       >
         <div className="max-w-[1280px] mx-auto grid grid-cols-1 min-[780px]:grid-cols-[1.4fr_1fr_1fr] gap-[30px]">
           <div>
@@ -399,7 +552,6 @@ export default async function HomePage() {
                 { href: '/mi-prode', label: 'Mi Prode' },
                 { href: '/ranking', label: 'Ranking en vivo' },
                 { href: '/premios', label: 'Premios' },
-                { href: '/reglas', label: 'Reglas generales' },
               ].map(({ href, label }) => (
                 <li key={label}>
                   <Link
@@ -418,7 +570,7 @@ export default async function HomePage() {
             </h5>
             <ul className="flex flex-col gap-[10px]">
               {[
-                { href: '/reglas', label: 'Reglas generales' },
+                { href: '/reglas', label: 'Reglas y puntaje' },
                 { href: '/reglas', label: 'Preguntas frecuentes' },
               ].map(({ href, label }) => (
                 <li key={label}>
@@ -437,7 +589,7 @@ export default async function HomePage() {
           className="max-w-[1280px] mx-auto mt-[30px] pt-5 text-[#666] text-[12px] flex flex-wrap gap-[10px] justify-between"
           style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
         >
-          <span>© 2026 Prode 26 · Hecho con mate en Buenos Aires</span>
+          <span>© 2026 Prode 26</span>
           <span>v1.0.0 · No afiliado a FIFA</span>
         </div>
       </footer>

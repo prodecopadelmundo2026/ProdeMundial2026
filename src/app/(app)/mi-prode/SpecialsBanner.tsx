@@ -4,7 +4,11 @@ import { useState, useEffect } from 'react'
 
 const DISMISS_KEY = 'specials-banner-dismissed'
 
-export function SpecialsBanner() {
+interface Props {
+  onClickCargar?: () => void
+}
+
+export function SpecialsBanner({ onClickCargar }: Props) {
   const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
@@ -63,6 +67,7 @@ export function SpecialsBanner() {
       <button
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-extrabold text-[12px] shrink-0 transition-[background,border-color] duration-150"
         style={{ background: 'transparent', color: '#fff', border: '1px solid rgba(168,140,220,0.4)' }}
+        onClick={onClickCargar}
         onMouseEnter={(e) => {
           e.currentTarget.style.background = '#5B2D8E'
           e.currentTarget.style.borderColor = '#5B2D8E'

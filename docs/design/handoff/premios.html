@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Prode 26 — Premios</title>
+<meta name="description" content="Podio de premios del Prode 26. Oro, Plata y Bronce — el pozo crece con cada inscripción." />
+<meta name="theme-color" content="#FF6B00" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23FF6B00'/><text x='50%25' y='53%25' text-anchor='middle' dominant-baseline='middle' font-family='Archivo Black,Impact,sans-serif' font-weight='900' font-size='32' fill='%230A0A0A' letter-spacing='-2'>26</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --orange:#FF6B00;--purple:#5B2D8E;--yellow:#FFE040;--blue:#1565C0;--mint:#A8F0D8;
+    --bg:#0A0A0A;--panel:#141414;--panel-2:#1c1c1c;--line:rgba(255,255,255,.08);
+    --text:#FFFFFF;--muted:#8A8A8A;
+    --radius:24px;--radius-sm:14px;
+    --display:'Archivo Black',system-ui,sans-serif;
+    --sans:'Archivo',system-ui,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;border:none;cursor:pointer;background:none;color:inherit}
+
+  /* ─── NAV ─── */
+  .nav{position:sticky;top:0;z-index:50;background:rgba(10,10,10,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  .nav-inner{max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;gap:18px}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--display);letter-spacing:-.02em}
+  .brand-mark{width:36px;height:36px;border-radius:10px;background:var(--orange);display:grid;place-items:center;font-family:var(--display);font-size:14px;color:#000;transform:rotate(-6deg)}
+  .brand-mark span{transform:rotate(6deg)}
+  .brand-name{font-size:18px}.brand-name b{color:var(--orange)}
+  .nav-links{display:none;gap:28px;font-weight:600;font-size:14px}
+  .nav-links a{color:#cfcfcf;padding:6px 0;position:relative;transition:color .15s}
+  .nav-links a:hover{color:#fff}
+  .nav-links a.active{color:#fff}
+  .nav-links a.active::after{content:"";position:absolute;left:0;right:0;bottom:-16px;height:3px;background:var(--orange);border-radius:2px 2px 0 0}
+  .btn-enter{
+    background:var(--orange);color:#0A0A0A;padding:10px 20px;border-radius:999px;
+    font-weight:800;font-size:14px;letter-spacing:.01em;
+    box-shadow:0 6px 18px -8px rgba(255,107,0,.6);
+    transition:transform .15s, box-shadow .2s;
+  }
+  .btn-enter:hover{transform:translateY(-1px);box-shadow:0 12px 24px -8px rgba(255,107,0,.8)}
+  @media (min-width:880px){.nav-links{display:flex}}
+
+  /* ─── PAGE WRAPPER ─── */
+  .page{padding:48px 20px 100px}
+  .page-inner{max-width:1280px;margin:0 auto}
+
+  /* ─── PAGE HEAD ─── */
+  .page-head{margin-bottom:40px}
+  .eyebrow{
+    display:inline-block;
+    font-family:var(--sans);font-size:12px;font-weight:800;
+    letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
+    margin-bottom:18px;
+  }
+  .page-title{
+    font-family:var(--display);
+    font-size:clamp(48px,9vw,108px);
+    line-height:.9;letter-spacing:-.04em;text-transform:uppercase;
+  }
+  .page-title em{font-style:italic;color:var(--orange)}
+  .page-sub{
+    margin-top:14px;
+    font-family:var(--mono);font-size:13px;font-weight:700;
+    color:var(--muted);letter-spacing:.04em;
+  }
+
+  /* ─── POZO BANNER (info pot) ─── */
+  .pot{
+    margin-bottom:40px;
+    background:linear-gradient(90deg, rgba(255,224,64,.07), rgba(255,224,64,.02));
+    border:1px solid rgba(255,224,64,.22);
+    border-radius:20px;
+    padding:20px 24px;
+    display:flex;align-items:flex-start;gap:14px;
+  }
+  .pot-icon{
+    width:32px;height:32px;border-radius:10px;
+    background:var(--yellow);
+    display:grid;place-items:center;flex-shrink:0;
+    color:#0A0A0A;
+  }
+  .pot-icon svg{display:block;width:18px;height:18px}
+  .pot-content{flex:1;min-width:0}
+  .pot-content h4{
+    font-family:var(--sans);font-size:14px;font-weight:800;
+    color:var(--yellow);margin-bottom:4px;
+  }
+  .pot-content p{
+    font-size:13px;line-height:1.55;font-weight:500;color:#cfcfcf;
+  }
+  .pot-content p b{color:#fff;font-weight:800}
+
+  /* ─── PRIZE GRID (igual al diseño del home) ─── */
+  .prize-grid{
+    display:grid;gap:16px;grid-template-columns:1fr;
+    margin-bottom:60px;
+  }
+  @media (min-width:780px){.prize-grid{grid-template-columns:repeat(3,1fr)}}
+
+  .prize{
+    position:relative;
+    border-radius:var(--radius);
+    padding:26px 26px 28px;
+    overflow:hidden;
+    min-height:320px;
+    display:flex;flex-direction:column;
+    color:#0A0A0A;
+    isolation:isolate;
+    transition:transform .25s ease;
+  }
+  .prize:hover{transform:translateY(-4px)}
+  .prize.p1{background:var(--yellow);min-height:360px}
+  .prize.p2{background:var(--mint)}
+  .prize.p3{background:#E8A87C;min-height:300px}
+
+  .prize::before{
+    content:"";position:absolute;z-index:-1;
+    right:-30%;bottom:-30%;width:80%;height:80%;
+    border-radius:50%;background:rgba(0,0,0,.07);
+  }
+  .prize.p1::after{
+    content:"";position:absolute;z-index:-1;
+    left:-12%;top:-12%;width:38%;height:38%;
+    border-radius:50%;background:rgba(0,0,0,.05);
+  }
+  .prize.p2::before{
+    right:-25%;top:-25%;bottom:auto;width:70%;height:70%;
+    border-radius:50% 0 50% 50%;
+  }
+  .prize.p3::before{
+    left:-20%;right:auto;bottom:-20%;width:65%;height:65%;
+    border-radius:0 50% 50% 50%;
+  }
+
+  .prize-head{
+    display:flex;justify-content:space-between;align-items:flex-start;
+    gap:10px;margin-bottom:6px;
+  }
+  .prize-meta{
+    font-family:var(--mono);font-size:10px;font-weight:700;
+    letter-spacing:.24em;text-transform:uppercase;
+    padding:6px 10px;border-radius:999px;
+    background:rgba(0,0,0,.08);
+    color:rgba(0,0,0,.7);
+  }
+  .prize-rank{
+    font-family:var(--display);
+    font-size:84px;line-height:.85;letter-spacing:-.06em;
+    margin-top:-6px;
+  }
+  .prize.p1 .prize-rank{font-size:120px}
+  .prize.p3 .prize-rank{font-size:72px}
+  .prize-rank i{
+    font-style:italic;font-size:.3em;
+    margin-left:.04em;
+    opacity:.55;font-weight:900;letter-spacing:.04em;
+    vertical-align:0.85em;
+  }
+  .prize-name{
+    font-family:var(--display);
+    font-size:22px;letter-spacing:-.02em;
+    text-transform:uppercase;line-height:1;
+    margin-top:auto;
+  }
+  .prize.p1 .prize-name{font-size:26px}
+  .prize-amount{
+    margin-top:10px;
+    display:flex;align-items:baseline;gap:6px;
+    font-family:var(--display);
+  }
+  .prize-amount .cur{
+    font-family:var(--mono);
+    font-size:18px;font-weight:700;
+    opacity:.5;letter-spacing:-.02em;
+    align-self:flex-start;margin-top:14px;
+  }
+  .prize-amount .num{
+    font-size:46px;line-height:.9;letter-spacing:-.05em;
+    font-style:italic;
+    font-variant-numeric:tabular-nums;
+  }
+  .prize.p1 .prize-amount .num{font-size:62px}
+  .prize.p3 .prize-amount .num{font-size:40px}
+  .prize-amount .num em{font-style:normal;opacity:.35;font-weight:400}
+  .prize-tag{
+    margin-top:12px;
+    font-family:var(--mono);font-size:11px;font-weight:700;
+    letter-spacing:.18em;text-transform:uppercase;
+    color:rgba(0,0,0,.55);
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .prize-tag::before{
+    content:"";width:14px;height:1px;background:currentColor;
+  }
+  .ribbon{
+    position:absolute;top:14px;right:-44px;transform:rotate(45deg);
+    background:var(--purple);color:#fff;
+    padding:4px 50px;font-size:10px;font-weight:800;letter-spacing:.2em;
+  }
+
+  /* ─── BLOCK: cómo se reparte ─── */
+  .block-head{margin-bottom:22px}
+  .block-title{
+    font-family:var(--display);font-size:clamp(24px,3.4vw,32px);
+    text-transform:uppercase;letter-spacing:-.02em;line-height:1;
+  }
+  .block-title em{font-style:italic;color:var(--orange)}
+  .block-sub{margin-top:8px;color:var(--muted);font-size:14px;max-width:520px;line-height:1.5}
+
+  .ref-card{
+    margin-top:48px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:32px 28px;
+    display:grid;gap:24px;grid-template-columns:1fr;
+    align-items:center;
+  }
+  @media (min-width:780px){.ref-card{grid-template-columns:1.2fr .8fr}}
+  .ref-content h3{
+    font-family:var(--display);font-size:clamp(22px,3vw,30px);
+    line-height:1;letter-spacing:-.02em;text-transform:uppercase;
+  }
+  .ref-content h3 em{font-style:italic;color:var(--orange)}
+  .ref-content p{margin-top:12px;color:#cfcfcf;font-size:14px;line-height:1.55;font-weight:500;max-width:520px}
+  .ref-content p b{color:#fff;font-weight:800}
+  .ref-side{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  }
+  .ref-link{
+    flex:1;min-width:220px;
+    background:#0A0A0A;border:1px solid var(--line);
+    border-radius:14px;padding:14px 16px;
+    font-family:var(--mono);font-size:13px;font-weight:700;
+    color:var(--muted);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .ref-link b{color:#fff;font-weight:800}
+  .ref-copy{
+    background:var(--orange);color:#0A0A0A;
+    padding:14px 20px;border-radius:14px;
+    font-weight:800;font-size:13px;letter-spacing:.02em;
+    display:inline-flex;align-items:center;gap:8px;
+    transition:transform .15s, box-shadow .2s;
+  }
+  .ref-copy:hover{transform:translateY(-1px);box-shadow:0 10px 24px -8px rgba(255,107,0,.6)}
+
+  /* A11y */
+  :focus{outline:none}
+  :focus-visible{outline:2px solid var(--orange);outline-offset:3px;border-radius:8px}
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:0.01ms !important;transition-duration:0.01ms !important}
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html">
+      <span class="brand-mark"><span>26</span></span>
+      <span class="brand-name">PRODE <b>26</b></span>
+    </a>
+    <nav class="nav-links">
+      <a href="index.html">Inicio</a>
+      <a href="premios.html" class="active">Premios</a>
+      <a href="#">Reglas</a>
+    </nav>
+    <a class="btn-enter" href="login.html">Entrar</a>
+  </div>
+</header>
+
+<main class="page">
+  <div class="page-inner">
+
+    <!-- ═══ HEADER ═══ -->
+    <div class="page-head">
+      <span class="eyebrow">Qué se gana</span>
+      <h1 class="page-title">Podio de <em>premios</em></h1>
+      <p class="page-sub">Mundial 2026 · USA · Canadá · México</p>
+    </div>
+
+    <!-- ═══ POZO BANNER ═══ -->
+    <aside class="pot">
+      <div class="pot-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      </div>
+      <div class="pot-content">
+        <h4>El pozo crece con cada inscripción</h4>
+        <p>Los premios actuales son <b>base garantizada</b>. Si llegamos a <b>más de 200 inscriptos</b>, el pozo acumulado <b>aumenta proporcionalmente</b> — cuanto más gente sume, más grande el premio. Además, por cada persona que referís y se inscribe, <b>ganás una comisión</b>. Compartí el link y ganá por partida doble.</p>
+      </div>
+    </aside>
+
+    <!-- ═══ PRIZE GRID ═══ -->
+    <div class="prize-grid">
+      <div class="prize p1">
+        <div class="ribbon">CAMPEÓN</div>
+        <div class="prize-head">
+          <span class="prize-meta">1º Puesto</span>
+          <span class="prize-rank">1<i>er</i></span>
+        </div>
+        <div class="prize-name">Oro</div>
+        <div class="prize-amount">
+          <span class="cur">$</span>
+          <span class="num">800<em>.</em>000</span>
+        </div>
+        <div class="prize-tag">Premio mayor</div>
+      </div>
+      <div class="prize p2">
+        <div class="prize-head">
+          <span class="prize-meta">2º Puesto</span>
+          <span class="prize-rank">2<i>do</i></span>
+        </div>
+        <div class="prize-name">Plata</div>
+        <div class="prize-amount">
+          <span class="cur">$</span>
+          <span class="num">200<em>.</em>000</span>
+        </div>
+        <div class="prize-tag">Subcampeón</div>
+      </div>
+      <div class="prize p3">
+        <div class="prize-head">
+          <span class="prize-meta">3º Puesto</span>
+          <span class="prize-rank">3<i>er</i></span>
+        </div>
+        <div class="prize-name">Bronce</div>
+        <div class="prize-amount">
+          <span class="cur">$</span>
+          <span class="num">100<em>.</em>000</span>
+        </div>
+        <div class="prize-tag">Tercer lugar</div>
+      </div>
+    </div>
+
+    <!-- ═══ REFERRAL CARD ═══ -->
+    <aside class="ref-card">
+      <div class="ref-content">
+        <h3>Más amigos, <em>más premio</em></h3>
+        <p>Por cada persona referida, <b>te llevás una comisión</b>. Y el pozo total crece. Es un win-win.</p>
+      </div>
+      <div class="ref-side">
+        <button class="ref-copy" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          Compartir invitación
+        </button>
+      </div>
+    </aside>
+
+  </div>
+</main>
+
+</body>
+</html>
