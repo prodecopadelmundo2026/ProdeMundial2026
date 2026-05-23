@@ -1,3 +1,5 @@
+import { PRIZE_TIE_RULES } from '@/lib/ranking-display'
+
 function PrizeCard({
   rank,
   suffix,
@@ -173,6 +175,20 @@ export default function PremiosPage() {
             decorBefore={{ left: '-20%', bottom: '-20%', width: '65%', height: '65%', borderRadius: '0 50% 50% 50%', background: 'rgba(0,0,0,.07)' }}
           />
         </div>
+
+        <aside
+          className="mb-[60px] rounded-[20px] px-5 py-4"
+          style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <p className="font-extrabold text-white text-[13px]">Criterio para premios empatados</p>
+          <div className="mt-3 grid gap-2">
+            {PRIZE_TIE_RULES.map((rule) => (
+              <p key={rule} className="text-[12px] font-bold leading-relaxed text-muted">
+                {rule}
+              </p>
+            ))}
+          </div>
+        </aside>
 
         {/* Referral card */}
         <aside

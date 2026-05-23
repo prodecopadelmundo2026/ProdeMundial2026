@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { MatchCard } from '@/components/MatchCard'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import type { Match } from '@/types'
+import { formatRank, rankMedal } from '@/lib/ranking-display'
 
 export const dynamic = 'force-dynamic'
 
@@ -159,6 +160,7 @@ export default async function HomePage() {
 
   const rankColors: Record<number, string> = { 1: '#FFE040', 2: '#A8F0D8', 3: '#E8A87C' }
   const showPreTournamentBanner = typedTopRanking.every(e => e.total_points === 0)
+  const displayedRanking = myRanking ? [...typedTopRanking, myRanking] : typedTopRanking
 
   return (
     <>
@@ -382,7 +384,7 @@ export default async function HomePage() {
                     href={`/ranking/${entry.user_id}`}
                     className="grid items-center rounded-[14px] transition-colors hover:bg-panel-2"
                     style={{
-                      gridTemplateColumns: '54px 1fr auto',
+                      gridTemplateColumns: '72px 1fr auto',
                       gap: '14px',
                       padding: '12px 14px',
                       ...(isMe ? { background: 'rgba(255,107,0,.1)', border: '1px solid rgba(255,107,0,.22)' } : {}),
@@ -392,7 +394,7 @@ export default async function HomePage() {
                       className="font-display leading-none tracking-[-0.03em] tabular-nums"
                       style={{ fontSize: 22, color: rankColor }}
                     >
-                      {entry.rank}
+                      {rankMedal(entry.rank) ? `${rankMedal(entry.rank)} ` : ''}{formatRank(entry, typedTopRanking)}
                     </span>
                     <div className="flex items-center gap-3 min-w-0">
                       <div
@@ -451,7 +453,7 @@ export default async function HomePage() {
                   <div
                     className="grid items-center rounded-[14px]"
                     style={{
-                      gridTemplateColumns: '54px 1fr auto',
+                      gridTemplateColumns: '72px 1fr auto',
                       gap: '14px',
                       padding: '12px 14px',
                       background: 'rgba(255,107,0,.1)',
@@ -463,7 +465,7 @@ export default async function HomePage() {
                       className="font-display leading-none tracking-[-0.03em] tabular-nums"
                       style={{ fontSize: 22, color: '#FF6B00' }}
                     >
-                      #{myRanking.rank}
+                      {rankMedal(myRanking.rank) ? `${rankMedal(myRanking.rank)} ` : ''}{formatRank(myRanking, displayedRanking)}
                     </span>
                     <div className="flex items-center gap-3 min-w-0">
                       <div

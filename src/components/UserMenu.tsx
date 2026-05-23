@@ -4,17 +4,19 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { rankMedal } from '@/lib/ranking-display'
 
 interface Props {
   initial: string
   name: string
   pts?: number | null
   rank?: number | null
+  sharedRank?: boolean
   exact?: number | null
   isAdmin?: boolean
 }
 
-export function UserMenu({ initial, name, pts, rank, exact, isAdmin = false }: Props) {
+export function UserMenu({ initial, name, pts, rank, sharedRank = false, exact, isAdmin = false }: Props) {
   const [open, setOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const [logoutError, setLogoutError] = useState<string | null>(null)
@@ -133,7 +135,7 @@ export function UserMenu({ initial, name, pts, rank, exact, isAdmin = false }: P
               className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums"
               style={{ color: '#A8F0D8' }}
             >
-              {rank ? `#${rank}` : '-'}
+              {rank ? `${rankMedal(rank) ? `${rankMedal(rank)} ` : ''}${sharedRank ? 'T' : '#'}${rank}` : '-'}
             </div>
             <div className="text-[9px] font-extrabold tracking-[0.18em] uppercase text-muted mt-1.5">
               Ranking

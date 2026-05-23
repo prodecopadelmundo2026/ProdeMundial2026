@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import type { RankingEntry } from '@/types'
+import { formatRank, rankMedal } from '@/lib/ranking-display'
 
 function initials(name: string): string {
   return name.trim()[0]?.toUpperCase() ?? '?'
@@ -18,12 +19,15 @@ function RankRow({
   entry,
   isMe,
   innerRef,
+  entries,
 }: {
   entry: RankingEntry
   isMe: boolean
   innerRef?: React.Ref<HTMLDivElement>
+  entries: RankingEntry[]
 }) {
   const posColor = isMe ? '#FF6B00' : (TOP3_COLOR[entry.rank] ?? '#4a4a4a')
+  const medal = rankMedal(entry.rank)
 
   return (
     <Link href={`/ranking/${entry.user_id}`} className="block">
@@ -31,7 +35,7 @@ function RankRow({
         ref={innerRef}
         className="grid items-center gap-[14px] rounded-[14px] px-[14px] py-3 transition-colors duration-150"
         style={{
-          gridTemplateColumns: '54px 1fr auto',
+          gridTemplateColumns: '72px 1fr auto',
           background: isMe ? 'rgba(255,107,0,0.1)' : 'transparent',
           border: isMe ? '1px solid rgba(255,107,0,0.28)' : '1px solid transparent',
         }}
@@ -47,7 +51,7 @@ function RankRow({
         className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums"
         style={{ color: posColor }}
       >
-        {entry.rank}
+        {medal ? `${medal} ` : ''}{formatRank(entry, entries)}
       </span>
 
       {/* Usuario */}
@@ -189,6 +193,7 @@ export function RankingClient({
               entry={entry}
               isMe={entry.user_id === userId}
               innerRef={entry.user_id === userId ? meRowRef : undefined}
+              entries={entries}
             />
           ))
         )}
@@ -203,10 +208,10 @@ export function RankingClient({
         >
           <div
             className="grid items-center gap-[14px] rounded-[14px] px-[14px] py-3"
-            style={{ gridTemplateColumns: '54px 1fr auto', background: 'rgba(255,107,0,0.1)' }}
+            style={{ gridTemplateColumns: '72px 1fr auto', background: 'rgba(255,107,0,0.1)' }}
           >
             <span className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums" style={{ color: '#FF6B00' }}>
-              {meEntry.rank}
+              {rankMedal(meEntry.rank) ? `${rankMedal(meEntry.rank)} ` : ''}{formatRank(meEntry, entries)}
             </span>
             <div className="flex items-center gap-3 min-w-0">
               <div

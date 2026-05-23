@@ -11,6 +11,7 @@ import {
   type MatchAuditRow,
 } from '@/lib/ranking-audit'
 import type { Match, Prediction } from '@/types'
+import { formatRank, rankMedal } from '@/lib/ranking-display'
 
 export const dynamic = 'force-dynamic'
 
@@ -247,7 +248,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
         </div>
 
         <div className="grid gap-3 sm:grid-cols-5 mb-5">
-          <SummaryBox label="Ranking" value={`#${entry.rank}`} />
+          <SummaryBox label="Ranking" value={`${rankMedal(entry.rank) ? `${rankMedal(entry.rank)} ` : ''}${formatRank(entry, rankingEntries)}`} />
           <SummaryBox label="Puntos" value={entry.total_points} />
           <SummaryLink label="Exactas" value={statusCount(auditRows, 'exact')} href={filterHref(userId, activeStage, 'exact', activeResult)} active={activeResult === 'exact'} />
           <SummaryLink label="Parciales" value={statusCount(auditRows, 'partial')} href={filterHref(userId, activeStage, 'partial', activeResult)} active={activeResult === 'partial'} />

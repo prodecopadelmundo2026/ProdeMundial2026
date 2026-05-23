@@ -6,6 +6,7 @@ import type { Match, Prediction } from '@/types'
 import { NavLinks } from './NavLinks'
 import { UserMenu } from '@/components/UserMenu'
 import { WhatsAppSupportButton } from '@/components/WhatsAppSupportButton'
+import { isSharedRank } from '@/lib/ranking-display'
 
 export const dynamic = 'force-dynamic'
 
@@ -64,6 +65,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 name={userName}
                 pts={entry?.total_points}
                 rank={entry?.rank}
+                sharedRank={entry ? isSharedRank(entry, auditedEntries) : false}
                 exact={entry?.exact_predictions}
                 isAdmin={Boolean(profile?.is_admin)}
               />
