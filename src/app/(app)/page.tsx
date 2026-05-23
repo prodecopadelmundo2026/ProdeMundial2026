@@ -375,8 +375,9 @@ export default async function HomePage() {
                 const isMe = user?.id === entry.user_id
                 const rankColor = rankColors[entry.rank] ?? (isMe ? '#FF6B00' : '#8A8A8A')
                 return (
-                  <div
+                  <Link
                     key={entry.user_id}
+                    href={`/ranking/${entry.user_id}`}
                     className="grid items-center rounded-[14px] transition-colors hover:bg-panel-2"
                     style={{
                       gridTemplateColumns: '54px 1fr auto',
@@ -433,7 +434,7 @@ export default async function HomePage() {
                         pts
                       </em>
                     </span>
-                  </div>
+                  </Link>
                 )
               })}
 

@@ -1,5 +1,8 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { buildAuditedRankingEntries } from '@/lib/ranking-audit'
+import type { Match, Prediction } from '@/types'
 import { NavLinks } from './NavLinks'
 import { UserMenu } from '@/components/UserMenu'
 import { WhatsAppSupportButton } from '@/components/WhatsAppSupportButton'
@@ -10,19 +13,28 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [{ data: profile }, { data: rankRow }] = user
+  const [{ data: profile }, { data: participants }, { data: matches }, { data: predictions }] = user
     ? await Promise.all([
         supabase.from('profiles').select('name, is_admin').eq('id', user.id).maybeSingle(),
-        supabase
-          .from('ranking_entries')
-          .select('rank, total_points, exact_predictions')
-          .eq('user_id', user.id)
-          .maybeSingle(),
+        supabase.from('ranking_entries').select('user_id, name, avatar_url'),
+        supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
+        createAdminClient().from('predictions').select('*'),
       ])
-    : [{ data: null }, { data: null }]
+    : [{ data: null }, { data: null }, { data: null }, { data: null }]
 
   const userName = profile?.name ?? 'U'
-  const entry = rankRow as { rank: number; total_points: number; exact_predictions: number } | null
+  const auditedEntries = user
+    ? buildAuditedRankingEntries(
+        (matches ?? []) as Match[],
+        (predictions ?? []) as Prediction[],
+        (participants ?? []).map((participant) => ({
+          user_id: participant.user_id,
+          name: participant.name,
+          avatar_url: participant.avatar_url,
+        }))
+      )
+    : []
+  const entry = user ? auditedEntries.find((rankingEntry) => rankingEntry.user_id === user.id) ?? null : null
   const initial = userName[0]?.toUpperCase() ?? 'U'
 
   return (

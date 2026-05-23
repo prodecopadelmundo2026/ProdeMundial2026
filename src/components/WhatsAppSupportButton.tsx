@@ -13,18 +13,18 @@ export function WhatsAppSupportButton({ placement = 'floating' }: Props) {
   const isNav = placement === 'nav'
 
   return (
-    <div className={isNav ? 'relative z-[80]' : 'fixed bottom-4 right-4 z-[80] hidden flex-col items-end gap-3 min-[880px]:flex sm:bottom-6 sm:right-6'}>
+    <div className={isNav ? 'relative z-[120]' : 'fixed bottom-4 right-4 z-[120] hidden flex-col items-end gap-3 min-[880px]:flex sm:bottom-6 sm:right-6'}>
       {open && (
         <div
           className={isNav
-            ? 'fixed left-4 right-4 top-[66px] rounded-[18px] p-3 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)] min-[540px]:left-1/2 min-[540px]:right-auto min-[540px]:w-[330px] min-[540px]:-translate-x-1/2'
-            : 'w-[min(330px,calc(100vw-32px))] rounded-[18px] p-3 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)]'
+            ? 'fixed left-4 right-4 top-[66px] z-[120] rounded-[18px] p-3 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)] min-[540px]:left-1/2 min-[540px]:right-auto min-[540px]:w-[330px] min-[540px]:-translate-x-1/2'
+            : 'relative z-[120] w-[min(330px,calc(100vw-32px))] rounded-[18px] p-3 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)]'
           }
           style={{
-            background: 'rgba(20,20,20,0.98)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            backdropFilter: 'blur(14px)',
-            WebkitBackdropFilter: 'blur(14px)',
+            background: '#141414',
+            border: '1px solid #303030',
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none',
           }}
         >
           <div className="mb-2 flex items-center justify-between gap-3 px-1">

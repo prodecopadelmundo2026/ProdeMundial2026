@@ -267,7 +267,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
           </div>
         </details>
 
-        <div className="hidden md:flex gap-2 overflow-x-auto pb-3 mb-4">
+        <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
           {STAGES.map((stage) => {
             const stats = stageStats(auditRows, stage.key)
             const active = stage.key === activeStage
@@ -276,7 +276,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                 key={stage.key}
                 href={hrefFor(userId, stage.key, activeResult)}
                 title={`Sumo ${stats.points} puntos en esta fase. Exactas: ${stats.exact}. Parciales: ${stats.partial}. Incorrectas: ${stats.incorrect}.`}
-                className="shrink-0 rounded-full px-4 py-2 text-[12px] font-extrabold uppercase transition-colors duration-150"
+                className="rounded-full px-4 py-2 text-center text-[12px] font-extrabold uppercase transition-colors duration-150"
                 style={{
                   background: active ? '#FF6B00' : '#141414',
                   color: active ? '#0A0A0A' : '#cfcfcf',
