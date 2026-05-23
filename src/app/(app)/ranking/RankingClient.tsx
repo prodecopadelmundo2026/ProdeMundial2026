@@ -128,6 +128,7 @@ export function RankingClient({
   const [search, setSearch] = useState('')
   const meRowRef = useRef<HTMLDivElement | null>(null)
   const stickyRef = useRef<HTMLElement | null>(null)
+  const rankingStarted = entries.some((entry) => entry.total_points > 0)
 
   const filtered = search.trim()
     ? entries.filter((e) =>
@@ -136,7 +137,7 @@ export function RankingClient({
     : entries
 
   const meEntry = entries.find((e) => e.user_id === userId)
-  const showPrizeTieNote = hasPrizeTie(entries)
+  const showPrizeTieNote = rankingStarted && hasPrizeTie(entries)
 
   useEffect(() => {
     const me = meRowRef.current
@@ -191,6 +192,16 @@ export function RankingClient({
         </div>
       </div>
 
+      {!rankingStarted && (
+        <div
+          className="mb-5 rounded-[18px] px-5 py-5 text-[13px] font-semibold leading-relaxed sm:text-[14px]"
+          style={{ background: 'rgba(168,240,216,0.07)', border: '1px solid rgba(168,240,216,0.18)', color: '#cfcfcf' }}
+        >
+          <strong className="block text-white font-extrabold mb-1">El ranking todavía no arrancó.</strong>
+          El ranking arranca cuando se carguen los primeros resultados oficiales. Hasta ese momento no hay podio, medallas ni puestos premiados.
+        </div>
+      )}
+
       {showPrizeTieNote && (
         <div
           className="mb-5 rounded-[16px] px-4 py-3 text-[12px] font-semibold leading-relaxed sm:text-[13px]"
@@ -201,29 +212,31 @@ export function RankingClient({
       )}
 
       {/* Lista */}
-      <div
-        className="flex flex-col gap-1.5 rounded-[24px] p-2.5"
-        style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
-      >
-        {filtered.length === 0 ? (
-          <div className="py-10 text-center text-muted text-[14px]">
-            No se encontró ningún participante.
-          </div>
-        ) : (
-          filtered.map((entry) => (
-            <RankRow
-              key={entry.user_id}
-              entry={entry}
-              isMe={entry.user_id === userId}
-              innerRef={entry.user_id === userId ? meRowRef : undefined}
-              entries={entries}
-            />
-          ))
-        )}
-      </div>
+      {rankingStarted && (
+        <div
+          className="flex flex-col gap-1.5 rounded-[24px] p-2.5"
+          style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          {filtered.length === 0 ? (
+            <div className="py-10 text-center text-muted text-[14px]">
+              No se encontró ningún participante.
+            </div>
+          ) : (
+            filtered.map((entry) => (
+              <RankRow
+                key={entry.user_id}
+                entry={entry}
+                isMe={entry.user_id === userId}
+                innerRef={entry.user_id === userId ? meRowRef : undefined}
+                entries={entries}
+              />
+            ))
+          )}
+        </div>
+      )}
 
       {/* Sticky bottom — fila del usuario cuando scrollea hacia arriba */}
-      {meEntry && userId && (
+      {rankingStarted && meEntry && userId && (
         <aside
           ref={stickyRef as React.RefObject<HTMLElement>}
           className="you-sticky"

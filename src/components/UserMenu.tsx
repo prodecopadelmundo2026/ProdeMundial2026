@@ -22,6 +22,7 @@ export function UserMenu({ initial, name, pts, rank, sharedRank = false, exact, 
   const [logoutError, setLogoutError] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   const router = useRouter()
+  const showRank = (pts ?? 0) > 0 && Boolean(rank)
 
   useEffect(() => {
     if (!open) return
@@ -135,7 +136,7 @@ export function UserMenu({ initial, name, pts, rank, sharedRank = false, exact, 
               className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums"
               style={{ color: '#A8F0D8' }}
             >
-              {rank ? `${rankMedal(rank) ? `${rankMedal(rank)} ` : ''}${sharedRank ? 'T' : '#'}${rank}` : '-'}
+              {showRank ? `${rankMedal(rank!) ? `${rankMedal(rank!)} ` : ''}${sharedRank ? 'T' : '#'}${rank}` : '-'}
             </div>
             <div className="text-[9px] font-extrabold tracking-[0.18em] uppercase text-muted mt-1.5">
               Ranking

@@ -185,6 +185,7 @@ export default async function HomePage() {
 
   const rankColors: Record<number, string> = { 1: '#FFE040', 2: '#A8F0D8', 3: '#E8A87C' }
   const showPreTournamentBanner = typedTopRanking.every(e => e.total_points === 0)
+  const rankingStarted = typedTopRanking.some(e => e.total_points > 0)
   const displayedRanking = myRanking ? [...typedTopRanking, myRanking] : typedTopRanking
 
   return (
@@ -396,12 +397,12 @@ export default async function HomePage() {
                 style={{ background: '#A8F0D8', animation: 'pulse-dot 1.6s infinite' }}
               />
               <span>
-                El ranking arranca con el primer pitazo · <strong className="text-white font-extrabold">11 de junio, 16:00</strong>
+                El ranking arranca cuando se carguen los primeros resultados oficiales.
               </span>
             </div>
           )}
 
-          {typedTopRanking.length > 0 && (
+          {typedTopRanking.length > 0 && rankingStarted && (
             <div
               className="flex flex-col gap-[6px] rounded-[24px]"
               style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', padding: '10px' }}

@@ -68,7 +68,14 @@ export async function middleware(request: NextRequest) {
     'current_user_has_access'
   )
 
-  if (accessError || !hasAccess) {
+  if (accessError) {
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    loginUrl.searchParams.set('error', 'access_check_failed')
+    return NextResponse.redirect(loginUrl)
+  }
+
+  if (!hasAccess) {
     await supabase.auth.signOut()
 
     const loginUrl = request.nextUrl.clone()

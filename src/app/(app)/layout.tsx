@@ -15,17 +15,25 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  const admin = user ? createAdminClient() : null
 
   const [{ data: profile }, { data: participants }, { data: matches }, { data: predictions }] = user
     ? await Promise.all([
-        supabase.from('profiles').select('name, is_admin').eq('id', user.id).maybeSingle(),
+        admin!.from('profiles').select('name, is_admin').eq('id', user.id).maybeSingle(),
         supabase.from('ranking_entries').select('user_id, name, avatar_url'),
         supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
-        createAdminClient().from('predictions').select('*'),
+        admin!.from('predictions').select('*'),
       ])
     : [{ data: null }, { data: null }, { data: null }, { data: null }]
 
-  const userName = profile?.name ?? 'U'
+  const metadataName =
+    typeof user?.user_metadata?.full_name === 'string'
+      ? user.user_metadata.full_name
+      : typeof user?.user_metadata?.name === 'string'
+      ? user.user_metadata.name
+      : null
+  const emailName = user?.email?.split('@')[0] ?? null
+  const userName = profile?.name?.trim() || metadataName?.trim() || emailName || 'Usuario'
   const auditedEntries = user
     ? buildAuditedRankingEntries(
         (matches ?? []) as Match[],

@@ -46,14 +46,20 @@ type SpecialBetsRow = {
 }
 
 async function loadSpecialBets(admin: ReturnType<typeof createAdminClient>, userId: string): Promise<SpecialBetsRow | null> {
-  const { data, error } = await admin
-    .from('special_bets')
-    .select('balon, bota, guante')
-    .eq('user_id', userId)
-    .maybeSingle()
+  try {
+    const { data, error } = await admin
+      .from('special_bets')
+      .select('balon, bota, guante')
+      .eq('user_id', userId)
+      .maybeSingle()
 
-  if (error) throw error
-  return data as SpecialBetsRow | null
+    if (error) throw error
+    return data as SpecialBetsRow | null
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error)
+    if (message.includes('special_bets') || message.includes('relation') || message.includes('does not exist')) return null
+    throw error
+  }
 }
 
 const STATUS_LABELS: Record<AuditStatus, { text: string; color: string }> = {
@@ -218,6 +224,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   const rankingEntries = buildAuditedRankingEntries(typedMatches, (allPredictions ?? []) as Prediction[], participantRows)
   const entry = rankingEntries.find((rankingEntry) => rankingEntry.user_id === userId)
   if (!entry) notFound()
+  const rankingStarted = rankingEntries.some((rankingEntry) => rankingEntry.total_points > 0)
 
   const auditRows = buildMatchAuditRows(typedMatches, (userPredictions ?? []) as Prediction[])
   const visibleRows = auditRows.filter((row) => {
@@ -248,7 +255,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
         </div>
 
         <div className="grid gap-3 sm:grid-cols-5 mb-5">
-          <SummaryBox label="Ranking" value={`${rankMedal(entry.rank) ? `${rankMedal(entry.rank)} ` : ''}${formatRank(entry, rankingEntries)}`} />
+          <SummaryBox label="Ranking" value={rankingStarted ? `${rankMedal(entry.rank) ? `${rankMedal(entry.rank)} ` : ''}${formatRank(entry, rankingEntries)}` : 'Sin puntos'} />
           <SummaryBox label="Puntos" value={entry.total_points} />
           <SummaryLink label="Exactas" value={statusCount(auditRows, 'exact')} href={filterHref(userId, activeStage, 'exact', activeResult)} active={activeResult === 'exact'} />
           <SummaryLink label="Parciales" value={statusCount(auditRows, 'partial')} href={filterHref(userId, activeStage, 'partial', activeResult)} active={activeResult === 'partial'} />

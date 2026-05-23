@@ -74,7 +74,7 @@ export default async function RankingPage() {
             style={{ background: '#A8F0D8', animation: 'pulse-dot 1.6s infinite' }}
           />
           <span>
-            El ranking arranca con el primer pitazo · <b className="text-white">11 de junio, 16:00</b>
+            El ranking arranca cuando se carguen los primeros resultados oficiales.
           </span>
         </aside>
 
