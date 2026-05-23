@@ -52,7 +52,7 @@ const SPECIAL_RULES = [
 const GENERAL_RULES = [
   {
     title: 'Cómo funciona el Prode',
-    desc: 'Pronosticás los 80 partidos del Mundial 2026. Cada resultado suma puntos según si pegaste el marcador exacto, el ganador/empate o si le erraste. Además hay apuestas especiales que suman al final del torneo.',
+    desc: 'Elegí TODO el Mundial 2026: cargá la fase de grupos, armá tus eliminatorias, decidí quién avanza, quién queda afuera y quién se consagra campeón. Cada acierto suma puntos durante el torneo y también podés sumar extra con las apuestas especiales.',
   },
   {
     title: 'Carga de pronósticos',
@@ -203,7 +203,7 @@ export default function ReglasPage() {
               El que más le pega, gana
             </h4>
             <p className="font-medium" style={{ fontSize: 13, lineHeight: 1.55, color: '#cfcfcf' }}>
-              Pronosticá el resultado de los <strong style={{ color: '#fff', fontWeight: 800 }}>80 partidos</strong> del Mundial. Sumás puntos partido a partido y al final del torneo se reparte el podio. También podés sumar <strong style={{ color: '#fff', fontWeight: 800 }}>hasta 50 puntos extra</strong> con las apuestas especiales (Balón, Bota y Guante de Oro).
+              Elegí <strong style={{ color: '#fff', fontWeight: 800 }}>TODO el Mundial 2026</strong>: cargá la fase de grupos, armá tus eliminatorias, decidí quién avanza, quién queda afuera y quién se consagra campeón. Hay <strong style={{ color: '#fff', fontWeight: 800 }}>104 partidos</strong> en juego, cada acierto suma puntos durante el torneo y también podés sumar <strong style={{ color: '#fff', fontWeight: 800 }}>hasta 50 puntos extra</strong> con las apuestas especiales (Balón, Bota y Guante de Oro).
             </p>
           </div>
         </aside>
@@ -259,6 +259,32 @@ export default function ReglasPage() {
           </div>
           <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
             {SPECIAL_RULES.map((r) => <RuleCard key={r.name} {...r} />)}
+          </div>
+        </section>
+
+        {/* ── Ranking transparente ── */}
+        <section style={{ marginBottom: 60 }}>
+          <div
+            className="rounded-[20px]"
+            style={{
+              background: 'linear-gradient(90deg, rgba(168,240,216,.07), rgba(168,240,216,.02))',
+              border: '1px solid rgba(168,240,216,.2)',
+              padding: '24px',
+            }}
+          >
+            <h2
+              className="font-display uppercase"
+              style={{ fontSize: 'clamp(22px, 3vw, 30px)', letterSpacing: '-0.02em', lineHeight: 1 }}
+            >
+              Ranking <em className="italic" style={{ color: '#A8F0D8' }}>transparente</em>
+            </h2>
+            <p className="mt-4 text-[14px] font-medium leading-relaxed" style={{ color: '#cfcfcf', maxWidth: 760 }}>
+              Durante el Mundial vas a poder entrar al ranking, tocar cualquier jugador y revisar su Prode completo:
+              qué resultados cargó, en cuáles acertó, en cuáles falló y cómo fue sumando puntos.
+            </p>
+            <p className="mt-3 text-[13px] font-bold leading-relaxed" style={{ color: '#A8F0D8', maxWidth: 760 }}>
+              Así todos pueden seguir la tabla en vivo y entender de dónde sale cada posición.
+            </p>
           </div>
         </section>
 

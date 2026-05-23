@@ -55,6 +55,9 @@ export default async function RankingPage() {
           <p className="font-mono text-[13px] font-bold text-muted tracking-[0.04em] mt-[14px]">
             Mundial 2026 · USA · Canadá · México
           </p>
+          <p className="mt-4 max-w-[620px] text-[13px] font-medium leading-relaxed text-muted">
+            Tocá cualquier jugador para ver su Prode completo: pronósticos, aciertos, errores y puntos partido por partido.
+          </p>
         </div>
 
         {/* Info banner */}

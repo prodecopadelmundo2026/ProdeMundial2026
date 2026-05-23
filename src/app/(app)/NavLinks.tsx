@@ -9,11 +9,11 @@ const PUBLIC_LINKS = [
   { href: '/', label: 'Inicio', exact: true, anchor: false },
   { href: '/premios', label: 'Premios', exact: false, anchor: false },
   { href: '/reglas', label: 'Reglas', exact: false, anchor: false },
+  { href: '/ranking', label: 'Ranking', exact: false, anchor: false },
 ]
 
 const AUTH_LINKS = [
   { href: '/mi-prode', label: 'Mi Prode', exact: false, anchor: false },
-  { href: '/ranking', label: 'Ranking', exact: false, anchor: false },
 ]
 
 interface Props {
@@ -71,7 +71,7 @@ export function NavLinks({ isLoggedIn }: Props) {
       </Link>
 
       {/* Desktop nav */}
-      <nav className="hidden min-[880px]:flex gap-7 text-[14px] font-semibold tracking-[0.01em]">
+      <nav className="hidden h-full min-[880px]:flex gap-7 text-[14px] font-semibold tracking-[0.01em]">
         {links.map(({ href, label, exact, anchor }) => {
           const active = anchor
             ? activeAnchor === href
@@ -82,9 +82,9 @@ export function NavLinks({ isLoggedIn }: Props) {
               href={href}
               onClick={anchor ? () => setActiveAnchor(href) : undefined}
               className={clsx(
-                'relative py-1.5 transition-colors duration-150',
+                'relative flex h-full items-center transition-colors duration-150',
                 active
-                  ? 'text-white after:absolute after:left-0 after:right-0 after:bottom-[-17px] after:h-[3px] after:bg-orange after:rounded-t-sm'
+                  ? 'text-white after:absolute after:left-0 after:right-0 after:bottom-0 after:h-[3px] after:bg-orange after:rounded-t-sm'
                   : 'text-[#cfcfcf] hover:text-white',
               )}
             >

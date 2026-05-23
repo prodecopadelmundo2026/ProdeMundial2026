@@ -45,8 +45,8 @@ type SpecialBetsRow = {
   guante: string | null
 }
 
-async function loadSpecialBets(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<SpecialBetsRow | null> {
-  const { data, error } = await supabase
+async function loadSpecialBets(admin: ReturnType<typeof createAdminClient>, userId: string): Promise<SpecialBetsRow | null> {
+  const { data, error } = await admin
     .from('special_bets')
     .select('balon, bota, guante')
     .eq('user_id', userId)
@@ -206,7 +206,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     admin.from('predictions').select('*').eq('user_id', userId),
     admin.from('predictions').select('*'),
     supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
-    loadSpecialBets(supabase, userId),
+    loadSpecialBets(admin, userId),
   ])
 
   const participantRows = (participants ?? []).map((participant) => ({

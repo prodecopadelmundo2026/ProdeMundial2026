@@ -78,6 +78,26 @@ type RankingEntry = {
   correct_result_predictions: number
 }
 
+function RankMark({
+  entry,
+  entries,
+  color,
+}: {
+  entry: RankingEntry
+  entries: RankingEntry[]
+  color: string
+}) {
+  const medal = rankMedal(entry.rank)
+  return (
+    <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap leading-none" style={{ color }}>
+      {medal && <span className="text-[16px] leading-none min-[720px]:text-[18px]" aria-hidden="true">{medal}</span>}
+      <span className="font-display text-[20px] leading-none tabular-nums min-[720px]:text-[22px]">
+        {formatRank(entry, entries)}
+      </span>
+    </span>
+  )
+}
+
 /* ─── Page ─────────────────────────────────────────────────────── */
 
 export default async function HomePage() {
@@ -357,7 +377,7 @@ export default async function HomePage() {
           <SectionHead
             title="Top"
             orange="10"
-            sub="Los que la están rompiendo. Actualizado partido a partido."
+            sub="Los que la están rompiendo. Tocá cualquier jugador para ver su Prode completo: pronósticos, aciertos, errores y puntos partido por partido."
             link={{ href: '/ranking', label: 'Ver ranking completo' }}
           />
 
@@ -393,21 +413,13 @@ export default async function HomePage() {
                   <Link
                     key={entry.user_id}
                     href={`/ranking/${entry.user_id}`}
-                    className="grid items-center rounded-[14px] transition-colors hover:bg-panel-2"
+                    className="grid grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors hover:bg-panel-2 min-[720px]:grid-cols-[96px_minmax(0,1fr)_auto] min-[720px]:gap-[14px] min-[720px]:px-[14px]"
                     style={{
-                      gridTemplateColumns: '72px 1fr auto',
-                      gap: '14px',
-                      padding: '12px 14px',
                       ...(isMe ? { background: 'rgba(255,107,0,.1)', border: '1px solid rgba(255,107,0,.22)' } : {}),
                     }}
                   >
-                    <span
-                      className="font-display leading-none tracking-[-0.03em] tabular-nums"
-                      style={{ fontSize: 22, color: rankColor }}
-                    >
-                      {rankMedal(entry.rank) ? `${rankMedal(entry.rank)} ` : ''}{formatRank(entry, typedTopRanking)}
-                    </span>
-                    <div className="flex items-center gap-3 min-w-0">
+                    <RankMark entry={entry} entries={typedTopRanking} color={rankColor} />
+                    <div className="flex min-w-0 items-center gap-2.5 min-[720px]:gap-3">
                       <div
                         className="w-9 h-9 rounded-full shrink-0 grid place-items-center font-display text-[14px] text-white"
                         style={{
@@ -418,7 +430,7 @@ export default async function HomePage() {
                         {entry.name?.[0]?.toUpperCase() ?? '?'}
                       </div>
                       <div className="flex flex-col min-w-0 gap-0.5">
-                        <span className="font-bold text-[14px] tracking-[-0.01em] truncate">
+                        <span className="truncate text-[14px] font-bold leading-tight">
                           {entry.name}
                           {isMe && (
                             <span
@@ -462,23 +474,15 @@ export default async function HomePage() {
                     · · ·
                   </div>
                   <div
-                    className="grid items-center rounded-[14px]"
+                    className="grid grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 min-[720px]:grid-cols-[96px_minmax(0,1fr)_auto] min-[720px]:gap-[14px] min-[720px]:px-[14px]"
                     style={{
-                      gridTemplateColumns: '72px 1fr auto',
-                      gap: '14px',
-                      padding: '12px 14px',
                       background: 'rgba(255,107,0,.1)',
                       border: '1px solid rgba(255,107,0,.22)',
                       marginTop: 6,
                     }}
                   >
-                    <span
-                      className="font-display leading-none tracking-[-0.03em] tabular-nums"
-                      style={{ fontSize: 22, color: '#FF6B00' }}
-                    >
-                      {rankMedal(myRanking.rank) ? `${rankMedal(myRanking.rank)} ` : ''}{formatRank(myRanking, displayedRanking)}
-                    </span>
-                    <div className="flex items-center gap-3 min-w-0">
+                    <RankMark entry={myRanking} entries={displayedRanking} color="#FF6B00" />
+                    <div className="flex min-w-0 items-center gap-2.5 min-[720px]:gap-3">
                       <div
                         className="w-9 h-9 rounded-full shrink-0 grid place-items-center font-display text-[14px] text-white"
                         style={{ background: 'linear-gradient(135deg,#FF6B00,#FF9A3C)', border: '2px solid #2a2a2a' }}
@@ -486,7 +490,7 @@ export default async function HomePage() {
                         {myRanking.name?.[0]?.toUpperCase() ?? '?'}
                       </div>
                       <div className="flex flex-col min-w-0 gap-0.5">
-                        <span className="font-bold text-[14px] tracking-[-0.01em] truncate">
+                        <span className="truncate text-[14px] font-bold leading-tight">
                           {myRanking.name}
                           <span
                             className="inline-block ml-2 font-mono font-extrabold rounded-[6px]"

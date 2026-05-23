@@ -15,6 +15,26 @@ const TOP3_COLOR: Record<number, string> = {
   3: '#E8A87C',
 }
 
+function RankMark({
+  entry,
+  entries,
+  color,
+}: {
+  entry: RankingEntry
+  entries: RankingEntry[]
+  color: string
+}) {
+  const medal = rankMedal(entry.rank)
+  return (
+    <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap leading-none" style={{ color }}>
+      {medal && <span className="text-[16px] leading-none sm:text-[18px]" aria-hidden="true">{medal}</span>}
+      <span className="font-display text-[20px] leading-none tabular-nums sm:text-[22px]">
+        {formatRank(entry, entries)}
+      </span>
+    </span>
+  )
+}
+
 function RankRow({
   entry,
   isMe,
@@ -27,13 +47,12 @@ function RankRow({
   entries: RankingEntry[]
 }) {
   const posColor = isMe ? '#FF6B00' : (TOP3_COLOR[entry.rank] ?? '#4a4a4a')
-  const medal = rankMedal(entry.rank)
 
   return (
     <Link href={`/ranking/${entry.user_id}`} className="block">
       <div
         ref={innerRef}
-        className="grid grid-cols-[54px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors duration-150 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:gap-[14px] sm:px-[14px]"
+        className="grid grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors duration-150 sm:grid-cols-[92px_minmax(0,1fr)_auto] sm:gap-[14px] sm:px-[14px]"
         style={{
           background: isMe ? 'rgba(255,107,0,0.1)' : 'transparent',
           border: isMe ? '1px solid rgba(255,107,0,0.28)' : '1px solid transparent',
@@ -46,15 +65,10 @@ function RankRow({
         }}
       >
       {/* Posición */}
-      <span
-        className="font-display text-[19px] leading-none tabular-nums sm:text-[22px]"
-        style={{ color: posColor }}
-      >
-        {medal ? `${medal} ` : ''}{formatRank(entry, entries)}
-      </span>
+      <RankMark entry={entry} entries={entries} color={posColor} />
 
       {/* Usuario */}
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
         <div
           className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[14px] font-bold text-white"
           style={{
@@ -67,7 +81,7 @@ function RankRow({
           {initials(entry.name)}
         </div>
         <div className="min-w-0 flex flex-col gap-0.5">
-          <div className="flex items-center gap-2 truncate text-[14px] font-extrabold">
+          <div className="flex items-center gap-2 truncate text-[14px] font-extrabold leading-tight">
             {entry.name}
             {isMe && (
               <span
@@ -216,13 +230,11 @@ export function RankingClient({
           aria-label="Tu posición en el ranking"
         >
           <div
-            className="grid grid-cols-[54px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:gap-[14px] sm:px-[14px]"
+            className="grid grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 sm:grid-cols-[92px_minmax(0,1fr)_auto] sm:gap-[14px] sm:px-[14px]"
             style={{ background: 'rgba(255,107,0,0.1)' }}
           >
-            <span className="font-display text-[19px] leading-none tabular-nums sm:text-[22px]" style={{ color: '#FF6B00' }}>
-              {rankMedal(meEntry.rank) ? `${rankMedal(meEntry.rank)} ` : ''}{formatRank(meEntry, entries)}
-            </span>
-            <div className="flex items-center gap-3 min-w-0">
+            <RankMark entry={meEntry} entries={entries} color="#FF6B00" />
+            <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
               <div
                 className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[14px] font-bold text-white"
                 style={{ background: 'linear-gradient(135deg, #5B2D8E, #1565C0)', border: '2px solid #2a2a2a' }}
@@ -230,7 +242,7 @@ export function RankingClient({
                 {initials(meEntry.name)}
               </div>
               <div className="min-w-0 flex flex-col gap-0.5">
-                <div className="flex items-center gap-2 truncate text-[14px] font-extrabold">
+                <div className="flex items-center gap-2 truncate text-[14px] font-extrabold leading-tight">
                   {meEntry.name}
                   <span
                     className="font-mono text-[9px] font-extrabold tracking-[0.18em] px-[7px] py-[2px] rounded-[6px] shrink-0"
