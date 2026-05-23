@@ -1,26 +1,28 @@
 export const SALES_CONTACTS = [
   {
-    name: 'Juan',
-    role: 'Organización',
-    phone: '5491100000000',
-  },
-  {
-    name: 'Gaston',
-    role: 'Participantes',
-    phone: '5491100000000',
-  },
-  {
-    name: 'Nicolas',
-    role: 'Pagos',
-    phone: '5491100000000',
-  },
-  {
-    name: 'Santiago',
+    name: 'Juan Ascenzi',
     role: 'Consultas',
-    phone: '5491100000000',
+    phone: '5491133971210',
+  },
+  {
+    name: 'Lucas Capelli',
+    role: 'Consultas',
+    phone: '5491150361049',
+  },
+  {
+    name: 'Ezequiel Squatrito',
+    role: 'Consultas',
+    phone: '5491130717200',
+  },
+  {
+    name: 'Julián Fernández',
+    role: 'Consultas',
+    phone: '5491124598986',
   },
 ] as const
 
-export function whatsappHref(phone: string, text = 'Hola! Quiero participar del Prode 26') {
+export const WHATSAPP_SUPPORT_MESSAGE = 'Hola! Quiero consultar por el Prode Mundial 2026.'
+
+export function whatsappHref(phone: string, text = WHATSAPP_SUPPORT_MESSAGE) {
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
 }

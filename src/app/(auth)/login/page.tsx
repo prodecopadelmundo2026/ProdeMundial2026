@@ -158,7 +158,10 @@ export default function LoginPage() {
         <section
           className="relative z-10 w-full"
           style={{
-            maxWidth: '460px',
+            width: '100%',
+            maxWidth: 'min(460px, calc(100vw - 40px))',
+            minWidth: 0,
+            boxSizing: 'border-box',
             background: '#141414',
             border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: '24px',
@@ -242,6 +245,9 @@ export default function LoginPage() {
           >
             <p className="text-[#8A8A8A] text-[13px] leading-relaxed mb-3.5">
               Si usás Hotmail, Outlook o Yahoo, tenés que elegir una cuenta Google asociada a ese mismo correo cargado en Participantes habilitados.
+            </p>
+            <p className="text-[#bdbdbd] text-[13px] leading-relaxed mb-3.5 font-semibold">
+              Si todavía no tenés acceso, escribinos por WhatsApp.
             </p>
             <div className="grid gap-2 text-left">
               {SALES_CONTACTS.map((contact) => (
