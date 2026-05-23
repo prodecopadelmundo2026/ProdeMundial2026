@@ -3,8 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { saveSpecialBets, type SpecialBetsValues } from './actions'
 
-const SPECIALS_STORAGE_KEY = 'prode_specials'
-
 const AWARDS = [
   { key: 'balon', label: 'Balon de Oro', sub: 'Mejor jugador del torneo', pts: '+20', color: '#5B2D8E', inputLabel: 'Jugador' },
   { key: 'bota', label: 'Bota de Oro', sub: 'Maximo goleador del torneo', pts: '+15', color: '#FF6B00', inputLabel: 'Jugador' },
@@ -23,10 +21,6 @@ function onlyLetters(value: string) {
   return value.replace(/[^a-zA-ZÀ-ÿ\s]/g, '')
 }
 
-function hasAnyValue(values: Values) {
-  return Boolean(values.balon || values.bota || values.guante)
-}
-
 export function SpecialsTab({ initialValues, readOnly = false }: Props) {
   const [values, setValues] = useState<Values>(initialValues)
   const [saved, setSaved] = useState(false)
@@ -37,7 +31,6 @@ export function SpecialsTab({ initialValues, readOnly = false }: Props) {
     if (readOnly) return
     try {
       await saveSpecialBets(next)
-      try { localStorage.setItem(SPECIALS_STORAGE_KEY, JSON.stringify(next)) } catch {}
       setSaveError(null)
       setSaved(true)
       setTimeout(() => setSaved(false), 1800)
@@ -47,31 +40,15 @@ export function SpecialsTab({ initialValues, readOnly = false }: Props) {
   }
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(SPECIALS_STORAGE_KEY)
-      if (!stored) return
-      const parsed = JSON.parse(stored) as Values
-      if (!hasAnyValue(initialValues)) {
-        setValues(parsed)
-        void persist(parsed)
-      }
-    } catch {}
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
     function handleClear() {
       setValues({ balon: '', bota: '', guante: '' })
       setSaved(false)
     }
-    function handleRandomize() {
-      try {
-        const stored = localStorage.getItem(SPECIALS_STORAGE_KEY)
-        if (!stored) return
-        const parsed = JSON.parse(stored) as Values
-        setValues(parsed)
-        void persist(parsed)
-      } catch {}
+    function handleRandomize(event: Event) {
+      const next = (event as CustomEvent<Values>).detail
+      if (!next) return
+      setValues(next)
+      void persist(next)
     }
     window.addEventListener('prode-specials-cleared', handleClear)
     window.addEventListener('prode-specials-randomized', handleRandomize)

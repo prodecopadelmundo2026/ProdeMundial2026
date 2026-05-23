@@ -17,15 +17,9 @@ export function WhatsAppSupportButton({ placement = 'floating' }: Props) {
       {open && (
         <div
           className={isNav
-            ? 'fixed left-4 right-4 top-[66px] z-[120] rounded-[18px] p-3 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)] min-[540px]:left-1/2 min-[540px]:right-auto min-[540px]:w-[330px] min-[540px]:-translate-x-1/2'
-            : 'relative z-[120] w-[min(330px,calc(100vw-32px))] rounded-[18px] p-3 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)]'
+            ? 'fixed left-4 right-4 top-[66px] z-[120] rounded-[18px] border border-[#303030] bg-neutral-950 p-3 shadow-2xl min-[540px]:left-1/2 min-[540px]:right-auto min-[540px]:w-[330px] min-[540px]:-translate-x-1/2'
+            : 'relative z-[120] w-[min(330px,calc(100vw-32px))] rounded-[18px] border border-[#303030] bg-neutral-950 p-3 shadow-2xl'
           }
-          style={{
-            background: '#141414',
-            border: '1px solid #303030',
-            backdropFilter: 'none',
-            WebkitBackdropFilter: 'none',
-          }}
         >
           <div className="mb-2 flex items-center justify-between gap-3 px-1">
             <p className="text-[12px] font-extrabold uppercase tracking-[0.16em] text-[#A8F0D8]">
@@ -48,8 +42,7 @@ export function WhatsAppSupportButton({ placement = 'floating' }: Props) {
                 href={whatsappHref(contact.phone)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between gap-3 rounded-[14px] px-3 py-2.5 transition-colors hover:bg-white/[0.06]"
-                style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+                className="flex items-center justify-between gap-3 rounded-[14px] border border-[#303030] bg-[#181818] px-3 py-2.5 transition-colors hover:bg-[#202020]"
               >
                 <span className="min-w-0">
                   <span className="block truncate text-[13px] font-extrabold text-white">{contact.name}</span>
@@ -67,10 +60,9 @@ export function WhatsAppSupportButton({ placement = 'floating' }: Props) {
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         className={isNav
-          ? 'inline-flex h-9 items-center justify-center gap-1.5 rounded-full px-3 text-[12px] font-extrabold text-[#0A0A0A] shadow-[0_10px_26px_-18px_rgba(168,240,216,0.85)]'
-          : 'inline-flex h-12 items-center justify-center gap-2 rounded-full px-5 text-[14px] font-extrabold text-[#0A0A0A] shadow-[0_16px_38px_-18px_rgba(168,240,216,0.85)] transition-transform hover:-translate-y-0.5'
+          ? 'inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#A8F0D8] px-3 text-[12px] font-extrabold text-[#0A0A0A] shadow-lg'
+          : 'inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#A8F0D8] px-5 text-[14px] font-extrabold text-[#0A0A0A] shadow-lg transition-transform hover:-translate-y-0.5'
         }
-        style={{ background: '#A8F0D8' }}
       >
         <MessageCircle size={isNav ? 15 : 18} aria-hidden="true" />
         Consultas

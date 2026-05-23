@@ -12,7 +12,7 @@ import { SpecialsBanner } from './SpecialsBanner'
 import { deletePredictionsByStages, generateRandomGroupPredictions } from '@/app/(app)/fixture/actions'
 import { parseScoreInput } from '@/lib/score-input'
 import type { ProdeLockState } from '@/lib/prode-lock'
-import { deleteSpecialBets, saveSpecialBets, type SpecialBetsValues } from './actions'
+import { deleteSpecialBets, type SpecialBetsValues } from './actions'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
@@ -468,9 +468,7 @@ export function MiProdeTabs({
                 } else if (activeTab === 'especiales') {
                   try {
                     const next = randomSpecials()
-                    localStorage.setItem(SPECIALS_STORAGE_KEY, JSON.stringify(next))
-                    void saveSpecialBets(next)
-                    window.dispatchEvent(new Event('prode-specials-randomized'))
+                    window.dispatchEvent(new CustomEvent<SpecialBetsValues>('prode-specials-randomized', { detail: next }))
                   } catch {}
                 }
               }}

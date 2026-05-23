@@ -12,6 +12,8 @@ import {
 } from '@/lib/ranking-audit'
 import type { Match, Prediction } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 type StageKey = Match['stage'] | 'specials'
 
 type Props = {
@@ -40,6 +42,17 @@ type SpecialBetsRow = {
   balon: string | null
   bota: string | null
   guante: string | null
+}
+
+async function loadSpecialBets(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<SpecialBetsRow | null> {
+  const { data, error } = await supabase
+    .from('special_bets')
+    .select('balon, bota, guante')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error) throw error
+  return data as SpecialBetsRow | null
 }
 
 const STATUS_LABELS: Record<AuditStatus, { text: string; color: string }> = {
@@ -187,12 +200,12 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   const supabase = await createClient()
   const admin = createAdminClient()
 
-  const [{ data: participants }, { data: userPredictions }, { data: allPredictions }, { data: matches }, { data: specialBets }] = await Promise.all([
+  const [{ data: participants }, { data: userPredictions }, { data: allPredictions }, { data: matches }, specialBets] = await Promise.all([
     supabase.from('ranking_entries').select('user_id, name, avatar_url'),
     admin.from('predictions').select('*').eq('user_id', userId),
     admin.from('predictions').select('*'),
     supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
-    admin.from('special_bets').select('balon, bota, guante').eq('user_id', userId).maybeSingle(),
+    loadSpecialBets(supabase, userId),
   ])
 
   const participantRows = (participants ?? []).map((participant) => ({
@@ -318,7 +331,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
               <SpecialAuditCard
                 key={row.key}
                 row={row}
-                value={(specialBets as SpecialBetsRow | null)?.[row.key] ?? null}
+                value={specialBets?.[row.key] ?? null}
               />
             ))
           ) : visibleRows.length > 0 ? (

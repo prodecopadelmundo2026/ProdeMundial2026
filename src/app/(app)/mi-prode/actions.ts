@@ -34,7 +34,10 @@ export async function saveSpecialBets(values: SpecialBetsValues) {
 
   if (error) throw new Error(error.message)
   revalidatePath('/mi-prode')
+  revalidatePath('/ranking')
+  revalidatePath(`/ranking/${user.id}`)
   revalidatePath('/ranking/[userId]', 'page')
+  revalidatePath('/')
 }
 
 export async function deleteSpecialBets() {
@@ -50,5 +53,8 @@ export async function deleteSpecialBets() {
 
   if (error) throw new Error(error.message)
   revalidatePath('/mi-prode')
+  revalidatePath('/ranking')
+  revalidatePath(`/ranking/${user.id}`)
   revalidatePath('/ranking/[userId]', 'page')
+  revalidatePath('/')
 }

@@ -4,6 +4,8 @@ import { MatchCard } from '@/components/MatchCard'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import type { Match } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 /* ─── Sub-components ───────────────────────────────────────────── */
 
 function StatItem({ num, label, live }: { num: number; label: string; live?: boolean }) {

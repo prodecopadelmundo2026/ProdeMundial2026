@@ -400,8 +400,6 @@ function BracketMatchCard({
   )
 }
 
-const SPECIALS_STORAGE_KEY = 'prode_specials'
-
 function randomSpecials() {
   const balon = ['Lionel Messi', 'Kylian Mbappe', 'Vinicius Junior', 'Jamal Musiala']
   const bota = ['Kylian Mbappe', 'Harry Kane', 'Erling Haaland', 'Julian Alvarez']
@@ -638,8 +636,7 @@ export function BracketView({
   function handleAdminRandomSpecials() {
     try {
       const next = randomSpecials()
-      localStorage.setItem(SPECIALS_STORAGE_KEY, JSON.stringify(next))
-      window.dispatchEvent(new Event('prode-specials-randomized'))
+      window.dispatchEvent(new CustomEvent('prode-specials-randomized', { detail: next }))
       setAdminSaveError(null)
       setAdminSaveMessage('Apuestas especiales de prueba cargadas correctamente.')
       setAdminSaveState('saved')

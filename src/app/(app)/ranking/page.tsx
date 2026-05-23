@@ -4,6 +4,8 @@ import { buildAuditedRankingEntries } from '@/lib/ranking-audit'
 import type { Match, Prediction } from '@/types'
 import { RankingClient } from './RankingClient'
 
+export const dynamic = 'force-dynamic'
+
 export default async function RankingPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
