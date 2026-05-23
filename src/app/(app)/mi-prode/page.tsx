@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type { Match } from '@/types'
 import { MiProdeTabs } from './MiProdeTabs'
 import { getProdeLockState } from '@/lib/prode-lock'
@@ -17,6 +18,18 @@ type SpecialBetsRow = {
   balon: string | null
   bota: string | null
   guante: string | null
+}
+
+function normalizeStage(stage: string | null | undefined, group: string | null | undefined): Match['stage'] {
+  const value = String(stage ?? '').trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_')
+  if (value === 'group' || value === 'groups' || value === 'fase_de_grupos' || value === 'grupos') return 'group'
+  if (value === 'round_of_32' || value === 'dieciseisavos' || value === 'd16') return 'round_of_32'
+  if (value === 'round_of_16' || value === 'octavos') return 'round_of_16'
+  if (value === 'quarter' || value === 'quarter_final' || value === 'cuartos') return 'quarter'
+  if (value === 'semi' || value === 'semifinal' || value === 'semifinales') return 'semi'
+  if (value === 'third_place' || value === 'tercer_puesto' || value === '3er_puesto') return 'third_place'
+  if (value === 'final') return 'final'
+  return group ? 'group' : 'group'
 }
 
 async function loadSpecialBets(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<SpecialBetsRow | null> {
@@ -38,11 +51,12 @@ async function loadSpecialBets(supabase: Awaited<ReturnType<typeof createClient>
 
 export default async function MiProdePage() {
   const supabase = await createClient()
+  const admin = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const [{ data: allMatches }, { data: predictions }, { data: profile }, specialBets, prodeLock] = await Promise.all([
-    supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
+    admin.from('matches').select('*').order('scheduled_at', { ascending: true }),
     supabase
       .from('predictions')
       .select('match_id, home_score, away_score, points, tiebreaker_team, match:matches(status)')
@@ -52,7 +66,10 @@ export default async function MiProdePage() {
     getProdeLockState(supabase),
   ])
 
-  const matches = (allMatches ?? []) as Match[]
+  const matches = ((allMatches ?? []) as Match[]).map((match) => ({
+    ...match,
+    stage: normalizeStage(match.stage, match.group),
+  }))
   const userPredictions = (predictions ?? []) as PredRow[]
 
   const groupMatches = matches.filter((m) => m.stage === 'group')
