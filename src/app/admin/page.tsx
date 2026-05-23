@@ -19,6 +19,7 @@ import {
 import { AdminBracketSection } from './AdminBracketSection'
 import { getProdeLockState } from '@/lib/prode-lock'
 import { toggleProdeLockOverride } from './actions'
+import { getCurrentProfile } from '@/lib/current-profile'
 
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
 
@@ -86,11 +87,7 @@ export default async function AdminPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', user.id)
-    .single()
+  const profile = await getCurrentProfile(user)
 
   if (!profile?.is_admin) redirect('/')
 

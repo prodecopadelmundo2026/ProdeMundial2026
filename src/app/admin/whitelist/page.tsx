@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { WhitelistForm, type AuthorizedEmailRow } from './WhitelistForm'
+import { getCurrentProfile } from '@/lib/current-profile'
 
 type Props = {
   searchParams: Promise<{ q?: string }>
@@ -15,11 +16,7 @@ export default async function AdminWhitelistPage({ searchParams }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', user.id)
-    .maybeSingle()
+  const profile = await getCurrentProfile(user)
 
   if (!profile?.is_admin) redirect('/')
 

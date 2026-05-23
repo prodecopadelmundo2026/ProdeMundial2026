@@ -44,5 +44,6 @@ export type RankingEntry = {
   exact_predictions: number
   correct_result_predictions: number
   incorrect_predictions?: number
+  predictions_count?: number
   rank: number
 }

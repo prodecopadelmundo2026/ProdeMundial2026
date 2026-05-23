@@ -7,6 +7,7 @@ import { NavLinks } from './NavLinks'
 import { UserMenu } from '@/components/UserMenu'
 import { WhatsAppSupportButton } from '@/components/WhatsAppSupportButton'
 import { isSharedRank } from '@/lib/ranking-display'
+import { getCurrentProfile } from '@/lib/current-profile'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,9 +18,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   } = await supabase.auth.getUser()
   const admin = user ? createAdminClient() : null
 
-  const [{ data: profile }, { data: participants }, { data: matches }, { data: predictions }] = user
+  const [profile, { data: participants }, { data: matches }, { data: predictions }] = user
     ? await Promise.all([
-        admin!.from('profiles').select('name, is_admin').eq('id', user.id).maybeSingle(),
+        getCurrentProfile(user),
         supabase.from('ranking_entries').select('user_id, name, avatar_url'),
         supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
         admin!.from('predictions').select('*'),

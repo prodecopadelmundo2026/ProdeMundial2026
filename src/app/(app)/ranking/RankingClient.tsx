@@ -58,19 +58,30 @@ function RankRow({
   entries: RankingEntry[]
   rankingStarted: boolean
 }) {
+  const hasPredictions = (entry.predictions_count ?? 0) > 0
   const posColor = !rankingStarted ? '#8A8A8A' : isMe ? '#FF6B00' : (TOP3_COLOR[entry.rank] ?? '#4a4a4a')
 
   return (
-    <Link href={`/ranking/${entry.user_id}`} className="block">
+    <Link
+      href={`/ranking/${entry.user_id}`}
+      className="block"
+      aria-disabled={!hasPredictions}
+      tabIndex={hasPredictions ? undefined : -1}
+      onClick={(event) => {
+        if (!hasPredictions) event.preventDefault()
+      }}
+    >
       <div
         ref={innerRef}
         className="grid grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors duration-150 sm:grid-cols-[92px_minmax(0,1fr)_auto] sm:gap-[14px] sm:px-[14px]"
         style={{
           background: isMe ? 'rgba(255,107,0,0.1)' : 'transparent',
           border: isMe ? '1px solid rgba(255,107,0,0.28)' : '1px solid transparent',
+          cursor: hasPredictions ? 'pointer' : 'default',
+          opacity: hasPredictions ? 1 : 0.72,
         }}
         onMouseEnter={(e) => {
-          if (!isMe) (e.currentTarget as HTMLElement).style.background = '#1c1c1c'
+          if (hasPredictions && !isMe) (e.currentTarget as HTMLElement).style.background = '#1c1c1c'
         }}
         onMouseLeave={(e) => {
           if (!isMe) (e.currentTarget as HTMLElement).style.background = 'transparent'
@@ -105,14 +116,16 @@ function RankRow({
             )}
           </div>
           <div className="truncate font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted sm:tracking-[0.16em]">
-            {entry.exact_predictions ?? 0} exactas · {entry.correct_result_predictions ?? 0} parciales · {entry.incorrect_predictions ?? 0} incorrectas
+            {hasPredictions
+              ? `${entry.exact_predictions ?? 0} exactas · ${entry.correct_result_predictions ?? 0} parciales · ${entry.incorrect_predictions ?? 0} incorrectas`
+              : 'Registrado · todavía no cargó su Prode'}
           </div>
         </div>
       </div>
 
       {/* Puntos */}
         <div className="text-right shrink-0">
-          {rankingStarted ? (
+          {rankingStarted && hasPredictions ? (
             <>
               <span
                 className="font-display text-[21px] leading-none tabular-nums sm:text-[22px]"

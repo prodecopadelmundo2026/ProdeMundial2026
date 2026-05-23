@@ -24,6 +24,11 @@ export default async function RankingPage() {
       .select('*'),
   ])
 
+  const predictionCounts = new Map<string, number>()
+  for (const prediction of (predictions ?? []) as Prediction[]) {
+    predictionCounts.set(prediction.user_id, (predictionCounts.get(prediction.user_id) ?? 0) + 1)
+  }
+
   const entries = buildAuditedRankingEntries(
     (matches ?? []) as Match[],
     (predictions ?? []) as Prediction[],
@@ -32,7 +37,10 @@ export default async function RankingPage() {
       name: participant.name,
       avatar_url: participant.avatar_url,
     }))
-  )
+  ).map((entry) => ({
+    ...entry,
+    predictions_count: predictionCounts.get(entry.user_id) ?? 0,
+  }))
 
   return (
     <div style={{ padding: 'clamp(40px,8vw,64px) 20px clamp(60px,12vw,100px)' }}>

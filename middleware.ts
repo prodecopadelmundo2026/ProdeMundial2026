@@ -69,10 +69,14 @@ export async function middleware(request: NextRequest) {
   )
 
   if (accessError) {
-    const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/login'
-    loginUrl.searchParams.set('error', 'access_check_failed')
-    return NextResponse.redirect(loginUrl)
+    console.warn('[middleware] current_user_has_access failed; allowing authenticated request to page guards', {
+      pathname: request.nextUrl.pathname,
+      userId: user.id,
+      email: user.email,
+      supabaseHost: new URL(url).host,
+      error: accessError.message,
+    })
+    return supabaseResponse
   }
 
   if (!hasAccess) {

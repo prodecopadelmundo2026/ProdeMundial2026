@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { MatchCard } from '@/components/MatchCard'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import type { Match } from '@/types'
@@ -76,17 +77,28 @@ type RankingEntry = {
   rank: number
   exact_predictions: number
   correct_result_predictions: number
+  predictions_count?: number
 }
 
 function RankMark({
   entry,
   entries,
   color,
+  active = true,
 }: {
   entry: RankingEntry
   entries: RankingEntry[]
   color: string
+  active?: boolean
 }) {
+  if (!active) {
+    return (
+      <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted min-[720px]:text-[11px]">
+        Registrado
+      </span>
+    )
+  }
+
   const medal = rankMedal(entry.rank)
   return (
     <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap leading-none" style={{ color }}>
@@ -102,6 +114,7 @@ function RankMark({
 
 export default async function HomePage() {
   const supabase = await createClient()
+  const admin = createAdminClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -110,12 +123,15 @@ export default async function HomePage() {
 
   const [
     { count: participantes },
+    { count: matchCount },
     { count: myPredsCount },
     { data: upcoming },
     { data: topRanking },
     { data: profile },
+    { data: predictionRows },
   ] = await Promise.all([
-    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    supabase.from('ranking_entries').select('*', { count: 'exact', head: true }),
+    supabase.from('matches').select('*', { count: 'exact', head: true }),
     user
       ? supabase.from('predictions').select('*', { count: 'exact', head: true }).limit(1)
       : Promise.resolve({ count: 0 }),
@@ -133,11 +149,20 @@ export default async function HomePage() {
     user
       ? supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
       : Promise.resolve({ data: null }),
+    admin.from('predictions').select('user_id'),
   ])
 
   const hasMyPredictions = (myPredsCount ?? 0) > 0
 
-  const typedTopRanking = (topRanking ?? []) as RankingEntry[]
+  const predictionCounts = new Map<string, number>()
+  for (const prediction of (predictionRows ?? []) as Array<{ user_id: string }>) {
+    predictionCounts.set(prediction.user_id, (predictionCounts.get(prediction.user_id) ?? 0) + 1)
+  }
+
+  const typedTopRanking = ((topRanking ?? []) as RankingEntry[]).map((entry) => ({
+    ...entry,
+    predictions_count: predictionCounts.get(entry.user_id) ?? 0,
+  }))
   const isInTop10 = user ? typedTopRanking.some(e => e.user_id === user.id) : false
 
   let myRanking: RankingEntry | null = null
@@ -147,7 +172,9 @@ export default async function HomePage() {
       .select('user_id, name, total_points, rank, exact_predictions, correct_result_predictions')
       .eq('user_id', user.id)
       .maybeSingle()
-    myRanking = data as RankingEntry | null
+    myRanking = data
+      ? { ...(data as RankingEntry), predictions_count: predictionCounts.get((data as RankingEntry).user_id) ?? 0 }
+      : null
   }
 
   const allUpcoming = (upcoming ?? []) as Match[]
@@ -187,6 +214,7 @@ export default async function HomePage() {
   const showPreTournamentBanner = typedTopRanking.every(e => e.total_points === 0)
   const rankingStarted = typedTopRanking.some(e => e.total_points > 0)
   const displayedRanking = myRanking ? [...typedTopRanking, myRanking] : typedTopRanking
+  const maxPoints = (matchCount ?? 0) * 3 + 50
 
   return (
     <>
@@ -339,9 +367,9 @@ export default async function HomePage() {
         style={{ borderTop: '2px solid #0A0A0A', borderBottom: '2px solid #0A0A0A' }}
       >
         <div className="max-w-[1280px] mx-auto px-5 py-7 grid grid-cols-3 gap-5">
-          <StatItem num={participantes ?? 0} label="Participantes" live />
-          <StatItem num={290} label="Puntos en juego" />
-          <StatItem num={80} label="Partidos · 48 selecciones" />
+          <StatItem num={participantes ?? typedTopRanking.length} label="Participantes" live />
+          <StatItem num={maxPoints} label="Puntos en juego" />
+          <StatItem num={matchCount ?? 0} label="Partidos · 48 selecciones" />
         </div>
       </div>
 
@@ -409,17 +437,25 @@ export default async function HomePage() {
             >
               {typedTopRanking.map((entry) => {
                 const isMe = user?.id === entry.user_id
+                const hasPredictions = (entry.predictions_count ?? 0) > 0
                 const rankColor = rankColors[entry.rank] ?? (isMe ? '#FF6B00' : '#8A8A8A')
                 return (
                   <Link
                     key={entry.user_id}
                     href={`/ranking/${entry.user_id}`}
+                    aria-disabled={!hasPredictions}
+                    tabIndex={hasPredictions ? undefined : -1}
+                    onClick={(event) => {
+                      if (!hasPredictions) event.preventDefault()
+                    }}
                     className="grid grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors hover:bg-panel-2 min-[720px]:grid-cols-[96px_minmax(0,1fr)_auto] min-[720px]:gap-[14px] min-[720px]:px-[14px]"
                     style={{
+                      cursor: hasPredictions ? 'pointer' : 'default',
+                      opacity: hasPredictions ? 1 : 0.72,
                       ...(isMe ? { background: 'rgba(255,107,0,.1)', border: '1px solid rgba(255,107,0,.22)' } : {}),
                     }}
                   >
-                    <RankMark entry={entry} entries={typedTopRanking} color={rankColor} />
+                    <RankMark entry={entry} entries={typedTopRanking} color={rankColor} active={hasPredictions} />
                     <div className="flex min-w-0 items-center gap-2.5 min-[720px]:gap-3">
                       <div
                         className="w-9 h-9 rounded-full shrink-0 grid place-items-center font-display text-[14px] text-white"
@@ -446,21 +482,27 @@ export default async function HomePage() {
                           className="font-mono font-bold uppercase truncate"
                           style={{ fontSize: 10, color: '#8A8A8A', letterSpacing: '.16em' }}
                         >
-                          {entry.exact_predictions ?? 0} exactas · {entry.correct_result_predictions ?? 0} parciales
+                          {hasPredictions
+                            ? `${entry.exact_predictions ?? 0} exactas · ${entry.correct_result_predictions ?? 0} parciales`
+                            : 'Registrado · todavía no cargó su Prode'}
                         </span>
                       </div>
                     </div>
                     <span
-                      className="font-display text-right leading-none tracking-[-0.03em] tabular-nums"
-                      style={{ fontSize: 22 }}
+                      className={hasPredictions ? 'font-display text-right leading-none tracking-[-0.03em] tabular-nums' : 'font-mono text-right text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted'}
+                      style={hasPredictions ? { fontSize: 22 } : undefined}
                     >
-                      {entry.total_points}
-                      <em
-                        className="not-italic font-mono font-bold uppercase ml-[6px]"
-                        style={{ fontSize: '0.55em', color: '#8A8A8A', letterSpacing: '.16em' }}
-                      >
-                        pts
-                      </em>
+                      {hasPredictions ? (
+                        <>
+                          {entry.total_points}
+                          <em
+                            className="not-italic font-mono font-bold uppercase ml-[6px]"
+                            style={{ fontSize: '0.55em', color: '#8A8A8A', letterSpacing: '.16em' }}
+                          >
+                            pts
+                          </em>
+                        </>
+                      ) : 'Sin puntos'}
                     </span>
                   </Link>
                 )
@@ -482,7 +524,7 @@ export default async function HomePage() {
                       marginTop: 6,
                     }}
                   >
-                    <RankMark entry={myRanking} entries={displayedRanking} color="#FF6B00" />
+                    <RankMark entry={myRanking} entries={displayedRanking} color="#FF6B00" active={(myRanking.predictions_count ?? 0) > 0} />
                     <div className="flex min-w-0 items-center gap-2.5 min-[720px]:gap-3">
                       <div
                         className="w-9 h-9 rounded-full shrink-0 grid place-items-center font-display text-[14px] text-white"
