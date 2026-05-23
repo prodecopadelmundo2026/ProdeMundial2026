@@ -1,9 +1,13 @@
 import { redirect } from 'next/navigation'
+import { unstable_noStore as noStore } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { Match } from '@/types'
 import { MiProdeTabs } from './MiProdeTabs'
 import { getProdeLockState } from '@/lib/prode-lock'
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 type PredRow = {
   match_id: string
@@ -50,12 +54,14 @@ async function loadSpecialBets(supabase: Awaited<ReturnType<typeof createClient>
 }
 
 export default async function MiProdePage() {
+  noStore()
+
   const supabase = await createClient()
   const admin = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: allMatches }, { data: predictions }, { data: profile }, specialBets, prodeLock] = await Promise.all([
+  const [{ data: allMatches, error: matchesError }, { data: predictions }, { data: profile }, specialBets, prodeLock] = await Promise.all([
     admin.from('matches').select('*').order('scheduled_at', { ascending: true }),
     supabase
       .from('predictions')
@@ -74,6 +80,48 @@ export default async function MiProdePage() {
 
   const groupMatches = matches.filter((m) => m.stage === 'group')
   const knockoutMatches = matches.filter((m) => m.stage !== 'group')
+  const stageCounts = matches.reduce<Record<string, number>>((acc, match) => {
+    acc[match.stage] = (acc[match.stage] ?? 0) + 1
+    return acc
+  }, {})
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+  let supabaseHost: string | null = null
+  try {
+    supabaseHost = supabaseUrl ? new URL(supabaseUrl).host : null
+  } catch {
+    supabaseHost = supabaseUrl ?? null
+  }
+
+  console.info('[mi-prode] fixture load', {
+    supabaseHost,
+    userId: user.id,
+    userEmail: user.email ?? null,
+    matchesError: matchesError
+      ? {
+          message: matchesError.message,
+          code: matchesError.code,
+          details: matchesError.details,
+          hint: matchesError.hint,
+        }
+      : null,
+    rawMatchesCount: allMatches?.length ?? 0,
+    firstMatch: allMatches?.[0]
+      ? {
+          id: allMatches[0].id,
+          home_team: allMatches[0].home_team,
+          away_team: allMatches[0].away_team,
+          scheduled_at: allMatches[0].scheduled_at,
+          locked_at: allMatches[0].locked_at,
+          stage: allMatches[0].stage,
+          group: allMatches[0].group,
+          status: allMatches[0].status,
+        }
+      : null,
+    normalizedStageCounts: stageCounts,
+    finalGroupMatchesCount: groupMatches.length,
+    finalKnockoutMatchesCount: knockoutMatches.length,
+  })
 
   const predMap = Object.fromEntries(
     userPredictions.map((p) => [

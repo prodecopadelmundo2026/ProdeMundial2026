@@ -124,7 +124,11 @@ function isPlaceholderName(name: string): boolean {
     normalized.includes('°') ||
     normalized.startsWith('Ganador') ||
     normalized.startsWith('Perdedor') ||
-    normalized === 'Mejor 3°'
+    normalized.startsWith('Ganador Grupo') ||
+    normalized.startsWith('Segundo Grupo') ||
+    normalized.startsWith('Mejor tercero') ||
+    normalized === 'Mejor 3°' ||
+    /^P\d+[HA]$/.test(normalized)
   )
 }
 
@@ -132,17 +136,49 @@ function normalizePlaceholderName(name: string): string {
   return name.replace(/Ã‚Â°|Â°/g, '°')
 }
 
+function longFixtureLabel(raw: string): string {
+  const normalized = normalizePlaceholderName(raw)
+  const direct = normalized.match(/^([12])°\s+Grupo\s+([A-L])$/)
+  if (direct) return `${direct[1] === '1' ? 'Ganador' : 'Segundo'} Grupo ${direct[2]}`
+
+  const third = normalized.match(/^3°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
+  if (third) return `Mejor tercero de ${third[1]}`
+
+  const win = normalized.match(/^Ganador\s+P(\d+)$/)
+  if (win) return `Ganador partido ${win[1]}`
+
+  const los = normalized.match(/^Perdedor\s+P(\d+)$/)
+  if (los) return `Perdedor partido ${los[1]}`
+
+  return normalized
+}
+
+function fallbackSlotLabel(pNum: number, side: 0 | 1): string {
+  const fixture = KNOCKOUT_FIXTURES[pNum]
+  if (!fixture) return `Ganador partido ${pNum}`
+  return longFixtureLabel(fixture[side])
+}
+
 function shortName(raw: string): string {
   const normalized = normalizePlaceholderName(raw)
   if (normalized === 'Mejor 3°') return 'Mejor 3°'
+  const internal = normalized.match(/^P(\d+)([HA])$/)
+  if (internal) return fallbackSlotLabel(Number(internal[1]), internal[2] === 'H' ? 0 : 1)
   const m = normalized.match(/^([12])°\s+Grupo\s+([A-L])$/)
   if (m) return `${m[1]}° Grp ${m[2]}`
   const third = normalized.match(/^3°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
   if (third) return `Mejor 3° de ${third[1]}`
   const win = normalized.match(/^Ganador\s+P(\d+)$/)
-  if (win) return `Gan.P${win[1]}`
+  if (win) return `Ganador partido ${win[1]}`
   const los = normalized.match(/^Perdedor\s+P(\d+)$/)
-  if (los) return `Perd.P${los[1]}`
+  if (los) return `Perdedor partido ${los[1]}`
+  if (
+    normalized.startsWith('Ganador partido') ||
+    normalized.startsWith('Perdedor partido') ||
+    normalized.startsWith('Ganador Grupo') ||
+    normalized.startsWith('Segundo Grupo') ||
+    normalized.startsWith('Mejor tercero')
+  ) return normalized
   return normalized.slice(0, 13)
 }
 
@@ -259,17 +295,32 @@ function ChampionCard({ team }: { team: string | null }) {
   const meta = !isPH ? getTeam(team!) : null
   return (
     <div style={{
+      position: 'relative',
       width: CHAMPION_W,
       height: 64,
       border: `1px solid ${isPH ? 'rgba(255,255,255,0.07)' : 'rgba(255,224,64,0.4)'}`,
       borderRadius: 10,
       background: isPH ? '#090909' : 'rgba(255,224,64,0.06)',
+      overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 5,
     }}>
+      {!isPH && (
+        <>
+          <span style={{ position: 'absolute', top: 8, left: 16, width: 4, height: 4, borderRadius: 999, background: '#FFE040', animation: 'championSpark 1.8s ease-in-out infinite' }} />
+          <span style={{ position: 'absolute', top: 13, right: 18, width: 3, height: 3, borderRadius: 999, background: '#A8F0D8', animation: 'championSpark 1.8s ease-in-out 0.35s infinite' }} />
+          <span style={{ position: 'absolute', bottom: 12, right: 28, width: 4, height: 4, borderRadius: 999, background: '#FF6B00', animation: 'championSpark 1.8s ease-in-out 0.7s infinite' }} />
+          <style>{`
+            @keyframes championSpark {
+              0%, 100% { opacity: 0.2; transform: translateY(0) scale(0.7); }
+              45% { opacity: 1; transform: translateY(-3px) scale(1); }
+            }
+          `}</style>
+        </>
+      )}
       {!isPH && meta?.iso2 ? (
         <img src={flagUrl(meta.iso2)} alt={team!} style={{ width: 28, height: 20, objectFit: 'contain' }} />
       ) : (
@@ -468,8 +519,8 @@ export function TournamentBracket({
     const source: BracketSource = mode === 'official' ? 'official' : 'prediction'
     const scoreMap = source === 'official' ? officialMap : predMap
 
-    const homeTeam = rawHome ? resolveFromSource(rawHome, source) : `P${pNum}H`
-    const awayTeam = rawAway ? resolveFromSource(rawAway, source) : `P${pNum}A`
+    const homeTeam = rawHome ? resolveFromSource(rawHome, source) : fallbackSlotLabel(pNum, 0)
+    const awayTeam = rawAway ? resolveFromSource(rawAway, source) : fallbackSlotLabel(pNum, 1)
 
     const rawPred = match ? scoreMap[match.id] : undefined
     const tb   = match ? tiebreakerMap[match.id] : undefined
