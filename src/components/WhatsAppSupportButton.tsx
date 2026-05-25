@@ -13,7 +13,7 @@ export function WhatsAppSupportButton({ placement = 'floating' }: Props) {
   const isNav = placement === 'nav'
 
   return (
-    <div className={isNav ? 'relative z-[120]' : 'fixed bottom-4 right-4 z-[120] hidden flex-col items-end gap-3 min-[880px]:flex sm:bottom-6 sm:right-6'}>
+    <div className={isNav ? 'relative z-[120]' : 'fixed bottom-[calc(16px+env(safe-area-inset-bottom))] right-3 z-[120] flex flex-col items-end gap-3 sm:right-6 min-[880px]:bottom-6'}>
       {open && (
         <div
           className={isNav
@@ -63,7 +63,7 @@ export function WhatsAppSupportButton({ placement = 'floating' }: Props) {
         onClick={() => setOpen((value) => !value)}
         className={isNav
           ? 'inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#A8F0D8] px-3 text-[12px] font-extrabold text-[#0A0A0A] shadow-lg'
-          : 'inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#A8F0D8] px-5 text-[14px] font-extrabold text-[#0A0A0A] shadow-lg transition-transform hover:-translate-y-0.5'
+          : 'inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-[#A8F0D8] px-3 text-[12px] font-extrabold text-[#0A0A0A] shadow-lg transition-transform hover:-translate-y-0.5 min-[880px]:h-12 min-[880px]:gap-2 min-[880px]:px-5 min-[880px]:text-[14px]'
         }
       >
         <MessageCircle size={isNav ? 15 : 18} aria-hidden="true" />

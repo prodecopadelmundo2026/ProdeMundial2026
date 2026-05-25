@@ -5,7 +5,6 @@ import { buildAuditedRankingEntries } from '@/lib/ranking-audit'
 import type { Match, Prediction } from '@/types'
 import { NavLinks } from './NavLinks'
 import { UserMenu } from '@/components/UserMenu'
-import { WhatsAppSupportButton } from '@/components/WhatsAppSupportButton'
 import { isSharedRank } from '@/lib/ranking-display'
 import { getCurrentProfile } from '@/lib/current-profile'
 
@@ -70,9 +69,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       >
         <div className="relative max-w-[1280px] mx-auto px-4 h-[56px] flex items-center justify-between">
           <NavLinks isLoggedIn={!!user} />
-          <div className="absolute left-1/2 -translate-x-1/2 min-[880px]:hidden">
-            <WhatsAppSupportButton placement="nav" />
-          </div>
 
           {/* Right side */}
           <div className="flex items-center gap-[10px] shrink-0">
