@@ -9,7 +9,7 @@ import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
 import { StatusBadge } from '@/components/StatusBadge'
 import { generateRandomKnockoutPredictions, upsertPredictionsBatch } from '@/app/(app)/fixture/actions'
-import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups, assignBestThirdsToSlots, getPendingGroupTiebreakers } from '@/lib/bracket'
+import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups, assignBestThirdsToSlots, getPendingGroupTiebreakers, isVirtualKnockoutMatch } from '@/lib/bracket'
 import { normalizeScoreInput, parseScoreInput } from '@/lib/score-input'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
@@ -490,6 +490,7 @@ export function BracketView({
       const now = new Date()
       const predictions = knockoutMatches
         .map((m) => {
+          if (isVirtualKnockoutMatch(m)) return null
           if (m.status !== 'upcoming' || now >= new Date(m.locked_at)) return null
           const inp = localInputs[m.id]
           if (!inp || inp.home === '' || inp.away === '') return null
@@ -576,6 +577,7 @@ export function BracketView({
   function getAdminEligibleMatches(round?: RoundKey) {
     if (bracketLocked) return []
     return knockoutMatches.filter((match) => {
+      if (isVirtualKnockoutMatch(match)) return false
       const key = match.stage
       if (round && key !== round) return false
       if (match.status !== 'upcoming' || now >= new Date(match.locked_at)) return false
@@ -686,12 +688,12 @@ export function BracketView({
   const canLoadSelectedRounds = selectedAdminCount > 0 && adminSaveState !== 'saving'
 
   const eligibleForQuickFill = knockoutMatches.filter(
-    (m) => m.status === 'upcoming' && now < new Date(m.locked_at)
+    (m) => !isVirtualKnockoutMatch(m) && m.status === 'upcoming' && now < new Date(m.locked_at)
   ).length
 
   async function handleQuickFillAll() {
     const targetMatches = knockoutMatches.filter(
-      (m) => m.status === 'upcoming' && now < new Date(m.locked_at)
+      (m) => !isVirtualKnockoutMatch(m) && m.status === 'upcoming' && now < new Date(m.locked_at)
     )
     if (!targetMatches.length) return
     setQuickFillState('saving')

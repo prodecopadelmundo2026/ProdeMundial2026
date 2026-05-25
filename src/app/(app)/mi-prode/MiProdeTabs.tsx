@@ -13,6 +13,7 @@ import { deletePredictionsByStages, generateRandomGroupPredictions } from '@/app
 import { parseScoreInput } from '@/lib/score-input'
 import type { ProdeLockState } from '@/lib/prode-lock'
 import { deleteSpecialBets, type SpecialBetsValues } from './actions'
+import { buildProjectedKnockoutMatches } from '@/lib/bracket'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
@@ -120,6 +121,11 @@ export function MiProdeTabs({
     if (!groupedByGroup[key]) groupedByGroup[key] = []
     groupedByGroup[key].push(m)
   }
+
+  const projectedKnockoutMatches = useMemo(
+    () => buildProjectedKnockoutMatches(knockoutMatches),
+    [knockoutMatches],
+  )
 
   useEffect(() => {
     console.info('[mi-prode-tabs] props', {
@@ -235,7 +241,7 @@ export function MiProdeTabs({
     if (clearedStages.has('group')) {
       for (const match of groupMatches) delete merged[match.id]
     }
-    for (const match of knockoutMatches) {
+    for (const match of projectedKnockoutMatches) {
       if (clearedStages.has(match.stage)) delete merged[match.id]
     }
     for (const [matchId, { home, away }] of Object.entries(localGroupPreds)) {
@@ -246,7 +252,7 @@ export function MiProdeTabs({
       }
     }
     return merged
-  }, [predMap, localGroupPreds, bracketClearSignal, groupMatches, knockoutMatches])
+  }, [predMap, localGroupPreds, bracketClearSignal, groupMatches, projectedKnockoutMatches])
 
   // All group matches have a valid prediction (server or local)
   const allGroupsFilled =
@@ -706,7 +712,7 @@ export function MiProdeTabs({
       <div style={{ display: activeTab === 'eliminatoria' ? undefined : 'none' }}>
         <BracketView
           groupMatches={groupMatches}
-          knockoutMatches={knockoutMatches}
+          knockoutMatches={projectedKnockoutMatches}
           predMap={effectivePredMap}
           initialTiebreakerMap={tiebreakerMap}
           isAdmin={isAdmin}
@@ -723,7 +729,7 @@ export function MiProdeTabs({
         <TournamentBracket
           mode="prode"
           groupMatches={groupMatches}
-          knockoutMatches={knockoutMatches}
+          knockoutMatches={projectedKnockoutMatches}
           predMap={effectivePredMap}
           tiebreakerMap={{ ...tiebreakerMap, ...tiebreakers }}
         />

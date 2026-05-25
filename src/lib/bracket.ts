@@ -57,6 +57,83 @@ export const KNOCKOUT_FIXTURES: Record<number, [string, string]> = {
   104: ['Ganador P101', 'Ganador P102'],
 }
 
+const KNOCKOUT_MATCH_DATES: Record<number, string> = {
+  73: '2026-06-28T22:00:00.000Z',
+  74: '2026-06-29T20:30:00.000Z',
+  75: '2026-06-30T03:00:00.000Z',
+  76: '2026-06-29T18:00:00.000Z',
+  77: '2026-06-30T21:00:00.000Z',
+  78: '2026-06-30T18:00:00.000Z',
+  79: '2026-07-01T03:00:00.000Z',
+  80: '2026-07-01T16:00:00.000Z',
+  81: '2026-07-02T03:00:00.000Z',
+  82: '2026-07-01T23:00:00.000Z',
+  83: '2026-07-02T23:00:00.000Z',
+  84: '2026-07-02T22:00:00.000Z',
+  85: '2026-07-03T06:00:00.000Z',
+  86: '2026-07-03T22:00:00.000Z',
+  87: '2026-07-04T02:30:00.000Z',
+  88: '2026-07-03T19:00:00.000Z',
+  89: '2026-07-04T21:00:00.000Z',
+  90: '2026-07-04T18:00:00.000Z',
+  91: '2026-07-05T20:00:00.000Z',
+  92: '2026-07-06T02:00:00.000Z',
+  93: '2026-07-06T20:00:00.000Z',
+  94: '2026-07-07T03:00:00.000Z',
+  95: '2026-07-07T16:00:00.000Z',
+  96: '2026-07-07T23:00:00.000Z',
+  97: '2026-07-09T20:00:00.000Z',
+  98: '2026-07-10T22:00:00.000Z',
+  99: '2026-07-11T21:00:00.000Z',
+  100: '2026-07-12T02:00:00.000Z',
+  101: '2026-07-14T20:00:00.000Z',
+  102: '2026-07-15T19:00:00.000Z',
+  103: '2026-07-18T22:00:00.000Z',
+  104: '2026-07-19T19:00:00.000Z',
+}
+
+function knockoutStageForPNum(pNum: number): Match['stage'] {
+  if (pNum <= 88) return 'round_of_32'
+  if (pNum <= 96) return 'round_of_16'
+  if (pNum <= 100) return 'quarter'
+  if (pNum <= 102) return 'semi'
+  if (pNum === 103) return 'third_place'
+  return 'final'
+}
+
+export function isVirtualKnockoutMatch(match: Pick<Match, 'id'>) {
+  return match.id.startsWith('virtual-p')
+}
+
+function createVirtualKnockoutMatch(pNum: number, homeTeam: string, awayTeam: string): Match {
+  const scheduledAt = KNOCKOUT_MATCH_DATES[pNum] ?? '2026-06-28T22:00:00.000Z'
+  return {
+    id: `virtual-p${pNum}`,
+    home_team: homeTeam,
+    away_team: awayTeam,
+    home_score: null,
+    away_score: null,
+    scheduled_at: scheduledAt,
+    locked_at: scheduledAt,
+    stage: knockoutStageForPNum(pNum),
+    group: null,
+    status: 'upcoming',
+    created_at: scheduledAt,
+  }
+}
+
+export function buildProjectedKnockoutMatches(knockoutMatches: Match[]): Match[] {
+  const result = [...knockoutMatches]
+  const existing = buildKnockoutMap(knockoutMatches)
+
+  for (const [pNumString, [homeTeam, awayTeam]] of Object.entries(KNOCKOUT_FIXTURES)) {
+    const pNum = Number(pNumString)
+    if (!existing[pNum]) result.push(createVirtualKnockoutMatch(pNum, homeTeam, awayTeam))
+  }
+
+  return result.sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+}
+
 function areStatsTied(a: TeamStats, b: TeamStats) {
   return a.pts === b.pts && (a.gf - a.ga) === (b.gf - b.ga) && a.gf === b.gf
 }
