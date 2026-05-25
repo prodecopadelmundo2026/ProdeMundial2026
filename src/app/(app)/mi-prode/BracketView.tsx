@@ -33,6 +33,8 @@ interface Props {
   readOnly?: boolean
   clearSignal?: { version: number; stages: string[] }
   openRandomModal?: number
+  onKnockoutPredChange?: (matchId: string, home: string, away: string) => void
+  onKnockoutTiebreakerChange?: (matchId: string, team: string | null) => void
 }
 
 const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'third_place', 'final'] as const
@@ -418,6 +420,8 @@ export function BracketView({
   readOnly = false,
   clearSignal,
   openRandomModal,
+  onKnockoutPredChange,
+  onKnockoutTiebreakerChange,
 }: Props) {
   const groupBuckets = groupMatches.reduce<Record<string, Match[]>>((acc, match) => {
     if (!match.group) return acc
@@ -462,6 +466,36 @@ export function BracketView({
   const [quickFillState, setQuickFillState] = useState<'idle' | 'confirm' | 'saving' | 'saved' | 'error'>('idle')
   const [quickFillError, setQuickFillError] = useState<string | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    setLocalInputs((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const match of knockoutMatches) {
+        const pred = predMap[match.id]
+        if (!pred) continue
+        const home = pred.home_score.toString()
+        const away = pred.away_score.toString()
+        if (next[match.id]?.home === home && next[match.id]?.away === away) continue
+        next[match.id] = { home, away }
+        changed = true
+      }
+      return changed ? next : prev
+    })
+  }, [predMap, knockoutMatches])
+
+  useEffect(() => {
+    setTiebreakerMap((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const [matchId, team] of Object.entries(initialTiebreakerMap)) {
+        if (next[matchId] === team) continue
+        next[matchId] = team
+        changed = true
+      }
+      return changed ? next : prev
+    })
+  }, [initialTiebreakerMap])
 
   useEffect(() => {
     if (!clearSignal?.version) return
@@ -531,9 +565,11 @@ export function BracketView({
 
   function handleValuesChange(matchId: string, home: string, away: string) {
     setLocalInputs((prev) => ({ ...prev, [matchId]: { home, away } }))
+    onKnockoutPredChange?.(matchId, home, away)
   }
 
   function handleTiebreaker(matchId: string, team: string | null) {
+    onKnockoutTiebreakerChange?.(matchId, team)
     setTiebreakerMap((prev) => {
       if (!team) {
         const { [matchId]: _removed, ...rest } = prev
@@ -615,6 +651,7 @@ export function BracketView({
       setLocalInputs((prev) => {
         const next = { ...prev }
         for (const pred of generated) {
+          onKnockoutPredChange?.(pred.matchId, String(pred.homeScore), String(pred.awayScore))
           next[pred.matchId] = {
             home: String(pred.homeScore),
             away: String(pred.awayScore),
@@ -703,6 +740,7 @@ export function BracketView({
       setLocalInputs((prev) => {
         const next = { ...prev }
         for (const pred of generated) {
+          onKnockoutPredChange?.(pred.matchId, String(pred.homeScore), String(pred.awayScore))
           next[pred.matchId] = { home: String(pred.homeScore), away: String(pred.awayScore) }
         }
         return next

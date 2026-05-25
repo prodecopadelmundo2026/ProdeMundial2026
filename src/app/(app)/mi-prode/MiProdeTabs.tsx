@@ -24,6 +24,8 @@ type DeleteState = 'idle' | 'confirm' | 'deleting' | 'success' | 'error'
 
 const LOCAL_STORAGE_KEY = 'prode_group_preds'
 const TIEBREAKERS_STORAGE_KEY = 'prode_group_tiebreakers'
+const KNOCKOUT_STORAGE_KEY = 'prode_knockout_preds'
+const KNOCKOUT_TIEBREAKERS_STORAGE_KEY = 'prode_knockout_tiebreakers'
 const SPECIALS_STORAGE_KEY = 'prode_specials'
 
 function randomSpecials() {
@@ -106,6 +108,9 @@ export function MiProdeTabs({
   const [fakeError, setFakeError] = useState<string | null>(null)
   const [bracketModalSignal, setBracketModalSignal] = useState(0)
   const [tiebreakers, setTiebreakers] = useState<Record<string, string>>({})
+  const [localKnockoutPreds, setLocalKnockoutPreds] = useState<Record<string, { home: string; away: string }>>({})
+  const [localKnockoutTiebreakers, setLocalKnockoutTiebreakers] = useState<Record<string, string>>({})
+  const [knockoutStorageReady, setKnockoutStorageReady] = useState(false)
   const [groupSaveStates, setGroupSaveStates] = useState<Record<string, SaveState>>(() => {
     const init: Record<string, SaveState> = {}
     for (const m of groupMatches) {
@@ -201,6 +206,51 @@ export function MiProdeTabs({
     } catch {}
   }, [tiebreakers])
 
+  useEffect(() => {
+    try {
+      const validMatchIds = new Set(projectedKnockoutMatches.map((m) => m.id))
+      const storedPreds = localStorage.getItem(KNOCKOUT_STORAGE_KEY)
+      if (storedPreds) {
+        const parsed = JSON.parse(storedPreds) as Record<string, { home: string; away: string }>
+        setLocalKnockoutPreds(() => {
+          const next: Record<string, { home: string; away: string }> = {}
+          for (const [matchId, value] of Object.entries(parsed)) {
+            if (validMatchIds.has(matchId)) next[matchId] = value
+          }
+          return next
+        })
+      }
+      const storedTiebreakers = localStorage.getItem(KNOCKOUT_TIEBREAKERS_STORAGE_KEY)
+      if (storedTiebreakers) {
+        const parsed = JSON.parse(storedTiebreakers) as Record<string, string>
+        setLocalKnockoutTiebreakers(() => {
+          const next: Record<string, string> = {}
+          for (const [matchId, team] of Object.entries(parsed)) {
+            if (validMatchIds.has(matchId)) next[matchId] = team
+          }
+          return next
+        })
+      }
+      setKnockoutStorageReady(true)
+    } catch {
+      setKnockoutStorageReady(true)
+    }
+  }, [projectedKnockoutMatches])
+
+  useEffect(() => {
+    if (!knockoutStorageReady) return
+    try {
+      localStorage.setItem(KNOCKOUT_STORAGE_KEY, JSON.stringify(localKnockoutPreds))
+    } catch {}
+  }, [localKnockoutPreds, knockoutStorageReady])
+
+  useEffect(() => {
+    if (!knockoutStorageReady) return
+    try {
+      localStorage.setItem(KNOCKOUT_TIEBREAKERS_STORAGE_KEY, JSON.stringify(localKnockoutTiebreakers))
+    } catch {}
+  }, [localKnockoutTiebreakers, knockoutStorageReady])
+
   // Persist to localStorage whenever group preds change
   useEffect(() => {
     try {
@@ -228,6 +278,22 @@ export function MiProdeTabs({
     setGroupSaveStates((prev) => ({ ...prev, [matchId]: state }))
   }
 
+  function handleKnockoutPredChange(matchId: string, home: string, away: string) {
+    if (prodeLocked) return
+    setLocalKnockoutPreds((prev) => ({ ...prev, [matchId]: { home, away } }))
+  }
+
+  function handleKnockoutTiebreakerChange(matchId: string, team: string | null) {
+    if (prodeLocked) return
+    setLocalKnockoutTiebreakers((prev) => {
+      if (!team) {
+        const { [matchId]: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, [matchId]: team }
+    })
+  }
+
   function hasCompleteGroupInput(matchId: string) {
     const input = localGroupPreds[matchId]
     if (!input) return false
@@ -251,8 +317,17 @@ export function MiProdeTabs({
         merged[matchId] = { home_score: h, away_score: a }
       }
     }
+    for (const [matchId, { home, away }] of Object.entries(localKnockoutPreds)) {
+      const match = projectedKnockoutMatches.find((m) => m.id === matchId)
+      if (match && clearedStages.has(match.stage)) continue
+      const h = parseScoreInput(home)
+      const a = parseScoreInput(away)
+      if (h != null && a != null) {
+        merged[matchId] = { home_score: h, away_score: a }
+      }
+    }
     return merged
-  }, [predMap, localGroupPreds, bracketClearSignal, groupMatches, projectedKnockoutMatches])
+  }, [predMap, localGroupPreds, localKnockoutPreds, bracketClearSignal, groupMatches, projectedKnockoutMatches])
 
   // All group matches have a valid prediction (server or local)
   const allGroupsFilled =
@@ -288,6 +363,11 @@ export function MiProdeTabs({
     : groupStatus.allReady
     ? '#A8F0D8'
     : '#8A8A8A'
+
+  const effectiveKnockoutTiebreakers = useMemo(
+    () => ({ ...tiebreakerMap, ...localKnockoutTiebreakers }),
+    [tiebreakerMap, localKnockoutTiebreakers],
+  )
 
   function toggleDeleteSelection(option: DeleteOption) {
     setDeleteSelections((prev) => {
@@ -374,6 +454,20 @@ export function MiProdeTabs({
           setGroupSaveStates({})
         }
         if (scopes.deleteKnockoutLocally) {
+          setLocalKnockoutPreds((prev) => {
+            const next = { ...prev }
+            for (const match of projectedKnockoutMatches) {
+              if (scopes.stages.includes(match.stage)) delete next[match.id]
+            }
+            return next
+          })
+          setLocalKnockoutTiebreakers((prev) => {
+            const next = { ...prev }
+            for (const match of projectedKnockoutMatches) {
+              if (scopes.stages.includes(match.stage)) delete next[match.id]
+            }
+            return next
+          })
           setBracketClearSignal((prev) => ({ version: prev.version + 1, stages: scopes.stages }))
         }
         if (scopes.deleteSpecials) {
@@ -714,12 +808,14 @@ export function MiProdeTabs({
           groupMatches={groupMatches}
           knockoutMatches={projectedKnockoutMatches}
           predMap={effectivePredMap}
-          initialTiebreakerMap={tiebreakerMap}
+          initialTiebreakerMap={effectiveKnockoutTiebreakers}
           isAdmin={isAdmin}
           groupTiebreakerMap={tiebreakers}
           readOnly={prodeLocked}
           clearSignal={bracketClearSignal}
           openRandomModal={bracketModalSignal}
+          onKnockoutPredChange={handleKnockoutPredChange}
+          onKnockoutTiebreakerChange={handleKnockoutTiebreakerChange}
         />
       </div>
       <div style={{ display: activeTab === 'llave' ? undefined : 'none' }}>
@@ -731,7 +827,7 @@ export function MiProdeTabs({
           groupMatches={groupMatches}
           knockoutMatches={projectedKnockoutMatches}
           predMap={effectivePredMap}
-          tiebreakerMap={{ ...tiebreakerMap, ...tiebreakers }}
+          tiebreakerMap={{ ...effectiveKnockoutTiebreakers, ...tiebreakers }}
         />
       </div>
       <div style={{ display: activeTab === 'especiales' ? undefined : 'none' }}>
