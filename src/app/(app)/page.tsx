@@ -6,18 +6,39 @@ import { CountdownTimer } from '@/components/CountdownTimer'
 import type { Match } from '@/types'
 import { formatRank, rankMedal } from '@/lib/ranking-display'
 import { ReferralShareButton } from '@/components/ReferralShareButton'
+import {
+  TOURNAMENT_TOTAL_MATCHES,
+  TOURNAMENT_TOTAL_POINTS,
+  TOURNAMENT_TOTAL_TEAMS,
+} from '@/lib/tournament-config'
 
 export const dynamic = 'force-dynamic'
 
 /* ─── Sub-components ───────────────────────────────────────────── */
 
-function StatItem({ num, label, live }: { num: number; label: string; live?: boolean }) {
+function StatItem({ num, label, live }: { num: number | string; label: string; live?: boolean }) {
+  const compoundValue = typeof num === 'string' ? num.match(/^(.+)\s+de\s+(.+)$/) : null
+
   return (
-    <div className="flex flex-col gap-0.5 border-l-[3px] border-bg pl-[14px]">
-      <div className="font-display text-[clamp(32px,5vw,48px)] leading-none tracking-[-0.03em]">
-        {num}
+    <div className="min-w-0 flex flex-col gap-1 border-l-[3px] border-bg pl-3 min-[720px]:pl-[14px]">
+      <div
+        className={
+          compoundValue
+            ? 'font-display whitespace-nowrap text-[clamp(22px,6vw,30px)] leading-none tracking-[-0.02em] min-[720px]:text-[clamp(30px,4vw,46px)]'
+            : 'font-display whitespace-nowrap text-[clamp(24px,7vw,38px)] leading-none tracking-[-0.02em] min-[720px]:text-[clamp(30px,4vw,46px)]'
+        }
+      >
+        {compoundValue ? (
+          <>
+            <span>{compoundValue[1]}</span>
+            <span className="mx-1 align-[0.08em] font-sans text-[0.48em] font-black tracking-[0.02em]">de</span>
+            <span>{compoundValue[2]}</span>
+          </>
+        ) : (
+          num
+        )}
       </div>
-      <div className="text-[11px] font-extrabold tracking-[0.22em] uppercase">
+      <div className="max-w-full break-words text-[10px] font-extrabold leading-[1.35] tracking-[0.08em] uppercase min-[720px]:text-[11px] min-[720px]:tracking-[0.16em] min-[1100px]:tracking-[0.22em]">
         {live && (
           <span
             className="inline-block w-[7px] h-[7px] rounded-full bg-bg mr-1.5 align-middle"
@@ -80,6 +101,49 @@ type RankingEntry = {
   predictions_count?: number
 }
 
+type MatchSummary = Pick<Match, 'home_team' | 'away_team' | 'home_score' | 'away_score' | 'stage' | 'status'>
+
+const PLACEHOLDER_TEAM_PATTERN = /^(ganador|perdedor|winner|loser|\d+\s*(?:[°º]|Â°)?\s*(grupo|group)|[123][a-l]$)/i
+
+function isRealTeamName(team: string) {
+  const normalized = team.trim()
+  return normalized.length > 0 && !PLACEHOLDER_TEAM_PATTERN.test(normalized)
+}
+
+function matchWinner(match: MatchSummary) {
+  if (
+    match.status !== 'finished' ||
+    match.home_score === null ||
+    match.away_score === null ||
+    match.home_score === match.away_score
+  ) {
+    return null
+  }
+
+  return match.home_score > match.away_score ? match.home_team : match.away_team
+}
+
+function countAliveTeams(matches: MatchSummary[]) {
+  const knockoutMatches = matches.filter((match) => match.stage !== 'group')
+  if (knockoutMatches.length === 0) return TOURNAMENT_TOTAL_TEAMS
+
+  const aliveTeams = new Set<string>()
+  for (const match of knockoutMatches) {
+    const winner = matchWinner(match)
+    if (winner) {
+      if (isRealTeamName(winner)) aliveTeams.add(winner)
+      continue
+    }
+
+    if (match.status !== 'finished') {
+      if (isRealTeamName(match.home_team)) aliveTeams.add(match.home_team)
+      if (isRealTeamName(match.away_team)) aliveTeams.add(match.away_team)
+    }
+  }
+
+  return aliveTeams.size > 0 ? aliveTeams.size : TOURNAMENT_TOTAL_TEAMS
+}
+
 function RankMark({
   entry,
   entries,
@@ -122,16 +186,17 @@ export default async function HomePage() {
   todayStart.setUTCHours(0, 0, 0, 0)
 
   const [
-    { count: participantes },
-    { count: matchCount },
+    { count: inscriptos },
     { count: myPredsCount },
     { data: upcoming },
     { data: topRanking },
     { data: profile },
     { data: predictionRows },
+    { data: specialBetRows },
+    { data: allMatchRows },
+    { data: rankingRows },
   ] = await Promise.all([
-    supabase.from('ranking_entries').select('*', { count: 'exact', head: true }),
-    supabase.from('matches').select('*', { count: 'exact', head: true }),
+    admin.from('authorized_emails').select('*', { count: 'exact', head: true }).eq('active', true),
     user
       ? supabase.from('predictions').select('*', { count: 'exact', head: true }).limit(1)
       : Promise.resolve({ count: 0 }),
@@ -150,6 +215,9 @@ export default async function HomePage() {
       ? supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
       : Promise.resolve({ data: null }),
     admin.from('predictions').select('user_id'),
+    admin.from('special_bets').select('user_id, balon, bota, guante'),
+    admin.from('matches').select('home_team, away_team, home_score, away_score, stage, status'),
+    admin.from('ranking_entries').select('user_id'),
   ])
 
   const hasMyPredictions = (myPredsCount ?? 0) > 0
@@ -158,6 +226,26 @@ export default async function HomePage() {
   for (const prediction of (predictionRows ?? []) as Array<{ user_id: string }>) {
     predictionCounts.set(prediction.user_id, (predictionCounts.get(prediction.user_id) ?? 0) + 1)
   }
+
+  const activeRankingIds = new Set(((rankingRows ?? []) as Array<{ user_id: string }>).map((entry) => entry.user_id))
+  const participantIds = new Set<string>()
+  for (const userId of predictionCounts.keys()) {
+    if (activeRankingIds.has(userId)) participantIds.add(userId)
+  }
+  for (const specialBet of (specialBetRows ?? []) as Array<{
+    user_id: string
+    balon: string | null
+    bota: string | null
+    guante: string | null
+  }>) {
+    if (activeRankingIds.has(specialBet.user_id) && (specialBet.balon || specialBet.bota || specialBet.guante)) {
+      participantIds.add(specialBet.user_id)
+    }
+  }
+
+  const matchRows = (allMatchRows ?? []) as MatchSummary[]
+  const finishedMatches = matchRows.filter((match) => match.status === 'finished').length
+  const aliveTeams = countAliveTeams(matchRows)
 
   const typedTopRanking = ((topRanking ?? []) as RankingEntry[]).map((entry) => ({
     ...entry,
@@ -214,7 +302,6 @@ export default async function HomePage() {
   const showPreTournamentBanner = typedTopRanking.every(e => e.total_points === 0)
   const rankingStarted = typedTopRanking.some(e => e.total_points > 0)
   const displayedRanking = myRanking ? [...typedTopRanking, myRanking] : typedTopRanking
-  const maxPoints = (matchCount ?? 0) * 3 + 50
 
   return (
     <>
@@ -337,7 +424,7 @@ export default async function HomePage() {
                   className="font-display leading-[0.82] tracking-[-0.07em]"
                   style={{ fontSize: 'clamp(120px, 14vw, 200px)' }}
                 >
-                  26'
+                  26&apos;
                 </div>
                 <div className="font-sans font-black tracking-[0.42em] mt-2 text-[clamp(13px,1.6vw,22px)]">
                   PRODE
@@ -366,10 +453,12 @@ export default async function HomePage() {
         className="bg-orange text-bg overflow-hidden"
         style={{ borderTop: '2px solid #0A0A0A', borderBottom: '2px solid #0A0A0A' }}
       >
-        <div className="max-w-[1280px] mx-auto px-5 py-7 grid grid-cols-3 gap-5">
-          <StatItem num={participantes ?? typedTopRanking.length} label="Participantes" live />
-          <StatItem num={maxPoints} label="Puntos en juego" />
-          <StatItem num={matchCount ?? 0} label="Partidos · 48 selecciones" />
+        <div className="max-w-[1280px] mx-auto px-5 py-6 grid grid-cols-1 gap-x-2 gap-y-6 min-[680px]:grid-cols-3 min-[720px]:gap-5 min-[1100px]:grid-cols-5">
+          <StatItem num={inscriptos ?? typedTopRanking.length} label="Inscriptos" live />
+          <StatItem num={participantIds.size} label="Participantes" />
+          <StatItem num={TOURNAMENT_TOTAL_POINTS} label="Puntos en juego" />
+          <StatItem num={`${finishedMatches} de ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" />
+          <StatItem num={`${aliveTeams} de ${TOURNAMENT_TOTAL_TEAMS}`} label="Selecciones" />
         </div>
       </div>
 
@@ -443,11 +532,6 @@ export default async function HomePage() {
                   <Link
                     key={entry.user_id}
                     href={`/ranking/${entry.user_id}`}
-                    aria-disabled={!hasPredictions}
-                    tabIndex={hasPredictions ? undefined : -1}
-                    onClick={(event) => {
-                      if (!hasPredictions) event.preventDefault()
-                    }}
                     className="grid grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors hover:bg-panel-2 min-[720px]:grid-cols-[96px_minmax(0,1fr)_auto] min-[720px]:gap-[14px] min-[720px]:px-[14px]"
                     style={{
                       cursor: hasPredictions ? 'pointer' : 'default',
@@ -580,7 +664,7 @@ export default async function HomePage() {
             <div className="font-display uppercase leading-[0.9] tracking-[-0.03em] text-[48px]">
               Prode
               <br />
-              <em className="italic text-orange">26'</em>
+              <em className="italic text-orange">26&apos;</em>
             </div>
             <p className="mt-[10px] text-muted text-[13px] max-w-[340px] leading-relaxed">
               Pronósticos del Mundial 2026.

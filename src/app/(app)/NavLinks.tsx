@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import clsx from 'clsx'
+import { Menu } from 'lucide-react'
 
 const PUBLIC_LINKS = [
   { href: '/', label: 'Inicio', exact: true, anchor: false },
@@ -48,19 +49,31 @@ export function NavLinks({ isLoggedIn }: Props) {
     <>
       {/* Brand: botón en mobile (abre menú), link en desktop */}
       <button
-        className="min-[880px]:hidden flex items-center font-display text-[18px] tracking-[-0.02em] shrink-0 select-none"
+        className="min-[880px]:hidden flex items-center gap-2 font-display text-[18px] tracking-[-0.02em] shrink-0 select-none"
         onClick={() => setMenuOpen((v) => !v)}
         aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
         aria-expanded={menuOpen}
         aria-controls="mobile-nav"
       >
-        PRODE{' '}
-        <b
-          className="ml-[6px] transition-colors duration-150"
-          style={{ color: menuOpen ? 'rgba(255,107,0,0.4)' : '#FF6B00' }}
+        <span>
+          PRODE{' '}
+          <b
+            className="ml-[6px] transition-colors duration-150"
+            style={{ color: menuOpen ? 'rgba(255,107,0,0.4)' : '#FF6B00' }}
+          >
+            26'
+          </b>
+        </span>
+        <span
+          className="grid h-8 w-8 place-items-center rounded-[10px] transition-colors duration-150"
+          style={{
+            background: menuOpen ? 'rgba(255,107,0,0.16)' : 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.12)',
+          }}
+          aria-hidden="true"
         >
-          26'
-        </b>
+          <Menu size={18} strokeWidth={2.8} />
+        </span>
       </button>
 
       <Link
