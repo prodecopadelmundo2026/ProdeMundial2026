@@ -12,7 +12,7 @@ import { SpecialsBanner } from './SpecialsBanner'
 import { deletePredictionsByStages, generateRandomGroupPredictions } from '@/app/(app)/fixture/actions'
 import { parseScoreInput } from '@/lib/score-input'
 import type { ProdeLockState } from '@/lib/prode-lock'
-import { deleteSpecialBets, type SpecialBetsValues } from './actions'
+import { deleteSpecialBets, deleteVirtualKnockoutPredictionsByStages, type SpecialBetsValues } from './actions'
 import { buildProjectedKnockoutMatches } from '@/lib/bracket'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
@@ -215,7 +215,7 @@ export function MiProdeTabs({
         setLocalKnockoutPreds(() => {
           const next: Record<string, { home: string; away: string }> = {}
           for (const [matchId, value] of Object.entries(parsed)) {
-            if (validMatchIds.has(matchId)) next[matchId] = value
+            if (validMatchIds.has(matchId) && !predMap[matchId]) next[matchId] = value
           }
           return next
         })
@@ -226,7 +226,7 @@ export function MiProdeTabs({
         setLocalKnockoutTiebreakers(() => {
           const next: Record<string, string> = {}
           for (const [matchId, team] of Object.entries(parsed)) {
-            if (validMatchIds.has(matchId)) next[matchId] = team
+            if (validMatchIds.has(matchId) && !tiebreakerMap[matchId]) next[matchId] = team
           }
           return next
         })
@@ -235,7 +235,7 @@ export function MiProdeTabs({
     } catch {
       setKnockoutStorageReady(true)
     }
-  }, [projectedKnockoutMatches])
+  }, [projectedKnockoutMatches, predMap, tiebreakerMap])
 
   useEffect(() => {
     if (!knockoutStorageReady) return
@@ -444,6 +444,9 @@ export function MiProdeTabs({
     startTransition(async () => {
       try {
         const deletedCount = scopes.stages.length ? await deletePredictionsByStages(scopes.stages) : 0
+        const deletedVirtualCount = scopes.deleteKnockoutLocally
+          ? await deleteVirtualKnockoutPredictionsByStages(scopes.stages)
+          : 0
         if (scopes.deleteGroupsLocally) {
           try {
             localStorage.removeItem(LOCAL_STORAGE_KEY)
@@ -481,7 +484,7 @@ export function MiProdeTabs({
         setDeleteMessage(
           scopes.deleteSpecials && !scopes.stages.length
             ? 'Apuestas especiales borradas correctamente.'
-            : `Borrado correcto. Predicciones eliminadas: ${deletedCount}.`
+            : `Borrado correcto. Predicciones eliminadas: ${deletedCount + deletedVirtualCount}.`
         )
         setDeleteSelections(new Set())
         router.refresh()

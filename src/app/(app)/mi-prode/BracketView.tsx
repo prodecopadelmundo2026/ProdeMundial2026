@@ -9,6 +9,7 @@ import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
 import { StatusBadge } from '@/components/StatusBadge'
 import { generateRandomKnockoutPredictions, upsertPredictionsBatch } from '@/app/(app)/fixture/actions'
+import { saveVirtualKnockoutPredictions } from './actions'
 import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups, assignBestThirdsToSlots, getPendingGroupTiebreakers, isVirtualKnockoutMatch } from '@/lib/bracket'
 import { normalizeScoreInput, parseScoreInput } from '@/lib/score-input'
 
@@ -524,7 +525,6 @@ export function BracketView({
       const now = new Date()
       const predictions = knockoutMatches
         .map((m) => {
-          if (isVirtualKnockoutMatch(m)) return null
           if (m.status !== 'upcoming' || now >= new Date(m.locked_at)) return null
           const inp = localInputs[m.id]
           if (!inp || inp.home === '' || inp.away === '') return null
@@ -535,8 +535,17 @@ export function BracketView({
         })
         .filter((p): p is NonNullable<typeof p> => p !== null)
       if (!predictions.length) return
+      const virtualPredictions = predictions.filter((prediction) =>
+        isVirtualKnockoutMatch({ id: prediction.matchId })
+      )
+      const realPredictions = predictions.filter((prediction) =>
+        !isVirtualKnockoutMatch({ id: prediction.matchId })
+      )
       try {
-        await upsertPredictionsBatch(predictions)
+        await Promise.all([
+          realPredictions.length ? upsertPredictionsBatch(realPredictions) : Promise.resolve(0),
+          virtualPredictions.length ? saveVirtualKnockoutPredictions(virtualPredictions) : Promise.resolve(0),
+        ])
         setBracketSaveError(false)
       } catch (err) {
         console.error('[BracketView] autosave failed:', err)
