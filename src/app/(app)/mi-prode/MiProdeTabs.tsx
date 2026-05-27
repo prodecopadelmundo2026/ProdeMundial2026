@@ -9,7 +9,7 @@ import { BracketView } from './BracketView'
 import { SpecialsTab } from './SpecialsTab'
 import { TournamentBracket } from '@/components/TournamentBracket'
 import { SpecialsBanner } from './SpecialsBanner'
-import { deletePredictionsByStages, generateRandomGroupPredictions } from '@/app/(app)/fixture/actions'
+import { deletePredictionsByStages, generateRandomGroupPredictions, upsertPredictionsBatch } from '@/app/(app)/fixture/actions'
 import { parseScoreInput } from '@/lib/score-input'
 import type { ProdeLockState } from '@/lib/prode-lock'
 import { deleteSpecialBets, deleteVirtualKnockoutPredictionsByStages, savePredictionTiebreakers, type SpecialBetsValues } from './actions'
@@ -102,6 +102,8 @@ export function MiProdeTabs({
   const [deleteMessage, setDeleteMessage] = useState<string | null>(null)
   const [fakeState, setFakeState] = useState<'idle' | 'confirm' | 'saving' | 'saved' | 'error'>('idle')
   const [fakeError, setFakeError] = useState<string | null>(null)
+  const [groupBulkSaveState, setGroupBulkSaveState] = useState<SaveState>('idle')
+  const [groupBulkSaveError, setGroupBulkSaveError] = useState<string | null>(null)
   const [bracketModalSignal, setBracketModalSignal] = useState(0)
   const [tiebreakers, setTiebreakers] = useState<Record<string, string>>(tiebreakerMap)
   const [localKnockoutPreds, setLocalKnockoutPreds] = useState<Record<string, { home: string; away: string }>>({})
@@ -229,10 +231,50 @@ export function MiProdeTabs({
   function handleGroupPredChange(matchId: string, home: string, away: string) {
     if (prodeLocked) return
     setLocalGroupPreds((prev) => ({ ...prev, [matchId]: { home, away } }))
+    setGroupBulkSaveState('dirty')
+    setGroupBulkSaveError(null)
   }
 
   function handleGroupSaveStateChange(matchId: string, state: SaveState) {
     setGroupSaveStates((prev) => ({ ...prev, [matchId]: state }))
+  }
+
+  function handleSaveGroups() {
+    if (prodeLocked) return
+    const predictions = groupMatches
+      .map((match) => {
+        const input = localGroupPreds[match.id]
+        const homeScore = parseScoreInput(input?.home ?? '')
+        const awayScore = parseScoreInput(input?.away ?? '')
+        if (homeScore == null || awayScore == null) return null
+        return { matchId: match.id, homeScore, awayScore }
+      })
+      .filter((prediction): prediction is NonNullable<typeof prediction> => Boolean(prediction))
+
+    if (!predictions.length) {
+      setGroupBulkSaveState('error')
+      setGroupBulkSaveError('No hay predicciones completas para guardar.')
+      return
+    }
+
+    setGroupBulkSaveState('saving')
+    setGroupBulkSaveError(null)
+    startTransition(async () => {
+      try {
+        await upsertPredictionsBatch(predictions)
+        await savePredictionTiebreakers(Object.entries(tiebreakers).map(([key, team]) => ({ key, team })))
+        setGroupSaveStates((prev) => {
+          const next = { ...prev }
+          for (const prediction of predictions) next[prediction.matchId] = 'saved'
+          return next
+        })
+        setGroupBulkSaveState('saved')
+        router.refresh()
+      } catch (error) {
+        setGroupBulkSaveState('error')
+        setGroupBulkSaveError(formatClientError(error) || 'No se pudo guardar')
+      }
+    })
   }
 
   function handleKnockoutPredChange(matchId: string, home: string, away: string) {
@@ -481,7 +523,9 @@ export function MiProdeTabs({
         return next
       })
       try { localStorage.removeItem('prode_group_preds') } catch {}
+      setGroupBulkSaveState('saved')
       setFakeState('saved')
+      router.refresh()
       setTimeout(() => setFakeState('idle'), 1800)
     } catch (error) {
       const message = formatClientError(error)
@@ -752,6 +796,34 @@ export function MiProdeTabs({
 
       {/* All tabs kept mounted to preserve state; only one visible at a time */}
       <div style={{ display: activeTab === 'grupos' ? undefined : 'none' }}>
+        <div
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
+          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <div>
+            <p className="font-extrabold text-white text-[13px] leading-snug">Guardar fase de grupos</p>
+            <p className="text-[12px] mt-0.5 text-muted">
+              {groupBulkSaveState === 'saving'
+                ? 'Guardando en Supabase...'
+                : groupBulkSaveState === 'saved'
+                ? 'Guardado correctamente.'
+                : groupBulkSaveState === 'error'
+                ? `No se pudo guardar: ${groupBulkSaveError ?? 'revisá los datos.'}`
+                : groupBulkSaveState === 'dirty' || groupStatus.hasDirty
+                ? 'Cambios sin guardar.'
+                : 'Se guardan en Supabase; los parciales quedan pendientes hasta completar ambos goles.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSaveGroups}
+            disabled={prodeLocked || groupBulkSaveState === 'saving'}
+            className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
+            style={{ background: '#FF6B00', color: '#0A0A0A' }}
+          >
+            {groupBulkSaveState === 'saving' ? 'Guardando...' : 'Guardar cambios'}
+          </button>
+        </div>
         <GroupBatchEditor
           grouped={groupedByGroup}
           predMap={predMap}

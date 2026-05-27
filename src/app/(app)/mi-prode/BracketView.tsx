@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -41,6 +42,7 @@ interface Props {
 const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'third_place', 'final'] as const
 type RoundKey = typeof ROUND_ORDER[number]
 type AdminLoadState = 'idle' | 'saving' | 'saved' | 'error'
+type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 
 const ROUND_LABELS: Record<string, string> = {
   round_of_32:  'Dieciseisavos',
@@ -428,6 +430,13 @@ function randomSpecials() {
   return { balon: pick(balon), bota: pick(bota), guante: pick(guante) }
 }
 
+function randomWinningScore() {
+  const homeScore = Math.floor(Math.random() * 5)
+  let awayScore = Math.floor(Math.random() * 5)
+  if (homeScore === awayScore) awayScore = (awayScore + 1) % 5
+  return { homeScore, awayScore }
+}
+
 export function BracketView({
   groupMatches,
   knockoutMatches,
@@ -441,6 +450,7 @@ export function BracketView({
   onKnockoutPredChange,
   onKnockoutTiebreakerChange,
 }: Props) {
+  const router = useRouter()
   const groupBuckets = groupMatches.reduce<Record<string, Match[]>>((acc, match) => {
     if (!match.group) return acc
     if (!acc[match.group]) acc[match.group] = []
@@ -481,6 +491,8 @@ export function BracketView({
   const [adminSaveError, setAdminSaveError] = useState<string | null>(null)
   const [adminSaveMessage, setAdminSaveMessage] = useState<string | null>(null)
   const [bracketSaveError, setBracketSaveError] = useState(false)
+  const [manualSaveState, setManualSaveState] = useState<SaveState>('idle')
+  const [manualSaveError, setManualSaveError] = useState<string | null>(null)
   const [quickFillState, setQuickFillState] = useState<'idle' | 'confirm' | 'saving' | 'saved' | 'error'>('idle')
   const [quickFillError, setQuickFillError] = useState<string | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -564,9 +576,12 @@ export function BracketView({
           virtualPredictions.length ? saveVirtualKnockoutPredictions(virtualPredictions) : Promise.resolve(0),
         ])
         setBracketSaveError(false)
+        setManualSaveState((prev) => prev === 'saving' ? prev : 'saved')
       } catch (err) {
         console.error('[BracketView] autosave failed:', err)
         setBracketSaveError(true)
+        setManualSaveState('error')
+        setManualSaveError(formatClientError(err) || 'No se pudo guardar')
       }
     }, 800)
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
@@ -589,9 +604,58 @@ export function BracketView({
     }
   }
 
+  function collectCompleteKnockoutPredictions() {
+    const now = new Date()
+    return knockoutMatches
+      .map((m) => {
+        if (m.status !== 'upcoming' || now >= new Date(m.locked_at)) return null
+        const inp = localInputs[m.id]
+        if (!inp || inp.home === '' || inp.away === '') return null
+        const h = parseScoreInput(inp.home)
+        const a = parseScoreInput(inp.away)
+        if (h == null || a == null) return null
+        return { matchId: m.id, homeScore: h, awayScore: a, tiebreakerTeam: tiebreakerMap[m.id] ?? null }
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null)
+  }
+
+  async function saveKnockoutChanges() {
+    if (bracketLocked) return
+    const predictions = collectCompleteKnockoutPredictions()
+    if (!predictions.length) {
+      setManualSaveState('error')
+      setManualSaveError('No hay predicciones completas para guardar.')
+      return
+    }
+    const virtualPredictions = predictions.filter((prediction) =>
+      isVirtualKnockoutMatch({ id: prediction.matchId })
+    )
+    const realPredictions = predictions.filter((prediction) =>
+      !isVirtualKnockoutMatch({ id: prediction.matchId })
+    )
+
+    setManualSaveState('saving')
+    setManualSaveError(null)
+    try {
+      await Promise.all([
+        realPredictions.length ? upsertPredictionsBatch(realPredictions) : Promise.resolve(0),
+        virtualPredictions.length ? saveVirtualKnockoutPredictions(virtualPredictions) : Promise.resolve(0),
+      ])
+      setBracketSaveError(false)
+      setManualSaveState('saved')
+      router.refresh()
+    } catch (error) {
+      setBracketSaveError(true)
+      setManualSaveState('error')
+      setManualSaveError(formatClientError(error) || 'No se pudo guardar')
+    }
+  }
+
   function handleValuesChange(matchId: string, home: string, away: string) {
     setLocalInputs((prev) => ({ ...prev, [matchId]: { home, away } }))
     onKnockoutPredChange?.(matchId, home, away)
+    setManualSaveState('dirty')
+    setManualSaveError(null)
   }
 
   function handleTiebreaker(matchId: string, team: string | null) {
@@ -603,6 +667,8 @@ export function BracketView({
       }
       return { ...prev, [matchId]: team }
     })
+    setManualSaveState('dirty')
+    setManualSaveError(null)
   }
 
   const byRound: Record<string, Match[]> = {}
@@ -639,7 +705,6 @@ export function BracketView({
   function getAdminEligibleMatches(round?: RoundKey) {
     if (bracketLocked) return []
     return knockoutMatches.filter((match) => {
-      if (isVirtualKnockoutMatch(match)) return false
       const key = match.stage
       if (round && key !== round) return false
       if (match.status !== 'upcoming' || now >= new Date(match.locked_at)) return false
@@ -673,7 +738,15 @@ export function BracketView({
     setAdminSaveError(null)
     setAdminSaveMessage(null)
     try {
-      const generated = await generateRandomKnockoutPredictions(targetMatches.map((m) => m.id))
+      const realMatches = targetMatches.filter((match) => !isVirtualKnockoutMatch(match))
+      const virtualGenerated = targetMatches
+        .filter((match) => isVirtualKnockoutMatch(match))
+        .map((match) => ({ matchId: match.id, ...randomWinningScore() }))
+      const realGenerated = realMatches.length
+        ? await generateRandomKnockoutPredictions(realMatches.map((m) => m.id))
+        : []
+      if (virtualGenerated.length) await saveVirtualKnockoutPredictions(virtualGenerated)
+      const generated = [...realGenerated, ...virtualGenerated]
       setLocalInputs((prev) => {
         const next = { ...prev }
         for (const pred of generated) {
@@ -686,6 +759,8 @@ export function BracketView({
         return next
       })
       setAdminSaveMessage('Pronosticos de eliminatorias disponibles cargados correctamente.')
+      setManualSaveState('saved')
+      router.refresh()
       setAdminSaveState('saved')
       setAdminSelectedRounds(new Set())
       setRandomModalOpen(false)
@@ -751,18 +826,28 @@ export function BracketView({
   const canLoadSelectedRounds = selectedAdminCount > 0 && adminSaveState !== 'saving'
 
   const eligibleForQuickFill = knockoutMatches.filter(
-    (m) => !isVirtualKnockoutMatch(m) && m.status === 'upcoming' && now < new Date(m.locked_at)
+    (m) => m.status === 'upcoming' && now < new Date(m.locked_at) && isMatchReady(m)
   ).length
 
   async function handleQuickFillAll() {
     const targetMatches = knockoutMatches.filter(
-      (m) => !isVirtualKnockoutMatch(m) && m.status === 'upcoming' && now < new Date(m.locked_at)
+      (m) => m.status === 'upcoming' && now < new Date(m.locked_at) && isMatchReady(m)
     )
     if (!targetMatches.length) return
     setQuickFillState('saving')
     setQuickFillError(null)
     try {
-      const generated = await generateRandomKnockoutPredictions(targetMatches.map((m) => m.id))
+      const generated = targetMatches.map((match) => ({ matchId: match.id, ...randomWinningScore() }))
+      const virtualPredictions = generated.filter((prediction) =>
+        isVirtualKnockoutMatch({ id: prediction.matchId })
+      )
+      const realPredictions = generated.filter((prediction) =>
+        !isVirtualKnockoutMatch({ id: prediction.matchId })
+      )
+      await Promise.all([
+        realPredictions.length ? upsertPredictionsBatch(realPredictions) : Promise.resolve(0),
+        virtualPredictions.length ? saveVirtualKnockoutPredictions(virtualPredictions) : Promise.resolve(0),
+      ])
       setLocalInputs((prev) => {
         const next = { ...prev }
         for (const pred of generated) {
@@ -771,7 +856,9 @@ export function BracketView({
         }
         return next
       })
+      setManualSaveState('saved')
       setQuickFillState('saved')
+      router.refresh()
       setTimeout(() => setQuickFillState('idle'), 2000)
     } catch (error) {
       setQuickFillError(formatClientError(error))
@@ -781,6 +868,35 @@ export function BracketView({
 
   return (
     <div className="space-y-6">
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
+        style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
+      >
+        <div>
+          <p className="font-extrabold text-white text-[13px] leading-snug">Guardar eliminatorias</p>
+          <p className="text-[12px] mt-0.5 text-muted">
+            {manualSaveState === 'saving'
+              ? 'Guardando en Supabase...'
+              : manualSaveState === 'saved'
+              ? 'Guardado correctamente.'
+              : manualSaveState === 'error'
+              ? `No se pudo guardar: ${manualSaveError ?? 'revisá los datos.'}`
+              : manualSaveState === 'dirty'
+              ? 'Cambios sin guardar.'
+              : 'Se guardan en Supabase; los parciales quedan pendientes hasta completar ambos goles.'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={saveKnockoutChanges}
+          disabled={bracketLocked || manualSaveState === 'saving'}
+          className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
+          style={{ background: '#FF6B00', color: '#0A0A0A' }}
+        >
+          {manualSaveState === 'saving' ? 'Guardando...' : 'Guardar cambios'}
+        </button>
+      </div>
+
       {hasPendingTiebreakers && (
         <div
           className="flex items-start gap-3 px-5 py-4 text-sm"
