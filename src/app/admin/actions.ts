@@ -13,6 +13,8 @@ import {
   resolveTeamFull,
 } from '@/lib/bracket'
 import { buildMatchAuditRows } from '@/lib/ranking-audit'
+import { getProdeLockState } from '@/lib/prode-lock'
+import { getMaintenanceMode } from '@/lib/maintenance'
 
 export type AdminToolResult = {
   ok: boolean
@@ -21,6 +23,15 @@ export type AdminToolResult = {
 }
 
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
+
+function revalidateCorePaths() {
+  revalidatePath('/admin')
+  revalidatePath('/fixture')
+  revalidatePath('/mi-prode')
+  revalidatePath('/ranking')
+  revalidatePath('/ranking/[userId]', 'page')
+  revalidatePath('/')
+}
 
 function adminToolError(error: unknown): AdminToolResult {
   return {
@@ -107,10 +118,7 @@ export async function setMatchResult(
 
   await recomputeAllPredictionPoints(admin)
 
-  revalidatePath('/admin')
-  revalidatePath('/ranking')
-  revalidatePath('/mi-prode')
-  revalidatePath('/')
+  revalidateCorePaths()
 }
 
 export async function upsertAuthorizedEmail(formData: FormData) {
@@ -136,6 +144,60 @@ export async function upsertAuthorizedEmail(formData: FormData) {
   revalidatePath('/admin/whitelist')
 }
 
+export async function updateAuthorizedEmail(formData: FormData) {
+  await requireAdmin()
+  const admin = createAdminClient()
+
+  const originalEmail = String(formData.get('original_email') ?? '').toLowerCase().trim()
+  const email = String(formData.get('email') ?? '').toLowerCase().trim()
+  const label = String(formData.get('label') ?? '').trim()
+  const active = formData.get('active') === 'on'
+
+  if (!originalEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(originalEmail)) {
+    throw new Error('Email original invalido')
+  }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error('Email invalido')
+  }
+
+  if (email !== originalEmail) {
+    const { data: duplicate, error: duplicateError } = await admin
+      .from('authorized_emails')
+      .select('email')
+      .eq('email', email)
+      .maybeSingle()
+
+    if (duplicateError) throw new Error(duplicateError.message)
+    if (duplicate) throw new Error('Ya existe un participante habilitado con ese email.')
+  }
+
+  const { error } = await admin
+    .from('authorized_emails')
+    .update({
+      email,
+      label: label || null,
+      active,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('email', originalEmail)
+
+  if (error) throw new Error(error.message)
+
+  const profileUpdates: Record<string, string> = {
+    email,
+    updated_at: new Date().toISOString(),
+  }
+  if (label) profileUpdates.name = label
+
+  const { error: profileError } = await admin
+    .from('profiles')
+    .update(profileUpdates)
+    .eq('email', originalEmail)
+
+  if (profileError) throw new Error(profileError.message)
+  revalidatePath('/admin/whitelist')
+}
+
 export async function setAuthorizedEmailActive(email: string, active: boolean) {
   const supabase = await createClient()
   await requireAdmin()
@@ -148,6 +210,45 @@ export async function setAuthorizedEmailActive(email: string, active: boolean) {
   if (error) throw new Error(error.message)
 
   revalidatePath('/admin/whitelist')
+}
+
+export async function toggleProdeLockOverride() {
+  await requireAdmin()
+  const admin = createAdminClient()
+  const state = await getProdeLockState(admin)
+  const nextValue = state.locked ? 'unlocked' : 'locked'
+
+  const { error } = await admin
+    .from('app_settings')
+    .upsert({
+      key: 'prode_lock_override',
+      value: nextValue,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'key' })
+
+  if (error) throw new Error(error.message)
+
+  revalidateCorePaths()
+  revalidatePath('/admin')
+}
+
+export async function toggleMaintenanceMode() {
+  await requireAdmin()
+  const admin = createAdminClient()
+  const enabled = await getMaintenanceMode(admin)
+
+  const { error } = await admin
+    .from('app_settings')
+    .upsert({
+      key: 'maintenance_mode',
+      value: enabled ? 'off' : 'on',
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'key' })
+
+  if (error) throw new Error(error.message)
+
+  revalidateCorePaths()
+  revalidatePath('/maintenance')
 }
 
 // ─── Test tools (operan sobre resultados de partidos, no sobre predicciones) ──
@@ -203,6 +304,55 @@ const KNOCKOUT_STAGES: Match['stage'][] = ['round_of_32', 'round_of_16', 'quarte
 
 function randomGroupScore() {
   return Math.floor(Math.random() * 5)
+}
+
+function shuffle<T>(items: T[]) {
+  const copy = [...items]
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const tmp = copy[i]
+    copy[i] = copy[j]
+    copy[j] = tmp
+  }
+  return copy
+}
+
+function buildResolvableGroupUpdates(groupMatches: Match[]) {
+  const updates: Array<{ id: string; home_score: number; away_score: number }> = []
+  const byGroup: Record<string, Match[]> = {}
+
+  for (const match of groupMatches) {
+    if (!match.group) continue
+    if (!byGroup[match.group]) byGroup[match.group] = []
+    byGroup[match.group].push(match)
+  }
+
+  for (const [groupIndex, matches] of Object.values(byGroup).entries()) {
+    const teams = Array.from(new Set(matches.flatMap((match) => [match.home_team, match.away_team])))
+    const rank = new Map(shuffle(teams).map((team, index) => [team, index]))
+
+    for (const match of matches) {
+      const homeRank = rank.get(match.home_team) ?? 99
+      const awayRank = rank.get(match.away_team) ?? 99
+      const homeWins = homeRank < awayRank
+      const bestRank = Math.min(homeRank, awayRank)
+      const worstRank = Math.max(homeRank, awayRank)
+      const winnerGoals =
+        bestRank === 0 && worstRank === 2 ? 4 + groupIndex :
+        bestRank === 1 && worstRank === 2 ? 3 + groupIndex :
+        bestRank === 2 && worstRank === 3 ? 2 + groupIndex :
+        bestRank === 0 && worstRank === 3 ? 5 :
+        bestRank === 1 && worstRank === 3 ? 4 :
+        3
+      updates.push({
+        id: match.id,
+        home_score: homeWins ? winnerGoals : 0,
+        away_score: homeWins ? 0 : winnerGoals,
+      })
+    }
+  }
+
+  return updates
 }
 
 function randomKnockoutScore() {
@@ -275,11 +425,8 @@ export async function adminResetMatchResults() {
       .in('stage', ALL_STAGES)
     if (matchErr) throw new Error(matchErr.message)
 
-    revalidatePath('/admin')
-    revalidatePath('/mi-prode')
-    revalidatePath('/ranking')
-    revalidatePath('/')
-    return { ok: true, message: 'Resultados borrados. Todos los partidos volvieron a Proximo.' }
+    revalidateCorePaths()
+    return { ok: true, message: 'Resultados borrados. Todos los partidos volvieron a pendiente.' }
   } catch (error) {
     return adminToolError(error)
   }
@@ -307,17 +454,7 @@ export async function adminFillMatchesRandomly() {
     const allUpdates: Array<{ id: string; home_score: number; away_score: number; status: 'finished' }> = []
     let groupUpdates: Array<{ id: string; home_score: number; away_score: number }> = []
 
-    for (let attempt = 0; attempt < 150; attempt++) {
-      groupUpdates = groupMatches.map((m) => ({
-        id: m.id,
-        home_score: randomGroupScore(),
-        away_score: randomGroupScore(),
-      }))
-      const scoreMap = Object.fromEntries(
-        groupUpdates.map((m) => [m.id, { home_score: m.home_score, away_score: m.away_score }])
-      )
-      if (getPendingGroupTiebreakers(groupMatches, scoreMap).length === 0) break
-    }
+    groupUpdates = buildResolvableGroupUpdates(groupMatches)
 
     workingMatches = applyMatchUpdates(workingMatches, groupUpdates)
     const pendingTiebreakers = getPendingGroupTiebreakers(groupMatches, buildOfficialScoreMap(workingMatches))
@@ -357,10 +494,7 @@ export async function adminFillMatchesRandomly() {
 
     await recomputeAllPredictionPoints(admin)
 
-    revalidatePath('/admin')
-    revalidatePath('/mi-prode')
-    revalidatePath('/ranking')
-    revalidatePath('/')
+    revalidateCorePaths()
     return {
       ok: true,
       message: `${allUpdates.length} partidos del Mundial completados con resultados aleatorios.`,

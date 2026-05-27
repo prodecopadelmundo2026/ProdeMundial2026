@@ -311,6 +311,11 @@ interface BestThirdsViewProps {
 }
 
 function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewProps) {
+  const displayThirds = useMemo(
+    () => applyTiebreakersToThirds(thirds, tiebreakers),
+    [thirds, tiebreakers]
+  )
+
   if (!thirds.length) {
     return (
       <p className="text-muted text-[14px] py-8 text-center">
@@ -318,12 +323,6 @@ function BestThirdsView({ thirds, tiebreakers, onTiebreaker }: BestThirdsViewPro
       </p>
     )
   }
-
-  // Re-sort applying tiebreaker picks so the table updates live
-  const displayThirds = useMemo(
-    () => applyTiebreakersToThirds(thirds, tiebreakers),
-    [thirds, tiebreakers]
-  )
 
   const tieGroups: number[][] = []
   let i = 0
@@ -547,9 +546,10 @@ interface Props {
   onMatchSaveStateChange?: (matchId: string, state: 'idle' | 'dirty' | 'saving' | 'saved' | 'error') => void
   tiebreakers: Record<string, string>
   onTiebreaker: (key: string, team: string | null) => void
+  readOnly?: boolean
 }
 
-export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPredChange, onMatchSaveStateChange, tiebreakers, onTiebreaker }: Props) {
+export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPredChange, onMatchSaveStateChange, tiebreakers, onTiebreaker, readOnly = false }: Props) {
   const tabs = sortTabs(Object.keys(grouped))
   const [activeGroup, setActiveGroup] = useState(tabs[0] ?? '')
   const matchesTopRef = useRef<HTMLDivElement>(null)
@@ -747,6 +747,7 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
                 initialAway={currentGroupPreds[match.id]?.away}
                 onValuesChange={(home, away) => onGroupPredChange(match.id, home, away)}
                 onSaveStateChange={(state) => onMatchSaveStateChange?.(match.id, state)}
+                readOnly={readOnly}
               />
             ))}
           </div>

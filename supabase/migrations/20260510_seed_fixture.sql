@@ -10,15 +10,15 @@ TRUNCATE TABLE predictions, matches RESTART IDENTITY CASCADE;
 
 INSERT INTO matches (home_team, away_team, scheduled_at, stage, "group", status) VALUES
 
--- ── GRUPO A: México · Sudáfrica · Corea del Sur · Chequia ─────
+-- ── GRUPO A: México · Sudáfrica · Corea del Sur · República Checa ─────
 -- J1 Jue 11/6
 ('México',        'Sudáfrica',   '2026-06-11 19:00:00+00', 'group', 'A', 'upcoming'),
-('Corea del Sur', 'Chequia',     '2026-06-12 02:00:00+00', 'group', 'A', 'upcoming'),
+('Corea del Sur', 'República Checa', '2026-06-12 02:00:00+00', 'group', 'A', 'upcoming'),
 -- J2 Jue 18/6
-('Chequia',       'Sudáfrica',   '2026-06-18 16:00:00+00', 'group', 'A', 'upcoming'),
+('República Checa', 'Sudáfrica',   '2026-06-18 16:00:00+00', 'group', 'A', 'upcoming'),
 ('México',        'Corea del Sur','2026-06-19 01:00:00+00', 'group', 'A', 'upcoming'),
 -- J3 Mié 24/6 (simultáneos)
-('Chequia',       'México',      '2026-06-25 01:00:00+00', 'group', 'A', 'upcoming'),
+('República Checa', 'México',      '2026-06-25 01:00:00+00', 'group', 'A', 'upcoming'),
 ('Sudáfrica',     'Corea del Sur','2026-06-25 01:00:00+00', 'group', 'A', 'upcoming'),
 
 -- ── GRUPO B: Canadá · Bosnia y Herz. · Qatar · Suiza ──────────

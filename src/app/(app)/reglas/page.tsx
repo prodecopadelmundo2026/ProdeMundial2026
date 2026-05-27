@@ -49,6 +49,46 @@ const SPECIAL_RULES = [
   },
 ]
 
+const GENERAL_RULES = [
+  {
+    title: 'Cómo funciona el Prode',
+    desc: 'Completás toda la Copa del Mundo: fase de grupos, eliminatorias, campeón y apuestas especiales. Después seguís el ranking en vivo y competís por entrar al podio final.',
+  },
+  {
+    title: 'Carga de pronósticos',
+    desc: 'La carga completa del Prode se hace antes del Mundial. 24 horas antes del partido inicial se bloquean pronósticos y apuestas; desde ese momento no se puede modificar nada y solo se siguen resultados, puntos y ranking.',
+  },
+  {
+    title: 'Premios',
+    desc: 'Se premia el podio final del ranking. El pozo y los premios prometidos dependen de llegar al mínimo de 65 jugadores pagos/confirmados.',
+  },
+  {
+    title: 'Mínimo de jugadores',
+    desc: 'El objetivo es juntar al menos 65 jugadores. Por eso conviene invitar amigos: ayuda a completar el pozo y deja el Prode mejor armado para todos.',
+  },
+]
+
+const TIE_EXAMPLES = [
+  'Si el 1° queda definido y dos jugadores empatan abajo, comparten 2° y 3° premio entre los dos.',
+  'Si dos jugadores empatan solo en el 3° puesto, comparten únicamente el premio del 3° puesto.',
+]
+
+function InfoCard({ title, desc }: { title: string; desc: string }) {
+  return (
+    <article
+      className="rounded-[20px]"
+      style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', padding: '22px 22px 20px' }}
+    >
+      <h3 className="font-display uppercase leading-none" style={{ fontSize: 18, letterSpacing: '-0.01em' }}>
+        {title}
+      </h3>
+      <p className="mt-3 text-[13px] font-medium leading-relaxed" style={{ color: '#cfcfcf' }}>
+        {desc}
+      </p>
+    </article>
+  )
+}
+
 function RuleCard({ meta, pts, name, desc, color }: {
   meta: string; pts: string; name: string; desc: string; color: string
 }) {
@@ -163,10 +203,28 @@ export default function ReglasPage() {
               El que más le pega, gana
             </h4>
             <p className="font-medium" style={{ fontSize: 13, lineHeight: 1.55, color: '#cfcfcf' }}>
-              Pronosticá el resultado de los <strong style={{ color: '#fff', fontWeight: 800 }}>80 partidos</strong> del Mundial. Sumás puntos partido a partido y al final del torneo se reparte el podio. También podés sumar <strong style={{ color: '#fff', fontWeight: 800 }}>hasta 50 puntos extra</strong> con las apuestas especiales (Balón, Bota y Guante de Oro).
+              Elegí <strong style={{ color: '#fff', fontWeight: 800 }}>TODO el Mundial 2026</strong>: cargá la fase de grupos, armá tus eliminatorias, decidí quién avanza, quién queda afuera y quién se consagra campeón. Hay <strong style={{ color: '#fff', fontWeight: 800 }}>104 partidos</strong> en juego, cada acierto suma puntos durante el torneo y también podés sumar <strong style={{ color: '#fff', fontWeight: 800 }}>hasta 50 puntos extra</strong> con las apuestas especiales (Balón, Bota y Guante de Oro).
             </p>
           </div>
         </aside>
+
+        {/* ── Funcionamiento general ── */}
+        <section style={{ marginBottom: 60 }}>
+          <div style={{ marginBottom: 22 }}>
+            <h2
+              className="font-display uppercase"
+              style={{ fontSize: 'clamp(24px, 3.4vw, 32px)', letterSpacing: '-0.02em', lineHeight: 1 }}
+            >
+              Cómo funciona el <em className="italic" style={{ color: '#FF6B00' }}>Prode</em>
+            </h2>
+            <p className="font-medium" style={{ marginTop: 8, color: '#8A8A8A', fontSize: 14, maxWidth: 620, lineHeight: 1.5 }}>
+              La idea es simple: cargás tus pronósticos a tiempo, seguís el ranking en vivo y competís por el podio.
+            </p>
+          </div>
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+            {GENERAL_RULES.map((rule) => <InfoCard key={rule.title} {...rule} />)}
+          </div>
+        </section>
 
         {/* ── Puntaje por partido ── */}
         <section style={{ marginBottom: 60 }}>
@@ -201,6 +259,63 @@ export default function ReglasPage() {
           </div>
           <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
             {SPECIAL_RULES.map((r) => <RuleCard key={r.name} {...r} />)}
+          </div>
+        </section>
+
+        {/* ── Ranking transparente ── */}
+        <section style={{ marginBottom: 60 }}>
+          <div
+            className="rounded-[20px]"
+            style={{
+              background: 'linear-gradient(90deg, rgba(168,240,216,.07), rgba(168,240,216,.02))',
+              border: '1px solid rgba(168,240,216,.2)',
+              padding: '24px',
+            }}
+          >
+            <h2
+              className="font-display uppercase"
+              style={{ fontSize: 'clamp(22px, 3vw, 30px)', letterSpacing: '-0.02em', lineHeight: 1 }}
+            >
+              Ranking <em className="italic" style={{ color: '#A8F0D8' }}>transparente</em>
+            </h2>
+            <p className="mt-4 text-[14px] font-medium leading-relaxed" style={{ color: '#cfcfcf', maxWidth: 760 }}>
+              Durante el Mundial vas a poder entrar al ranking, tocar cualquier jugador y revisar su Prode completo:
+              qué resultados cargó, en cuáles acertó, en cuáles falló y cómo fue sumando puntos.
+            </p>
+            <p className="mt-3 text-[13px] font-bold leading-relaxed" style={{ color: '#A8F0D8', maxWidth: 760 }}>
+              Así todos pueden seguir la tabla en vivo y entender de dónde sale cada posición.
+            </p>
+          </div>
+        </section>
+
+        {/* ── Desempates y premios ── */}
+        <section style={{ marginBottom: 60 }}>
+          <div style={{ marginBottom: 22 }}>
+            <h2
+              className="font-display uppercase"
+              style={{ fontSize: 'clamp(24px, 3.4vw, 32px)', letterSpacing: '-0.02em', lineHeight: 1 }}
+            >
+              Desempates y <em className="italic" style={{ color: '#FF6B00' }}>premios</em>
+            </h2>
+          </div>
+          <div
+            className="rounded-[20px]"
+            style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', padding: '24px' }}
+          >
+            <p className="text-[14px] font-medium leading-relaxed" style={{ color: '#cfcfcf' }}>
+              El ranking ordena primero por puntos. Si hay empate en puntos, desempata la cantidad de resultados exactos.
+              Si también empatan en exactas, los jugadores comparten el puesto y el premio correspondiente.
+            </p>
+            <div className="mt-4 grid gap-2">
+              {TIE_EXAMPLES.map((example) => (
+                <p key={example} className="text-[12px] font-bold leading-relaxed text-muted">
+                  {example}
+                </p>
+              ))}
+            </div>
+            <p className="mt-4 text-[12px] font-bold leading-relaxed" style={{ color: '#A8F0D8' }}>
+              Criollo: si quedaron iguales en puntos y exactas, no se inventa otro desempate. Se comparte lo que toque.
+            </p>
           </div>
         </section>
 

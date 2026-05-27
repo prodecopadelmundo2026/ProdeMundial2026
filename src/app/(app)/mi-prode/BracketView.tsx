@@ -1,15 +1,17 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Shuffle, AlertTriangle, Zap } from 'lucide-react'
+import { Shuffle, AlertTriangle, Zap, Pencil } from 'lucide-react'
 import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
 import { StatusBadge } from '@/components/StatusBadge'
-import { generateRandomKnockoutPredictions, upsertPredictionsBatch } from '@/app/(app)/fixture/actions'
-import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups, assignBestThirdsToSlots, getPendingGroupTiebreakers } from '@/lib/bracket'
+import { generateRandomKnockoutPredictions } from '@/app/(app)/fixture/actions'
+import { deleteRealPredictionsByMatchIds, deleteVirtualKnockoutPredictionsByMatchIds, saveRealPredictions, saveVirtualKnockoutPredictions } from './actions'
+import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups, assignBestThirdsToSlots, getPendingGroupTiebreakers, isVirtualKnockoutMatch } from '@/lib/bracket'
 import { normalizeScoreInput, parseScoreInput } from '@/lib/score-input'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
@@ -33,11 +35,14 @@ interface Props {
   readOnly?: boolean
   clearSignal?: { version: number; stages: string[] }
   openRandomModal?: number
+  onKnockoutPredChange?: (matchId: string, home: string, away: string) => void
+  onKnockoutTiebreakerChange?: (matchId: string, team: string | null) => void
 }
 
 const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'third_place', 'final'] as const
 type RoundKey = typeof ROUND_ORDER[number]
 type AdminLoadState = 'idle' | 'saving' | 'saved' | 'error'
+type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 
 const ROUND_LABELS: Record<string, string> = {
   round_of_32:  'Dieciseisavos',
@@ -148,6 +153,7 @@ function BracketMatchCard({
 
   const [home, setHome] = useState(initialHome)
   const [away, setAway] = useState(initialAway)
+  const homeInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setHome(initialHome)
@@ -305,6 +311,20 @@ function BracketMatchCard({
         </div>
       ) : (
         /* Score inputs — partido abierto */
+        <>
+        {isOpen && (
+          <div className="mb-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => homeInputRef.current?.focus()}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-extrabold uppercase"
+              style={{ background: 'rgba(255,107,0,0.12)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.28)' }}
+            >
+              <Pencil size={12} strokeWidth={2.5} />
+              Editar
+            </button>
+          </div>
+        )}
         <div
           className="grid items-center"
           style={{
@@ -317,6 +337,7 @@ function BracketMatchCard({
           }}
         >
           <input
+            ref={homeInputRef}
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"
@@ -364,6 +385,7 @@ function BracketMatchCard({
             }}
           />
         </div>
+        </>
       )}
 
       {/* Tiebreaker: knockout draw → pick who advances */}
@@ -400,14 +422,19 @@ function BracketMatchCard({
   )
 }
 
-const SPECIALS_STORAGE_KEY = 'prode_specials'
-
 function randomSpecials() {
   const balon = ['Lionel Messi', 'Kylian Mbappe', 'Vinicius Junior', 'Jamal Musiala']
   const bota = ['Kylian Mbappe', 'Harry Kane', 'Erling Haaland', 'Julian Alvarez']
   const guante = ['Emiliano Martinez', 'Thibaut Courtois', 'Alisson Becker', 'Mike Maignan']
   const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)] ?? arr[0] ?? ''
   return { balon: pick(balon), bota: pick(bota), guante: pick(guante) }
+}
+
+function randomWinningScore() {
+  const homeScore = Math.floor(Math.random() * 5)
+  let awayScore = Math.floor(Math.random() * 5)
+  if (homeScore === awayScore) awayScore = (awayScore + 1) % 5
+  return { homeScore, awayScore }
 }
 
 export function BracketView({
@@ -420,13 +447,30 @@ export function BracketView({
   readOnly = false,
   clearSignal,
   openRandomModal,
+  onKnockoutPredChange,
+  onKnockoutTiebreakerChange,
 }: Props) {
-  const pendingTiebreakers = getPendingGroupTiebreakers(groupMatches, predMap, groupTiebreakerMap)
+  const router = useRouter()
+  const groupBuckets = groupMatches.reduce<Record<string, Match[]>>((acc, match) => {
+    if (!match.group) return acc
+    if (!acc[match.group]) acc[match.group] = []
+    acc[match.group].push(match)
+    return acc
+  }, {})
+  const completeGroupMatches = Object.values(groupBuckets).flatMap((matches) =>
+    matches.every((match) => Boolean(predMap[match.id])) ? matches : []
+  )
+  const allGroupsComplete =
+    groupMatches.length > 0 &&
+    completeGroupMatches.length === groupMatches.length
+  const pendingTiebreakers = getPendingGroupTiebreakers(completeGroupMatches, predMap, groupTiebreakerMap)
   const hasPendingTiebreakers = pendingTiebreakers.length > 0
   const bracketLocked = readOnly || hasPendingTiebreakers
-  const standings = computeAllStandings(groupMatches, predMap, groupTiebreakerMap)
+  const standings = computeAllStandings(completeGroupMatches, predMap, groupTiebreakerMap)
   const pMap = buildKnockoutMap(knockoutMatches)
-  const bestThirdsGroups = computeBestThirdsGroups(groupMatches, predMap, groupTiebreakerMap)
+  const bestThirdsGroups = allGroupsComplete && !hasPendingTiebreakers
+    ? computeBestThirdsGroups(groupMatches, predMap, groupTiebreakerMap)
+    : new Set<string>()
   const thirdSlotAssignment = bestThirdsGroups.size > 0 ? assignBestThirdsToSlots(bestThirdsGroups) : {}
 
   // Local inputs: matchId → { home, away } (starts from predMap)
@@ -447,9 +491,40 @@ export function BracketView({
   const [adminSaveError, setAdminSaveError] = useState<string | null>(null)
   const [adminSaveMessage, setAdminSaveMessage] = useState<string | null>(null)
   const [bracketSaveError, setBracketSaveError] = useState(false)
+  const [manualSaveState, setManualSaveState] = useState<SaveState>('idle')
+  const [manualSaveError, setManualSaveError] = useState<string | null>(null)
   const [quickFillState, setQuickFillState] = useState<'idle' | 'confirm' | 'saving' | 'saved' | 'error'>('idle')
   const [quickFillError, setQuickFillError] = useState<string | null>(null)
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    setLocalInputs((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const match of knockoutMatches) {
+        const pred = predMap[match.id]
+        if (!pred) continue
+        const home = pred.home_score.toString()
+        const away = pred.away_score.toString()
+        if (next[match.id]?.home === home && next[match.id]?.away === away) continue
+        next[match.id] = { home, away }
+        changed = true
+      }
+      return changed ? next : prev
+    })
+  }, [predMap, knockoutMatches])
+
+  useEffect(() => {
+    setTiebreakerMap((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const [matchId, team] of Object.entries(initialTiebreakerMap)) {
+        if (next[matchId] === team) continue
+        next[matchId] = team
+        changed = true
+      }
+      return changed ? next : prev
+    })
+  }, [initialTiebreakerMap])
 
   useEffect(() => {
     if (!clearSignal?.version) return
@@ -471,35 +546,6 @@ export function BracketView({
     })
   }, [clearSignal?.version, clearSignal?.stages, knockoutMatches])
 
-  useEffect(() => {
-    if (bracketLocked) return
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(async () => {
-      const now = new Date()
-      const predictions = knockoutMatches
-        .map((m) => {
-          if (m.status !== 'upcoming' || now >= new Date(m.locked_at)) return null
-          const inp = localInputs[m.id]
-          if (!inp || inp.home === '' || inp.away === '') return null
-          const h = parseScoreInput(inp.home)
-          const a = parseScoreInput(inp.away)
-          if (h == null || a == null) return null
-          return { matchId: m.id, homeScore: h, awayScore: a, tiebreakerTeam: tiebreakerMap[m.id] ?? null }
-        })
-        .filter((p): p is NonNullable<typeof p> => p !== null)
-      if (!predictions.length) return
-      try {
-        await upsertPredictionsBatch(predictions)
-        setBracketSaveError(false)
-      } catch (err) {
-        console.error('[BracketView] autosave failed:', err)
-        setBracketSaveError(true)
-      }
-    }, 800)
-    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localInputs, tiebreakerMap, bracketLocked])
-
   // Effective predMap merges saved predictions with locally entered values
   const effectivePredMap: PredMap = { ...predMap }
   const clearedStages = new Set(clearSignal?.stages ?? [])
@@ -516,11 +562,76 @@ export function BracketView({
     }
   }
 
+  function collectCompleteKnockoutPredictions() {
+    const now = new Date()
+    return knockoutMatches
+      .map((m) => {
+        if (m.status !== 'upcoming' || now >= new Date(m.locked_at)) return null
+        const inp = localInputs[m.id]
+        if (!inp || inp.home === '' || inp.away === '') return null
+        const h = parseScoreInput(inp.home)
+        const a = parseScoreInput(inp.away)
+        if (h == null || a == null) return null
+        return { matchId: m.id, homeScore: h, awayScore: a, tiebreakerTeam: tiebreakerMap[m.id] ?? null }
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null)
+  }
+
+  async function saveKnockoutChanges() {
+    if (bracketLocked) return
+    const predictions = collectCompleteKnockoutPredictions()
+    const matchIdsToDelete = knockoutMatches
+      .filter((match) => {
+        if (!predMap[match.id]) return false
+        const input = localInputs[match.id]
+        const h = parseScoreInput(input?.home ?? '')
+        const a = parseScoreInput(input?.away ?? '')
+        return h == null || a == null
+      })
+      .map((match) => match.id)
+
+    if (!predictions.length && !matchIdsToDelete.length) {
+      setManualSaveState('error')
+      setManualSaveError('No hay predicciones completas para guardar.')
+      return
+    }
+    const virtualPredictions = predictions.filter((prediction) =>
+      isVirtualKnockoutMatch({ id: prediction.matchId })
+    )
+    const realPredictions = predictions.filter((prediction) =>
+      !isVirtualKnockoutMatch({ id: prediction.matchId })
+    )
+
+    setManualSaveState('saving')
+    setManualSaveError(null)
+    try {
+      const realDeleteIds = matchIdsToDelete.filter((matchId) => !isVirtualKnockoutMatch({ id: matchId }))
+      const virtualDeleteIds = matchIdsToDelete.filter((matchId) => isVirtualKnockoutMatch({ id: matchId }))
+      await Promise.all([
+        realPredictions.length ? saveRealPredictions(realPredictions) : Promise.resolve(0),
+        virtualPredictions.length ? saveVirtualKnockoutPredictions(virtualPredictions) : Promise.resolve(0),
+        realDeleteIds.length ? deleteRealPredictionsByMatchIds(realDeleteIds) : Promise.resolve(0),
+        virtualDeleteIds.length ? deleteVirtualKnockoutPredictionsByMatchIds(virtualDeleteIds) : Promise.resolve(0),
+      ])
+      setBracketSaveError(false)
+      setManualSaveState('saved')
+      router.refresh()
+    } catch (error) {
+      setBracketSaveError(true)
+      setManualSaveState('error')
+      setManualSaveError(formatClientError(error) || 'No se pudo guardar')
+    }
+  }
+
   function handleValuesChange(matchId: string, home: string, away: string) {
     setLocalInputs((prev) => ({ ...prev, [matchId]: { home, away } }))
+    onKnockoutPredChange?.(matchId, home, away)
+    setManualSaveState('dirty')
+    setManualSaveError(null)
   }
 
   function handleTiebreaker(matchId: string, team: string | null) {
+    onKnockoutTiebreakerChange?.(matchId, team)
     setTiebreakerMap((prev) => {
       if (!team) {
         const { [matchId]: _removed, ...rest } = prev
@@ -528,6 +639,8 @@ export function BracketView({
       }
       return { ...prev, [matchId]: team }
     })
+    setManualSaveState('dirty')
+    setManualSaveError(null)
   }
 
   const byRound: Record<string, Match[]> = {}
@@ -597,10 +710,19 @@ export function BracketView({
     setAdminSaveError(null)
     setAdminSaveMessage(null)
     try {
-      const generated = await generateRandomKnockoutPredictions(targetMatches.map((m) => m.id))
+      const realMatches = targetMatches.filter((match) => !isVirtualKnockoutMatch(match))
+      const virtualGenerated = targetMatches
+        .filter((match) => isVirtualKnockoutMatch(match))
+        .map((match) => ({ matchId: match.id, ...randomWinningScore() }))
+      const realGenerated = realMatches.length
+        ? await generateRandomKnockoutPredictions(realMatches.map((m) => m.id))
+        : []
+      if (virtualGenerated.length) await saveVirtualKnockoutPredictions(virtualGenerated)
+      const generated = [...realGenerated, ...virtualGenerated]
       setLocalInputs((prev) => {
         const next = { ...prev }
         for (const pred of generated) {
+          onKnockoutPredChange?.(pred.matchId, String(pred.homeScore), String(pred.awayScore))
           next[pred.matchId] = {
             home: String(pred.homeScore),
             away: String(pred.awayScore),
@@ -609,6 +731,8 @@ export function BracketView({
         return next
       })
       setAdminSaveMessage('Pronosticos de eliminatorias disponibles cargados correctamente.')
+      setManualSaveState('saved')
+      router.refresh()
       setAdminSaveState('saved')
       setAdminSelectedRounds(new Set())
       setRandomModalOpen(false)
@@ -624,8 +748,7 @@ export function BracketView({
   function handleAdminRandomSpecials() {
     try {
       const next = randomSpecials()
-      localStorage.setItem(SPECIALS_STORAGE_KEY, JSON.stringify(next))
-      window.dispatchEvent(new Event('prode-specials-randomized'))
+      window.dispatchEvent(new CustomEvent('prode-specials-randomized', { detail: next }))
       setAdminSaveError(null)
       setAdminSaveMessage('Apuestas especiales de prueba cargadas correctamente.')
       setAdminSaveState('saved')
@@ -675,26 +798,39 @@ export function BracketView({
   const canLoadSelectedRounds = selectedAdminCount > 0 && adminSaveState !== 'saving'
 
   const eligibleForQuickFill = knockoutMatches.filter(
-    (m) => m.status === 'upcoming' && now < new Date(m.locked_at)
+    (m) => m.status === 'upcoming' && now < new Date(m.locked_at) && isMatchReady(m)
   ).length
 
   async function handleQuickFillAll() {
     const targetMatches = knockoutMatches.filter(
-      (m) => m.status === 'upcoming' && now < new Date(m.locked_at)
+      (m) => m.status === 'upcoming' && now < new Date(m.locked_at) && isMatchReady(m)
     )
     if (!targetMatches.length) return
     setQuickFillState('saving')
     setQuickFillError(null)
     try {
-      const generated = await generateRandomKnockoutPredictions(targetMatches.map((m) => m.id))
+      const generated = targetMatches.map((match) => ({ matchId: match.id, ...randomWinningScore() }))
+      const virtualPredictions = generated.filter((prediction) =>
+        isVirtualKnockoutMatch({ id: prediction.matchId })
+      )
+      const realPredictions = generated.filter((prediction) =>
+        !isVirtualKnockoutMatch({ id: prediction.matchId })
+      )
+      await Promise.all([
+        realPredictions.length ? saveRealPredictions(realPredictions) : Promise.resolve(0),
+        virtualPredictions.length ? saveVirtualKnockoutPredictions(virtualPredictions) : Promise.resolve(0),
+      ])
       setLocalInputs((prev) => {
         const next = { ...prev }
         for (const pred of generated) {
+          onKnockoutPredChange?.(pred.matchId, String(pred.homeScore), String(pred.awayScore))
           next[pred.matchId] = { home: String(pred.homeScore), away: String(pred.awayScore) }
         }
         return next
       })
+      setManualSaveState('saved')
       setQuickFillState('saved')
+      router.refresh()
       setTimeout(() => setQuickFillState('idle'), 2000)
     } catch (error) {
       setQuickFillError(formatClientError(error))

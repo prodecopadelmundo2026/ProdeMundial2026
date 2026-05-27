@@ -1,3 +1,7 @@
+import { PRIZE_TIE_RULES } from '@/lib/ranking-display'
+import { createClient } from '@/lib/supabase/server'
+import { ReferralShareButton } from '@/components/ReferralShareButton'
+
 function PrizeCard({
   rank,
   suffix,
@@ -100,7 +104,15 @@ function PrizeCard({
   )
 }
 
-export default function PremiosPage() {
+export default async function PremiosPage() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const { data: profile } = user
+    ? await supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
+    : { data: null }
+
   return (
     <div style={{ padding: '48px 20px 100px' }}>
       <div className="max-w-[1280px] mx-auto">
@@ -140,13 +152,12 @@ export default function PremiosPage() {
           </div>
           <div className="flex-1 min-w-0">
             <h4 className="font-extrabold text-[14px] mb-1" style={{ color: '#FFE040' }}>
-              El pozo crece con cada inscripción
+              El pozo depende de llegar al mínimo
             </h4>
             <p className="text-[#cfcfcf] text-[13px] leading-relaxed font-medium">
-              Los premios actuales son <strong className="text-white font-extrabold">base garantizada</strong>.
-              Si llegamos a <strong className="text-white font-extrabold">más de 200 inscriptos</strong>, el pozo
-              acumulado <strong className="text-white font-extrabold">aumenta proporcionalmente</strong> — cuanto
-              más gente sume, más grande el premio.
+              El objetivo es llegar como mínimo a <strong className="text-white font-extrabold">65 jugadores pagos/confirmados</strong>.
+              Los premios prometidos y el pozo final dependen de alcanzar ese piso. Por eso cada referido ayuda:
+              cuantos más jugadores se suman, más fuerte queda armado el Prode.
             </p>
           </div>
         </aside>
@@ -174,6 +185,20 @@ export default function PremiosPage() {
           />
         </div>
 
+        <aside
+          className="mb-[60px] rounded-[20px] px-5 py-4"
+          style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <p className="font-extrabold text-white text-[13px]">Criterio para premios empatados</p>
+          <div className="mt-3 grid gap-2">
+            {PRIZE_TIE_RULES.map((rule) => (
+              <p key={rule} className="text-[12px] font-bold leading-relaxed text-muted">
+                {rule}
+              </p>
+            ))}
+          </div>
+        </aside>
+
         {/* Referral card */}
         <aside
           className="bg-panel rounded-[24px] grid gap-6 items-center"
@@ -187,21 +212,16 @@ export default function PremiosPage() {
               Más amigos, <em className="italic text-orange">más premio</em>
             </h3>
             <p className="mt-3 text-[#cfcfcf] text-[14px] leading-relaxed font-medium">
-              Por cada persona referida, <strong className="text-white font-extrabold">te llevás una comisión</strong>. Y el pozo total crece. Es un win-win.
+              Invitá a tu grupo por WhatsApp y que avisen que vienen de tu parte. No reemplaza a Consultas:
+              este botón es solo para compartir tu invitación.
             </p>
           </div>
           <div className="flex items-center gap-[14px] flex-wrap">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 font-extrabold text-[13px] rounded-[14px] transition-transform hover:-translate-y-0.5"
-              style={{ background: '#FF6B00', color: '#0A0A0A', padding: '14px 20px', letterSpacing: '.02em' }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-              </svg>
-              Compartir invitación
-            </button>
+            <ReferralShareButton
+              name={profile?.name}
+              email={user?.email}
+              userId={user?.id}
+            />
           </div>
         </aside>
 

@@ -1,28 +1,60 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { buildAuditedRankingEntries } from '@/lib/ranking-audit'
+import type { Match, Prediction } from '@/types'
 import { NavLinks } from './NavLinks'
 import { UserMenu } from '@/components/UserMenu'
+import { isSharedRank } from '@/lib/ranking-display'
+import { getCurrentProfile } from '@/lib/current-profile'
+
+export const dynamic = 'force-dynamic'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  const admin = user ? createAdminClient() : null
 
-  const [{ data: profile }, { data: rankRow }] = user
+  const [profile, { data: participants }, { data: matches }, { data: predictions }] = user
     ? await Promise.all([
-        supabase.from('profiles').select('name, is_admin').eq('id', user.id).maybeSingle(),
-        supabase
-          .from('ranking_entries')
-          .select('rank, total_points')
-          .eq('user_id', user.id)
-          .maybeSingle(),
+        getCurrentProfile(user),
+        supabase.from('ranking_entries').select('user_id, name, avatar_url'),
+        supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
+        admin!.from('predictions').select('*'),
       ])
-    : [{ data: null }, { data: null }]
+    : [{ data: null }, { data: null }, { data: null }, { data: null }]
 
-  const userName = profile?.name ?? 'U'
-  const entry = rankRow as { rank: number; total_points: number } | null
+  const metadataName =
+    typeof user?.user_metadata?.full_name === 'string'
+      ? user.user_metadata.full_name
+      : typeof user?.user_metadata?.name === 'string'
+      ? user.user_metadata.name
+      : null
+  const emailName = user?.email?.split('@')[0] ?? null
+  const userName = profile?.name?.trim() || metadataName?.trim() || emailName || 'Usuario'
+  const auditedEntries = user
+    ? buildAuditedRankingEntries(
+        (matches ?? []) as Match[],
+        (predictions ?? []) as Prediction[],
+        (participants ?? []).map((participant) => ({
+          user_id: participant.user_id,
+          name: participant.name,
+          avatar_url: participant.avatar_url,
+        }))
+      )
+    : []
+  const entry = user ? auditedEntries.find((rankingEntry) => rankingEntry.user_id === user.id) ?? null : null
   const initial = userName[0]?.toUpperCase() ?? 'U'
+  const userIsAdmin = Boolean(profile?.is_admin)
+
+  console.info('[app-layout] navbar profile', {
+    userId: user?.id ?? null,
+    userEmail: user?.email ?? null,
+    profile: profile ? { id: profile.id, email: profile.email, name: profile.name, is_admin: profile.is_admin } : null,
+    userIsAdmin,
+  })
 
   return (
     <div className="min-h-full flex flex-col">
@@ -35,7 +67,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           borderColor: 'rgba(255,255,255,0.08)',
         }}
       >
-        <div className="max-w-[1280px] mx-auto px-4 h-[56px] flex items-center justify-between">
+        <div className="relative max-w-[1280px] mx-auto px-4 h-[56px] flex items-center justify-between">
           <NavLinks isLoggedIn={!!user} />
 
           {/* Right side */}
@@ -46,7 +78,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 name={userName}
                 pts={entry?.total_points}
                 rank={entry?.rank}
-                isAdmin={Boolean(profile?.is_admin)}
+                sharedRank={entry ? isSharedRank(entry, auditedEntries) : false}
+                exact={entry?.exact_predictions}
+                isAdmin={userIsAdmin}
               />
             ) : (
               <Link

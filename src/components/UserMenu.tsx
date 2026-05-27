@@ -4,21 +4,29 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { rankMedal } from '@/lib/ranking-display'
 
 interface Props {
   initial: string
   name: string
   pts?: number | null
   rank?: number | null
+  sharedRank?: boolean
+  exact?: number | null
   isAdmin?: boolean
 }
 
-export function UserMenu({ initial, name, pts, rank, isAdmin = false }: Props) {
+export function UserMenu({ initial, name, pts, rank, sharedRank = false, exact, isAdmin = false }: Props) {
   const [open, setOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const [logoutError, setLogoutError] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   const router = useRouter()
+  const showRank = (pts ?? 0) > 0 && Boolean(rank)
+
+  useEffect(() => {
+    console.info('[user-menu] props', { name, initial, isAdmin })
+  }, [name, initial, isAdmin])
 
   useEffect(() => {
     if (!open) return
@@ -132,7 +140,7 @@ export function UserMenu({ initial, name, pts, rank, isAdmin = false }: Props) {
               className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums"
               style={{ color: '#A8F0D8' }}
             >
-              {rank ? `#${rank}` : '-'}
+              {showRank ? `${rankMedal(rank!) ? `${rankMedal(rank!)} ` : ''}${sharedRank ? 'T' : '#'}${rank}` : '-'}
             </div>
             <div className="text-[9px] font-extrabold tracking-[0.18em] uppercase text-muted mt-1.5">
               Ranking
@@ -140,10 +148,10 @@ export function UserMenu({ initial, name, pts, rank, isAdmin = false }: Props) {
           </div>
           <div className="text-center px-1.5 py-1">
             <div className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums">
-              -
+              {exact ?? '-'}
             </div>
             <div className="text-[9px] font-extrabold tracking-[0.18em] uppercase text-muted mt-1.5">
-              Aciertos
+              Exactas
             </div>
           </div>
         </div>

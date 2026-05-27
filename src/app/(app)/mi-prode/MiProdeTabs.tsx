@@ -7,19 +7,21 @@ import type { Match } from '@/types'
 import { GroupBatchEditor } from './GroupBatchEditor'
 import { BracketView } from './BracketView'
 import { SpecialsTab } from './SpecialsTab'
+import { TournamentBracket } from '@/components/TournamentBracket'
 import { SpecialsBanner } from './SpecialsBanner'
 import { deletePredictionsByStages, generateRandomGroupPredictions } from '@/app/(app)/fixture/actions'
 import { parseScoreInput } from '@/lib/score-input'
+import type { ProdeLockState } from '@/lib/prode-lock'
+import { deleteSpecialBets, deleteVirtualKnockoutPredictionsByStages, savePredictionTiebreakers, saveFullProdeSafe, type SpecialBetsValues } from './actions'
+import { buildProjectedKnockoutMatches, isVirtualKnockoutMatch } from '@/lib/bracket'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 
-type TabId = 'grupos' | 'eliminatoria' | 'especiales'
+type TabId = 'grupos' | 'eliminatoria' | 'llave' | 'especiales'
 type DeleteOption = 'groups' | 'knockout' | 'round_of_32' | 'round_of_16' | 'quarter' | 'semi' | 'final' | 'third_place' | 'specials' | 'all'
 type DeleteState = 'idle' | 'confirm' | 'deleting' | 'success' | 'error'
 
-const LOCAL_STORAGE_KEY = 'prode_group_preds'
-const TIEBREAKERS_STORAGE_KEY = 'prode_group_tiebreakers'
 const SPECIALS_STORAGE_KEY = 'prode_specials'
 
 function randomSpecials() {
@@ -73,6 +75,9 @@ interface Props {
   predMap: PredMap
   tiebreakerMap: Record<string, string>
   isAdmin: boolean
+  prodeLocked: boolean
+  lockState: ProdeLockState
+  initialSpecialBets: SpecialBetsValues
 }
 
 export function MiProdeTabs({
@@ -81,6 +86,9 @@ export function MiProdeTabs({
   predMap,
   tiebreakerMap,
   isAdmin,
+  prodeLocked,
+  lockState,
+  initialSpecialBets,
 }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabId>('grupos')
@@ -94,8 +102,12 @@ export function MiProdeTabs({
   const [deleteMessage, setDeleteMessage] = useState<string | null>(null)
   const [fakeState, setFakeState] = useState<'idle' | 'confirm' | 'saving' | 'saved' | 'error'>('idle')
   const [fakeError, setFakeError] = useState<string | null>(null)
+  const [globalSaveState, setGlobalSaveState] = useState<SaveState>('idle')
+  const [globalSaveError, setGlobalSaveError] = useState<string | null>(null)
   const [bracketModalSignal, setBracketModalSignal] = useState(0)
-  const [tiebreakers, setTiebreakers] = useState<Record<string, string>>({})
+  const [tiebreakers, setTiebreakers] = useState<Record<string, string>>(tiebreakerMap)
+  const [localKnockoutPreds, setLocalKnockoutPreds] = useState<Record<string, { home: string; away: string }>>({})
+  const [localKnockoutTiebreakers, setLocalKnockoutTiebreakers] = useState<Record<string, string>>({})
   const [groupSaveStates, setGroupSaveStates] = useState<Record<string, SaveState>>(() => {
     const init: Record<string, SaveState> = {}
     for (const m of groupMatches) {
@@ -107,11 +119,35 @@ export function MiProdeTabs({
 
   const groupedByGroup: Record<string, Match[]> = {}
   for (const m of groupMatches) {
-    if (!m.group) continue
-    const key = `Grupo ${m.group}`
+    const key = m.group ? `Grupo ${m.group}` : 'Grupo sin asignar'
     if (!groupedByGroup[key]) groupedByGroup[key] = []
     groupedByGroup[key].push(m)
   }
+
+  const projectedKnockoutMatches = useMemo(
+    () => buildProjectedKnockoutMatches(knockoutMatches),
+    [knockoutMatches],
+  )
+
+  useEffect(() => {
+    console.info('[mi-prode-tabs] props', {
+      groupMatchesCount: groupMatches.length,
+      knockoutMatchesCount: knockoutMatches.length,
+      groupedKeys: Object.keys(groupedByGroup),
+      firstGroupMatch: groupMatches[0]
+        ? {
+            id: groupMatches[0].id,
+            home_team: groupMatches[0].home_team,
+            away_team: groupMatches[0].away_team,
+            scheduled_at: groupMatches[0].scheduled_at,
+            stage: groupMatches[0].stage,
+            group: groupMatches[0].group,
+            status: groupMatches[0].status,
+          }
+        : null,
+      isAdmin,
+    })
+  }, [groupMatches, knockoutMatches, isAdmin])
 
   // Flat local predictions for group matches (matchId → {home, away})
   const [localGroupPreds, setLocalGroupPreds] = useState<Record<string, { home: string; away: string }>>(() => {
@@ -128,53 +164,54 @@ export function MiProdeTabs({
     return init
   })
 
-  // Restore unsaved inputs from localStorage on mount (client only)
+  useEffect(() => {
+    setTiebreakers((prev) => ({ ...prev, ...tiebreakerMap }))
+    setLocalKnockoutPreds((prev) => {
+      const next = { ...prev }
+      for (const match of projectedKnockoutMatches) {
+        const pred = predMap[match.id]
+        if (pred) next[match.id] = { home: String(pred.home_score), away: String(pred.away_score) }
+      }
+      return next
+    })
+    setLocalKnockoutTiebreakers((prev) => {
+      const next = { ...prev }
+      for (const match of projectedKnockoutMatches) {
+        if (tiebreakerMap[match.id]) next[match.id] = tiebreakerMap[match.id]
+      }
+      return next
+    })
+  }, [projectedKnockoutMatches, predMap, tiebreakerMap])
+
+  useEffect(() => {
+    setLocalGroupPreds((prev) => {
+      const next = { ...prev }
+      for (const match of groupMatches) {
+        const pred = predMap[match.id]
+        if (pred) next[match.id] = { home: String(pred.home_score), away: String(pred.away_score) }
+      }
+      return next
+    })
+    setGroupSaveStates((prev) => {
+      const next = { ...prev }
+      for (const match of groupMatches) {
+        if (predMap[match.id]) next[match.id] = 'saved'
+      }
+      return next
+    })
+  }, [groupMatches, predMap])
+
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY)
-      if (!stored) return
-      const parsed = JSON.parse(stored) as Record<string, { home: string; away: string }>
-      const validMatchIds = new Set(groupMatches.map((m) => m.id))
-      setLocalGroupPreds((prev) => {
-        const next = { ...prev }
-        for (const [matchId, val] of Object.entries(parsed)) {
-          if (validMatchIds.has(matchId) && !predMap[matchId]) next[matchId] = val
-        }
-        return next
-      })
-      setGroupSaveStates((prev) => {
-        const next = { ...prev }
-        for (const [matchId] of Object.entries(parsed)) {
-          if (!validMatchIds.has(matchId)) continue
-          if (!predMap[matchId]) next[matchId] = 'dirty'
-        }
-        return next
-      })
+      localStorage.removeItem('prode_group_preds')
+      localStorage.removeItem('prode_group_tiebreakers')
+      localStorage.removeItem('prode_knockout_preds')
+      localStorage.removeItem('prode_knockout_tiebreakers')
     } catch {}
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(TIEBREAKERS_STORAGE_KEY)
-      if (stored) setTiebreakers(JSON.parse(stored))
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(TIEBREAKERS_STORAGE_KEY, JSON.stringify(tiebreakers))
-    } catch {}
-  }, [tiebreakers])
-
-  // Persist to localStorage whenever group preds change
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(localGroupPreds))
-    } catch {}
-  }, [localGroupPreds])
 
   function handleTiebreaker(key: string, team: string | null) {
+    if (prodeLocked) return
     setTiebreakers((prev) => {
       if (!team) {
         const { [key]: _, ...rest } = prev
@@ -182,14 +219,131 @@ export function MiProdeTabs({
       }
       return { ...prev, [key]: team }
     })
+    startTransition(async () => {
+      try {
+        await savePredictionTiebreakers([{ key, team }])
+      } catch (error) {
+        console.error('Error al guardar desempate', error)
+      }
+    })
   }
 
   function handleGroupPredChange(matchId: string, home: string, away: string) {
+    if (prodeLocked) return
     setLocalGroupPreds((prev) => ({ ...prev, [matchId]: { home, away } }))
+    setGlobalSaveState('dirty')
+    setGlobalSaveError(null)
   }
 
   function handleGroupSaveStateChange(matchId: string, state: SaveState) {
     setGroupSaveStates((prev) => ({ ...prev, [matchId]: state }))
+  }
+
+  function handleSaveFullProde() {
+    if (prodeLocked) return
+
+    const partialLabels: string[] = []
+    const realPredictions: Array<{ matchId: string; homeScore: number; awayScore: number; tiebreakerTeam?: string | null }> = []
+    const virtualPredictions: Array<{ matchId: string; homeScore: number; awayScore: number; tiebreakerTeam?: string | null }> = []
+    const deleteRealMatchIds: string[] = []
+    const deleteVirtualMatchIds: string[] = []
+
+    function collectMatch(match: Match, input: { home: string; away: string } | undefined, label: string) {
+      const rawHome = input?.home ?? ''
+      const rawAway = input?.away ?? ''
+      const homeBlank = rawHome === ''
+      const awayBlank = rawAway === ''
+      const hadSavedPrediction = Boolean(predMap[match.id])
+      const isVirtual = isVirtualKnockoutMatch(match)
+
+      if (homeBlank && awayBlank) {
+        if (hadSavedPrediction) {
+          if (isVirtual) deleteVirtualMatchIds.push(match.id)
+          else deleteRealMatchIds.push(match.id)
+        }
+        return
+      }
+
+      const homeScore = parseScoreInput(rawHome)
+      const awayScore = parseScoreInput(rawAway)
+      if (homeScore == null || awayScore == null) {
+        partialLabels.push(label)
+        return
+      }
+
+      const prediction = {
+        matchId: match.id,
+        homeScore,
+        awayScore,
+        tiebreakerTeam: localKnockoutTiebreakers[match.id] ?? tiebreakerMap[match.id] ?? null,
+      }
+      if (isVirtual) virtualPredictions.push(prediction)
+      else realPredictions.push(prediction)
+    }
+
+    for (const match of groupMatches) {
+      collectMatch(match, localGroupPreds[match.id], `${match.home_team} vs ${match.away_team}`)
+    }
+    for (const match of projectedKnockoutMatches) {
+      collectMatch(match, localKnockoutPreds[match.id], `${match.home_team} vs ${match.away_team}`)
+    }
+
+    if (partialLabels.length) {
+      setGlobalSaveState('error')
+      setGlobalSaveError(`Hay ${partialLabels.length} marcador(es) parcial(es). Completá ambos goles o borrá ambos antes de guardar.`)
+      return
+    }
+
+    if (!realPredictions.length && !virtualPredictions.length && !deleteRealMatchIds.length && !deleteVirtualMatchIds.length && !Object.keys(tiebreakers).length && !Object.keys(localKnockoutTiebreakers).length) {
+      setGlobalSaveState('error')
+      setGlobalSaveError('No hay cambios completos para guardar.')
+      return
+    }
+
+    setGlobalSaveState('saving')
+    setGlobalSaveError(null)
+    startTransition(async () => {
+      try {
+        const result = await saveFullProdeSafe({
+          realPredictions,
+          virtualPredictions,
+          tiebreakers: Object.entries({ ...tiebreakers, ...localKnockoutTiebreakers }).map(([key, team]) => ({ key, team })),
+          deleteRealMatchIds,
+          deleteVirtualMatchIds,
+        })
+        if (!result.ok) throw new Error(result.message)
+        setGroupSaveStates((prev) => {
+          const next = { ...prev }
+          for (const prediction of realPredictions) next[prediction.matchId] = 'saved'
+          return next
+        })
+        setGlobalSaveState('saved')
+        router.refresh()
+      } catch (error) {
+        setGlobalSaveState('error')
+        setGlobalSaveError(formatClientError(error) || 'No se pudo guardar')
+      }
+    })
+  }
+
+  function handleKnockoutPredChange(matchId: string, home: string, away: string) {
+    if (prodeLocked) return
+    setLocalKnockoutPreds((prev) => ({ ...prev, [matchId]: { home, away } }))
+    setGlobalSaveState('dirty')
+    setGlobalSaveError(null)
+  }
+
+  function handleKnockoutTiebreakerChange(matchId: string, team: string | null) {
+    if (prodeLocked) return
+    setLocalKnockoutTiebreakers((prev) => {
+      if (!team) {
+        const { [matchId]: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, [matchId]: team }
+    })
+    setGlobalSaveState('dirty')
+    setGlobalSaveError(null)
   }
 
   function hasCompleteGroupInput(matchId: string) {
@@ -205,7 +359,7 @@ export function MiProdeTabs({
     if (clearedStages.has('group')) {
       for (const match of groupMatches) delete merged[match.id]
     }
-    for (const match of knockoutMatches) {
+    for (const match of projectedKnockoutMatches) {
       if (clearedStages.has(match.stage)) delete merged[match.id]
     }
     for (const [matchId, { home, away }] of Object.entries(localGroupPreds)) {
@@ -215,8 +369,17 @@ export function MiProdeTabs({
         merged[matchId] = { home_score: h, away_score: a }
       }
     }
+    for (const [matchId, { home, away }] of Object.entries(localKnockoutPreds)) {
+      const match = projectedKnockoutMatches.find((m) => m.id === matchId)
+      if (match && clearedStages.has(match.stage)) continue
+      const h = parseScoreInput(home)
+      const a = parseScoreInput(away)
+      if (h != null && a != null) {
+        merged[matchId] = { home_score: h, away_score: a }
+      }
+    }
     return merged
-  }, [predMap, localGroupPreds, bracketClearSignal, groupMatches, knockoutMatches])
+  }, [predMap, localGroupPreds, localKnockoutPreds, bracketClearSignal, groupMatches, projectedKnockoutMatches])
 
   // All group matches have a valid prediction (server or local)
   const allGroupsFilled =
@@ -252,6 +415,11 @@ export function MiProdeTabs({
     : groupStatus.allReady
     ? '#A8F0D8'
     : '#8A8A8A'
+
+  const effectiveKnockoutTiebreakers = useMemo(
+    () => ({ ...tiebreakerMap, ...localKnockoutTiebreakers }),
+    [tiebreakerMap, localKnockoutTiebreakers],
+  )
 
   function toggleDeleteSelection(option: DeleteOption) {
     setDeleteSelections((prev) => {
@@ -300,6 +468,11 @@ export function MiProdeTabs({
   }
 
   function handleDeleteSelectedPredictions() {
+    if (prodeLocked) {
+      setDeleteState('error')
+      setDeleteMessage('El Prode esta bloqueado. No se pueden editar apuestas.')
+      return
+    }
     const scopes = resolveDeleteScopes()
     if (!scopes.hasAnySelection) {
       setDeleteState('error')
@@ -323,20 +496,39 @@ export function MiProdeTabs({
     startTransition(async () => {
       try {
         const deletedCount = scopes.stages.length ? await deletePredictionsByStages(scopes.stages) : 0
+        const deletedVirtualCount = scopes.deleteKnockoutLocally
+          ? await deleteVirtualKnockoutPredictionsByStages(scopes.stages)
+          : 0
         if (scopes.deleteGroupsLocally) {
           try {
-            localStorage.removeItem(LOCAL_STORAGE_KEY)
-            localStorage.removeItem(TIEBREAKERS_STORAGE_KEY)
+            localStorage.removeItem('prode_group_preds')
+            localStorage.removeItem('prode_group_tiebreakers')
           } catch {}
+          await savePredictionTiebreakers(Object.keys(tiebreakers).map((key) => ({ key, team: null })))
           setLocalGroupPreds({})
           setTiebreakers({})
           setGroupSaveStates({})
         }
         if (scopes.deleteKnockoutLocally) {
+          setLocalKnockoutPreds((prev) => {
+            const next = { ...prev }
+            for (const match of projectedKnockoutMatches) {
+              if (scopes.stages.includes(match.stage)) delete next[match.id]
+            }
+            return next
+          })
+          setLocalKnockoutTiebreakers((prev) => {
+            const next = { ...prev }
+            for (const match of projectedKnockoutMatches) {
+              if (scopes.stages.includes(match.stage)) delete next[match.id]
+            }
+            return next
+          })
           setBracketClearSignal((prev) => ({ version: prev.version + 1, stages: scopes.stages }))
         }
         if (scopes.deleteSpecials) {
           try {
+            await deleteSpecialBets()
             localStorage.removeItem(SPECIALS_STORAGE_KEY)
             window.dispatchEvent(new Event('prode-specials-cleared'))
           } catch {}
@@ -345,7 +537,7 @@ export function MiProdeTabs({
         setDeleteMessage(
           scopes.deleteSpecials && !scopes.stages.length
             ? 'Apuestas especiales borradas correctamente.'
-            : `Borrado correcto. Predicciones eliminadas: ${deletedCount}.`
+            : `Borrado correcto. Predicciones eliminadas: ${deletedCount + deletedVirtualCount}.`
         )
         setDeleteSelections(new Set())
         router.refresh()
@@ -359,6 +551,7 @@ export function MiProdeTabs({
   }
 
   async function handleRandomGroupPredictions() {
+    if (prodeLocked) return
     setFakeState('saving')
     setFakeError(null)
     try {
@@ -382,8 +575,10 @@ export function MiProdeTabs({
         for (const pred of generated) next[pred.matchId] = 'saved'
         return next
       })
-      try { localStorage.removeItem(LOCAL_STORAGE_KEY) } catch {}
+      try { localStorage.removeItem('prode_group_preds') } catch {}
+      setGlobalSaveState('saved')
       setFakeState('saved')
+      router.refresh()
       setTimeout(() => setFakeState('idle'), 1800)
     } catch (error) {
       const message = formatClientError(error)
@@ -395,13 +590,27 @@ export function MiProdeTabs({
 
   return (
     <div>
+      {prodeLocked && (
+        <div
+          className="mb-5 rounded-[16px] px-5 py-4 text-[13px] font-bold"
+          style={{ background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.22)', color: '#FFB15C' }}
+        >
+          El Prode esta bloqueado. Las apuestas quedan en modo solo lectura.
+          {lockState.override === 'locked'
+            ? ' Bloqueo manual admin activo.'
+            : lockState.automaticLocked
+            ? ' Ya hay al menos un resultado oficial cargado.'
+            : ''}
+        </div>
+      )}
+
       {/* Toolbar: phase tabs (left) + admin actions (right) */}
       <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
         <div
           className="inline-flex items-center gap-[3px] p-[4px] rounded-full"
           style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
         >
-          {(['grupos', 'eliminatoria', 'especiales'] as TabId[]).map((tab) => (
+          {(['grupos', 'eliminatoria', 'llave', 'especiales'] as TabId[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -418,7 +627,7 @@ export function MiProdeTabs({
                 if (activeTab !== tab) e.currentTarget.style.color = '#8A8A8A'
               }}
             >
-              {tab === 'grupos' ? 'Grupos' : tab === 'eliminatoria' ? 'Eliminatorias' : 'Especiales'}
+              {tab === 'grupos' ? 'Grupos' : tab === 'eliminatoria' ? 'Eliminatorias' : tab === 'llave' ? 'Llave' : 'Especiales'}
             </button>
           ))}
         </div>
@@ -428,6 +637,7 @@ export function MiProdeTabs({
             {/* Aleatorio — tab-aware */}
             <button
               onClick={() => {
+                if (prodeLocked) return
                 if (activeTab === 'grupos') {
                   setFakeState('confirm')
                 } else if (activeTab === 'eliminatoria') {
@@ -435,12 +645,11 @@ export function MiProdeTabs({
                 } else if (activeTab === 'especiales') {
                   try {
                     const next = randomSpecials()
-                    localStorage.setItem(SPECIALS_STORAGE_KEY, JSON.stringify(next))
-                    window.dispatchEvent(new Event('prode-specials-randomized'))
+                    window.dispatchEvent(new CustomEvent<SpecialBetsValues>('prode-specials-randomized', { detail: next }))
                   } catch {}
                 }
               }}
-              disabled={fakeState === 'saving'}
+              disabled={fakeState === 'saving' || prodeLocked}
               className="inline-flex items-center gap-[6px] px-3 py-[7px] rounded-[10px] font-bold text-[12px] transition-all duration-150 disabled:opacity-40"
               style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}
               title="Cargá pronósticos aleatorios para la fase activa"
@@ -460,10 +669,12 @@ export function MiProdeTabs({
             {/* Borrar */}
             <button
               onClick={() => {
+                if (prodeLocked) return
                 setDeleteModalOpen(true)
                 setDeleteState('idle')
                 setDeleteMessage(null)
               }}
+              disabled={prodeLocked}
               className="grid h-[34px] w-[34px] place-items-center rounded-[10px] transition-all duration-150"
               style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.08)' }}
               title="Borrar pronósticos"
@@ -633,8 +844,40 @@ export function MiProdeTabs({
 
       {/* SpecialsBanner — hidden when already on especiales tab */}
       {activeTab !== 'especiales' && (
-        <SpecialsBanner onClickCargar={() => setActiveTab('especiales')} />
+        <SpecialsBanner
+          onClickCargar={() => setActiveTab('especiales')}
+          loaded={Boolean(initialSpecialBets.balon && initialSpecialBets.bota && initialSpecialBets.guante)}
+        />
       )}
+
+      <div
+        className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
+        style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
+      >
+        <div>
+          <p className="font-extrabold text-white text-[13px] leading-snug">Guardar Mi Prode</p>
+          <p className="text-[12px] mt-0.5 text-muted">
+            {globalSaveState === 'saving'
+              ? 'Guardando todo en Supabase...'
+              : globalSaveState === 'saved'
+              ? 'Mi Prode guardado correctamente.'
+              : globalSaveState === 'error'
+              ? `No se pudo guardar: ${globalSaveError ?? 'revisá los datos.'}`
+              : globalSaveState === 'dirty' || groupStatus.hasDirty
+              ? 'Cambios sin guardar.'
+              : 'Guarda grupos, eliminatorias, desempates, llave y campeón desde Supabase.'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleSaveFullProde}
+          disabled={prodeLocked || globalSaveState === 'saving'}
+          className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
+          style={{ background: '#FF6B00', color: '#0A0A0A' }}
+        >
+          {globalSaveState === 'saving' ? 'Guardando...' : 'Guardar Mi Prode'}
+        </button>
+      </div>
 
       {/* All tabs kept mounted to preserve state; only one visible at a time */}
       <div style={{ display: activeTab === 'grupos' ? undefined : 'none' }}>
@@ -646,24 +889,39 @@ export function MiProdeTabs({
           onMatchSaveStateChange={handleGroupSaveStateChange}
           tiebreakers={tiebreakers}
           onTiebreaker={handleTiebreaker}
+          readOnly={prodeLocked}
         />
 
       </div>
       <div style={{ display: activeTab === 'eliminatoria' ? undefined : 'none' }}>
         <BracketView
           groupMatches={groupMatches}
-          knockoutMatches={knockoutMatches}
+          knockoutMatches={projectedKnockoutMatches}
           predMap={effectivePredMap}
-          initialTiebreakerMap={tiebreakerMap}
+          initialTiebreakerMap={effectiveKnockoutTiebreakers}
           isAdmin={isAdmin}
           groupTiebreakerMap={tiebreakers}
-          readOnly={false}
+          readOnly={prodeLocked}
           clearSignal={bracketClearSignal}
           openRandomModal={bracketModalSignal}
+          onKnockoutPredChange={handleKnockoutPredChange}
+          onKnockoutTiebreakerChange={handleKnockoutTiebreakerChange}
+        />
+      </div>
+      <div style={{ display: activeTab === 'llave' ? undefined : 'none' }}>
+        <p className="text-[11px] font-medium mb-4 px-1" style={{ color: '#3e3a35' }}>
+          Tu bracket según tus pronósticos de grupos y eliminatorias. Vista de solo lectura.
+        </p>
+        <TournamentBracket
+          mode="prode"
+          groupMatches={groupMatches}
+          knockoutMatches={projectedKnockoutMatches}
+          predMap={effectivePredMap}
+          tiebreakerMap={{ ...effectiveKnockoutTiebreakers, ...tiebreakers }}
         />
       </div>
       <div style={{ display: activeTab === 'especiales' ? undefined : 'none' }}>
-        <SpecialsTab />
+        <SpecialsTab initialValues={initialSpecialBets} readOnly={prodeLocked} />
       </div>
     </div>
   )

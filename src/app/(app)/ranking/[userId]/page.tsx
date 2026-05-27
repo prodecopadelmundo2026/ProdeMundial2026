@@ -11,6 +11,10 @@ import {
   type MatchAuditRow,
 } from '@/lib/ranking-audit'
 import type { Match, Prediction } from '@/types'
+import { formatRank, rankMedal } from '@/lib/ranking-display'
+import { buildProjectedKnockoutMatches } from '@/lib/bracket'
+
+export const dynamic = 'force-dynamic'
 
 type StageKey = Match['stage'] | 'specials'
 
@@ -30,11 +34,65 @@ const STAGES: Array<{ key: StageKey; label: string }> = [
   { key: 'specials', label: 'Especiales' },
 ]
 
-const SPECIAL_AUDIT_ROWS = [
+const SPECIAL_AUDIT_ROWS: Array<{ key: keyof SpecialBetsRow; label: string; prompt: string; points: number }> = [
   { key: 'balon', label: 'Balon de Oro', prompt: 'Mejor jugador del torneo', points: 20 },
   { key: 'bota', label: 'Bota de Oro', prompt: 'Maximo goleador del torneo', points: 15 },
   { key: 'guante', label: 'Guante de Oro', prompt: 'Mejor arquero del torneo', points: 15 },
 ]
+
+type SpecialBetsRow = {
+  balon: string | null
+  bota: string | null
+  guante: string | null
+}
+
+type VirtualPredictionRow = {
+  id: string
+  user_id: string
+  virtual_match_id: string
+  home_score: number
+  away_score: number
+  tiebreaker_team: string | null
+  created_at: string
+  updated_at: string
+}
+
+type UserTiebreakerRow = {
+  user_id: string
+  tiebreaker_key: string
+  team: string
+}
+
+function virtualPredictionToPrediction(row: VirtualPredictionRow): Prediction {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    match_id: row.virtual_match_id,
+    home_score: row.home_score,
+    away_score: row.away_score,
+    points: null,
+    tiebreaker_team: row.tiebreaker_team,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
+async function loadSpecialBets(admin: ReturnType<typeof createAdminClient>, userId: string): Promise<SpecialBetsRow | null> {
+  try {
+    const { data, error } = await admin
+      .from('special_bets')
+      .select('balon, bota, guante')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (error) throw error
+    return data as SpecialBetsRow | null
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error)
+    if (message.includes('special_bets') || message.includes('relation') || message.includes('does not exist')) return null
+    throw error
+  }
+}
 
 const STATUS_LABELS: Record<AuditStatus, { text: string; color: string }> = {
   exact: { text: 'Exacto', color: '#A8F0D8' },
@@ -144,7 +202,7 @@ function MatchAuditCard({ row }: { row: MatchAuditRow }) {
   )
 }
 
-function SpecialAuditCard({ row }: { row: typeof SPECIAL_AUDIT_ROWS[number] }) {
+function SpecialAuditCard({ row, value }: { row: typeof SPECIAL_AUDIT_ROWS[number]; value: string | null }) {
   return (
     <div
       className="grid gap-3 px-5 py-4 md:grid-cols-[1fr_1fr_1fr_auto] md:items-center"
@@ -154,7 +212,7 @@ function SpecialAuditCard({ row }: { row: typeof SPECIAL_AUDIT_ROWS[number] }) {
         <p className="font-bold text-[13px] text-white">{row.label}</p>
         <p className="font-mono text-[10px] text-muted mt-1">{row.prompt} - hasta {row.points} pts</p>
       </div>
-      <AuditMetric label="Respuesta del usuario" value="Pendiente de persistencia" />
+      <AuditMetric label="Respuesta del usuario" value={value || 'Sin cargar'} />
       <AuditMetric label="Resultado oficial" value="Pendiente" />
       <div className="flex flex-wrap items-center gap-3 md:justify-end">
         <ResultBadge status="pending" />
@@ -163,10 +221,20 @@ function SpecialAuditCard({ row }: { row: typeof SPECIAL_AUDIT_ROWS[number] }) {
           <span className="font-mono text-[10px] font-bold tracking-[0.14em] uppercase ml-1 text-muted">pts</span>
         </p>
       </div>
-      <p className="md:col-span-4 text-[11px] font-bold text-muted">
-        Las apuestas especiales todavia no tienen scoring oficial persistido. Quedan visibles para auditoria futura y revision manual.
-      </p>
+      {!value && (
+        <p className="md:col-span-4 text-[11px] font-bold text-muted">
+          El usuario todavia no cargo esta apuesta especial.
+        </p>
+      )}
     </div>
+  )
+}
+
+function EmptyState({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="px-5 py-8 text-[13px] font-semibold leading-relaxed text-muted">
+      {children}
+    </p>
   )
 }
 
@@ -179,24 +247,80 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   const supabase = await createClient()
   const admin = createAdminClient()
 
-  const [{ data: participants }, { data: userPredictions }, { data: allPredictions }, { data: matches }] = await Promise.all([
+  const [
+    { data: participants },
+    { data: userPredictions },
+    { data: allPredictions },
+    { data: userVirtualPredictions },
+    { data: allVirtualPredictions },
+    { data: matches },
+    { data: allTiebreakers },
+    specialBets,
+  ] = await Promise.all([
     supabase.from('ranking_entries').select('user_id, name, avatar_url'),
     admin.from('predictions').select('*').eq('user_id', userId),
     admin.from('predictions').select('*'),
+    admin.from('virtual_knockout_predictions').select('*').eq('user_id', userId),
+    admin.from('virtual_knockout_predictions').select('*'),
     supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
+    admin.from('user_prediction_tiebreakers').select('user_id, tiebreaker_key, team'),
+    loadSpecialBets(admin, userId),
   ])
 
+  const allTypedPredictions = [
+    ...((allPredictions ?? []) as Prediction[]),
+    ...((allVirtualPredictions ?? []) as VirtualPredictionRow[]).map(virtualPredictionToPrediction),
+  ]
+  const userTypedPredictions = [
+    ...((userPredictions ?? []) as Prediction[]),
+    ...((userVirtualPredictions ?? []) as VirtualPredictionRow[]).map(virtualPredictionToPrediction),
+  ]
+  const userTiebreakers = ((allTiebreakers ?? []) as UserTiebreakerRow[]).filter((row) => row.user_id === userId)
+  const hasSpecialBets = Boolean(specialBets?.balon || specialBets?.bota || specialBets?.guante)
   const participantRows = (participants ?? []).map((participant) => ({
     user_id: participant.user_id,
     name: participant.name,
     avatar_url: participant.avatar_url,
   }))
-  const typedMatches = (matches ?? []) as Match[]
-  const rankingEntries = buildAuditedRankingEntries(typedMatches, (allPredictions ?? []) as Prediction[], participantRows)
+  const isInRankingEntries = participantRows.some((participant) => participant.user_id === userId)
+  const hasPersistedProde = isInRankingEntries || userTypedPredictions.length > 0 || userTiebreakers.length > 0 || hasSpecialBets
+  if (!isInRankingEntries && hasPersistedProde) {
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('id, name, email, avatar_url')
+      .eq('id', userId)
+      .maybeSingle()
+    if (profile) {
+      participantRows.push({
+        user_id: profile.id,
+        name: profile.name || profile.email || 'Participante',
+        avatar_url: profile.avatar_url,
+      })
+    }
+  }
+  const typedMatches = buildProjectedKnockoutMatches((matches ?? []) as Match[])
+  const tiebreakersByUser = new Map<string, Record<string, string>>()
+  for (const row of (allTiebreakers ?? []) as UserTiebreakerRow[]) {
+    if (!tiebreakersByUser.has(row.user_id)) tiebreakersByUser.set(row.user_id, {})
+    tiebreakersByUser.get(row.user_id)![row.tiebreaker_key] = row.team
+  }
+  const rankingEntries = buildAuditedRankingEntries(
+    typedMatches,
+    allTypedPredictions,
+    participantRows,
+    tiebreakersByUser
+  )
   const entry = rankingEntries.find((rankingEntry) => rankingEntry.user_id === userId)
   if (!entry) notFound()
+  const rankingStarted = rankingEntries.some((rankingEntry) => rankingEntry.total_points > 0)
+  const typedUserPredictions = userTypedPredictions
+  const hasOfficialResults = typedMatches.some((match) => match.status === 'finished' && match.home_score != null && match.away_score != null)
 
-  const auditRows = buildMatchAuditRows(typedMatches, (userPredictions ?? []) as Prediction[])
+  const auditRows = buildMatchAuditRows(
+    typedMatches,
+    typedUserPredictions,
+    tiebreakersByUser.get(userId) ?? {}
+  )
   const visibleRows = auditRows.filter((row) => {
     if (activeStage === 'specials') return false
     if (row.stage !== activeStage) return false
@@ -225,12 +349,37 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
         </div>
 
         <div className="grid gap-3 sm:grid-cols-5 mb-5">
-          <SummaryBox label="Ranking" value={`#${entry.rank}`} />
+          <SummaryBox label="Ranking" value={rankingStarted ? `${rankMedal(entry.rank) ? `${rankMedal(entry.rank)} ` : ''}${formatRank(entry, rankingEntries)}` : 'Sin puntos'} />
           <SummaryBox label="Puntos" value={entry.total_points} />
           <SummaryLink label="Exactas" value={statusCount(auditRows, 'exact')} href={filterHref(userId, activeStage, 'exact', activeResult)} active={activeResult === 'exact'} />
           <SummaryLink label="Parciales" value={statusCount(auditRows, 'partial')} href={filterHref(userId, activeStage, 'partial', activeResult)} active={activeResult === 'partial'} />
           <SummaryLink label="Incorrectas" value={statusCount(auditRows, 'incorrect')} href={filterHref(userId, activeStage, 'incorrect', activeResult)} active={activeResult === 'incorrect'} />
         </div>
+
+        {!isInRankingEntries && userTypedPredictions.length === 0 && userTiebreakers.length === 0 && !hasSpecialBets && (
+          <div className="mb-4 rounded-[16px] px-4 py-4 text-[13px] font-semibold leading-relaxed text-muted" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+            Este participante todavía no cargó pronósticos.
+          </div>
+        )}
+
+        {!hasOfficialResults && (
+          <div className="mb-4 rounded-[16px] px-4 py-4 text-[13px] font-semibold leading-relaxed text-muted" style={{ background: 'rgba(168,240,216,0.07)', border: '1px solid rgba(168,240,216,0.18)' }}>
+            Todavía no hay puntos para auditar, pero podés revisar las predicciones cargadas y los faltantes.
+          </div>
+        )}
+
+        {userTiebreakers.length > 0 && (
+          <div className="mb-4 rounded-[16px] px-4 py-4 text-[13px] font-semibold leading-relaxed" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <p className="font-extrabold text-white mb-2">Desempates guardados</p>
+            <div className="flex flex-wrap gap-2">
+              {userTiebreakers.map((row) => (
+                <span key={`${row.tiebreaker_key}-${row.team}`} className="rounded-full px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em]" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}>
+                  {row.tiebreaker_key}: {row.team}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         <details className="md:hidden mb-4 rounded-[16px]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
           <summary className="cursor-pointer px-4 py-3 font-extrabold text-[12px] uppercase" style={{ color: '#cfcfcf' }}>
@@ -258,7 +407,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
           </div>
         </details>
 
-        <div className="hidden md:flex gap-2 overflow-x-auto pb-3 mb-4">
+        <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
           {STAGES.map((stage) => {
             const stats = stageStats(auditRows, stage.key)
             const active = stage.key === activeStage
@@ -267,7 +416,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                 key={stage.key}
                 href={hrefFor(userId, stage.key, activeResult)}
                 title={`Sumo ${stats.points} puntos en esta fase. Exactas: ${stats.exact}. Parciales: ${stats.partial}. Incorrectas: ${stats.incorrect}.`}
-                className="shrink-0 rounded-full px-4 py-2 text-[12px] font-extrabold uppercase transition-colors duration-150"
+                className="rounded-full px-4 py-2 text-center text-[12px] font-extrabold uppercase transition-colors duration-150"
                 style={{
                   background: active ? '#FF6B00' : '#141414',
                   color: active ? '#0A0A0A' : '#cfcfcf',
@@ -304,12 +453,20 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
             </p>
           </div>
 
-          {activeStage === 'specials' ? (
-            SPECIAL_AUDIT_ROWS.map((row) => <SpecialAuditCard key={row.key} row={row} />)
+          {activeStage === 'specials' && !hasSpecialBets ? (
+            <EmptyState>Apuestas especiales sin cargar.</EmptyState>
+          ) : activeStage === 'specials' ? (
+            SPECIAL_AUDIT_ROWS.map((row) => (
+              <SpecialAuditCard
+                key={row.key}
+                row={row}
+                value={specialBets?.[row.key] ?? null}
+              />
+            ))
           ) : visibleRows.length > 0 ? (
             visibleRows.map((row) => <MatchAuditCard key={row.match.id} row={row} />)
           ) : (
-            <p className="px-5 py-8 text-[13px] text-muted">No hay partidos para este filtro.</p>
+            <EmptyState>No hay partidos para este filtro.</EmptyState>
           )}
         </div>
       </div>

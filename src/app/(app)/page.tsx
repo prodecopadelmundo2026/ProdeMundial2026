@@ -1,18 +1,44 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { MatchCard } from '@/components/MatchCard'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import type { Match } from '@/types'
+import { formatRank, rankMedal } from '@/lib/ranking-display'
+import { ReferralShareButton } from '@/components/ReferralShareButton'
+import {
+  TOURNAMENT_TOTAL_MATCHES,
+  TOURNAMENT_TOTAL_POINTS,
+  TOURNAMENT_TOTAL_TEAMS,
+} from '@/lib/tournament-config'
+
+export const dynamic = 'force-dynamic'
 
 /* ─── Sub-components ───────────────────────────────────────────── */
 
-function StatItem({ num, label, live }: { num: number; label: string; live?: boolean }) {
+function StatItem({ num, label, live }: { num: number | string; label: string; live?: boolean }) {
+  const compoundValue = typeof num === 'string' ? num.match(/^(.+)\s+de\s+(.+)$/) : null
+
   return (
-    <div className="flex flex-col gap-0.5 border-l-[3px] border-bg pl-[14px]">
-      <div className="font-display text-[clamp(32px,5vw,48px)] leading-none tracking-[-0.03em]">
-        {num}
+    <div className="min-w-0 flex flex-col gap-1 border-l-[3px] border-bg pl-3 min-[720px]:pl-[14px]">
+      <div
+        className={
+          compoundValue
+            ? 'font-display whitespace-nowrap text-[clamp(22px,6vw,30px)] leading-none tracking-[-0.02em] min-[720px]:text-[clamp(30px,4vw,46px)]'
+            : 'font-display whitespace-nowrap text-[clamp(24px,7vw,38px)] leading-none tracking-[-0.02em] min-[720px]:text-[clamp(30px,4vw,46px)]'
+        }
+      >
+        {compoundValue ? (
+          <>
+            <span>{compoundValue[1]}</span>
+            <span className="mx-1 align-[0.08em] font-sans text-[0.48em] font-black tracking-[0.02em]">de</span>
+            <span>{compoundValue[2]}</span>
+          </>
+        ) : (
+          num
+        )}
       </div>
-      <div className="text-[11px] font-extrabold tracking-[0.22em] uppercase">
+      <div className="max-w-full break-words text-[10px] font-extrabold leading-[1.35] tracking-[0.08em] uppercase min-[720px]:text-[11px] min-[720px]:tracking-[0.16em] min-[1100px]:tracking-[0.22em]">
         {live && (
           <span
             className="inline-block w-[7px] h-[7px] rounded-full bg-bg mr-1.5 align-middle"
@@ -72,12 +98,87 @@ type RankingEntry = {
   rank: number
   exact_predictions: number
   correct_result_predictions: number
+  predictions_count?: number
+}
+
+type MatchSummary = Pick<Match, 'home_team' | 'away_team' | 'home_score' | 'away_score' | 'stage' | 'status'>
+
+const PLACEHOLDER_TEAM_PATTERN = /^(ganador|perdedor|winner|loser|\d+\s*(?:[°º]|Â°)?\s*(grupo|group)|[123][a-l]$)/i
+
+function isRealTeamName(team: string) {
+  const normalized = team.trim()
+  return normalized.length > 0 && !PLACEHOLDER_TEAM_PATTERN.test(normalized)
+}
+
+function matchWinner(match: MatchSummary) {
+  if (
+    match.status !== 'finished' ||
+    match.home_score === null ||
+    match.away_score === null ||
+    match.home_score === match.away_score
+  ) {
+    return null
+  }
+
+  return match.home_score > match.away_score ? match.home_team : match.away_team
+}
+
+function countAliveTeams(matches: MatchSummary[]) {
+  const knockoutMatches = matches.filter((match) => match.stage !== 'group')
+  if (knockoutMatches.length === 0) return TOURNAMENT_TOTAL_TEAMS
+
+  const aliveTeams = new Set<string>()
+  for (const match of knockoutMatches) {
+    const winner = matchWinner(match)
+    if (winner) {
+      if (isRealTeamName(winner)) aliveTeams.add(winner)
+      continue
+    }
+
+    if (match.status !== 'finished') {
+      if (isRealTeamName(match.home_team)) aliveTeams.add(match.home_team)
+      if (isRealTeamName(match.away_team)) aliveTeams.add(match.away_team)
+    }
+  }
+
+  return aliveTeams.size > 0 ? aliveTeams.size : TOURNAMENT_TOTAL_TEAMS
+}
+
+function RankMark({
+  entry,
+  entries,
+  color,
+  active = true,
+}: {
+  entry: RankingEntry
+  entries: RankingEntry[]
+  color: string
+  active?: boolean
+}) {
+  if (!active) {
+    return (
+      <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted min-[720px]:text-[11px]">
+        Registrado
+      </span>
+    )
+  }
+
+  const medal = rankMedal(entry.rank)
+  return (
+    <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap leading-none" style={{ color }}>
+      {medal && <span className="text-[16px] leading-none min-[720px]:text-[18px]" aria-hidden="true">{medal}</span>}
+      <span className="font-display text-[20px] leading-none tabular-nums min-[720px]:text-[22px]">
+        {formatRank(entry, entries)}
+      </span>
+    </span>
+  )
 }
 
 /* ─── Page ─────────────────────────────────────────────────────── */
 
 export default async function HomePage() {
   const supabase = await createClient()
+  const admin = createAdminClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -85,12 +186,19 @@ export default async function HomePage() {
   todayStart.setUTCHours(0, 0, 0, 0)
 
   const [
-    { count: participantes },
+    { count: inscriptos },
     { count: myPredsCount },
     { data: upcoming },
     { data: topRanking },
+    { data: profile },
+    { data: predictionRows },
+    { data: virtualPredictionRows },
+    { data: tiebreakerRows },
+    { data: specialBetRows },
+    { data: allMatchRows },
+    { data: rankingRows },
   ] = await Promise.all([
-    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    admin.from('authorized_emails').select('*', { count: 'exact', head: true }).eq('active', true),
     user
       ? supabase.from('predictions').select('*', { count: 'exact', head: true }).limit(1)
       : Promise.resolve({ count: 0 }),
@@ -105,11 +213,60 @@ export default async function HomePage() {
       .select('user_id, name, total_points, rank, exact_predictions, correct_result_predictions')
       .order('rank', { ascending: true })
       .limit(10),
+    user
+      ? supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    admin.from('predictions').select('user_id'),
+    admin.from('virtual_knockout_predictions').select('user_id'),
+    admin.from('user_prediction_tiebreakers').select('user_id'),
+    admin.from('special_bets').select('user_id, balon, bota, guante'),
+    admin.from('matches').select('home_team, away_team, home_score, away_score, stage, status'),
+    admin.from('ranking_entries').select('user_id'),
   ])
 
-  const hasMyPredictions = (myPredsCount ?? 0) > 0
+  const predictionCounts = new Map<string, number>()
+  for (const prediction of (predictionRows ?? []) as Array<{ user_id: string }>) {
+    predictionCounts.set(prediction.user_id, (predictionCounts.get(prediction.user_id) ?? 0) + 1)
+  }
+  for (const prediction of (virtualPredictionRows ?? []) as Array<{ user_id: string }>) {
+    predictionCounts.set(prediction.user_id, (predictionCounts.get(prediction.user_id) ?? 0) + 1)
+  }
+  for (const tiebreaker of (tiebreakerRows ?? []) as Array<{ user_id: string }>) {
+    predictionCounts.set(tiebreaker.user_id, (predictionCounts.get(tiebreaker.user_id) ?? 0) + 1)
+  }
 
-  const typedTopRanking = (topRanking ?? []) as RankingEntry[]
+  const activeRankingIds = new Set(((rankingRows ?? []) as Array<{ user_id: string }>).map((entry) => entry.user_id))
+  const participantIds = new Set<string>()
+  // Todos en ranking_entries son participantes
+  for (const userId of activeRankingIds) {
+    participantIds.add(userId)
+  }
+  // También quien tenga predicciones aunque no esté aún en ranking_entries
+  for (const userId of predictionCounts.keys()) {
+    participantIds.add(userId)
+  }
+  for (const specialBet of (specialBetRows ?? []) as Array<{
+    user_id: string
+    balon: string | null
+    bota: string | null
+    guante: string | null
+  }>) {
+    if (specialBet.balon || specialBet.bota || specialBet.guante) {
+      participantIds.add(specialBet.user_id)
+      predictionCounts.set(specialBet.user_id, (predictionCounts.get(specialBet.user_id) ?? 0) + 1)
+    }
+  }
+
+  const hasMyPredictions = user ? (predictionCounts.get(user.id) ?? 0) > 0 || (myPredsCount ?? 0) > 0 : false
+
+  const matchRows = (allMatchRows ?? []) as MatchSummary[]
+  const finishedMatches = matchRows.filter((match) => match.status === 'finished').length
+  const aliveTeams = countAliveTeams(matchRows)
+
+  const typedTopRanking = ((topRanking ?? []) as RankingEntry[]).map((entry) => ({
+    ...entry,
+    predictions_count: predictionCounts.get(entry.user_id) ?? 0,
+  }))
   const isInTop10 = user ? typedTopRanking.some(e => e.user_id === user.id) : false
 
   let myRanking: RankingEntry | null = null
@@ -119,7 +276,9 @@ export default async function HomePage() {
       .select('user_id, name, total_points, rank, exact_predictions, correct_result_predictions')
       .eq('user_id', user.id)
       .maybeSingle()
-    myRanking = data as RankingEntry | null
+    myRanking = data
+      ? { ...(data as RankingEntry), predictions_count: predictionCounts.get((data as RankingEntry).user_id) ?? 0 }
+      : null
   }
 
   const allUpcoming = (upcoming ?? []) as Match[]
@@ -157,6 +316,8 @@ export default async function HomePage() {
 
   const rankColors: Record<number, string> = { 1: '#FFE040', 2: '#A8F0D8', 3: '#E8A87C' }
   const showPreTournamentBanner = typedTopRanking.every(e => e.total_points === 0)
+  const rankingStarted = typedTopRanking.some(e => e.total_points > 0)
+  const displayedRanking = myRanking ? [...typedTopRanking, myRanking] : typedTopRanking
 
   return (
     <>
@@ -251,6 +412,12 @@ export default async function HomePage() {
               >
                 Ver el ranking
               </Link>
+              <ReferralShareButton
+                name={profile?.name}
+                email={user?.email}
+                userId={user?.id}
+                className="inline-flex items-center gap-[10px] rounded-full px-[22px] py-[18px] text-[15px] font-extrabold transition-transform hover:-translate-y-0.5"
+              />
             </div>
           </div>
 
@@ -273,7 +440,7 @@ export default async function HomePage() {
                   className="font-display leading-[0.82] tracking-[-0.07em]"
                   style={{ fontSize: 'clamp(120px, 14vw, 200px)' }}
                 >
-                  26'
+                  26&apos;
                 </div>
                 <div className="font-sans font-black tracking-[0.42em] mt-2 text-[clamp(13px,1.6vw,22px)]">
                   PRODE
@@ -302,10 +469,12 @@ export default async function HomePage() {
         className="bg-orange text-bg overflow-hidden"
         style={{ borderTop: '2px solid #0A0A0A', borderBottom: '2px solid #0A0A0A' }}
       >
-        <div className="max-w-[1280px] mx-auto px-5 py-7 grid grid-cols-3 gap-5">
-          <StatItem num={participantes ?? 0} label="Participantes" live />
-          <StatItem num={290} label="Puntos en juego" />
-          <StatItem num={80} label="Partidos · 48 selecciones" />
+        <div className="max-w-[1280px] mx-auto px-5 py-6 grid grid-cols-1 gap-x-2 gap-y-6 min-[680px]:grid-cols-3 min-[720px]:gap-5 min-[1100px]:grid-cols-5">
+          <StatItem num={inscriptos ?? typedTopRanking.length} label="Inscriptos" live />
+          <StatItem num={participantIds.size} label="Participantes" />
+          <StatItem num={TOURNAMENT_TOTAL_POINTS} label="Puntos en juego" />
+          <StatItem num={`${finishedMatches} de ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" />
+          <StatItem num={`${aliveTeams} de ${TOURNAMENT_TOTAL_TEAMS}`} label="Selecciones" />
         </div>
       </div>
 
@@ -328,6 +497,7 @@ export default async function HomePage() {
                   match={match}
                   prediction={predictionMap[match.id] ?? null}
                   readOnly
+                  showPrediction={Boolean(user)}
                 />
               ))}
             </div>
@@ -341,7 +511,7 @@ export default async function HomePage() {
           <SectionHead
             title="Top"
             orange="10"
-            sub="Los que la están rompiendo. Actualizado partido a partido."
+            sub="Los que la están rompiendo. Tocá cualquier jugador para ver su Prode completo: pronósticos, aciertos, errores y puntos partido por partido."
             link={{ href: '/ranking', label: 'Ver ranking completo' }}
           />
 
@@ -360,7 +530,7 @@ export default async function HomePage() {
                 style={{ background: '#A8F0D8', animation: 'pulse-dot 1.6s infinite' }}
               />
               <span>
-                El ranking arranca con el primer pitazo · <strong className="text-white font-extrabold">11 de junio, 16:00</strong>
+                El conteo de puntos empieza cuando se carguen los primeros resultados oficiales. Hasta entonces podés revisar los Prodes cargados.
               </span>
             </div>
           )}
@@ -372,25 +542,21 @@ export default async function HomePage() {
             >
               {typedTopRanking.map((entry) => {
                 const isMe = user?.id === entry.user_id
+                const hasPredictions = (entry.predictions_count ?? 0) > 0
                 const rankColor = rankColors[entry.rank] ?? (isMe ? '#FF6B00' : '#8A8A8A')
                 return (
-                  <div
+                  <Link
                     key={entry.user_id}
-                    className="grid items-center rounded-[14px] transition-colors hover:bg-panel-2"
+                    href={`/ranking/${entry.user_id}`}
+                    className="grid grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors hover:bg-panel-2 min-[720px]:grid-cols-[96px_minmax(0,1fr)_auto] min-[720px]:gap-[14px] min-[720px]:px-[14px]"
                     style={{
-                      gridTemplateColumns: '54px 1fr auto',
-                      gap: '14px',
-                      padding: '12px 14px',
+                      cursor: 'pointer',
+                      opacity: hasPredictions ? 1 : 0.82,
                       ...(isMe ? { background: 'rgba(255,107,0,.1)', border: '1px solid rgba(255,107,0,.22)' } : {}),
                     }}
                   >
-                    <span
-                      className="font-display leading-none tracking-[-0.03em] tabular-nums"
-                      style={{ fontSize: 22, color: rankColor }}
-                    >
-                      {entry.rank}
-                    </span>
-                    <div className="flex items-center gap-3 min-w-0">
+                    <RankMark entry={entry} entries={typedTopRanking} color={rankColor} active={rankingStarted} />
+                    <div className="flex min-w-0 items-center gap-2.5 min-[720px]:gap-3">
                       <div
                         className="w-9 h-9 rounded-full shrink-0 grid place-items-center font-display text-[14px] text-white"
                         style={{
@@ -401,7 +567,7 @@ export default async function HomePage() {
                         {entry.name?.[0]?.toUpperCase() ?? '?'}
                       </div>
                       <div className="flex flex-col min-w-0 gap-0.5">
-                        <span className="font-bold text-[14px] tracking-[-0.01em] truncate">
+                        <span className="truncate text-[14px] font-bold leading-tight">
                           {entry.name}
                           {isMe && (
                             <span
@@ -416,23 +582,29 @@ export default async function HomePage() {
                           className="font-mono font-bold uppercase truncate"
                           style={{ fontSize: 10, color: '#8A8A8A', letterSpacing: '.16em' }}
                         >
-                          {entry.exact_predictions ?? 0} exactas · {entry.correct_result_predictions ?? 0} parciales
+                          {hasPredictions
+                            ? `${entry.exact_predictions ?? 0} exactas · ${entry.correct_result_predictions ?? 0} parciales`
+                            : 'Registrado · todavía no cargó su Prode'}
                         </span>
                       </div>
                     </div>
                     <span
-                      className="font-display text-right leading-none tracking-[-0.03em] tabular-nums"
-                      style={{ fontSize: 22 }}
+                      className={rankingStarted ? 'font-display text-right leading-none tracking-[-0.03em] tabular-nums' : 'font-mono text-right text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted'}
+                      style={rankingStarted ? { fontSize: 22 } : undefined}
                     >
-                      {entry.total_points}
-                      <em
-                        className="not-italic font-mono font-bold uppercase ml-[6px]"
-                        style={{ fontSize: '0.55em', color: '#8A8A8A', letterSpacing: '.16em' }}
-                      >
-                        pts
-                      </em>
+                      {rankingStarted ? (
+                        <>
+                          {entry.total_points}
+                          <em
+                            className="not-italic font-mono font-bold uppercase ml-[6px]"
+                            style={{ fontSize: '0.55em', color: '#8A8A8A', letterSpacing: '.16em' }}
+                          >
+                            pts
+                          </em>
+                        </>
+                      ) : 'Sin puntos'}
                     </span>
-                  </div>
+                  </Link>
                 )
               })}
 
@@ -444,24 +616,18 @@ export default async function HomePage() {
                   >
                     · · ·
                   </div>
-                  <div
-                    className="grid items-center rounded-[14px]"
+                  <Link
+                    href={`/ranking/${user.id}`}
+                    className="grid grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors hover:bg-panel-2 min-[720px]:grid-cols-[96px_minmax(0,1fr)_auto] min-[720px]:gap-[14px] min-[720px]:px-[14px]"
                     style={{
-                      gridTemplateColumns: '54px 1fr auto',
-                      gap: '14px',
-                      padding: '12px 14px',
                       background: 'rgba(255,107,0,.1)',
                       border: '1px solid rgba(255,107,0,.22)',
                       marginTop: 6,
+                      cursor: 'pointer',
                     }}
                   >
-                    <span
-                      className="font-display leading-none tracking-[-0.03em] tabular-nums"
-                      style={{ fontSize: 22, color: '#FF6B00' }}
-                    >
-                      #{myRanking.rank}
-                    </span>
-                    <div className="flex items-center gap-3 min-w-0">
+                    <RankMark entry={myRanking} entries={displayedRanking} color="#FF6B00" active={rankingStarted} />
+                    <div className="flex min-w-0 items-center gap-2.5 min-[720px]:gap-3">
                       <div
                         className="w-9 h-9 rounded-full shrink-0 grid place-items-center font-display text-[14px] text-white"
                         style={{ background: 'linear-gradient(135deg,#FF6B00,#FF9A3C)', border: '2px solid #2a2a2a' }}
@@ -469,7 +635,7 @@ export default async function HomePage() {
                         {myRanking.name?.[0]?.toUpperCase() ?? '?'}
                       </div>
                       <div className="flex flex-col min-w-0 gap-0.5">
-                        <span className="font-bold text-[14px] tracking-[-0.01em] truncate">
+                        <span className="truncate text-[14px] font-bold leading-tight">
                           {myRanking.name}
                           <span
                             className="inline-block ml-2 font-mono font-extrabold rounded-[6px]"
@@ -482,23 +648,29 @@ export default async function HomePage() {
                           className="font-mono font-bold uppercase truncate"
                           style={{ fontSize: 10, color: '#8A8A8A', letterSpacing: '.16em' }}
                         >
-                          {myRanking.exact_predictions ?? 0} exactas · {myRanking.correct_result_predictions ?? 0} parciales
+                          {(myRanking.predictions_count ?? 0) > 0
+                            ? `${myRanking.exact_predictions ?? 0} exactas · ${myRanking.correct_result_predictions ?? 0} parciales`
+                            : 'Registrado · todavía no cargó su Prode'}
                         </span>
                       </div>
                     </div>
                     <span
-                      className="font-display text-right leading-none tracking-[-0.03em] tabular-nums"
-                      style={{ fontSize: 22 }}
+                      className={rankingStarted ? 'font-display text-right leading-none tracking-[-0.03em] tabular-nums' : 'font-mono text-right text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted'}
+                      style={rankingStarted ? { fontSize: 22 } : undefined}
                     >
-                      {myRanking.total_points}
-                      <em
-                        className="not-italic font-mono font-bold uppercase ml-[6px]"
-                        style={{ fontSize: '0.55em', color: '#8A8A8A', letterSpacing: '.16em' }}
-                      >
-                        pts
-                      </em>
+                      {rankingStarted ? (
+                        <>
+                          {myRanking.total_points}
+                          <em
+                            className="not-italic font-mono font-bold uppercase ml-[6px]"
+                            style={{ fontSize: '0.55em', color: '#8A8A8A', letterSpacing: '.16em' }}
+                          >
+                            pts
+                          </em>
+                        </>
+                      ) : 'Sin puntos'}
                     </span>
-                  </div>
+                  </Link>
                 </>
               )}
             </div>
@@ -516,7 +688,7 @@ export default async function HomePage() {
             <div className="font-display uppercase leading-[0.9] tracking-[-0.03em] text-[48px]">
               Prode
               <br />
-              <em className="italic text-orange">26'</em>
+              <em className="italic text-orange">26&apos;</em>
             </div>
             <p className="mt-[10px] text-muted text-[13px] max-w-[340px] leading-relaxed">
               Pronósticos del Mundial 2026.

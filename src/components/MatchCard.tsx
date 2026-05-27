@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useTransition, useEffect } from 'react'
+import { Pencil } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { StatusBadge } from './StatusBadge'
@@ -48,12 +49,13 @@ type Props = {
   onValuesChange?: (home: string, away: string) => void
   onSaveStateChange?: (state: 'idle' | 'dirty' | 'saving' | 'saved' | 'error') => void
   readOnly?: boolean
+  showPrediction?: boolean
 }
 
-export function MatchCard({ match, prediction, noAutosave, initialHome, initialAway, onValuesChange, onSaveStateChange, readOnly }: Props) {
+export function MatchCard({ match, prediction, noAutosave, initialHome, initialAway, onValuesChange, onSaveStateChange, readOnly, showPrediction = true }: Props) {
   const now = new Date()
   const lockedAt = new Date(match.locked_at)
-  const isOpen = match.status === 'upcoming' && now < lockedAt
+  const isOpen = match.status === 'upcoming' && now < lockedAt && !readOnly
   const hasRealScore = (match.status === 'finished' || match.status === 'live')
     && match.home_score != null && match.away_score != null
   const isInputLocked = !isOpen
@@ -64,6 +66,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
     !noAutosave && prediction ? 'saved' : 'idle',
   )
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const homeInputRef = useRef<HTMLInputElement>(null)
   const latestValuesRef = useRef({
     home: initialHome ?? prediction?.home_score?.toString() ?? '',
     away: initialAway ?? prediction?.away_score?.toString() ?? '',
@@ -132,7 +135,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
     ? { home_score: Number(home), away_score: Number(away) }
     : null
   const ptsBadge =
-    hasRealScore && predObj && match.home_score != null && match.away_score != null
+    showPrediction && hasRealScore && predObj && match.home_score != null && match.away_score != null
       ? calcPoints(predObj, { home_score: match.home_score, away_score: match.away_score })
       : null
 
@@ -220,6 +223,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
         <>
           <div className="flex flex-col gap-[8px]">
             {/* Pronóstico */}
+            {showPrediction && (
             <div>
               <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] mb-[5px]" style={{ color: '#4a4a4a' }}>
                 Pronóstico
@@ -235,6 +239,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
                 )}
               </div>
             </div>
+            )}
             {/* Resultado final */}
             <div>
               <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] mb-[5px]" style={{ color: '#9a9a9a' }}>
@@ -260,7 +265,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
       ) : (
         <>
           {/* Pronóstico read-only (home page, vista pública) */}
-          {readOnly && prediction && (
+          {showPrediction && readOnly && prediction && (
             <div
               className="flex items-center justify-between px-3 py-2 rounded-[10px] text-[11px] font-bold"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
@@ -275,6 +280,19 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
           {/* Pronóstico editable */}
           {!readOnly && (
             <>
+              {isOpen && (
+                <div className="mb-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => homeInputRef.current?.focus()}
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-extrabold uppercase"
+                    style={{ background: 'rgba(255,107,0,0.12)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.28)' }}
+                  >
+                    <Pencil size={12} strokeWidth={2.5} />
+                    Editar
+                  </button>
+                </div>
+              )}
               <div
                 className="grid items-center"
                 style={{
@@ -287,6 +305,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
                 }}
               >
                 <input
+                  ref={homeInputRef}
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"

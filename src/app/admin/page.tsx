@@ -16,8 +16,27 @@ import {
   getPendingGroupTiebreakers,
   resolveTeamFull,
 } from '@/lib/bracket'
+import { AdminBracketSection } from './AdminBracketSection'
+import { getProdeLockState } from '@/lib/prode-lock'
+import { toggleMaintenanceMode, toggleProdeLockOverride } from './actions'
+import { getCurrentProfile } from '@/lib/current-profile'
+import { getMaintenanceMode } from '@/lib/maintenance'
 
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
+
+type SpecialBetRow = {
+  user_id: string
+  balon: string | null
+  bota: string | null
+  guante: string | null
+  updated_at: string | null
+}
+
+type SpecialBetProfile = {
+  id: string
+  name: string | null
+  email: string | null
+}
 
 function hasOfficialScore(match: Match) {
   return match.status === 'finished' && match.home_score != null && match.away_score != null
@@ -69,11 +88,7 @@ export default async function AdminPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', user.id)
-    .single()
+  const profile = await getCurrentProfile(user)
 
   if (!profile?.is_admin) redirect('/')
 
@@ -82,7 +97,28 @@ export default async function AdminPage() {
     .select('*')
     .order('scheduled_at', { ascending: true })
 
+  const { data: specialBetRows } = await supabase
+    .from('special_bets')
+    .select('user_id, balon, bota, guante, updated_at')
+    .order('updated_at', { ascending: false })
+
   const allMatches = (matches ?? []) as Match[]
+  const specialUserIds = [...new Set(((specialBetRows ?? []) as SpecialBetRow[]).map((row) => row.user_id))]
+  const { data: specialProfiles } = specialUserIds.length
+    ? await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .in('id', specialUserIds)
+    : { data: [] as SpecialBetProfile[] }
+  const specialProfileMap = new Map(
+    ((specialProfiles ?? []) as SpecialBetProfile[]).map((profile) => [profile.id, profile])
+  )
+  const specialBets = ((specialBetRows ?? []) as SpecialBetRow[]).map((row) => ({
+    ...row,
+    profile: specialProfileMap.get(row.user_id) ?? null,
+  }))
+  const prodeLock = await getProdeLockState(supabase)
+  const maintenanceMode = await getMaintenanceMode(supabase)
   const groupMatches = allMatches.filter((m) => m.stage === 'group')
   const knockoutMatches = allMatches.filter((m) => m.stage !== 'group')
   const officialScoreMap: ScoreMap = Object.fromEntries(
@@ -184,6 +220,7 @@ export default async function AdminPage() {
   const knockoutEntries = Object.entries(groups).filter(([groupName]) => !groupName.startsWith('Grupo '))
   const adminSections = [
     { label: 'Clasificación', href: '#admin-section-clasificacion' },
+    { label: 'Especiales', href: '#admin-section-especiales' },
     { label: 'Grupos', href: '#admin-section-grupos' },
     { label: 'Dieciseisavos', href: '#admin-section-dieciseisavos' },
     { label: 'Octavos', href: '#admin-section-octavos' },
@@ -234,7 +271,108 @@ export default async function AdminPage() {
           </p>
         </div>
 
+        <form
+          action={toggleProdeLockOverride}
+          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
+          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <div>
+            <p className="font-extrabold text-white text-[13px] leading-snug">Estado del Prode</p>
+            <p className="text-[12px] mt-0.5 text-muted">
+              {prodeLock.locked ? 'Apuestas bloqueadas' : 'Apuestas abiertas'}
+              {prodeLock.override
+                ? ` - override manual: ${prodeLock.override === 'locked' ? 'bloqueado' : 'desbloqueado'}`
+                : prodeLock.automaticLocked
+                ? ' - bloqueo automatico por resultado oficial'
+                : ' - sin resultados oficiales cargados'}
+            </p>
+          </div>
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase"
+            style={{
+              background: prodeLock.locked ? 'rgba(168,240,216,0.12)' : 'rgba(255,107,0,0.16)',
+              color: prodeLock.locked ? '#A8F0D8' : '#FF6B00',
+              border: prodeLock.locked ? '1px solid rgba(168,240,216,0.3)' : '1px solid rgba(255,107,0,0.3)',
+            }}
+          >
+            {prodeLock.locked ? 'Desbloquear Prode' : 'Bloquear Prode'}
+          </button>
+        </form>
+
+        <form
+          action={toggleMaintenanceMode}
+          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
+          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <div>
+            <p className="font-extrabold text-white text-[13px] leading-snug">Modo mantenimiento</p>
+            <p className="text-[12px] mt-0.5 text-muted">
+              {maintenanceMode
+                ? 'Activo: solo administradores pueden usar la web.'
+                : 'Inactivo: usuarios habilitados pueden ingresar normalmente.'}
+            </p>
+          </div>
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase"
+            style={{
+              background: maintenanceMode ? 'rgba(168,240,216,0.12)' : 'rgba(255,107,0,0.16)',
+              color: maintenanceMode ? '#A8F0D8' : '#FF6B00',
+              border: maintenanceMode ? '1px solid rgba(168,240,216,0.3)' : '1px solid rgba(255,107,0,0.3)',
+            }}
+          >
+            {maintenanceMode ? 'Desactivar mantenimiento' : 'Activar mantenimiento'}
+          </button>
+        </form>
+
         <AdminTestTools />
+
+        <div
+          id="admin-section-especiales"
+          className="mb-8 rounded-[16px] overflow-hidden"
+          style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)', scrollMarginTop: 20 }}
+        >
+          <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <p className="font-extrabold text-white text-[14px]">Apuestas especiales</p>
+            <p className="text-muted text-[12px] mt-1">
+              Revision manual de Balon de Oro, Bota de Oro y Guante de Oro. No suma puntos automaticamente.
+            </p>
+          </div>
+          {specialBets.length > 0 ? (
+            <div className="grid gap-2 p-3">
+              {specialBets.map((bet) => {
+                const displayName = bet.profile?.name || bet.profile?.email || bet.user_id
+                return (
+                  <div
+                    key={bet.user_id}
+                    className="grid gap-3 rounded-[12px] px-3 py-3 md:grid-cols-[1fr_1fr_1fr_1fr]"
+                    style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)' }}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-extrabold tracking-[0.16em] uppercase text-muted">Usuario</p>
+                      <p className="mt-1 truncate text-[13px] font-extrabold text-white">{displayName}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-extrabold tracking-[0.16em] uppercase text-muted">Balon de Oro</p>
+                      <p className="mt-1 truncate text-[13px] font-bold text-white">{bet.balon || 'Sin cargar'}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-extrabold tracking-[0.16em] uppercase text-muted">Bota de Oro</p>
+                      <p className="mt-1 truncate text-[13px] font-bold text-white">{bet.bota || 'Sin cargar'}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-extrabold tracking-[0.16em] uppercase text-muted">Guante de Oro</p>
+                      <p className="mt-1 truncate text-[13px] font-bold text-white">{bet.guante || 'Sin cargar'}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="px-5 py-6 text-[13px] text-muted">Todavia no hay apuestas especiales cargadas.</p>
+          )}
+        </div>
 
         <div className="mb-6">
           <details className="md:hidden rounded-[16px]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -429,6 +567,15 @@ export default async function AdminPage() {
             ))}
           </div>
         )}
+
+        {/* Official bracket section */}
+        {matches && matches.length > 0 && (
+          <AdminBracketSection
+            groupMatches={(matches as Match[]).filter((m) => m.stage === 'group')}
+            knockoutMatches={(matches as Match[]).filter((m) => m.stage !== 'group')}
+          />
+        )}
+
       </div>
     </div>
   )
