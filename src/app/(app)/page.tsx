@@ -216,12 +216,12 @@ export default async function HomePage() {
     user
       ? supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
       : Promise.resolve({ data: null }),
-    admin.from('predictions').select('user_id'),
-    admin.from('virtual_knockout_predictions').select('user_id'),
-    admin.from('user_prediction_tiebreakers').select('user_id'),
-    admin.from('special_bets').select('user_id, balon, bota, guante'),
+    supabase.from('predictions').select('user_id'),
+    supabase.from('virtual_knockout_predictions').select('user_id'),
+    supabase.from('user_prediction_tiebreakers').select('user_id'),
+    supabase.from('special_bets').select('user_id, balon, bota, guante'),
     admin.from('matches').select('home_team, away_team, home_score, away_score, stage, status'),
-    admin.from('ranking_entries').select('user_id'),
+    supabase.from('ranking_entries').select('user_id'),
   ])
 
   const predictionCounts = new Map<string, number>()

@@ -258,12 +258,12 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     specialBets,
   ] = await Promise.all([
     supabase.from('ranking_entries').select('user_id, name, avatar_url'),
-    admin.from('predictions').select('*').eq('user_id', userId),
-    admin.from('predictions').select('*'),
-    admin.from('virtual_knockout_predictions').select('*').eq('user_id', userId),
-    admin.from('virtual_knockout_predictions').select('*'),
+    supabase.from('predictions').select('*').eq('user_id', userId),
+    supabase.from('predictions').select('*'),
+    supabase.from('virtual_knockout_predictions').select('*').eq('user_id', userId),
+    supabase.from('virtual_knockout_predictions').select('*'),
     supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
-    admin.from('user_prediction_tiebreakers').select('user_id, tiebreaker_key, team'),
+    supabase.from('user_prediction_tiebreakers').select('user_id, tiebreaker_key, team'),
     loadSpecialBets(admin, userId),
   ])
 
