@@ -2,7 +2,6 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
 import { assertProdeOpen } from '@/lib/prode-lock'
 
 type PredictionInput = {
@@ -36,6 +35,14 @@ export type SpecialBetsValues = {
   balon: string
   bota: string
   guante: string
+}
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'object' && error && 'message' in error) {
+    return String((error as { message: unknown }).message)
+  }
+  return String(error)
 }
 
 function cleanName(value: unknown) {
@@ -84,7 +91,6 @@ function virtualMatchStage(matchId: string) {
 export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockoutPredictionInput[]) {
   if (!predictions.length) return 0
   const supabase = await createClient()
-  const admin = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
   await assertProdeOpen(supabase)
@@ -109,12 +115,12 @@ export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockou
     first: payload[0] ?? null,
   })
 
-  const { error } = await admin
+  const { error } = await supabase
     .from('virtual_knockout_predictions')
     .upsert(payload, { onConflict: 'user_id,virtual_match_id' })
 
   if (error) throw new Error(error.message)
-  const { count, error: verifyError } = await admin
+  const { count, error: verifyError } = await supabase
     .from('virtual_knockout_predictions')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', user.id)
@@ -134,7 +140,6 @@ export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockou
 export async function saveRealPredictions(predictions: PredictionInput[]) {
   if (!predictions.length) return 0
   const supabase = await createClient()
-  const admin = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
   await assertProdeOpen(supabase)
@@ -146,7 +151,7 @@ export async function saveRealPredictions(predictions: PredictionInput[]) {
     return prediction.matchId
   }))]
 
-  const { data: matches, error: matchesError } = await admin
+  const { data: matches, error: matchesError } = await supabase
     .from('matches')
     .select('id, locked_at, status')
     .in('id', matchIds)
@@ -180,13 +185,13 @@ export async function saveRealPredictions(predictions: PredictionInput[]) {
     first: payload[0] ?? null,
   })
 
-  const { error } = await admin
+  const { error } = await supabase
     .from('predictions')
     .upsert(payload, { onConflict: 'user_id,match_id' })
 
   if (error) throw new Error(error.message)
 
-  const { count, error: verifyError } = await admin
+  const { count, error: verifyError } = await supabase
     .from('predictions')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', user.id)
@@ -232,7 +237,6 @@ export async function deleteVirtualKnockoutPredictionsByStages(stages: string[])
 
 export async function deleteVirtualKnockoutPredictionsByMatchIds(matchIds: string[]) {
   const supabase = await createClient()
-  const admin = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
   await assertProdeOpen(supabase)
@@ -241,7 +245,7 @@ export async function deleteVirtualKnockoutPredictionsByMatchIds(matchIds: strin
   for (const matchId of ids) assertValidVirtualMatchId(matchId)
   if (!ids.length) return 0
 
-  const { count, error } = await admin
+  const { count, error } = await supabase
     .from('virtual_knockout_predictions')
     .delete({ count: 'exact' })
     .eq('user_id', user.id)
@@ -256,7 +260,6 @@ export async function deleteVirtualKnockoutPredictionsByMatchIds(matchIds: strin
 
 export async function deleteRealPredictionsByMatchIds(matchIds: string[]) {
   const supabase = await createClient()
-  const admin = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
   await assertProdeOpen(supabase)
@@ -265,7 +268,7 @@ export async function deleteRealPredictionsByMatchIds(matchIds: string[]) {
   for (const matchId of ids) assertUuid(matchId)
   if (!ids.length) return 0
 
-  const { count, error } = await admin
+  const { count, error } = await supabase
     .from('predictions')
     .delete({ count: 'exact' })
     .eq('user_id', user.id)
@@ -454,6 +457,17 @@ export async function saveFullProde(input: FullProdeInput) {
     tiebreakers: input.tiebreakers.length,
     deletedReal: deleteRealMatchIds.length,
     deletedVirtual: deleteVirtualMatchIds.length,
+  }
+}
+
+export async function saveFullProdeSafe(input: FullProdeInput) {
+  try {
+    const result = await saveFullProde(input)
+    return { ok: true as const, result }
+  } catch (error) {
+    const message = errorMessage(error)
+    console.error('[mi-prode.saveFullProdeSafe] failed', { message, error })
+    return { ok: false as const, message }
   }
 }
 

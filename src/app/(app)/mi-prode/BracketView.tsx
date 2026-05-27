@@ -495,7 +495,6 @@ export function BracketView({
   const [manualSaveError, setManualSaveError] = useState<string | null>(null)
   const [quickFillState, setQuickFillState] = useState<'idle' | 'confirm' | 'saving' | 'saved' | 'error'>('idle')
   const [quickFillError, setQuickFillError] = useState<string | null>(null)
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     setLocalInputs((prev) => {
@@ -546,47 +545,6 @@ export function BracketView({
       return next
     })
   }, [clearSignal?.version, clearSignal?.stages, knockoutMatches])
-
-  useEffect(() => {
-    if (bracketLocked) return
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(async () => {
-      const now = new Date()
-      const predictions = knockoutMatches
-        .map((m) => {
-          if (m.status !== 'upcoming' || now >= new Date(m.locked_at)) return null
-          const inp = localInputs[m.id]
-          if (!inp || inp.home === '' || inp.away === '') return null
-          const h = parseScoreInput(inp.home)
-          const a = parseScoreInput(inp.away)
-          if (h == null || a == null) return null
-          return { matchId: m.id, homeScore: h, awayScore: a, tiebreakerTeam: tiebreakerMap[m.id] ?? null }
-        })
-        .filter((p): p is NonNullable<typeof p> => p !== null)
-      if (!predictions.length) return
-      const virtualPredictions = predictions.filter((prediction) =>
-        isVirtualKnockoutMatch({ id: prediction.matchId })
-      )
-      const realPredictions = predictions.filter((prediction) =>
-        !isVirtualKnockoutMatch({ id: prediction.matchId })
-      )
-      try {
-        await Promise.all([
-          realPredictions.length ? saveRealPredictions(realPredictions) : Promise.resolve(0),
-          virtualPredictions.length ? saveVirtualKnockoutPredictions(virtualPredictions) : Promise.resolve(0),
-        ])
-        setBracketSaveError(false)
-        setManualSaveState((prev) => prev === 'saving' ? prev : 'saved')
-      } catch (err) {
-        console.error('[BracketView] autosave failed:', err)
-        setBracketSaveError(true)
-        setManualSaveState('error')
-        setManualSaveError(formatClientError(err) || 'No se pudo guardar')
-      }
-    }, 800)
-    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localInputs, tiebreakerMap, bracketLocked])
 
   // Effective predMap merges saved predictions with locally entered values
   const effectivePredMap: PredMap = { ...predMap }

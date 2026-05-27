@@ -12,7 +12,7 @@ import { SpecialsBanner } from './SpecialsBanner'
 import { deletePredictionsByStages, generateRandomGroupPredictions } from '@/app/(app)/fixture/actions'
 import { parseScoreInput } from '@/lib/score-input'
 import type { ProdeLockState } from '@/lib/prode-lock'
-import { deleteSpecialBets, deleteVirtualKnockoutPredictionsByStages, savePredictionTiebreakers, saveFullProde, type SpecialBetsValues } from './actions'
+import { deleteSpecialBets, deleteVirtualKnockoutPredictionsByStages, savePredictionTiebreakers, saveFullProdeSafe, type SpecialBetsValues } from './actions'
 import { buildProjectedKnockoutMatches, isVirtualKnockoutMatch } from '@/lib/bracket'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
@@ -304,13 +304,14 @@ export function MiProdeTabs({
     setGlobalSaveError(null)
     startTransition(async () => {
       try {
-        await saveFullProde({
+        const result = await saveFullProdeSafe({
           realPredictions,
           virtualPredictions,
           tiebreakers: Object.entries({ ...tiebreakers, ...localKnockoutTiebreakers }).map(([key, team]) => ({ key, team })),
           deleteRealMatchIds,
           deleteVirtualMatchIds,
         })
+        if (!result.ok) throw new Error(result.message)
         setGroupSaveStates((prev) => {
           const next = { ...prev }
           for (const prediction of realPredictions) next[prediction.matchId] = 'saved'
