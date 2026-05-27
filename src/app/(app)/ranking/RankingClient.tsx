@@ -65,11 +65,6 @@ function RankRow({
     <Link
       href={`/ranking/${entry.user_id}`}
       className="block"
-      aria-disabled={!hasPredictions}
-      tabIndex={hasPredictions ? undefined : -1}
-      onClick={(event) => {
-        if (!hasPredictions) event.preventDefault()
-      }}
     >
       <div
         ref={innerRef}
@@ -77,11 +72,11 @@ function RankRow({
         style={{
           background: isMe ? 'rgba(255,107,0,0.1)' : 'transparent',
           border: isMe ? '1px solid rgba(255,107,0,0.28)' : '1px solid transparent',
-          cursor: hasPredictions ? 'pointer' : 'default',
-          opacity: hasPredictions ? 1 : 0.72,
+          cursor: 'pointer',
+          opacity: hasPredictions ? 1 : 0.82,
         }}
         onMouseEnter={(e) => {
-          if (hasPredictions && !isMe) (e.currentTarget as HTMLElement).style.background = '#1c1c1c'
+          if (!isMe) (e.currentTarget as HTMLElement).style.background = '#1c1c1c'
         }}
         onMouseLeave={(e) => {
           if (!isMe) (e.currentTarget as HTMLElement).style.background = 'transparent'
@@ -125,7 +120,7 @@ function RankRow({
 
       {/* Puntos */}
         <div className="text-right shrink-0">
-          {rankingStarted && hasPredictions ? (
+          {rankingStarted ? (
             <>
               <span
                 className="font-display text-[21px] leading-none tabular-nums sm:text-[22px]"
@@ -268,7 +263,7 @@ export function RankingClient({
       </div>
 
       {/* Sticky bottom — fila del usuario cuando scrollea hacia arriba */}
-      {rankingStarted && meEntry && userId && (
+      {meEntry && userId && (
         <aside
           ref={stickyRef as React.RefObject<HTMLElement>}
           className="you-sticky"

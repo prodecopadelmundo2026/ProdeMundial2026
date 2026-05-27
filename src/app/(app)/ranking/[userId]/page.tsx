@@ -277,13 +277,14 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   ]
   const userTiebreakers = ((allTiebreakers ?? []) as UserTiebreakerRow[]).filter((row) => row.user_id === userId)
   const hasSpecialBets = Boolean(specialBets?.balon || specialBets?.bota || specialBets?.guante)
-  const hasPersistedProde = userTypedPredictions.length > 0 || userTiebreakers.length > 0 || hasSpecialBets
   const participantRows = (participants ?? []).map((participant) => ({
     user_id: participant.user_id,
     name: participant.name,
     avatar_url: participant.avatar_url,
   }))
-  if (!participantRows.some((participant) => participant.user_id === userId) && hasPersistedProde) {
+  const isInRankingEntries = participantRows.some((participant) => participant.user_id === userId)
+  const hasPersistedProde = isInRankingEntries || userTypedPredictions.length > 0 || userTiebreakers.length > 0 || hasSpecialBets
+  if (!isInRankingEntries && hasPersistedProde) {
     const { data: profile } = await admin
       .from('profiles')
       .select('id, name, email, avatar_url')
@@ -355,7 +356,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
           <SummaryLink label="Incorrectas" value={statusCount(auditRows, 'incorrect')} href={filterHref(userId, activeStage, 'incorrect', activeResult)} active={activeResult === 'incorrect'} />
         </div>
 
-        {!hasPersistedProde && (
+        {!isInRankingEntries && userTypedPredictions.length === 0 && userTiebreakers.length === 0 && !hasSpecialBets && (
           <div className="mb-4 rounded-[16px] px-4 py-4 text-[13px] font-semibold leading-relaxed text-muted" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
             Este participante todavía no cargó pronósticos.
           </div>
