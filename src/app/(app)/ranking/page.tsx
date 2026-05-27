@@ -51,16 +51,16 @@ export default async function RankingPage() {
       .from('matches')
       .select('*')
       .order('scheduled_at', { ascending: true }),
-    admin
+    supabase
       .from('predictions')
       .select('*'),
-    admin
+    supabase
       .from('virtual_knockout_predictions')
       .select('*'),
-    admin
+    supabase
       .from('user_prediction_tiebreakers')
       .select('user_id, tiebreaker_key, team'),
-    admin
+    supabase
       .from('special_bets')
       .select('user_id, balon, bota, guante'),
   ])
