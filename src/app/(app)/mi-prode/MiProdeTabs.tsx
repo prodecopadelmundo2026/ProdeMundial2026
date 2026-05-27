@@ -850,67 +850,37 @@ export function MiProdeTabs({
         />
       )}
 
-      {activeTab !== 'grupos' && (
-        <div
-          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
-          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
-        >
-          <div>
-            <p className="font-extrabold text-white text-[13px] leading-snug">Guardar Mi Prode</p>
-            <p className="text-[12px] mt-0.5 text-muted">
-              {globalSaveState === 'saving'
-                ? 'Guardando todo en Supabase...'
-                : globalSaveState === 'saved'
-                ? 'Mi Prode guardado correctamente.'
-                : globalSaveState === 'error'
-                ? `No se pudo guardar: ${globalSaveError ?? 'revisá los datos.'}`
-                : globalSaveState === 'dirty' || groupStatus.hasDirty
-                ? 'Cambios sin guardar.'
-                : 'Guarda grupos, eliminatorias, desempates, llave y campeón desde Supabase.'}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleSaveFullProde}
-            disabled={prodeLocked || globalSaveState === 'saving'}
-            className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
-            style={{ background: '#FF6B00', color: '#0A0A0A' }}
-          >
-            {globalSaveState === 'saving' ? 'Guardando...' : 'Guardar cambios'}
-          </button>
+      <div
+        className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
+        style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
+      >
+        <div>
+          <p className="font-extrabold text-white text-[13px] leading-snug">Guardar Mi Prode</p>
+          <p className="text-[12px] mt-0.5 text-muted">
+            {globalSaveState === 'saving'
+              ? 'Guardando todo en Supabase...'
+              : globalSaveState === 'saved'
+              ? 'Mi Prode guardado correctamente.'
+              : globalSaveState === 'error'
+              ? `No se pudo guardar: ${globalSaveError ?? 'revisá los datos.'}`
+              : globalSaveState === 'dirty' || groupStatus.hasDirty
+              ? 'Cambios sin guardar.'
+              : 'Guarda grupos, eliminatorias, desempates, llave y campeón desde Supabase.'}
+          </p>
         </div>
-      )}
+        <button
+          type="button"
+          onClick={handleSaveFullProde}
+          disabled={prodeLocked || globalSaveState === 'saving'}
+          className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
+          style={{ background: '#FF6B00', color: '#0A0A0A' }}
+        >
+          {globalSaveState === 'saving' ? 'Guardando...' : 'Guardar Mi Prode'}
+        </button>
+      </div>
 
       {/* All tabs kept mounted to preserve state; only one visible at a time */}
       <div style={{ display: activeTab === 'grupos' ? undefined : 'none' }}>
-        <div
-          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
-          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
-        >
-          <div>
-            <p className="font-extrabold text-white text-[13px] leading-snug">Guardar Mi Prode</p>
-            <p className="text-[12px] mt-0.5 text-muted">
-              {globalSaveState === 'saving'
-                ? 'Guardando todo en Supabase...'
-                : globalSaveState === 'saved'
-                ? 'Mi Prode guardado correctamente.'
-                : globalSaveState === 'error'
-                ? `No se pudo guardar: ${globalSaveError ?? 'revisá los datos.'}`
-                : globalSaveState === 'dirty' || groupStatus.hasDirty
-                ? 'Cambios sin guardar.'
-                : 'Guarda grupos, eliminatorias, desempates, llave y campeón desde Supabase.'}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleSaveFullProde}
-            disabled={prodeLocked || globalSaveState === 'saving'}
-            className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
-            style={{ background: '#FF6B00', color: '#0A0A0A' }}
-          >
-            {globalSaveState === 'saving' ? 'Guardando...' : 'Guardar cambios'}
-          </button>
-        </div>
         <GroupBatchEditor
           grouped={groupedByGroup}
           predMap={predMap}

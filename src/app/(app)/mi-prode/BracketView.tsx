@@ -840,35 +840,6 @@ export function BracketView({
 
   return (
     <div className="space-y-6">
-      <div
-        className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
-        style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
-      >
-        <div>
-          <p className="font-extrabold text-white text-[13px] leading-snug">Guardar eliminatorias</p>
-          <p className="text-[12px] mt-0.5 text-muted">
-            {manualSaveState === 'saving'
-              ? 'Guardando en Supabase...'
-              : manualSaveState === 'saved'
-              ? 'Guardado correctamente.'
-              : manualSaveState === 'error'
-              ? `No se pudo guardar: ${manualSaveError ?? 'revisá los datos.'}`
-              : manualSaveState === 'dirty'
-              ? 'Cambios sin guardar.'
-              : 'Se guardan en Supabase; los parciales quedan pendientes hasta completar ambos goles.'}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={saveKnockoutChanges}
-          disabled={bracketLocked || manualSaveState === 'saving'}
-          className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
-          style={{ background: '#FF6B00', color: '#0A0A0A' }}
-        >
-          {manualSaveState === 'saving' ? 'Guardando...' : 'Guardar cambios'}
-        </button>
-      </div>
-
       {hasPendingTiebreakers && (
         <div
           className="flex items-start gap-3 px-5 py-4 text-sm"
