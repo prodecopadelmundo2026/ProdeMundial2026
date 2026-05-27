@@ -18,8 +18,9 @@ import {
 } from '@/lib/bracket'
 import { AdminBracketSection } from './AdminBracketSection'
 import { getProdeLockState } from '@/lib/prode-lock'
-import { toggleProdeLockOverride } from './actions'
+import { toggleMaintenanceMode, toggleProdeLockOverride } from './actions'
 import { getCurrentProfile } from '@/lib/current-profile'
+import { getMaintenanceMode } from '@/lib/maintenance'
 
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
 
@@ -117,6 +118,7 @@ export default async function AdminPage() {
     profile: specialProfileMap.get(row.user_id) ?? null,
   }))
   const prodeLock = await getProdeLockState(supabase)
+  const maintenanceMode = await getMaintenanceMode(supabase)
   const groupMatches = allMatches.filter((m) => m.stage === 'group')
   const knockoutMatches = allMatches.filter((m) => m.stage !== 'group')
   const officialScoreMap: ScoreMap = Object.fromEntries(
@@ -295,6 +297,32 @@ export default async function AdminPage() {
             }}
           >
             {prodeLock.locked ? 'Desbloquear Prode' : 'Bloquear Prode'}
+          </button>
+        </form>
+
+        <form
+          action={toggleMaintenanceMode}
+          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
+          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <div>
+            <p className="font-extrabold text-white text-[13px] leading-snug">Modo mantenimiento</p>
+            <p className="text-[12px] mt-0.5 text-muted">
+              {maintenanceMode
+                ? 'Activo: solo administradores pueden usar la web.'
+                : 'Inactivo: usuarios habilitados pueden ingresar normalmente.'}
+            </p>
+          </div>
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase"
+            style={{
+              background: maintenanceMode ? 'rgba(168,240,216,0.12)' : 'rgba(255,107,0,0.16)',
+              color: maintenanceMode ? '#A8F0D8' : '#FF6B00',
+              border: maintenanceMode ? '1px solid rgba(168,240,216,0.3)' : '1px solid rgba(255,107,0,0.3)',
+            }}
+          >
+            {maintenanceMode ? 'Desactivar mantenimiento' : 'Activar mantenimiento'}
           </button>
         </form>
 

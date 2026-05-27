@@ -11,6 +11,11 @@ type VirtualKnockoutPredictionInput = {
   tiebreakerTeam?: string | null
 }
 
+type TiebreakerInput = {
+  key: string
+  team: string | null
+}
+
 export type SpecialBetsValues = {
   balon: string
   bota: string
@@ -31,6 +36,17 @@ function assertValidVirtualMatchId(matchId: string) {
   if (!/^virtual-p(7[3-9]|8[0-9]|9[0-9]|10[0-4])$/.test(matchId)) {
     throw new Error('Partido virtual invalido')
   }
+}
+
+function cleanTiebreakerKey(value: string) {
+  const key = value.trim().slice(0, 160)
+  if (!key) throw new Error('Desempate invalido')
+  return key
+}
+
+function cleanTiebreakerTeam(value: string | null) {
+  const team = String(value ?? '').trim().slice(0, 220)
+  return team || null
 }
 
 function virtualMatchStage(matchId: string) {
@@ -95,6 +111,50 @@ export async function deleteVirtualKnockoutPredictionsByStages(stages: string[])
   if (error) throw new Error(error.message)
   revalidatePath('/mi-prode')
   return count ?? 0
+}
+
+export async function savePredictionTiebreakers(tiebreakers: TiebreakerInput[]) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+  await assertProdeOpen(supabase)
+
+  const normalized = tiebreakers.map((item) => ({
+    key: cleanTiebreakerKey(item.key),
+    team: cleanTiebreakerTeam(item.team),
+  }))
+
+  const toDelete = normalized.filter((item) => !item.team).map((item) => item.key)
+  const toUpsert = normalized
+    .filter((item): item is { key: string; team: string } => Boolean(item.team))
+    .map((item) => ({
+      user_id: user.id,
+      tiebreaker_key: item.key,
+      team: item.team,
+      updated_at: new Date().toISOString(),
+    }))
+
+  if (toDelete.length) {
+    const { error } = await supabase
+      .from('user_prediction_tiebreakers')
+      .delete()
+      .eq('user_id', user.id)
+      .in('tiebreaker_key', toDelete)
+    if (error) throw new Error(error.message)
+  }
+
+  if (toUpsert.length) {
+    const { error } = await supabase
+      .from('user_prediction_tiebreakers')
+      .upsert(toUpsert, { onConflict: 'user_id,tiebreaker_key' })
+    if (error) throw new Error(error.message)
+  }
+
+  revalidatePath('/mi-prode')
+  revalidatePath('/ranking')
+  revalidatePath(`/ranking/${user.id}`)
+  revalidatePath('/ranking/[userId]', 'page')
+  return normalized.length
 }
 
 export async function saveSpecialBets(values: SpecialBetsValues) {

@@ -31,6 +31,11 @@ type VirtualKnockoutPredictionRow = {
   tiebreaker_team: string | null
 }
 
+type PredictionTiebreakerRow = {
+  tiebreaker_key: string
+  team: string
+}
+
 type RawMatchRow = Match & {
   group_name?: string | null
   group_key?: string | null
@@ -102,6 +107,25 @@ async function loadVirtualKnockoutPredictions(
   }
 }
 
+async function loadPredictionTiebreakers(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<PredictionTiebreakerRow[]> {
+  try {
+    const { data, error } = await supabase
+      .from('user_prediction_tiebreakers')
+      .select('tiebreaker_key, team')
+      .eq('user_id', userId)
+
+    if (error) throw error
+    return (data ?? []) as PredictionTiebreakerRow[]
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error)
+    if (message.includes('user_prediction_tiebreakers') || message.includes('relation') || message.includes('does not exist')) return []
+    throw error
+  }
+}
+
 export default async function MiProdePage() {
   noStore()
 
@@ -110,7 +134,7 @@ export default async function MiProdePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: allMatches, error: matchesError }, { data: predictions }, { data: profile }, specialBets, virtualKnockoutPredictions, prodeLock] = await Promise.all([
+  const [{ data: allMatches, error: matchesError }, { data: predictions }, { data: profile }, specialBets, virtualKnockoutPredictions, predictionTiebreakers, prodeLock] = await Promise.all([
     admin.from('matches').select('*').order('scheduled_at', { ascending: true }),
     supabase
       .from('predictions')
@@ -119,6 +143,7 @@ export default async function MiProdePage() {
     supabase.from('profiles').select('is_admin').eq('id', user.id).maybeSingle(),
     loadSpecialBets(supabase, user.id),
     loadVirtualKnockoutPredictions(supabase, user.id),
+    loadPredictionTiebreakers(supabase, user.id),
     getProdeLockState(supabase),
   ])
 
@@ -192,6 +217,7 @@ export default async function MiProdePage() {
       ...virtualKnockoutPredictions
         .filter((p) => p.tiebreaker_team)
         .map((p) => [p.virtual_match_id, p.tiebreaker_team!] as const),
+      ...predictionTiebreakers.map((p) => [p.tiebreaker_key, p.team] as const),
     ]
   )
 

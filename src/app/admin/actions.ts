@@ -14,6 +14,7 @@ import {
 } from '@/lib/bracket'
 import { buildMatchAuditRows } from '@/lib/ranking-audit'
 import { getProdeLockState } from '@/lib/prode-lock'
+import { getMaintenanceMode } from '@/lib/maintenance'
 
 export type AdminToolResult = {
   ok: boolean
@@ -181,6 +182,19 @@ export async function updateAuthorizedEmail(formData: FormData) {
     .eq('email', originalEmail)
 
   if (error) throw new Error(error.message)
+
+  const profileUpdates: Record<string, string> = {
+    email,
+    updated_at: new Date().toISOString(),
+  }
+  if (label) profileUpdates.name = label
+
+  const { error: profileError } = await admin
+    .from('profiles')
+    .update(profileUpdates)
+    .eq('email', originalEmail)
+
+  if (profileError) throw new Error(profileError.message)
   revalidatePath('/admin/whitelist')
 }
 
@@ -216,6 +230,25 @@ export async function toggleProdeLockOverride() {
 
   revalidateCorePaths()
   revalidatePath('/admin')
+}
+
+export async function toggleMaintenanceMode() {
+  await requireAdmin()
+  const admin = createAdminClient()
+  const enabled = await getMaintenanceMode(admin)
+
+  const { error } = await admin
+    .from('app_settings')
+    .upsert({
+      key: 'maintenance_mode',
+      value: enabled ? 'off' : 'on',
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'key' })
+
+  if (error) throw new Error(error.message)
+
+  revalidateCorePaths()
+  revalidatePath('/maintenance')
 }
 
 // ─── Test tools (operan sobre resultados de partidos, no sobre predicciones) ──

@@ -12,7 +12,7 @@ import { SpecialsBanner } from './SpecialsBanner'
 import { deletePredictionsByStages, generateRandomGroupPredictions } from '@/app/(app)/fixture/actions'
 import { parseScoreInput } from '@/lib/score-input'
 import type { ProdeLockState } from '@/lib/prode-lock'
-import { deleteSpecialBets, deleteVirtualKnockoutPredictionsByStages, type SpecialBetsValues } from './actions'
+import { deleteSpecialBets, deleteVirtualKnockoutPredictionsByStages, savePredictionTiebreakers, type SpecialBetsValues } from './actions'
 import { buildProjectedKnockoutMatches } from '@/lib/bracket'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
@@ -22,10 +22,6 @@ type TabId = 'grupos' | 'eliminatoria' | 'llave' | 'especiales'
 type DeleteOption = 'groups' | 'knockout' | 'round_of_32' | 'round_of_16' | 'quarter' | 'semi' | 'final' | 'third_place' | 'specials' | 'all'
 type DeleteState = 'idle' | 'confirm' | 'deleting' | 'success' | 'error'
 
-const LOCAL_STORAGE_KEY = 'prode_group_preds'
-const TIEBREAKERS_STORAGE_KEY = 'prode_group_tiebreakers'
-const KNOCKOUT_STORAGE_KEY = 'prode_knockout_preds'
-const KNOCKOUT_TIEBREAKERS_STORAGE_KEY = 'prode_knockout_tiebreakers'
 const SPECIALS_STORAGE_KEY = 'prode_specials'
 
 function randomSpecials() {
@@ -107,10 +103,9 @@ export function MiProdeTabs({
   const [fakeState, setFakeState] = useState<'idle' | 'confirm' | 'saving' | 'saved' | 'error'>('idle')
   const [fakeError, setFakeError] = useState<string | null>(null)
   const [bracketModalSignal, setBracketModalSignal] = useState(0)
-  const [tiebreakers, setTiebreakers] = useState<Record<string, string>>({})
+  const [tiebreakers, setTiebreakers] = useState<Record<string, string>>(tiebreakerMap)
   const [localKnockoutPreds, setLocalKnockoutPreds] = useState<Record<string, { home: string; away: string }>>({})
   const [localKnockoutTiebreakers, setLocalKnockoutTiebreakers] = useState<Record<string, string>>({})
-  const [knockoutStorageReady, setKnockoutStorageReady] = useState(false)
   const [groupSaveStates, setGroupSaveStates] = useState<Record<string, SaveState>>(() => {
     const init: Record<string, SaveState> = {}
     for (const m of groupMatches) {
@@ -167,96 +162,51 @@ export function MiProdeTabs({
     return init
   })
 
-  // Restore unsaved inputs from localStorage on mount (client only)
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY)
-      if (!stored) return
-      const parsed = JSON.parse(stored) as Record<string, { home: string; away: string }>
-      const validMatchIds = new Set(groupMatches.map((m) => m.id))
-      setLocalGroupPreds((prev) => {
-        const next = { ...prev }
-        for (const [matchId, val] of Object.entries(parsed)) {
-          if (validMatchIds.has(matchId) && !predMap[matchId]) next[matchId] = val
-        }
-        return next
-      })
-      setGroupSaveStates((prev) => {
-        const next = { ...prev }
-        for (const [matchId] of Object.entries(parsed)) {
-          if (!validMatchIds.has(matchId)) continue
-          if (!predMap[matchId]) next[matchId] = 'dirty'
-        }
-        return next
-      })
-    } catch {}
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(TIEBREAKERS_STORAGE_KEY)
-      if (stored) setTiebreakers(JSON.parse(stored))
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(TIEBREAKERS_STORAGE_KEY, JSON.stringify(tiebreakers))
-    } catch {}
-  }, [tiebreakers])
-
-  useEffect(() => {
-    try {
-      const validMatchIds = new Set(projectedKnockoutMatches.map((m) => m.id))
-      const storedPreds = localStorage.getItem(KNOCKOUT_STORAGE_KEY)
-      if (storedPreds) {
-        const parsed = JSON.parse(storedPreds) as Record<string, { home: string; away: string }>
-        setLocalKnockoutPreds(() => {
-          const next: Record<string, { home: string; away: string }> = {}
-          for (const [matchId, value] of Object.entries(parsed)) {
-            if (validMatchIds.has(matchId) && !predMap[matchId]) next[matchId] = value
-          }
-          return next
-        })
+    setTiebreakers((prev) => ({ ...prev, ...tiebreakerMap }))
+    setLocalKnockoutPreds((prev) => {
+      const next = { ...prev }
+      for (const match of projectedKnockoutMatches) {
+        const pred = predMap[match.id]
+        if (pred) next[match.id] = { home: String(pred.home_score), away: String(pred.away_score) }
       }
-      const storedTiebreakers = localStorage.getItem(KNOCKOUT_TIEBREAKERS_STORAGE_KEY)
-      if (storedTiebreakers) {
-        const parsed = JSON.parse(storedTiebreakers) as Record<string, string>
-        setLocalKnockoutTiebreakers(() => {
-          const next: Record<string, string> = {}
-          for (const [matchId, team] of Object.entries(parsed)) {
-            if (validMatchIds.has(matchId) && !tiebreakerMap[matchId]) next[matchId] = team
-          }
-          return next
-        })
+      return next
+    })
+    setLocalKnockoutTiebreakers((prev) => {
+      const next = { ...prev }
+      for (const match of projectedKnockoutMatches) {
+        if (tiebreakerMap[match.id]) next[match.id] = tiebreakerMap[match.id]
       }
-      setKnockoutStorageReady(true)
-    } catch {
-      setKnockoutStorageReady(true)
-    }
+      return next
+    })
   }, [projectedKnockoutMatches, predMap, tiebreakerMap])
 
   useEffect(() => {
-    if (!knockoutStorageReady) return
-    try {
-      localStorage.setItem(KNOCKOUT_STORAGE_KEY, JSON.stringify(localKnockoutPreds))
-    } catch {}
-  }, [localKnockoutPreds, knockoutStorageReady])
+    setLocalGroupPreds((prev) => {
+      const next = { ...prev }
+      for (const match of groupMatches) {
+        const pred = predMap[match.id]
+        if (pred) next[match.id] = { home: String(pred.home_score), away: String(pred.away_score) }
+      }
+      return next
+    })
+    setGroupSaveStates((prev) => {
+      const next = { ...prev }
+      for (const match of groupMatches) {
+        if (predMap[match.id]) next[match.id] = 'saved'
+      }
+      return next
+    })
+  }, [groupMatches, predMap])
 
   useEffect(() => {
-    if (!knockoutStorageReady) return
     try {
-      localStorage.setItem(KNOCKOUT_TIEBREAKERS_STORAGE_KEY, JSON.stringify(localKnockoutTiebreakers))
+      localStorage.removeItem('prode_group_preds')
+      localStorage.removeItem('prode_group_tiebreakers')
+      localStorage.removeItem('prode_knockout_preds')
+      localStorage.removeItem('prode_knockout_tiebreakers')
     } catch {}
-  }, [localKnockoutTiebreakers, knockoutStorageReady])
-
-  // Persist to localStorage whenever group preds change
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(localGroupPreds))
-    } catch {}
-  }, [localGroupPreds])
+  }, [])
 
   function handleTiebreaker(key: string, team: string | null) {
     if (prodeLocked) return
@@ -266,6 +216,13 @@ export function MiProdeTabs({
         return rest
       }
       return { ...prev, [key]: team }
+    })
+    startTransition(async () => {
+      try {
+        await savePredictionTiebreakers([{ key, team }])
+      } catch (error) {
+        console.error('Error al guardar desempate', error)
+      }
     })
   }
 
@@ -449,9 +406,10 @@ export function MiProdeTabs({
           : 0
         if (scopes.deleteGroupsLocally) {
           try {
-            localStorage.removeItem(LOCAL_STORAGE_KEY)
-            localStorage.removeItem(TIEBREAKERS_STORAGE_KEY)
+            localStorage.removeItem('prode_group_preds')
+            localStorage.removeItem('prode_group_tiebreakers')
           } catch {}
+          await savePredictionTiebreakers(Object.keys(tiebreakers).map((key) => ({ key, team: null })))
           setLocalGroupPreds({})
           setTiebreakers({})
           setGroupSaveStates({})
@@ -522,7 +480,7 @@ export function MiProdeTabs({
         for (const pred of generated) next[pred.matchId] = 'saved'
         return next
       })
-      try { localStorage.removeItem(LOCAL_STORAGE_KEY) } catch {}
+      try { localStorage.removeItem('prode_group_preds') } catch {}
       setFakeState('saved')
       setTimeout(() => setFakeState('idle'), 1800)
     } catch (error) {

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import clsx from 'clsx'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Shuffle, AlertTriangle, Zap } from 'lucide-react'
+import { Shuffle, AlertTriangle, Zap, Pencil } from 'lucide-react'
 import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
 import { StatusBadge } from '@/components/StatusBadge'
@@ -151,6 +151,7 @@ function BracketMatchCard({
 
   const [home, setHome] = useState(initialHome)
   const [away, setAway] = useState(initialAway)
+  const homeInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setHome(initialHome)
@@ -308,6 +309,20 @@ function BracketMatchCard({
         </div>
       ) : (
         /* Score inputs — partido abierto */
+        <>
+        {isOpen && (
+          <div className="mb-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => homeInputRef.current?.focus()}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-extrabold uppercase"
+              style={{ background: 'rgba(255,107,0,0.12)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.28)' }}
+            >
+              <Pencil size={12} strokeWidth={2.5} />
+              Editar
+            </button>
+          </div>
+        )}
         <div
           className="grid items-center"
           style={{
@@ -320,6 +335,7 @@ function BracketMatchCard({
           }}
         >
           <input
+            ref={homeInputRef}
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"
@@ -367,6 +383,7 @@ function BracketMatchCard({
             }}
           />
         </div>
+        </>
       )}
 
       {/* Tiebreaker: knockout draw → pick who advances */}

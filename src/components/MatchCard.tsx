@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useTransition, useEffect } from 'react'
+import { Pencil } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { StatusBadge } from './StatusBadge'
@@ -65,6 +66,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
     !noAutosave && prediction ? 'saved' : 'idle',
   )
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const homeInputRef = useRef<HTMLInputElement>(null)
   const latestValuesRef = useRef({
     home: initialHome ?? prediction?.home_score?.toString() ?? '',
     away: initialAway ?? prediction?.away_score?.toString() ?? '',
@@ -278,6 +280,19 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
           {/* Pronóstico editable */}
           {!readOnly && (
             <>
+              {isOpen && (
+                <div className="mb-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => homeInputRef.current?.focus()}
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-extrabold uppercase"
+                    style={{ background: 'rgba(255,107,0,0.12)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.28)' }}
+                  >
+                    <Pencil size={12} strokeWidth={2.5} />
+                    Editar
+                  </button>
+                </div>
+              )}
               <div
                 className="grid items-center"
                 style={{
@@ -290,6 +305,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
                 }}
               >
                 <input
+                  ref={homeInputRef}
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"

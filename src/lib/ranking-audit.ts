@@ -152,7 +152,11 @@ function buildResolvedTeams(
   }
 }
 
-export function buildMatchAuditRows(matches: Match[], predictions: Prediction[]): MatchAuditRow[] {
+export function buildMatchAuditRows(
+  matches: Match[],
+  predictions: Prediction[],
+  extraTiebreakers: TiebreakerMap = {}
+): MatchAuditRow[] {
   const officialScoreMap = buildScoreMap(matches.filter((match) => match.status === 'finished'))
   const predictionByMatch = new Map(predictions.map((prediction) => [prediction.match_id, prediction]))
   const predMap: ScoreMap = Object.fromEntries(
@@ -161,11 +165,14 @@ export function buildMatchAuditRows(matches: Match[], predictions: Prediction[])
       { home_score: prediction.home_score, away_score: prediction.away_score },
     ])
   )
-  const tiebreakerMap: TiebreakerMap = Object.fromEntries(
-    predictions
-      .filter((prediction) => prediction.tiebreaker_team)
-      .map((prediction) => [prediction.match_id, prediction.tiebreaker_team!])
-  )
+  const tiebreakerMap: TiebreakerMap = {
+    ...Object.fromEntries(
+      predictions
+        .filter((prediction) => prediction.tiebreaker_team)
+        .map((prediction) => [prediction.match_id, prediction.tiebreaker_team!])
+    ),
+    ...extraTiebreakers,
+  }
 
   return matches.map((match) => {
     const prediction = predictionByMatch.get(match.id)
@@ -230,7 +237,8 @@ export function summarizeAuditRows(rows: MatchAuditRow[]): RankingAuditSummary {
 export function buildAuditedRankingEntries(
   matches: Match[],
   predictions: Prediction[],
-  participants: Array<{ user_id: string; name: string; avatar_url: string | null }>
+  participants: Array<{ user_id: string; name: string; avatar_url: string | null }>,
+  tiebreakersByUser: Map<string, TiebreakerMap> = new Map()
 ): RankingEntry[] {
   const predictionsByUser = new Map<string, Prediction[]>()
   for (const prediction of predictions) {
@@ -240,7 +248,11 @@ export function buildAuditedRankingEntries(
 
   const sortedEntries = participants
     .map((participant) => {
-      const rows = buildMatchAuditRows(matches, predictionsByUser.get(participant.user_id) ?? [])
+      const rows = buildMatchAuditRows(
+        matches,
+        predictionsByUser.get(participant.user_id) ?? [],
+        tiebreakersByUser.get(participant.user_id) ?? {}
+      )
       const summary = summarizeAuditRows(rows)
       return {
         user_id: participant.user_id,

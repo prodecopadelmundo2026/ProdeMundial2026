@@ -12,6 +12,7 @@ import {
 } from '@/lib/ranking-audit'
 import type { Match, Prediction } from '@/types'
 import { formatRank, rankMedal } from '@/lib/ranking-display'
+import { buildProjectedKnockoutMatches } from '@/lib/bracket'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,6 +44,37 @@ type SpecialBetsRow = {
   balon: string | null
   bota: string | null
   guante: string | null
+}
+
+type VirtualPredictionRow = {
+  id: string
+  user_id: string
+  virtual_match_id: string
+  home_score: number
+  away_score: number
+  tiebreaker_team: string | null
+  created_at: string
+  updated_at: string
+}
+
+type UserTiebreakerRow = {
+  user_id: string
+  tiebreaker_key: string
+  team: string
+}
+
+function virtualPredictionToPrediction(row: VirtualPredictionRow): Prediction {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    match_id: row.virtual_match_id,
+    home_score: row.home_score,
+    away_score: row.away_score,
+    points: null,
+    tiebreaker_team: row.tiebreaker_team,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
 }
 
 async function loadSpecialBets(admin: ReturnType<typeof createAdminClient>, userId: string): Promise<SpecialBetsRow | null> {
@@ -215,30 +247,78 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   const supabase = await createClient()
   const admin = createAdminClient()
 
-  const [{ data: participants }, { data: userPredictions }, { data: allPredictions }, { data: matches }, specialBets] = await Promise.all([
+  const [
+    { data: participants },
+    { data: userPredictions },
+    { data: allPredictions },
+    { data: userVirtualPredictions },
+    { data: allVirtualPredictions },
+    { data: matches },
+    { data: allTiebreakers },
+    specialBets,
+  ] = await Promise.all([
     supabase.from('ranking_entries').select('user_id, name, avatar_url'),
     admin.from('predictions').select('*').eq('user_id', userId),
     admin.from('predictions').select('*'),
+    admin.from('virtual_knockout_predictions').select('*').eq('user_id', userId),
+    admin.from('virtual_knockout_predictions').select('*'),
     supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
+    admin.from('user_prediction_tiebreakers').select('user_id, tiebreaker_key, team'),
     loadSpecialBets(admin, userId),
   ])
 
+  const allTypedPredictions = [
+    ...((allPredictions ?? []) as Prediction[]),
+    ...((allVirtualPredictions ?? []) as VirtualPredictionRow[]).map(virtualPredictionToPrediction),
+  ]
+  const userTypedPredictions = [
+    ...((userPredictions ?? []) as Prediction[]),
+    ...((userVirtualPredictions ?? []) as VirtualPredictionRow[]).map(virtualPredictionToPrediction),
+  ]
   const participantRows = (participants ?? []).map((participant) => ({
     user_id: participant.user_id,
     name: participant.name,
     avatar_url: participant.avatar_url,
   }))
-  const typedMatches = (matches ?? []) as Match[]
-  const rankingEntries = buildAuditedRankingEntries(typedMatches, (allPredictions ?? []) as Prediction[], participantRows)
+  if (!participantRows.some((participant) => participant.user_id === userId) && userTypedPredictions.length) {
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('id, name, email, avatar_url')
+      .eq('id', userId)
+      .maybeSingle()
+    if (profile) {
+      participantRows.push({
+        user_id: profile.id,
+        name: profile.name || profile.email || 'Participante',
+        avatar_url: profile.avatar_url,
+      })
+    }
+  }
+  const typedMatches = buildProjectedKnockoutMatches((matches ?? []) as Match[])
+  const tiebreakersByUser = new Map<string, Record<string, string>>()
+  for (const row of (allTiebreakers ?? []) as UserTiebreakerRow[]) {
+    if (!tiebreakersByUser.has(row.user_id)) tiebreakersByUser.set(row.user_id, {})
+    tiebreakersByUser.get(row.user_id)![row.tiebreaker_key] = row.team
+  }
+  const rankingEntries = buildAuditedRankingEntries(
+    typedMatches,
+    allTypedPredictions,
+    participantRows,
+    tiebreakersByUser
+  )
   const entry = rankingEntries.find((rankingEntry) => rankingEntry.user_id === userId)
   if (!entry) notFound()
   const rankingStarted = rankingEntries.some((rankingEntry) => rankingEntry.total_points > 0)
-  const typedUserPredictions = (userPredictions ?? []) as Prediction[]
+  const typedUserPredictions = userTypedPredictions
   const hasPredictions = typedUserPredictions.length > 0
   const hasOfficialResults = typedMatches.some((match) => match.status === 'finished' && match.home_score != null && match.away_score != null)
   const hasSpecialBets = Boolean(specialBets?.balon || specialBets?.bota || specialBets?.guante)
 
-  const auditRows = hasPredictions ? buildMatchAuditRows(typedMatches, typedUserPredictions) : []
+  const auditRows = buildMatchAuditRows(
+    typedMatches,
+    typedUserPredictions,
+    tiebreakersByUser.get(userId) ?? {}
+  )
   const visibleRows = auditRows.filter((row) => {
     if (activeStage === 'specials') return false
     if (row.stage !== activeStage) return false

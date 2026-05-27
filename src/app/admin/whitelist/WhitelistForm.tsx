@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import {
-  deactivateParticipant,
   setAuthorizedEmailActive,
   setParticipantAdminRole,
   updateAuthorizedEmail,
@@ -27,6 +26,8 @@ type Props = {
 
 export function WhitelistForm({ rows, query }: Props) {
   const safeRows = Array.isArray(rows) ? rows : []
+  const activeRows = safeRows.filter((row) => row.active)
+  const inactiveRows = safeRows.filter((row) => !row.active)
 
   const [editing, setEditing] = useState<AuthorizedEmailRow | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -65,18 +66,6 @@ export function WhitelistForm({ rows, query }: Props) {
         setOk(row.active ? 'Email desactivado.' : 'Email activado.')
       } catch (err) {
         setError(err instanceof Error ? err.message : 'No se pudo actualizar el estado.')
-      }
-    })
-  }
-
-  function removeParticipant(row: AuthorizedEmailRow) {
-    clearMessages()
-    startTransition(async () => {
-      const result = await deactivateParticipant(row.email)
-      if (result.ok) {
-        setOk(result.message)
-      } else {
-        setError(result.message)
       }
     })
   }
@@ -201,16 +190,16 @@ export function WhitelistForm({ rows, query }: Props) {
       >
         <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           <p className="font-extrabold text-[13px] text-white">Participantes habilitados</p>
-          <p className="text-[11px] text-muted mt-0.5">{safeRows.length} registros</p>
+          <p className="text-[11px] text-muted mt-0.5">{activeRows.length} activos</p>
         </div>
 
-        {safeRows.length === 0 ? (
+        {activeRows.length === 0 ? (
           <p className="px-5 py-6 text-[13px] text-muted">
-            {query ? `Sin resultados para "${query}".` : 'No hay emails registrados.'}
+            {query ? `Sin activos para "${query}".` : 'No hay emails activos.'}
           </p>
         ) : (
           <div>
-            {safeRows.map((row) => {
+            {activeRows.map((row) => {
               if (!row || typeof row.email !== 'string') return null
               return (
                 <div
@@ -281,14 +270,58 @@ export function WhitelistForm({ rows, query }: Props) {
                     >
                       {row.is_admin ? 'Quitar admin' : 'Dar admin'}
                     </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <div
+        className="rounded-[16px] overflow-hidden"
+        style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}
+      >
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          <p className="font-extrabold text-[13px] text-white">Usuarios desactivados</p>
+          <p className="text-[11px] text-muted mt-0.5">{inactiveRows.length} registros</p>
+        </div>
+
+        {inactiveRows.length === 0 ? (
+          <p className="px-5 py-6 text-[13px] text-muted">
+            No hay usuarios desactivados.
+          </p>
+        ) : (
+          <div>
+            {inactiveRows.map((row) => {
+              if (!row || typeof row.email !== 'string') return null
+              return (
+                <div
+                  key={row.email}
+                  className="grid gap-3 px-5 py-4 min-[640px]:grid-cols-[1fr_auto] min-[640px]:items-center"
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                >
+                  <div>
+                    <p className="font-bold text-[13px] text-white">{row.email}</p>
+                    <p className="mt-0.5 text-[12px] text-muted">{row.label ?? row.profile_name ?? 'Sin nombre'}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={() => removeParticipant(row)}
-                      disabled={isPending || !row.active}
-                      className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150 disabled:opacity-40"
-                      style={{ background: 'rgba(255,59,59,0.1)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.2)' }}
+                      onClick={() => { setEditing(row); clearMessages() }}
+                      className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150"
+                      style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}
                     >
-                      Eliminar participante
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggle(row)}
+                      disabled={isPending}
+                      className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150 disabled:opacity-40"
+                      style={{ background: 'rgba(168,240,216,0.08)', color: '#A8F0D8', border: '1px solid rgba(168,240,216,0.15)' }}
+                    >
+                      Activar
                     </button>
                   </div>
                 </div>

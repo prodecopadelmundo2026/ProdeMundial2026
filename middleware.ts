@@ -2,7 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getSupabaseConfig, isSupabaseConfigured } from './src/lib/supabase/env'
 
-const PUBLIC_PATHS = ['/', '/login', '/auth/', '/ranking', '/reglas', '/premios']
+const PUBLIC_PATHS = ['/', '/login', '/auth/', '/ranking', '/reglas', '/premios', '/maintenance']
+const MAINTENANCE_ALLOWED_PATHS = ['/login', '/auth/', '/maintenance']
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some((path) =>
@@ -22,10 +23,6 @@ function clearSupabaseAuthCookies(response: NextResponse, request: NextRequest) 
 }
 
 export async function middleware(request: NextRequest) {
-  if (isPublic(request.nextUrl.pathname)) {
-    return NextResponse.next()
-  }
-
   if (!isSupabaseConfigured()) {
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
@@ -57,6 +54,41 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
+  const { data: maintenanceSetting } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'maintenance_mode')
+    .maybeSingle()
+  const maintenanceActive = maintenanceSetting?.value === 'on'
+  let isAdmin = false
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', user.id)
+      .maybeSingle()
+    isAdmin = Boolean(profile?.is_admin)
+  }
+
+  if (maintenanceActive && !isAdmin) {
+    const allowed = MAINTENANCE_ALLOWED_PATHS.some((path) =>
+      path === '/maintenance'
+        ? request.nextUrl.pathname === '/maintenance'
+        : request.nextUrl.pathname.startsWith(path)
+    )
+    if (!allowed) {
+      const maintenanceUrl = request.nextUrl.clone()
+      maintenanceUrl.pathname = '/maintenance'
+      maintenanceUrl.search = ''
+      return NextResponse.redirect(maintenanceUrl)
+    }
+  }
+
+  if (isPublic(request.nextUrl.pathname)) {
+    return supabaseResponse
+  }
 
   if (!user) {
     const loginUrl = request.nextUrl.clone()
