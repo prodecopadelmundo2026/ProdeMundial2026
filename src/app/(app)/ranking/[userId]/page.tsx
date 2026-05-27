@@ -275,12 +275,15 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     ...((userPredictions ?? []) as Prediction[]),
     ...((userVirtualPredictions ?? []) as VirtualPredictionRow[]).map(virtualPredictionToPrediction),
   ]
+  const userTiebreakers = ((allTiebreakers ?? []) as UserTiebreakerRow[]).filter((row) => row.user_id === userId)
+  const hasSpecialBets = Boolean(specialBets?.balon || specialBets?.bota || specialBets?.guante)
+  const hasPersistedProde = userTypedPredictions.length > 0 || userTiebreakers.length > 0 || hasSpecialBets
   const participantRows = (participants ?? []).map((participant) => ({
     user_id: participant.user_id,
     name: participant.name,
     avatar_url: participant.avatar_url,
   }))
-  if (!participantRows.some((participant) => participant.user_id === userId) && userTypedPredictions.length) {
+  if (!participantRows.some((participant) => participant.user_id === userId) && hasPersistedProde) {
     const { data: profile } = await admin
       .from('profiles')
       .select('id, name, email, avatar_url')
@@ -310,9 +313,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   if (!entry) notFound()
   const rankingStarted = rankingEntries.some((rankingEntry) => rankingEntry.total_points > 0)
   const typedUserPredictions = userTypedPredictions
-  const hasPredictions = typedUserPredictions.length > 0
   const hasOfficialResults = typedMatches.some((match) => match.status === 'finished' && match.home_score != null && match.away_score != null)
-  const hasSpecialBets = Boolean(specialBets?.balon || specialBets?.bota || specialBets?.guante)
 
   const auditRows = buildMatchAuditRows(
     typedMatches,
@@ -354,7 +355,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
           <SummaryLink label="Incorrectas" value={statusCount(auditRows, 'incorrect')} href={filterHref(userId, activeStage, 'incorrect', activeResult)} active={activeResult === 'incorrect'} />
         </div>
 
-        {!hasPredictions && (
+        {!hasPersistedProde && (
           <div className="mb-4 rounded-[16px] px-4 py-4 text-[13px] font-semibold leading-relaxed text-muted" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
             Este participante todavía no cargó pronósticos.
           </div>
@@ -362,7 +363,20 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
 
         {!hasOfficialResults && (
           <div className="mb-4 rounded-[16px] px-4 py-4 text-[13px] font-semibold leading-relaxed text-muted" style={{ background: 'rgba(168,240,216,0.07)', border: '1px solid rgba(168,240,216,0.18)' }}>
-            Todavía no hay puntos para auditar.
+            Todavía no hay puntos para auditar, pero podés revisar las predicciones cargadas y los faltantes.
+          </div>
+        )}
+
+        {userTiebreakers.length > 0 && (
+          <div className="mb-4 rounded-[16px] px-4 py-4 text-[13px] font-semibold leading-relaxed" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <p className="font-extrabold text-white mb-2">Desempates guardados</p>
+            <div className="flex flex-wrap gap-2">
+              {userTiebreakers.map((row) => (
+                <span key={`${row.tiebreaker_key}-${row.team}`} className="rounded-full px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em]" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}>
+                  {row.tiebreaker_key}: {row.team}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 
@@ -448,8 +462,6 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                 value={specialBets?.[row.key] ?? null}
               />
             ))
-          ) : !hasPredictions ? (
-            <EmptyState>Este participante todavía no cargó pronósticos.</EmptyState>
           ) : visibleRows.length > 0 ? (
             visibleRows.map((row) => <MatchAuditCard key={row.match.id} row={row} />)
           ) : (

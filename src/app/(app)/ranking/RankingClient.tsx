@@ -230,8 +230,8 @@ export function RankingClient({
           className="mb-5 rounded-[18px] px-5 py-5 text-[13px] font-semibold leading-relaxed sm:text-[14px]"
           style={{ background: 'rgba(168,240,216,0.07)', border: '1px solid rgba(168,240,216,0.18)', color: '#cfcfcf' }}
         >
-          <strong className="block text-white font-extrabold mb-1">El ranking todavía no arrancó.</strong>
-          El ranking arranca cuando se carguen los primeros resultados oficiales. Hasta ese momento no hay podio, medallas ni puestos premiados.
+          <strong className="block text-white font-extrabold mb-1">El conteo de puntos todavía no arrancó.</strong>
+          El conteo de puntos empieza cuando se carguen los primeros resultados oficiales. Hasta entonces podés revisar los Prodes cargados por cada participante.
         </div>
       )}
 

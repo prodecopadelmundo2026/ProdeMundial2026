@@ -43,7 +43,7 @@ export default async function RankingPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const admin = createAdminClient()
 
-  const [{ data: participants }, { data: matches }, { data: predictions }, { data: virtualPredictions }, { data: tiebreakers }] = await Promise.all([
+  const [{ data: participants }, { data: matches }, { data: predictions }, { data: virtualPredictions }, { data: tiebreakers }, { data: specialBets }] = await Promise.all([
     supabase
       .from('ranking_entries')
       .select('user_id, name, avatar_url'),
@@ -60,6 +60,9 @@ export default async function RankingPage() {
     admin
       .from('user_prediction_tiebreakers')
       .select('user_id, tiebreaker_key, team'),
+    admin
+      .from('special_bets')
+      .select('user_id, balon, bota, guante'),
   ])
 
   const allPredictions = [
@@ -69,6 +72,14 @@ export default async function RankingPage() {
   const predictionCounts = new Map<string, number>()
   for (const prediction of allPredictions) {
     predictionCounts.set(prediction.user_id, (predictionCounts.get(prediction.user_id) ?? 0) + 1)
+  }
+  for (const row of (tiebreakers ?? []) as UserTiebreakerRow[]) {
+    predictionCounts.set(row.user_id, (predictionCounts.get(row.user_id) ?? 0) + 1)
+  }
+  for (const row of (specialBets ?? []) as Array<{ user_id: string; balon: string | null; bota: string | null; guante: string | null }>) {
+    if (row.balon || row.bota || row.guante) {
+      predictionCounts.set(row.user_id, (predictionCounts.get(row.user_id) ?? 0) + 1)
+    }
   }
   const participantRows = (participants ?? []).map((participant) => ({
     user_id: participant.user_id,
@@ -148,7 +159,7 @@ export default async function RankingPage() {
             style={{ background: '#A8F0D8', animation: 'pulse-dot 1.6s infinite' }}
           />
           <span>
-            El ranking arranca cuando se carguen los primeros resultados oficiales.
+            El conteo de puntos empieza cuando se carguen los primeros resultados oficiales. Hasta entonces podés revisar los Prodes cargados por cada participante.
           </span>
         </aside>
 

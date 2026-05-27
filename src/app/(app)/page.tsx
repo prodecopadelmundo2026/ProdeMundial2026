@@ -192,6 +192,8 @@ export default async function HomePage() {
     { data: topRanking },
     { data: profile },
     { data: predictionRows },
+    { data: virtualPredictionRows },
+    { data: tiebreakerRows },
     { data: specialBetRows },
     { data: allMatchRows },
     { data: rankingRows },
@@ -215,16 +217,22 @@ export default async function HomePage() {
       ? supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
       : Promise.resolve({ data: null }),
     admin.from('predictions').select('user_id'),
+    admin.from('virtual_knockout_predictions').select('user_id'),
+    admin.from('user_prediction_tiebreakers').select('user_id'),
     admin.from('special_bets').select('user_id, balon, bota, guante'),
     admin.from('matches').select('home_team, away_team, home_score, away_score, stage, status'),
     admin.from('ranking_entries').select('user_id'),
   ])
 
-  const hasMyPredictions = (myPredsCount ?? 0) > 0
-
   const predictionCounts = new Map<string, number>()
   for (const prediction of (predictionRows ?? []) as Array<{ user_id: string }>) {
     predictionCounts.set(prediction.user_id, (predictionCounts.get(prediction.user_id) ?? 0) + 1)
+  }
+  for (const prediction of (virtualPredictionRows ?? []) as Array<{ user_id: string }>) {
+    predictionCounts.set(prediction.user_id, (predictionCounts.get(prediction.user_id) ?? 0) + 1)
+  }
+  for (const tiebreaker of (tiebreakerRows ?? []) as Array<{ user_id: string }>) {
+    predictionCounts.set(tiebreaker.user_id, (predictionCounts.get(tiebreaker.user_id) ?? 0) + 1)
   }
 
   const activeRankingIds = new Set(((rankingRows ?? []) as Array<{ user_id: string }>).map((entry) => entry.user_id))
@@ -240,8 +248,11 @@ export default async function HomePage() {
   }>) {
     if (activeRankingIds.has(specialBet.user_id) && (specialBet.balon || specialBet.bota || specialBet.guante)) {
       participantIds.add(specialBet.user_id)
+      predictionCounts.set(specialBet.user_id, (predictionCounts.get(specialBet.user_id) ?? 0) + 1)
     }
   }
+
+  const hasMyPredictions = user ? (predictionCounts.get(user.id) ?? 0) > 0 || (myPredsCount ?? 0) > 0 : false
 
   const matchRows = (allMatchRows ?? []) as MatchSummary[]
   const finishedMatches = matchRows.filter((match) => match.status === 'finished').length
@@ -514,7 +525,7 @@ export default async function HomePage() {
                 style={{ background: '#A8F0D8', animation: 'pulse-dot 1.6s infinite' }}
               />
               <span>
-                El ranking arranca cuando se carguen los primeros resultados oficiales.
+                El conteo de puntos empieza cuando se carguen los primeros resultados oficiales. Hasta entonces podés revisar los Prodes cargados.
               </span>
             </div>
           )}
