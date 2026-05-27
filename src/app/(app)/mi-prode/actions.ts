@@ -2,7 +2,15 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { assertProdeOpen } from '@/lib/prode-lock'
+
+type PredictionInput = {
+  matchId: string
+  homeScore: number
+  awayScore: number
+  tiebreakerTeam?: string | null
+}
 
 type VirtualKnockoutPredictionInput = {
   matchId: string
@@ -14,6 +22,14 @@ type VirtualKnockoutPredictionInput = {
 type TiebreakerInput = {
   key: string
   team: string | null
+}
+
+type FullProdeInput = {
+  realPredictions: PredictionInput[]
+  virtualPredictions: VirtualKnockoutPredictionInput[]
+  tiebreakers: TiebreakerInput[]
+  deleteRealMatchIds?: string[]
+  deleteVirtualMatchIds?: string[]
 }
 
 export type SpecialBetsValues = {
@@ -29,6 +45,12 @@ function cleanName(value: unknown) {
 function assertValidScore(score: number) {
   if (!Number.isInteger(score) || score < 0 || score > 99) {
     throw new Error('Goles invalidos')
+  }
+}
+
+function assertUuid(value: string) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+    throw new Error('Partido invalido')
   }
 }
 
@@ -62,6 +84,7 @@ function virtualMatchStage(matchId: string) {
 export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockoutPredictionInput[]) {
   if (!predictions.length) return 0
   const supabase = await createClient()
+  const admin = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
   await assertProdeOpen(supabase)
@@ -80,12 +103,106 @@ export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockou
     }
   })
 
-  const { error } = await supabase
+  console.info('[mi-prode.saveVirtualKnockoutPredictions] payload', {
+    userId: user.id,
+    count: payload.length,
+    first: payload[0] ?? null,
+  })
+
+  const { error } = await admin
     .from('virtual_knockout_predictions')
     .upsert(payload, { onConflict: 'user_id,virtual_match_id' })
 
   if (error) throw new Error(error.message)
+  const { count, error: verifyError } = await admin
+    .from('virtual_knockout_predictions')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .in('virtual_match_id', payload.map((prediction) => prediction.virtual_match_id))
+
+  if (verifyError) throw new Error(verifyError.message)
+  if ((count ?? 0) < payload.length) {
+    throw new Error(`No se pudo verificar el guardado de eliminatorias (${count ?? 0}/${payload.length}).`)
+  }
+  console.info('[mi-prode.saveVirtualKnockoutPredictions] verified', { userId: user.id, count })
   revalidatePath('/mi-prode')
+  revalidatePath('/ranking')
+  revalidatePath(`/ranking/${user.id}`)
+  return payload.length
+}
+
+export async function saveRealPredictions(predictions: PredictionInput[]) {
+  if (!predictions.length) return 0
+  const supabase = await createClient()
+  const admin = createAdminClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+  await assertProdeOpen(supabase)
+
+  const matchIds = [...new Set(predictions.map((prediction) => {
+    assertUuid(prediction.matchId)
+    assertValidScore(prediction.homeScore)
+    assertValidScore(prediction.awayScore)
+    return prediction.matchId
+  }))]
+
+  const { data: matches, error: matchesError } = await admin
+    .from('matches')
+    .select('id, locked_at, status')
+    .in('id', matchIds)
+
+  if (matchesError) throw new Error(matchesError.message)
+  const now = new Date()
+  const openIds = new Set(
+    (matches ?? [])
+      .filter((match) => match.status === 'upcoming' && now < new Date(match.locked_at))
+      .map((match) => match.id)
+  )
+
+  const payload = predictions
+    .filter((prediction) => openIds.has(prediction.matchId))
+    .map((prediction) => ({
+      user_id: user.id,
+      match_id: prediction.matchId,
+      home_score: prediction.homeScore,
+      away_score: prediction.awayScore,
+      tiebreaker_team: prediction.tiebreakerTeam ?? null,
+      points: null,
+      updated_at: new Date().toISOString(),
+    }))
+
+  if (!payload.length) throw new Error('No hay predicciones abiertas para guardar')
+
+  console.info('[mi-prode.saveRealPredictions] payload', {
+    userId: user.id,
+    requested: predictions.length,
+    open: payload.length,
+    first: payload[0] ?? null,
+  })
+
+  const { error } = await admin
+    .from('predictions')
+    .upsert(payload, { onConflict: 'user_id,match_id' })
+
+  if (error) throw new Error(error.message)
+
+  const { count, error: verifyError } = await admin
+    .from('predictions')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .in('match_id', payload.map((prediction) => prediction.match_id))
+
+  if (verifyError) throw new Error(verifyError.message)
+  if ((count ?? 0) < payload.length) {
+    throw new Error(`No se pudo verificar el guardado de grupos/eliminatorias (${count ?? 0}/${payload.length}).`)
+  }
+
+  console.info('[mi-prode.saveRealPredictions] verified', { userId: user.id, count })
+  revalidatePath('/')
+  revalidatePath('/fixture')
+  revalidatePath('/mi-prode')
+  revalidatePath('/ranking')
+  revalidatePath(`/ranking/${user.id}`)
   return payload.length
 }
 
@@ -110,6 +227,56 @@ export async function deleteVirtualKnockoutPredictionsByStages(stages: string[])
 
   if (error) throw new Error(error.message)
   revalidatePath('/mi-prode')
+  return count ?? 0
+}
+
+export async function deleteVirtualKnockoutPredictionsByMatchIds(matchIds: string[]) {
+  const supabase = await createClient()
+  const admin = createAdminClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+  await assertProdeOpen(supabase)
+
+  const ids = [...new Set(matchIds.filter(Boolean))]
+  for (const matchId of ids) assertValidVirtualMatchId(matchId)
+  if (!ids.length) return 0
+
+  const { count, error } = await admin
+    .from('virtual_knockout_predictions')
+    .delete({ count: 'exact' })
+    .eq('user_id', user.id)
+    .in('virtual_match_id', ids)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/mi-prode')
+  revalidatePath('/ranking')
+  revalidatePath(`/ranking/${user.id}`)
+  return count ?? 0
+}
+
+export async function deleteRealPredictionsByMatchIds(matchIds: string[]) {
+  const supabase = await createClient()
+  const admin = createAdminClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+  await assertProdeOpen(supabase)
+
+  const ids = [...new Set(matchIds.filter(Boolean))]
+  for (const matchId of ids) assertUuid(matchId)
+  if (!ids.length) return 0
+
+  const { count, error } = await admin
+    .from('predictions')
+    .delete({ count: 'exact' })
+    .eq('user_id', user.id)
+    .in('match_id', ids)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/')
+  revalidatePath('/fixture')
+  revalidatePath('/mi-prode')
+  revalidatePath('/ranking')
+  revalidatePath(`/ranking/${user.id}`)
   return count ?? 0
 }
 
@@ -155,6 +322,139 @@ export async function savePredictionTiebreakers(tiebreakers: TiebreakerInput[]) 
   revalidatePath(`/ranking/${user.id}`)
   revalidatePath('/ranking/[userId]', 'page')
   return normalized.length
+}
+
+export async function saveFullProde(input: FullProdeInput) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+  await assertProdeOpen(supabase)
+
+  const realPredictions = input.realPredictions.map((prediction) => {
+    assertUuid(prediction.matchId)
+    assertValidScore(prediction.homeScore)
+    assertValidScore(prediction.awayScore)
+    return prediction
+  })
+  const virtualPredictions = input.virtualPredictions.map((prediction) => {
+    assertValidVirtualMatchId(prediction.matchId)
+    assertValidScore(prediction.homeScore)
+    assertValidScore(prediction.awayScore)
+    return prediction
+  })
+  const deleteRealMatchIds = [...new Set(input.deleteRealMatchIds ?? [])]
+  const deleteVirtualMatchIds = [...new Set(input.deleteVirtualMatchIds ?? [])]
+  for (const matchId of deleteRealMatchIds) assertUuid(matchId)
+  for (const matchId of deleteVirtualMatchIds) assertValidVirtualMatchId(matchId)
+
+  const realPayload = realPredictions.map((prediction) => ({
+    user_id: user.id,
+    match_id: prediction.matchId,
+    home_score: prediction.homeScore,
+    away_score: prediction.awayScore,
+    tiebreaker_team: prediction.tiebreakerTeam ?? null,
+    points: null,
+    updated_at: new Date().toISOString(),
+  }))
+  const virtualPayload = virtualPredictions.map((prediction) => ({
+    user_id: user.id,
+    virtual_match_id: prediction.matchId,
+    home_score: prediction.homeScore,
+    away_score: prediction.awayScore,
+    tiebreaker_team: prediction.tiebreakerTeam ?? null,
+    updated_at: new Date().toISOString(),
+  }))
+
+  console.info('[mi-prode.saveFullProde] payload', {
+    userId: user.id,
+    realCount: realPayload.length,
+    virtualCount: virtualPayload.length,
+    tiebreakerCount: input.tiebreakers.length,
+    deleteRealCount: deleteRealMatchIds.length,
+    deleteVirtualCount: deleteVirtualMatchIds.length,
+    firstReal: realPayload[0] ?? null,
+    firstVirtual: virtualPayload[0] ?? null,
+  })
+
+  if (deleteRealMatchIds.length) {
+    const { error } = await supabase
+      .from('predictions')
+      .delete()
+      .eq('user_id', user.id)
+      .in('match_id', deleteRealMatchIds)
+    if (error) throw new Error(error.message)
+  }
+
+  if (deleteVirtualMatchIds.length) {
+    const { error } = await supabase
+      .from('virtual_knockout_predictions')
+      .delete()
+      .eq('user_id', user.id)
+      .in('virtual_match_id', deleteVirtualMatchIds)
+    if (error) throw new Error(error.message)
+  }
+
+  if (realPayload.length) {
+    const { error } = await supabase
+      .from('predictions')
+      .upsert(realPayload, { onConflict: 'user_id,match_id' })
+    if (error) throw new Error(error.message)
+  }
+
+  if (virtualPayload.length) {
+    const { error } = await supabase
+      .from('virtual_knockout_predictions')
+      .upsert(virtualPayload, { onConflict: 'user_id,virtual_match_id' })
+    if (error) throw new Error(error.message)
+  }
+
+  await savePredictionTiebreakers(input.tiebreakers)
+
+  const [realVerify, virtualVerify] = await Promise.all([
+    realPayload.length
+      ? supabase
+          .from('predictions')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .in('match_id', realPayload.map((prediction) => prediction.match_id))
+      : Promise.resolve({ count: 0, error: null }),
+    virtualPayload.length
+      ? supabase
+          .from('virtual_knockout_predictions')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .in('virtual_match_id', virtualPayload.map((prediction) => prediction.virtual_match_id))
+      : Promise.resolve({ count: 0, error: null }),
+  ])
+
+  if (realVerify.error) throw new Error(realVerify.error.message)
+  if (virtualVerify.error) throw new Error(virtualVerify.error.message)
+  if ((realVerify.count ?? 0) < realPayload.length) {
+    throw new Error(`No se pudo verificar el guardado de grupos (${realVerify.count ?? 0}/${realPayload.length}).`)
+  }
+  if ((virtualVerify.count ?? 0) < virtualPayload.length) {
+    throw new Error(`No se pudo verificar el guardado de eliminatorias (${virtualVerify.count ?? 0}/${virtualPayload.length}).`)
+  }
+
+  console.info('[mi-prode.saveFullProde] verified', {
+    userId: user.id,
+    realCount: realVerify.count ?? 0,
+    virtualCount: virtualVerify.count ?? 0,
+  })
+
+  revalidatePath('/')
+  revalidatePath('/fixture')
+  revalidatePath('/mi-prode')
+  revalidatePath('/ranking')
+  revalidatePath(`/ranking/${user.id}`)
+  revalidatePath('/ranking/[userId]', 'page')
+  return {
+    real: realVerify.count ?? 0,
+    virtual: virtualVerify.count ?? 0,
+    tiebreakers: input.tiebreakers.length,
+    deletedReal: deleteRealMatchIds.length,
+    deletedVirtual: deleteVirtualMatchIds.length,
+  }
 }
 
 export async function saveSpecialBets(values: SpecialBetsValues) {

@@ -9,8 +9,8 @@ import { Shuffle, AlertTriangle, Zap, Pencil } from 'lucide-react'
 import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
 import { StatusBadge } from '@/components/StatusBadge'
-import { generateRandomKnockoutPredictions, upsertPredictionsBatch } from '@/app/(app)/fixture/actions'
-import { saveVirtualKnockoutPredictions } from './actions'
+import { generateRandomKnockoutPredictions } from '@/app/(app)/fixture/actions'
+import { deleteRealPredictionsByMatchIds, deleteVirtualKnockoutPredictionsByMatchIds, saveRealPredictions, saveVirtualKnockoutPredictions } from './actions'
 import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups, assignBestThirdsToSlots, getPendingGroupTiebreakers, isVirtualKnockoutMatch } from '@/lib/bracket'
 import { normalizeScoreInput, parseScoreInput } from '@/lib/score-input'
 
@@ -572,7 +572,7 @@ export function BracketView({
       )
       try {
         await Promise.all([
-          realPredictions.length ? upsertPredictionsBatch(realPredictions) : Promise.resolve(0),
+          realPredictions.length ? saveRealPredictions(realPredictions) : Promise.resolve(0),
           virtualPredictions.length ? saveVirtualKnockoutPredictions(virtualPredictions) : Promise.resolve(0),
         ])
         setBracketSaveError(false)
@@ -622,7 +622,17 @@ export function BracketView({
   async function saveKnockoutChanges() {
     if (bracketLocked) return
     const predictions = collectCompleteKnockoutPredictions()
-    if (!predictions.length) {
+    const matchIdsToDelete = knockoutMatches
+      .filter((match) => {
+        if (!predMap[match.id]) return false
+        const input = localInputs[match.id]
+        const h = parseScoreInput(input?.home ?? '')
+        const a = parseScoreInput(input?.away ?? '')
+        return h == null || a == null
+      })
+      .map((match) => match.id)
+
+    if (!predictions.length && !matchIdsToDelete.length) {
       setManualSaveState('error')
       setManualSaveError('No hay predicciones completas para guardar.')
       return
@@ -637,9 +647,13 @@ export function BracketView({
     setManualSaveState('saving')
     setManualSaveError(null)
     try {
+      const realDeleteIds = matchIdsToDelete.filter((matchId) => !isVirtualKnockoutMatch({ id: matchId }))
+      const virtualDeleteIds = matchIdsToDelete.filter((matchId) => isVirtualKnockoutMatch({ id: matchId }))
       await Promise.all([
-        realPredictions.length ? upsertPredictionsBatch(realPredictions) : Promise.resolve(0),
+        realPredictions.length ? saveRealPredictions(realPredictions) : Promise.resolve(0),
         virtualPredictions.length ? saveVirtualKnockoutPredictions(virtualPredictions) : Promise.resolve(0),
+        realDeleteIds.length ? deleteRealPredictionsByMatchIds(realDeleteIds) : Promise.resolve(0),
+        virtualDeleteIds.length ? deleteVirtualKnockoutPredictionsByMatchIds(virtualDeleteIds) : Promise.resolve(0),
       ])
       setBracketSaveError(false)
       setManualSaveState('saved')
@@ -845,7 +859,7 @@ export function BracketView({
         !isVirtualKnockoutMatch({ id: prediction.matchId })
       )
       await Promise.all([
-        realPredictions.length ? upsertPredictionsBatch(realPredictions) : Promise.resolve(0),
+        realPredictions.length ? saveRealPredictions(realPredictions) : Promise.resolve(0),
         virtualPredictions.length ? saveVirtualKnockoutPredictions(virtualPredictions) : Promise.resolve(0),
       ])
       setLocalInputs((prev) => {

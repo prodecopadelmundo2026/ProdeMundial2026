@@ -9,11 +9,11 @@ import { BracketView } from './BracketView'
 import { SpecialsTab } from './SpecialsTab'
 import { TournamentBracket } from '@/components/TournamentBracket'
 import { SpecialsBanner } from './SpecialsBanner'
-import { deletePredictionsByStages, generateRandomGroupPredictions, upsertPredictionsBatch } from '@/app/(app)/fixture/actions'
+import { deletePredictionsByStages, generateRandomGroupPredictions } from '@/app/(app)/fixture/actions'
 import { parseScoreInput } from '@/lib/score-input'
 import type { ProdeLockState } from '@/lib/prode-lock'
-import { deleteSpecialBets, deleteVirtualKnockoutPredictionsByStages, savePredictionTiebreakers, type SpecialBetsValues } from './actions'
-import { buildProjectedKnockoutMatches } from '@/lib/bracket'
+import { deleteSpecialBets, deleteVirtualKnockoutPredictionsByStages, savePredictionTiebreakers, saveFullProde, type SpecialBetsValues } from './actions'
+import { buildProjectedKnockoutMatches, isVirtualKnockoutMatch } from '@/lib/bracket'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
@@ -102,8 +102,8 @@ export function MiProdeTabs({
   const [deleteMessage, setDeleteMessage] = useState<string | null>(null)
   const [fakeState, setFakeState] = useState<'idle' | 'confirm' | 'saving' | 'saved' | 'error'>('idle')
   const [fakeError, setFakeError] = useState<string | null>(null)
-  const [groupBulkSaveState, setGroupBulkSaveState] = useState<SaveState>('idle')
-  const [groupBulkSaveError, setGroupBulkSaveError] = useState<string | null>(null)
+  const [globalSaveState, setGlobalSaveState] = useState<SaveState>('idle')
+  const [globalSaveError, setGlobalSaveError] = useState<string | null>(null)
   const [bracketModalSignal, setBracketModalSignal] = useState(0)
   const [tiebreakers, setTiebreakers] = useState<Record<string, string>>(tiebreakerMap)
   const [localKnockoutPreds, setLocalKnockoutPreds] = useState<Record<string, { home: string; away: string }>>({})
@@ -231,48 +231,96 @@ export function MiProdeTabs({
   function handleGroupPredChange(matchId: string, home: string, away: string) {
     if (prodeLocked) return
     setLocalGroupPreds((prev) => ({ ...prev, [matchId]: { home, away } }))
-    setGroupBulkSaveState('dirty')
-    setGroupBulkSaveError(null)
+    setGlobalSaveState('dirty')
+    setGlobalSaveError(null)
   }
 
   function handleGroupSaveStateChange(matchId: string, state: SaveState) {
     setGroupSaveStates((prev) => ({ ...prev, [matchId]: state }))
   }
 
-  function handleSaveGroups() {
+  function handleSaveFullProde() {
     if (prodeLocked) return
-    const predictions = groupMatches
-      .map((match) => {
-        const input = localGroupPreds[match.id]
-        const homeScore = parseScoreInput(input?.home ?? '')
-        const awayScore = parseScoreInput(input?.away ?? '')
-        if (homeScore == null || awayScore == null) return null
-        return { matchId: match.id, homeScore, awayScore }
-      })
-      .filter((prediction): prediction is NonNullable<typeof prediction> => Boolean(prediction))
 
-    if (!predictions.length) {
-      setGroupBulkSaveState('error')
-      setGroupBulkSaveError('No hay predicciones completas para guardar.')
+    const partialLabels: string[] = []
+    const realPredictions: Array<{ matchId: string; homeScore: number; awayScore: number; tiebreakerTeam?: string | null }> = []
+    const virtualPredictions: Array<{ matchId: string; homeScore: number; awayScore: number; tiebreakerTeam?: string | null }> = []
+    const deleteRealMatchIds: string[] = []
+    const deleteVirtualMatchIds: string[] = []
+
+    function collectMatch(match: Match, input: { home: string; away: string } | undefined, label: string) {
+      const rawHome = input?.home ?? ''
+      const rawAway = input?.away ?? ''
+      const homeBlank = rawHome === ''
+      const awayBlank = rawAway === ''
+      const hadSavedPrediction = Boolean(predMap[match.id])
+      const isVirtual = isVirtualKnockoutMatch(match)
+
+      if (homeBlank && awayBlank) {
+        if (hadSavedPrediction) {
+          if (isVirtual) deleteVirtualMatchIds.push(match.id)
+          else deleteRealMatchIds.push(match.id)
+        }
+        return
+      }
+
+      const homeScore = parseScoreInput(rawHome)
+      const awayScore = parseScoreInput(rawAway)
+      if (homeScore == null || awayScore == null) {
+        partialLabels.push(label)
+        return
+      }
+
+      const prediction = {
+        matchId: match.id,
+        homeScore,
+        awayScore,
+        tiebreakerTeam: localKnockoutTiebreakers[match.id] ?? tiebreakerMap[match.id] ?? null,
+      }
+      if (isVirtual) virtualPredictions.push(prediction)
+      else realPredictions.push(prediction)
+    }
+
+    for (const match of groupMatches) {
+      collectMatch(match, localGroupPreds[match.id], `${match.home_team} vs ${match.away_team}`)
+    }
+    for (const match of projectedKnockoutMatches) {
+      collectMatch(match, localKnockoutPreds[match.id], `${match.home_team} vs ${match.away_team}`)
+    }
+
+    if (partialLabels.length) {
+      setGlobalSaveState('error')
+      setGlobalSaveError(`Hay ${partialLabels.length} marcador(es) parcial(es). Completá ambos goles o borrá ambos antes de guardar.`)
       return
     }
 
-    setGroupBulkSaveState('saving')
-    setGroupBulkSaveError(null)
+    if (!realPredictions.length && !virtualPredictions.length && !deleteRealMatchIds.length && !deleteVirtualMatchIds.length && !Object.keys(tiebreakers).length && !Object.keys(localKnockoutTiebreakers).length) {
+      setGlobalSaveState('error')
+      setGlobalSaveError('No hay cambios completos para guardar.')
+      return
+    }
+
+    setGlobalSaveState('saving')
+    setGlobalSaveError(null)
     startTransition(async () => {
       try {
-        await upsertPredictionsBatch(predictions)
-        await savePredictionTiebreakers(Object.entries(tiebreakers).map(([key, team]) => ({ key, team })))
+        await saveFullProde({
+          realPredictions,
+          virtualPredictions,
+          tiebreakers: Object.entries({ ...tiebreakers, ...localKnockoutTiebreakers }).map(([key, team]) => ({ key, team })),
+          deleteRealMatchIds,
+          deleteVirtualMatchIds,
+        })
         setGroupSaveStates((prev) => {
           const next = { ...prev }
-          for (const prediction of predictions) next[prediction.matchId] = 'saved'
+          for (const prediction of realPredictions) next[prediction.matchId] = 'saved'
           return next
         })
-        setGroupBulkSaveState('saved')
+        setGlobalSaveState('saved')
         router.refresh()
       } catch (error) {
-        setGroupBulkSaveState('error')
-        setGroupBulkSaveError(formatClientError(error) || 'No se pudo guardar')
+        setGlobalSaveState('error')
+        setGlobalSaveError(formatClientError(error) || 'No se pudo guardar')
       }
     })
   }
@@ -280,6 +328,8 @@ export function MiProdeTabs({
   function handleKnockoutPredChange(matchId: string, home: string, away: string) {
     if (prodeLocked) return
     setLocalKnockoutPreds((prev) => ({ ...prev, [matchId]: { home, away } }))
+    setGlobalSaveState('dirty')
+    setGlobalSaveError(null)
   }
 
   function handleKnockoutTiebreakerChange(matchId: string, team: string | null) {
@@ -291,6 +341,8 @@ export function MiProdeTabs({
       }
       return { ...prev, [matchId]: team }
     })
+    setGlobalSaveState('dirty')
+    setGlobalSaveError(null)
   }
 
   function hasCompleteGroupInput(matchId: string) {
@@ -523,7 +575,7 @@ export function MiProdeTabs({
         return next
       })
       try { localStorage.removeItem('prode_group_preds') } catch {}
-      setGroupBulkSaveState('saved')
+      setGlobalSaveState('saved')
       setFakeState('saved')
       router.refresh()
       setTimeout(() => setFakeState('idle'), 1800)
@@ -791,7 +843,41 @@ export function MiProdeTabs({
 
       {/* SpecialsBanner — hidden when already on especiales tab */}
       {activeTab !== 'especiales' && (
-        <SpecialsBanner onClickCargar={() => setActiveTab('especiales')} />
+        <SpecialsBanner
+          onClickCargar={() => setActiveTab('especiales')}
+          loaded={Boolean(initialSpecialBets.balon && initialSpecialBets.bota && initialSpecialBets.guante)}
+        />
+      )}
+
+      {activeTab !== 'grupos' && (
+        <div
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
+          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <div>
+            <p className="font-extrabold text-white text-[13px] leading-snug">Guardar Mi Prode</p>
+            <p className="text-[12px] mt-0.5 text-muted">
+              {globalSaveState === 'saving'
+                ? 'Guardando todo en Supabase...'
+                : globalSaveState === 'saved'
+                ? 'Mi Prode guardado correctamente.'
+                : globalSaveState === 'error'
+                ? `No se pudo guardar: ${globalSaveError ?? 'revisá los datos.'}`
+                : globalSaveState === 'dirty' || groupStatus.hasDirty
+                ? 'Cambios sin guardar.'
+                : 'Guarda grupos, eliminatorias, desempates, llave y campeón desde Supabase.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSaveFullProde}
+            disabled={prodeLocked || globalSaveState === 'saving'}
+            className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
+            style={{ background: '#FF6B00', color: '#0A0A0A' }}
+          >
+            {globalSaveState === 'saving' ? 'Guardando...' : 'Guardar cambios'}
+          </button>
+        </div>
       )}
 
       {/* All tabs kept mounted to preserve state; only one visible at a time */}
@@ -801,27 +887,27 @@ export function MiProdeTabs({
           style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
         >
           <div>
-            <p className="font-extrabold text-white text-[13px] leading-snug">Guardar fase de grupos</p>
+            <p className="font-extrabold text-white text-[13px] leading-snug">Guardar Mi Prode</p>
             <p className="text-[12px] mt-0.5 text-muted">
-              {groupBulkSaveState === 'saving'
-                ? 'Guardando en Supabase...'
-                : groupBulkSaveState === 'saved'
-                ? 'Guardado correctamente.'
-                : groupBulkSaveState === 'error'
-                ? `No se pudo guardar: ${groupBulkSaveError ?? 'revisá los datos.'}`
-                : groupBulkSaveState === 'dirty' || groupStatus.hasDirty
+              {globalSaveState === 'saving'
+                ? 'Guardando todo en Supabase...'
+                : globalSaveState === 'saved'
+                ? 'Mi Prode guardado correctamente.'
+                : globalSaveState === 'error'
+                ? `No se pudo guardar: ${globalSaveError ?? 'revisá los datos.'}`
+                : globalSaveState === 'dirty' || groupStatus.hasDirty
                 ? 'Cambios sin guardar.'
-                : 'Se guardan en Supabase; los parciales quedan pendientes hasta completar ambos goles.'}
+                : 'Guarda grupos, eliminatorias, desempates, llave y campeón desde Supabase.'}
             </p>
           </div>
           <button
             type="button"
-            onClick={handleSaveGroups}
-            disabled={prodeLocked || groupBulkSaveState === 'saving'}
+            onClick={handleSaveFullProde}
+            disabled={prodeLocked || globalSaveState === 'saving'}
             className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
             style={{ background: '#FF6B00', color: '#0A0A0A' }}
           >
-            {groupBulkSaveState === 'saving' ? 'Guardando...' : 'Guardar cambios'}
+            {globalSaveState === 'saving' ? 'Guardando...' : 'Guardar cambios'}
           </button>
         </div>
         <GroupBatchEditor

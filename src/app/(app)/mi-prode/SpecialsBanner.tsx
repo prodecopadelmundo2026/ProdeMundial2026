@@ -6,9 +6,10 @@ const DISMISS_KEY = 'specials-banner-dismissed'
 
 interface Props {
   onClickCargar?: () => void
+  loaded?: boolean
 }
 
-export function SpecialsBanner({ onClickCargar }: Props) {
+export function SpecialsBanner({ onClickCargar, loaded = false }: Props) {
   const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
@@ -53,14 +54,26 @@ export function SpecialsBanner({ onClickCargar }: Props) {
 
       {/* Text */}
       <div className="flex-1 min-w-0 flex items-baseline gap-2 flex-wrap leading-[1.3]">
+        {loaded ? (
+        <h4 className="inline font-extrabold text-[13px]">
+          BalÃ³n, Bota y Guante de Oro cargados.
+        </h4>
+        ) : (
         <h4 className="inline font-extrabold text-[13px]">
           Balón, Bota y Guante de Oro sin cargar.
         </h4>
+        )}
+        {loaded ? (
+        <p className="inline text-[#cfcfcf] font-medium text-[13px]">
+          PodÃ©s editarlos hasta el 11 jun.
+        </p>
+        ) : (
         <p className="inline text-[#cfcfcf] font-medium text-[13px]">
           Hasta{' '}
           <b className="text-mint font-extrabold font-mono text-[12px]">+50 pts</b>{' '}
           antes del 11 jun.
         </p>
+        )}
       </div>
 
       {/* CTA */}
@@ -77,7 +90,7 @@ export function SpecialsBanner({ onClickCargar }: Props) {
           e.currentTarget.style.borderColor = 'rgba(168,140,220,0.4)'
         }}
       >
-        Cargar
+        {loaded ? 'Editar' : 'Cargar'}
       </button>
 
       {/* Dismiss */}

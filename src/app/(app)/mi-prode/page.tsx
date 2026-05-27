@@ -194,6 +194,9 @@ export default async function MiProdePage() {
     finalGroupMatchesCount: groupMatches.length,
     finalKnockoutMatchesCount: knockoutMatches.length,
     finalGroups: Array.from(new Set(groupMatches.map((match) => match.group).filter(Boolean))),
+    predictionsReadCount: userPredictions.length,
+    virtualPredictionsReadCount: virtualKnockoutPredictions.length,
+    tiebreakersReadCount: predictionTiebreakers.length,
   })
 
   const predMap = Object.fromEntries(
