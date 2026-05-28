@@ -25,6 +25,7 @@ export type MatchAuditRow = {
   status: AuditStatus
   points: number | null
   crossMatches: boolean | null
+  hasOfficialTeams: boolean
 }
 
 export type RankingAuditSummary = {
@@ -56,6 +57,23 @@ function buildScoreMap(matches: Match[]): ScoreMap {
     matches
       .filter((match) => match.home_score != null && match.away_score != null)
       .map((match) => [match.id, { home_score: match.home_score!, away_score: match.away_score! }])
+  )
+}
+
+function areAllMatchesScored(matches: Match[], predMap: ScoreMap) {
+  return matches.length > 0 && matches.every((match) => Boolean(predMap[match.id]))
+}
+
+function completeGroupMatchesForResolution(groupMatches: Match[], predMap: ScoreMap) {
+  const byGroup: Record<string, Match[]> = {}
+  for (const match of groupMatches) {
+    if (!match.group) continue
+    if (!byGroup[match.group]) byGroup[match.group] = []
+    byGroup[match.group].push(match)
+  }
+
+  return Object.values(byGroup).flatMap((matches) =>
+    areAllMatchesScored(matches, predMap) ? matches : []
   )
 }
 
@@ -141,9 +159,17 @@ function buildResolvedTeams(
 
   const groupMatches = allMatches.filter((item) => item.stage === 'group')
   const knockoutMatches = allMatches.filter((item) => item.stage !== 'group')
-  const standings = computeAllStandings(groupMatches, predMap, tiebreakerMap)
-  const bestThirdsGroups = computeBestThirdsGroups(groupMatches, predMap, tiebreakerMap)
-  const thirdSlotAssignment = assignBestThirdsToSlots(bestThirdsGroups)
+  const scopedGroupMatches = mode === 'official'
+    ? completeGroupMatchesForResolution(groupMatches, predMap)
+    : groupMatches
+  const standings = computeAllStandings(scopedGroupMatches, predMap, tiebreakerMap)
+  const canResolveThirds = mode === 'official'
+    ? areAllMatchesScored(groupMatches, predMap)
+    : groupMatches.length > 0
+  const bestThirdsGroups = canResolveThirds
+    ? computeBestThirdsGroups(groupMatches, predMap, tiebreakerMap)
+    : new Set<string>()
+  const thirdSlotAssignment = bestThirdsGroups.size > 0 ? assignBestThirdsToSlots(bestThirdsGroups) : {}
   const pMap = buildKnockoutMap(knockoutMatches)
 
   return {
@@ -181,9 +207,13 @@ export function buildMatchAuditRows(
       ? buildResolvedTeams(match, matches, predMap, tiebreakerMap, 'prediction')
       : { home: match.home_team, away: match.away_team }
     const hasOfficialResult = match.status === 'finished' && match.home_score != null && match.away_score != null
+    const hasOfficialTeams =
+      match.stage === 'group' ||
+      (!isUnresolvedTeam(officialTeams.home) && !isUnresolvedTeam(officialTeams.away))
     const crossMatches = match.stage === 'group'
       ? true
-      : !isUnresolvedTeam(predictedTeams.home) &&
+      : hasOfficialTeams &&
+        !isUnresolvedTeam(predictedTeams.home) &&
         !isUnresolvedTeam(predictedTeams.away) &&
         predictedTeams.home === officialTeams.home &&
         predictedTeams.away === officialTeams.away
@@ -215,7 +245,8 @@ export function buildMatchAuditRows(
       officialScore: formatScore(match.home_score, match.away_score),
       status,
       points,
-      crossMatches: match.stage === 'group' || !prediction ? null : crossMatches,
+      crossMatches: match.stage === 'group' || !prediction || !hasOfficialTeams ? null : crossMatches,
+      hasOfficialTeams,
     }
   })
 }

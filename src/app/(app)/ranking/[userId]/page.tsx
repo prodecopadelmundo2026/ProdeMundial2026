@@ -36,9 +36,19 @@ const STAGES: Array<{ key: StageKey; label: string }> = [
 
 const SPECIAL_AUDIT_ROWS: Array<{ key: keyof SpecialBetsRow; label: string; prompt: string; points: number }> = [
   { key: 'balon', label: 'Balon de Oro', prompt: 'Mejor jugador del torneo', points: 20 },
-  { key: 'bota', label: 'Bota de Oro', prompt: 'Maximo goleador del torneo', points: 15 },
+  { key: 'bota', label: 'Botin de Oro', prompt: 'Maximo goleador del torneo', points: 15 },
   { key: 'guante', label: 'Guante de Oro', prompt: 'Mejor arquero del torneo', points: 15 },
 ]
+
+const STAGE_LABELS: Record<Match['stage'], string> = {
+  group: 'Grupos',
+  round_of_32: 'Dieciseisavos',
+  round_of_16: 'Octavos',
+  quarter: 'Cuartos',
+  semi: 'Semis',
+  third_place: 'Tercer puesto',
+  final: 'Final',
+}
 
 type SpecialBetsRow = {
   balon: string | null
@@ -77,20 +87,42 @@ function virtualPredictionToPrediction(row: VirtualPredictionRow): Prediction {
   }
 }
 
-async function loadSpecialBets(admin: ReturnType<typeof createAdminClient>, userId: string): Promise<SpecialBetsRow | null> {
-  try {
-    const { data, error } = await admin
-      .from('special_bets')
+async function loadSpecialBets(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string
+): Promise<SpecialBetsRow | null> {
+  const selectSpecials = async (client: typeof supabase | ReturnType<typeof createAdminClient>, table: string) => {
+    const { data, error } = await client
+      .from(table)
       .select('balon, bota, guante')
       .eq('user_id', userId)
       .maybeSingle()
 
     if (error) throw error
     return data as SpecialBetsRow | null
+  }
+
+  try {
+    const data = await selectSpecials(supabase, 'special_bets')
+    if (data) return data
   } catch (error) {
     const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error)
-    if (message.includes('special_bets') || message.includes('relation') || message.includes('does not exist')) return null
-    throw error
+    if (!message.includes('special_bets') && !message.includes('relation') && !message.includes('does not exist')) throw error
+  }
+
+  try {
+    const data = await selectSpecials(admin, 'special_bets')
+    if (data) return data
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error)
+    if (!message.includes('special_bets') && !message.includes('relation') && !message.includes('does not exist')) throw error
+  }
+
+  try {
+    return await selectSpecials(admin, 'especiales')
+  } catch {
+    return null
   }
 }
 
@@ -128,6 +160,49 @@ function statusCount(rows: MatchAuditRow[], status: AuditStatus) {
 
 function filterHref(userId: string, stage: StageKey, result: AuditStatus, activeResult: AuditStatus | null) {
   return hrefFor(userId, stage, activeResult === result ? null : result)
+}
+
+function normalizeTiebreakerKey(key: string) {
+  return key.trim().replace(/^virtual-P/i, 'virtual-p')
+}
+
+function formatScoreText(prediction?: Prediction) {
+  return prediction ? `${prediction.home_score}-${prediction.away_score}` : null
+}
+
+function formatTiebreakerText(
+  row: UserTiebreakerRow,
+  matches: Match[],
+  predictions: Prediction[]
+) {
+  const key = normalizeTiebreakerKey(row.tiebreaker_key)
+  const thirdPair = key.match(/^3rd-(.+)-vs-(.+)$/)
+  if (thirdPair) {
+    return `En el desempate de mejores terceros entre ${thirdPair[1]} y ${thirdPair[2]}, el usuario eligio a ${row.team}.`
+  }
+
+  const thirdRank = key.match(/^3rd-rank-(.+)$/)
+  if (thirdRank) {
+    return `En el desempate de mejores terceros entre ${thirdRank[1].split('-').join(', ')}, el usuario eligio este orden: ${row.team}.`
+  }
+
+  const groupTie = key.match(/^Grupo\s+([A-L])_pos_(\d+)$/)
+  if (groupTie) {
+    const position = Number(groupTie[2]) + 1
+    return `En el desempate del Grupo ${groupTie[1]} para el puesto ${position}, el usuario eligio a ${row.team}.`
+  }
+
+  const prediction = predictions.find((item) => normalizeTiebreakerKey(item.match_id) === key)
+  const match = matches.find((item) => normalizeTiebreakerKey(item.id) === key)
+  if (match) {
+    const stage = STAGE_LABELS[match.stage] ?? 'Eliminatorias'
+    const score = formatScoreText(prediction)
+    return score
+      ? `En ${stage}, el cruce termino ${score} y eligio a ${row.team}.`
+      : `En ${stage}, el usuario eligio a ${row.team} para avanzar.`
+  }
+
+  return `En el desempate entre los equipos involucrados, el usuario eligio a ${row.team}.`
 }
 
 function ResultBadge({ status }: { status: AuditStatus }) {
@@ -188,7 +263,9 @@ function MatchAuditCard({ row }: { row: MatchAuditRow }) {
           </div>
           <div className="rounded-[14px] px-4 py-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)' }}>
             <p className="font-mono text-[10px] font-extrabold tracking-[0.14em] uppercase text-muted">Cruce oficial</p>
-            <p className="font-bold text-[13px] text-white mt-1">{row.officialHome} vs {row.officialAway}</p>
+            <p className="font-bold text-[13px] text-white mt-1">
+              {row.hasOfficialTeams ? `${row.officialHome} vs ${row.officialAway}` : 'Pendiente'}
+            </p>
             <p className="font-mono text-[11px] text-muted mt-2">Resultado: <b className="text-white">{row.officialScore}</b></p>
           </div>
           {row.crossMatches === false && (
@@ -264,7 +341,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     supabase.from('virtual_knockout_predictions').select('*'),
     supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
     supabase.from('user_prediction_tiebreakers').select('user_id, tiebreaker_key, team'),
-    loadSpecialBets(admin, userId),
+    loadSpecialBets(supabase, admin, userId),
   ])
 
   const allTypedPredictions = [
@@ -276,7 +353,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     ...((userVirtualPredictions ?? []) as VirtualPredictionRow[]).map(virtualPredictionToPrediction),
   ]
   const userTiebreakers = ((allTiebreakers ?? []) as UserTiebreakerRow[]).filter((row) => row.user_id === userId)
-  const hasSpecialBets = Boolean(specialBets?.balon || specialBets?.bota || specialBets?.guante)
+  const hasSpecialBets = [specialBets?.balon, specialBets?.bota, specialBets?.guante].some((value) => Boolean(value?.trim()))
   const participantRows = (participants ?? []).map((participant) => ({
     user_id: participant.user_id,
     name: participant.name,
@@ -371,11 +448,11 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
         {userTiebreakers.length > 0 && (
           <div className="mb-4 rounded-[16px] px-4 py-4 text-[13px] font-semibold leading-relaxed" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
             <p className="font-extrabold text-white mb-2">Desempates guardados</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid gap-2">
               {userTiebreakers.map((row) => (
-                <span key={`${row.tiebreaker_key}-${row.team}`} className="rounded-full px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em]" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}>
-                  {row.tiebreaker_key}: {row.team}
-                </span>
+                <p key={`${row.tiebreaker_key}-${row.team}`} className="rounded-[12px] px-3 py-2 text-[12px] font-bold" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}>
+                  {formatTiebreakerText(row, typedMatches, typedUserPredictions)}
+                </p>
               ))}
             </div>
           </div>

@@ -34,12 +34,13 @@ const THIRD_P    = 103
 
 // Layout constants (px)
 const CARD_W   = 152
-const CARD_H   = 52      // UNIT = CARD_H (no gap → math is clean)
-const UNIT     = CARD_H
+const CARD_H   = 52
+const MATCH_GAP = 10
+const UNIT     = CARD_H + MATCH_GAP
 const COL_GAP  = 22
 const COL_STEP = CARD_W + COL_GAP   // 174
 
-const BRACKET_H   = 16 * UNIT        // 832
+const BRACKET_H   = 16 * UNIT
 const HEADER_H    = 28
 const CHAMPION_W  = 120
 const THIRD_BELOW = 24               // gap between main bracket and 3rd-place row
