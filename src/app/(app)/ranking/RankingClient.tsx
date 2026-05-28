@@ -59,6 +59,11 @@ function RankRow({
   rankingStarted: boolean
 }) {
   const hasPredictions = (entry.predictions_count ?? 0) > 0
+  const statusText = entry.prode_status === 'complete'
+    ? 'Prode completo'
+    : hasPredictions
+    ? 'Prode en proceso'
+    : 'Todavia no cargo su Prode'
   const posColor = !rankingStarted ? '#8A8A8A' : isMe ? '#FF6B00' : (TOP3_COLOR[entry.rank] ?? '#4a4a4a')
 
   return (
@@ -112,8 +117,8 @@ function RankRow({
           </div>
           <div className="truncate font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted sm:tracking-[0.16em]">
             {hasPredictions
-              ? `${entry.exact_predictions ?? 0} exactas · ${entry.correct_result_predictions ?? 0} parciales · ${entry.incorrect_predictions ?? 0} incorrectas`
-              : 'Registrado · todavía no cargó su Prode'}
+              ? `${statusText} · ${entry.exact_predictions ?? 0} exactas · ${entry.correct_result_predictions ?? 0} parciales · ${entry.incorrect_predictions ?? 0} incorrectas`
+              : statusText}
           </div>
         </div>
       </div>
@@ -292,7 +297,9 @@ export function RankingClient({
                   </span>
                 </div>
                 <div className="truncate font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted sm:tracking-[0.16em]">
-                  {meEntry.exact_predictions ?? 0} exactas · {meEntry.correct_result_predictions ?? 0} parciales · {meEntry.incorrect_predictions ?? 0} incorrectas
+                  {(meEntry.predictions_count ?? 0) > 0
+                    ? `Prode en proceso · ${meEntry.exact_predictions ?? 0} exactas · ${meEntry.correct_result_predictions ?? 0} parciales · ${meEntry.incorrect_predictions ?? 0} incorrectas`
+                    : 'Todavia no cargo su Prode'}
                 </div>
               </div>
             </div>

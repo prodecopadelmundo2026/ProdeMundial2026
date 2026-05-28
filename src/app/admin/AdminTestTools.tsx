@@ -59,7 +59,7 @@ export function AdminTestTools() {
         <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', background: 'rgba(255,177,92,0.12)', color: '#FFB15C', border: '1px solid rgba(255,177,92,0.2)', padding: '3px 8px', borderRadius: '999px' }}>
           Dev
         </span>
-        <p style={{ fontSize: '13px', fontWeight: 700, color: '#cfcfcf' }}>Herramientas de prueba</p>
+        <p style={{ fontSize: '13px', fontWeight: 700, color: '#cfcfcf' }}>Herramientas de prueba (Admin)</p>
       </div>
 
       <div style={{ padding: '16px 20px' }}>
@@ -69,17 +69,17 @@ export function AdminTestTools() {
               1 - Borrar resultados
             </button>
             <button style={pill({ background: 'rgba(255,107,0,0.1)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.2)' })} onClick={() => setState('confirm-fill')}>
-              2 - Completar aleatorio
+              2 - Generar datos de prueba
             </button>
             <button style={pill({ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.1)' })} onClick={() => setState('confirm-both')}>
-              3 - Reset + completar
+              3 - Reset + generar
             </button>
           </div>
         )}
 
         {state === 'confirm-reset' && (
           <Confirm
-            text={<>Borrar todos los resultados y volver los partidos a <strong style={{ color: '#fff' }}>pendiente</strong>?</>}
+            text={<>Esto puede reemplazar datos oficiales existentes. Borrar todos los resultados y volver los partidos a <strong style={{ color: '#fff' }}>pendiente</strong>?</>}
             confirmLabel="Si, borrar"
             confirmStyle={{ background: 'rgba(255,59,59,0.15)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.3)' }}
             onConfirm={() => run(adminResetMatchResults)}
@@ -90,7 +90,7 @@ export function AdminTestTools() {
 
         {state === 'confirm-fill' && (
           <Confirm
-            text={<>Completar todos los partidos con goles aleatorios y marcarlos como <strong style={{ color: '#fff' }}>Finalizado</strong>?</>}
+            text={<>Esto puede reemplazar resultados existentes. Completar todos los partidos con goles aleatorios y marcarlos como <strong style={{ color: '#fff' }}>Finalizado</strong>?</>}
             confirmLabel="Si, completar"
             confirmStyle={{ background: 'rgba(255,107,0,0.15)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.3)' }}
             onConfirm={() => run(adminFillMatchesRandomly)}
@@ -101,7 +101,7 @@ export function AdminTestTools() {
 
         {state === 'confirm-both' && (
           <Confirm
-            text={<>Borrar resultados y luego completar todo con goles aleatorios?</>}
+            text={<>Esto puede reemplazar resultados existentes. Borrar resultados y luego completar todo con goles aleatorios?</>}
             confirmLabel="Si, reset + completar"
             confirmStyle={{ background: '#141414', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.3)' }}
             onConfirm={() => run(async () => {

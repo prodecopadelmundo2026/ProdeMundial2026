@@ -99,6 +99,7 @@ type RankingEntry = {
   exact_predictions: number
   correct_result_predictions: number
   predictions_count?: number
+  prode_status?: 'empty' | 'in_progress' | 'complete'
 }
 
 type MatchSummary = Pick<Match, 'home_team' | 'away_team' | 'home_score' | 'away_score' | 'stage' | 'status'>
@@ -158,7 +159,7 @@ function RankMark({
   if (!active) {
     return (
       <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted min-[720px]:text-[11px]">
-        Registrado
+        Sin puntos
       </span>
     )
   }
@@ -186,7 +187,7 @@ export default async function HomePage() {
   todayStart.setUTCHours(0, 0, 0, 0)
 
   const [
-    { count: inscriptos },
+    { count: jugadores },
     { count: myPredsCount },
     { data: upcoming },
     { data: topRanking },
@@ -198,7 +199,7 @@ export default async function HomePage() {
     { data: allMatchRows },
     { data: rankingRows },
   ] = await Promise.all([
-    admin.from('authorized_emails').select('*', { count: 'exact', head: true }).eq('active', true),
+    admin.from('authorized_emails').select('*', { count: 'exact', head: true }).eq('active', true).is('deleted_at', null),
     user
       ? supabase.from('predictions').select('*', { count: 'exact', head: true }).limit(1)
       : Promise.resolve({ count: 0 }),
@@ -236,14 +237,9 @@ export default async function HomePage() {
   }
 
   const activeRankingIds = new Set(((rankingRows ?? []) as Array<{ user_id: string }>).map((entry) => entry.user_id))
-  const participantIds = new Set<string>()
-  // Todos en ranking_entries son participantes
-  for (const userId of activeRankingIds) {
-    participantIds.add(userId)
-  }
-  // También quien tenga predicciones aunque no esté aún en ranking_entries
+  const prodeInProcessIds = new Set<string>()
   for (const userId of predictionCounts.keys()) {
-    participantIds.add(userId)
+    if (activeRankingIds.has(userId)) prodeInProcessIds.add(userId)
   }
   for (const specialBet of (specialBetRows ?? []) as Array<{
     user_id: string
@@ -251,8 +247,8 @@ export default async function HomePage() {
     bota: string | null
     guante: string | null
   }>) {
-    if (specialBet.balon || specialBet.bota || specialBet.guante) {
-      participantIds.add(specialBet.user_id)
+    if (activeRankingIds.has(specialBet.user_id) && (specialBet.balon || specialBet.bota || specialBet.guante)) {
+      prodeInProcessIds.add(specialBet.user_id)
       predictionCounts.set(specialBet.user_id, (predictionCounts.get(specialBet.user_id) ?? 0) + 1)
     }
   }
@@ -266,6 +262,7 @@ export default async function HomePage() {
   const typedTopRanking = ((topRanking ?? []) as RankingEntry[]).map((entry) => ({
     ...entry,
     predictions_count: predictionCounts.get(entry.user_id) ?? 0,
+    prode_status: (predictionCounts.get(entry.user_id) ?? 0) > 0 ? 'in_progress' as const : 'empty' as const,
   }))
   const isInTop10 = user ? typedTopRanking.some(e => e.user_id === user.id) : false
 
@@ -277,7 +274,11 @@ export default async function HomePage() {
       .eq('user_id', user.id)
       .maybeSingle()
     myRanking = data
-      ? { ...(data as RankingEntry), predictions_count: predictionCounts.get((data as RankingEntry).user_id) ?? 0 }
+      ? {
+          ...(data as RankingEntry),
+          predictions_count: predictionCounts.get((data as RankingEntry).user_id) ?? 0,
+          prode_status: (predictionCounts.get((data as RankingEntry).user_id) ?? 0) > 0 ? 'in_progress' as const : 'empty' as const,
+        }
       : null
   }
 
@@ -470,8 +471,8 @@ export default async function HomePage() {
         style={{ borderTop: '2px solid #0A0A0A', borderBottom: '2px solid #0A0A0A' }}
       >
         <div className="max-w-[1280px] mx-auto px-5 py-6 grid grid-cols-1 gap-x-2 gap-y-6 min-[680px]:grid-cols-3 min-[720px]:gap-5 min-[1100px]:grid-cols-5">
-          <StatItem num={inscriptos ?? typedTopRanking.length} label="Inscriptos" live />
-          <StatItem num={participantIds.size} label="Participantes" />
+          <StatItem num={jugadores ?? typedTopRanking.length} label="Jugadores" live />
+          <StatItem num={prodeInProcessIds.size} label="Prodes en proceso" />
           <StatItem num={TOURNAMENT_TOTAL_POINTS} label="Puntos en juego" />
           <StatItem num={`${finishedMatches} de ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" />
           <StatItem num={`${aliveTeams} de ${TOURNAMENT_TOTAL_TEAMS}`} label="Selecciones" />
@@ -583,8 +584,8 @@ export default async function HomePage() {
                           style={{ fontSize: 10, color: '#8A8A8A', letterSpacing: '.16em' }}
                         >
                           {hasPredictions
-                            ? `${entry.exact_predictions ?? 0} exactas · ${entry.correct_result_predictions ?? 0} parciales`
-                            : 'Registrado · todavía no cargó su Prode'}
+                            ? `Prode en proceso · ${entry.exact_predictions ?? 0} exactas · ${entry.correct_result_predictions ?? 0} parciales`
+                            : 'Todavia no cargo su Prode'}
                         </span>
                       </div>
                     </div>
@@ -649,8 +650,8 @@ export default async function HomePage() {
                           style={{ fontSize: 10, color: '#8A8A8A', letterSpacing: '.16em' }}
                         >
                           {(myRanking.predictions_count ?? 0) > 0
-                            ? `${myRanking.exact_predictions ?? 0} exactas · ${myRanking.correct_result_predictions ?? 0} parciales`
-                            : 'Registrado · todavía no cargó su Prode'}
+                            ? `Prode en proceso · ${myRanking.exact_predictions ?? 0} exactas · ${myRanking.correct_result_predictions ?? 0} parciales`
+                            : 'Todavia no cargo su Prode'}
                         </span>
                       </div>
                     </div>

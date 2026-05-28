@@ -117,6 +117,7 @@ export default async function RankingPage() {
   ).map((entry) => ({
     ...entry,
     predictions_count: predictionCounts.get(entry.user_id) ?? 0,
+    prode_status: (predictionCounts.get(entry.user_id) ?? 0) > 0 ? 'in_progress' as const : 'empty' as const,
   }))
 
   return (

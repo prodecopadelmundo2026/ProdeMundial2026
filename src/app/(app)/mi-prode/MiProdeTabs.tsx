@@ -634,7 +634,7 @@ export function MiProdeTabs({
 
         {isAdmin && (
           <div className="flex items-center gap-2">
-            {/* Aleatorio — tab-aware */}
+            {/* Admin-only test data generator — tab-aware */}
             <button
               onClick={() => {
                 if (prodeLocked) return
@@ -643,6 +643,8 @@ export function MiProdeTabs({
                 } else if (activeTab === 'eliminatoria') {
                   setBracketModalSignal((v) => v + 1)
                 } else if (activeTab === 'especiales') {
+                  const ok = window.confirm('Esto puede reemplazar apuestas especiales existentes. ¿Continuar?')
+                  if (!ok) return
                   try {
                     const next = randomSpecials()
                     window.dispatchEvent(new CustomEvent<SpecialBetsValues>('prode-specials-randomized', { detail: next }))
@@ -652,7 +654,7 @@ export function MiProdeTabs({
               disabled={fakeState === 'saving' || prodeLocked}
               className="inline-flex items-center gap-[6px] px-3 py-[7px] rounded-[10px] font-bold text-[12px] transition-all duration-150 disabled:opacity-40"
               style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}
-              title="Cargá pronósticos aleatorios para la fase activa"
+              title="Generar datos de prueba para la fase activa"
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = '#1c1c1c'
                 e.currentTarget.style.color = '#fff'
@@ -663,7 +665,7 @@ export function MiProdeTabs({
               }}
             >
               <Shuffle size={13} strokeWidth={2.4} style={{ color: '#A8F0D8' }} />
-              Aleatorio
+              Generar datos de prueba (Admin)
             </button>
 
             {/* Borrar */}
@@ -702,7 +704,7 @@ export function MiProdeTabs({
         >
           <p className="text-muted">
             {fakeState === 'confirm'
-              ? '¿Cargás pronósticos aleatorios para todos los partidos de grupos?'
+              ? 'Esto puede reemplazar pronosticos existentes de grupos. ¿Continuar?'
               : fakeState === 'saving'
               ? 'Cargando...'
               : fakeState === 'saved'

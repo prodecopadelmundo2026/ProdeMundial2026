@@ -26,6 +26,7 @@ type ScoreMap = Record<string, { home_score: number; away_score: number }>
 
 function revalidateCorePaths() {
   revalidatePath('/admin')
+  revalidatePath('/admin/whitelist')
   revalidatePath('/fixture')
   revalidatePath('/mi-prode')
   revalidatePath('/ranking')
@@ -141,7 +142,7 @@ export async function upsertAuthorizedEmail(formData: FormData) {
 
   if (error) throw new Error(error.message)
 
-  revalidatePath('/admin/whitelist')
+  revalidateCorePaths()
 }
 
 export async function updateAuthorizedEmail(formData: FormData) {
@@ -177,6 +178,7 @@ export async function updateAuthorizedEmail(formData: FormData) {
       email,
       label: label || null,
       active,
+      deleted_at: null,
       updated_at: new Date().toISOString(),
     })
     .eq('email', originalEmail)
@@ -195,7 +197,7 @@ export async function updateAuthorizedEmail(formData: FormData) {
     .eq('email', originalEmail)
 
   if (profileError) throw new Error(profileError.message)
-  revalidatePath('/admin/whitelist')
+  revalidateCorePaths()
 }
 
 export async function setAuthorizedEmailActive(email: string, active: boolean) {
@@ -209,7 +211,57 @@ export async function setAuthorizedEmailActive(email: string, active: boolean) {
 
   if (error) throw new Error(error.message)
 
-  revalidatePath('/admin/whitelist')
+  revalidateCorePaths()
+}
+
+export async function softDeleteAuthorizedEmail(email: string): Promise<AdminToolResult> {
+  try {
+    await requireAdmin()
+    const admin = createAdminClient()
+    const normalizedEmail = email.toLowerCase().trim()
+    if (!normalizedEmail) throw new Error('Email invalido')
+
+    const { error } = await admin
+      .from('authorized_emails')
+      .update({
+        active: false,
+        deleted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('email', normalizedEmail)
+
+    if (error) throw new Error(error.message)
+
+    revalidateCorePaths()
+    return { ok: true, message: 'Participante movido a Eliminados. Sus datos historicos se conservaron.' }
+  } catch (error) {
+    return adminToolError(error)
+  }
+}
+
+export async function restoreAuthorizedEmail(email: string, active = true): Promise<AdminToolResult> {
+  try {
+    await requireAdmin()
+    const admin = createAdminClient()
+    const normalizedEmail = email.toLowerCase().trim()
+    if (!normalizedEmail) throw new Error('Email invalido')
+
+    const { error } = await admin
+      .from('authorized_emails')
+      .update({
+        active,
+        deleted_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('email', normalizedEmail)
+
+    if (error) throw new Error(error.message)
+
+    revalidateCorePaths()
+    return { ok: true, message: active ? 'Participante restaurado como activo.' : 'Participante restaurado como deshabilitado.' }
+  } catch (error) {
+    return adminToolError(error)
+  }
 }
 
 export async function toggleProdeLockOverride() {

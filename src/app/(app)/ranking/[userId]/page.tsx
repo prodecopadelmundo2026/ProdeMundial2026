@@ -367,7 +367,14 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
       .select('id, name, email, avatar_url')
       .eq('id', userId)
       .maybeSingle()
-    if (profile) {
+    const { data: authorized } = profile?.email
+      ? await admin
+        .from('authorized_emails')
+        .select('active, deleted_at')
+        .eq('email', String(profile.email).toLowerCase().trim())
+        .maybeSingle()
+      : { data: null }
+    if (profile && authorized?.active && !authorized.deleted_at) {
       participantRows.push({
         user_id: profile.id,
         name: profile.name || profile.email || 'Participante',
@@ -433,9 +440,9 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
           <SummaryLink label="Incorrectas" value={statusCount(auditRows, 'incorrect')} href={filterHref(userId, activeStage, 'incorrect', activeResult)} active={activeResult === 'incorrect'} />
         </div>
 
-        {!isInRankingEntries && userTypedPredictions.length === 0 && userTiebreakers.length === 0 && !hasSpecialBets && (
+        {userTypedPredictions.length === 0 && userTiebreakers.length === 0 && !hasSpecialBets && (
           <div className="mb-4 rounded-[16px] px-4 py-4 text-[13px] font-semibold leading-relaxed text-muted" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
-            Este participante todavía no cargó pronósticos.
+            Este jugador todavia no cargo pronosticos.
           </div>
         )}
 

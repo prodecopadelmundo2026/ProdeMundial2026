@@ -702,6 +702,13 @@ export function BracketView({
   }
 
   async function handleAdminRandomKnockout(rounds: RoundKey[]) {
+    if (!isAdmin) {
+      setAdminSaveState('error')
+      setAdminSaveError('Sin permisos de administrador.')
+      return
+    }
+    const confirmed = window.confirm('Esto puede reemplazar pronosticos existentes. ¿Continuar?')
+    if (!confirmed) return
     const targetMatches = rounds.length
       ? rounds.flatMap((round) => getAdminEligibleMatches(round))
       : getAdminEligibleMatches()
@@ -746,6 +753,13 @@ export function BracketView({
   }
 
   function handleAdminRandomSpecials() {
+    if (!isAdmin) {
+      setAdminSaveState('error')
+      setAdminSaveError('Sin permisos de administrador.')
+      return
+    }
+    const confirmed = window.confirm('Esto puede reemplazar apuestas especiales existentes. ¿Continuar?')
+    if (!confirmed) return
     try {
       const next = randomSpecials()
       window.dispatchEvent(new CustomEvent('prode-specials-randomized', { detail: next }))
@@ -783,8 +797,8 @@ export function BracketView({
   }, [activeRound])
 
   useEffect(() => {
-    if (openRandomModal) setRandomModalOpen(true)
-  }, [openRandomModal])
+    if (openRandomModal && isAdmin) setRandomModalOpen(true)
+  }, [openRandomModal, isAdmin])
 
   const adminEligibleByRound = availableRounds
     .map((round) => ({ round, count: getAdminEligibleMatches(round).length }))
@@ -797,11 +811,18 @@ export function BracketView({
 
   const canLoadSelectedRounds = selectedAdminCount > 0 && adminSaveState !== 'saving'
 
-  const eligibleForQuickFill = knockoutMatches.filter(
-    (m) => m.status === 'upcoming' && now < new Date(m.locked_at) && isMatchReady(m)
-  ).length
+  const eligibleForQuickFill = isAdmin
+    ? knockoutMatches.filter(
+        (m) => m.status === 'upcoming' && now < new Date(m.locked_at) && isMatchReady(m)
+      ).length
+    : 0
 
   async function handleQuickFillAll() {
+    if (!isAdmin) {
+      setQuickFillError('Sin permisos de administrador.')
+      setQuickFillState('error')
+      return
+    }
     const targetMatches = knockoutMatches.filter(
       (m) => m.status === 'upcoming' && now < new Date(m.locked_at) && isMatchReady(m)
     )
@@ -855,7 +876,7 @@ export function BracketView({
         </div>
       )}
 
-      {/* Quick fill banner — visible to all users when there are open knockout matches */}
+      {/* Admin-only quick fill banner */}
       {eligibleForQuickFill > 0 && quickFillState !== 'idle' && (
         <div
           className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 rounded-[16px] text-[13px]"
@@ -863,7 +884,7 @@ export function BracketView({
         >
           <p className="text-muted">
             {quickFillState === 'confirm'
-              ? `¿Completar los ${eligibleForQuickFill} partidos de eliminatorias con pronósticos aleatorios?`
+              ? `Esto puede reemplazar pronosticos existentes en ${eligibleForQuickFill} partidos de eliminatorias. ¿Continuar?`
               : quickFillState === 'saving'
               ? 'Cargando bracket completo...'
               : quickFillState === 'saved'
@@ -904,8 +925,8 @@ export function BracketView({
           style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)' }}
         >
           <div>
-            <p className="font-extrabold text-white text-[13px] leading-snug">Completar bracket de una vez</p>
-            <p className="text-[12px] mt-0.5 text-muted">{eligibleForQuickFill} partidos disponibles · pronósticos aleatorios</p>
+            <p className="font-extrabold text-white text-[13px] leading-snug">Autocompletar Prode (Admin)</p>
+            <p className="text-[12px] mt-0.5 text-muted">{eligibleForQuickFill} partidos disponibles · genera datos de prueba</p>
           </div>
           <button
             onClick={() => setQuickFillState('confirm')}
@@ -915,7 +936,7 @@ export function BracketView({
             onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,107,0,0.14)' }}
           >
             <Zap size={12} strokeWidth={2.5} />
-            Completar todo
+            Autocompletar Prode (Admin)
           </button>
         </div>
       )}
@@ -926,13 +947,13 @@ export function BracketView({
         </p>
       )}
 
-      {randomModalOpen && (
+      {isAdmin && randomModalOpen && (
         <div
           className="fixed inset-0 z-50 overflow-y-auto"
           style={{ background: 'rgba(0,0,0,0.72)' }}
           role="dialog"
           aria-modal="true"
-          aria-label="Cargar pronosticos aleatorios"
+          aria-label="Autocompletar Prode Admin"
         >
           <div className="flex min-h-full items-start min-[540px]:items-center justify-center px-4 py-8">
           <div
@@ -944,9 +965,9 @@ export function BracketView({
                 <p className="text-[11px] font-extrabold tracking-[0.18em] uppercase" style={{ color: '#FF6B00' }}>
                   Herramienta admin
                 </p>
-                <h2 className="mt-1 text-[22px] font-extrabold text-white">Cargar aleatorios</h2>
+                <h2 className="mt-1 text-[22px] font-extrabold text-white">Autocompletar Prode (Admin)</h2>
                 <p className="mt-1 text-[13px] text-muted">
-                  Elegi fases con cruces disponibles. No se cargan apuestas especiales desde este modal.
+                  Elegi fases con cruces disponibles. Antes de guardar se pedira confirmacion porque puede reemplazar datos existentes.
                 </p>
               </div>
               <button

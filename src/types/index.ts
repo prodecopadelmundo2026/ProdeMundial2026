@@ -45,5 +45,6 @@ export type RankingEntry = {
   correct_result_predictions: number
   incorrect_predictions?: number
   predictions_count?: number
+  prode_status?: 'empty' | 'in_progress' | 'complete'
   rank: number
 }

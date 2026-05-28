@@ -60,7 +60,7 @@ export default async function AdminWhitelistPage({ searchParams }: Props) {
               className="font-display uppercase leading-[.9] tracking-[-0.04em]"
               style={{ fontSize: 'clamp(36px, 6vw, 72px)' }}
             >
-              Participantes <em className="not-italic italic" style={{ color: '#FF6B00' }}>Habilitados</em>
+              Gestion de <em className="not-italic italic" style={{ color: '#FF6B00' }}>Usuarios</em>
             </h1>
             <div className="flex flex-wrap gap-2">
               <Link
@@ -80,7 +80,7 @@ export default async function AdminWhitelistPage({ searchParams }: Props) {
             </div>
           </div>
           <p className="font-mono text-[12px] font-bold text-muted tracking-[0.04em] mt-[8px]">
-            Emails habilitados para participar
+            Activos, deshabilitados y eliminados sin borrar datos historicos
           </p>
         </div>
 
