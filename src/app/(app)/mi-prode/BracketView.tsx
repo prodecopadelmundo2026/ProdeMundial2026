@@ -501,6 +501,7 @@ export function BracketView({
       let changed = false
       const next = { ...prev }
       for (const match of knockoutMatches) {
+        if (match.id in next) continue
         const pred = predMap[match.id]
         if (!pred) continue
         const home = pred.home_score.toString()
@@ -553,6 +554,10 @@ export function BracketView({
     if (clearedStages.has(match.stage)) delete effectivePredMap[match.id]
   }
   for (const [matchId, { home, away }] of Object.entries(localInputs)) {
+    if (home === '' || away === '') {
+      delete effectivePredMap[matchId]
+      continue
+    }
     if (home !== '' && away !== '') {
       const h = parseScoreInput(home)
       const a = parseScoreInput(away)

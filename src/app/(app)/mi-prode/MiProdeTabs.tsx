@@ -169,6 +169,7 @@ export function MiProdeTabs({
     setLocalKnockoutPreds((prev) => {
       const next = { ...prev }
       for (const match of projectedKnockoutMatches) {
+        if (match.id in next) continue
         const pred = predMap[match.id]
         if (pred) next[match.id] = { home: String(pred.home_score), away: String(pred.away_score) }
       }
@@ -187,6 +188,7 @@ export function MiProdeTabs({
     setLocalGroupPreds((prev) => {
       const next = { ...prev }
       for (const match of groupMatches) {
+        if (match.id in next) continue
         const pred = predMap[match.id]
         if (pred) next[match.id] = { home: String(pred.home_score), away: String(pred.away_score) }
       }
@@ -363,6 +365,10 @@ export function MiProdeTabs({
       if (clearedStages.has(match.stage)) delete merged[match.id]
     }
     for (const [matchId, { home, away }] of Object.entries(localGroupPreds)) {
+      if (home === '' || away === '') {
+        delete merged[matchId]
+        continue
+      }
       const h = parseScoreInput(home)
       const a = parseScoreInput(away)
       if (h != null && a != null) {
@@ -372,6 +378,10 @@ export function MiProdeTabs({
     for (const [matchId, { home, away }] of Object.entries(localKnockoutPreds)) {
       const match = projectedKnockoutMatches.find((m) => m.id === matchId)
       if (match && clearedStages.has(match.stage)) continue
+      if (home === '' || away === '') {
+        delete merged[matchId]
+        continue
+      }
       const h = parseScoreInput(home)
       const a = parseScoreInput(away)
       if (h != null && a != null) {
