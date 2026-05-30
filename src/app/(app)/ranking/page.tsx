@@ -144,6 +144,9 @@ export default async function RankingPage() {
           <p className="mt-4 max-w-[620px] text-[13px] font-medium leading-relaxed text-muted">
             Tocá cualquier jugador para ver su Prode completo: pronósticos, aciertos, errores y puntos partido por partido.
           </p>
+          <p className="mt-3 max-w-[620px] text-[13px] font-medium leading-relaxed text-[#cfcfcf]">
+            Esta tabla muestra a los participantes habilitados, sus puntos, exactas y parciales. Podés verla sin estar registrado para entender cómo se sigue el torneo.
+          </p>
         </div>
 
         {/* Info banner */}

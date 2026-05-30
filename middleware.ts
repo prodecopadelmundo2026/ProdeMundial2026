@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getSupabaseConfig, isSupabaseConfigured } from './src/lib/supabase/env'
 
-const PUBLIC_PATHS = ['/', '/login', '/auth/', '/ranking', '/reglas', '/premios', '/maintenance']
+const PUBLIC_PATHS = ['/', '/login', '/auth/', '/ranking', '/reglas', '/premios', '/fixture', '/maintenance']
 const MAINTENANCE_ALLOWED_PATHS = ['/login', '/auth/', '/maintenance']
 
 function isPublic(pathname: string) {
@@ -91,9 +91,10 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!user) {
-    const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/login'
-    return NextResponse.redirect(loginUrl)
+    const homeUrl = request.nextUrl.clone()
+    homeUrl.pathname = '/'
+    homeUrl.searchParams.set('desde', 'acceso')
+    return NextResponse.redirect(homeUrl)
   }
 
   const { data: hasAccess, error: accessError } = await supabase.rpc(

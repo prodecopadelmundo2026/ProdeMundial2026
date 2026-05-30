@@ -92,7 +92,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                   boxShadow: '0 6px 18px -8px rgba(255,107,0,.6)',
                 }}
               >
-                Entrar
+                Ingresar
               </Link>
             )}
           </div>

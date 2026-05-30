@@ -4,7 +4,6 @@ import { FixtureList } from './FixtureList'
 
 export default async function FixturePage() {
   const supabase = await createClient()
-  await supabase.auth.getUser() // ensure session is validated
 
   const matchesResult = await supabase
     .from('matches')
@@ -42,6 +41,9 @@ export default async function FixturePage() {
           </h1>
           <p className="text-muted text-[14px] mt-3">
             {matches.length} partidos · resultados en tiempo real
+          </p>
+          <p className="mt-3 max-w-[620px] text-[13px] font-medium leading-relaxed text-[#cfcfcf]">
+            El fixture es público para que puedas mirar el calendario completo antes de participar. Para cargar pronósticos sí necesitás tener tu correo habilitado.
           </p>
         </div>
 

@@ -175,16 +175,19 @@ export default function LoginPage() {
               style={{ background: 'rgba(168,240,216,0.1)', color: '#A8F0D8' }}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-[#A8F0D8]" />
-              TEMPORADA 2026
+              Acceso habilitado
             </div>
             <h1
               className="text-[clamp(36px,8vw,52px)] leading-[.92] tracking-[-0.03em] uppercase"
               style={{ fontFamily: 'var(--font-archivo-black, system-ui, sans-serif)' }}
             >
-              Entrá<br />al <em className="not-italic" style={{ color: '#FF6B00' }}>Prode</em>
+              Ingresar<br />al <em className="not-italic" style={{ color: '#FF6B00' }}>Prode</em>
             </h1>
             <p className="mt-3 text-[#bdbdbd] text-[15px] leading-relaxed font-medium">
-              Elegí tu cuenta de Google. Si ese correo está en la lista de inscriptos, entrás a la cancha.
+              Este no es un registro abierto. Elegí tu cuenta de Google solamente si ya nos escribiste y tu correo fue habilitado para prueba o participación oficial.
+            </p>
+            <p className="mt-3 rounded-[14px] bg-mint/10 px-4 py-3 text-[12px] font-bold leading-relaxed text-mint">
+              Iniciar sesión con Google solo valida si tu correo ya está autorizado. No crea una cuenta ni una inscripción nueva.
             </p>
           </div>
 
@@ -247,8 +250,14 @@ export default function LoginPage() {
               Si usás Hotmail, Outlook o Yahoo, tenés que elegir una cuenta Google asociada a ese mismo correo cargado en Participantes habilitados.
             </p>
             <p className="text-[#bdbdbd] text-[12px] leading-relaxed mb-3 font-semibold">
-              Si todavía no tenés acceso, escribinos por WhatsApp.
+              Si todavía no tenés acceso, primero podés recorrer la Home, leer reglas y escribirnos para probar el sistema o participar.
             </p>
+            <Link
+              href="/"
+              className="mb-3 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[12px] font-extrabold text-white transition-colors hover:bg-white/10"
+            >
+              Volver a la Home
+            </Link>
             <div className="grid gap-2 text-left">
               {SALES_CONTACTS.map((contact) => (
                 <div
