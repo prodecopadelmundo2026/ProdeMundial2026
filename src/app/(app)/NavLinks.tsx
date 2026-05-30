@@ -12,6 +12,7 @@ const PUBLIC_LINKS = [
   { href: '/reglas', label: 'Reglas', exact: false, anchor: false },
   { href: '/ranking', label: 'Ranking', exact: false, anchor: false },
   { href: '/fixture', label: 'Fixture', exact: false, anchor: false },
+  { href: '/#contacto', label: 'Contacto', exact: false, anchor: true },
 ]
 
 const AUTH_LINKS = [

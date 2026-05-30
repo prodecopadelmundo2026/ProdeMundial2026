@@ -184,10 +184,10 @@ export default function LoginPage() {
               Ingresar<br />al <em className="not-italic" style={{ color: '#FF6B00' }}>Prode</em>
             </h1>
             <p className="mt-3 text-[#bdbdbd] text-[15px] leading-relaxed font-medium">
-              Este no es un registro abierto. Elegí tu cuenta de Google solamente si ya nos escribiste, pagaste la inscripción y tu correo fue habilitado.
+              Este no es un registro abierto. Elegí tu cuenta de Google solamente si ya nos escribiste y tu correo fue habilitado para prueba o participación oficial.
             </p>
             <p className="mt-3 rounded-[14px] bg-mint/10 px-4 py-3 text-[12px] font-bold leading-relaxed text-mint">
-              Iniciar sesión con Google solo valida si tu correo ya está autorizado. No crea una inscripción nueva.
+              Iniciar sesión con Google solo valida si tu correo ya está autorizado. No crea una cuenta ni una inscripción nueva.
             </p>
           </div>
 
@@ -250,7 +250,7 @@ export default function LoginPage() {
               Si usás Hotmail, Outlook o Yahoo, tenés que elegir una cuenta Google asociada a ese mismo correo cargado en Participantes habilitados.
             </p>
             <p className="text-[#bdbdbd] text-[12px] leading-relaxed mb-3 font-semibold">
-              Si todavía no tenés acceso, primero podés recorrer la Home, leer reglas y escribirnos por WhatsApp para participar.
+              Si todavía no tenés acceso, primero podés recorrer la Home, leer reglas y escribirnos para probar el sistema o participar.
             </p>
             <Link
               href="/"

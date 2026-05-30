@@ -95,16 +95,20 @@ function SectionHead({ title, orange, sub, link }: { title: string; orange: stri
 
 function ContactLinks({ message = 'Hola! Quiero participar del Prode Mundial 2026.' }: { message?: string }) {
   return (
-    <div className="flex flex-wrap gap-2">
-      {SALES_CONTACTS.slice(0, 2).map((contact) => (
+    <div className="grid gap-3 min-[640px]:grid-cols-2">
+      {SALES_CONTACTS.map((contact) => (
         <a
           key={contact.phone}
           href={whatsappHref(contact.phone, message)}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center rounded-full border border-mint/20 bg-mint/10 px-4 py-2.5 text-[12px] font-extrabold text-mint transition-colors hover:bg-mint/15"
+          className="flex min-h-[68px] items-center justify-between gap-3 rounded-[16px] border border-mint/20 bg-mint/10 px-4 py-3 text-mint transition-colors hover:bg-mint/15"
         >
-          WhatsApp {contact.name.split(' ')[0]}
+          <span className="min-w-0">
+            <span className="block truncate text-[14px] font-extrabold text-white">{contact.name}</span>
+            <span className="mt-0.5 block truncate text-[12px] font-semibold text-mint">WhatsApp</span>
+          </span>
+          <span className="shrink-0 rounded-full bg-mint px-3 py-2 text-[12px] font-extrabold text-bg">Escribir</span>
         </a>
       ))}
     </div>
@@ -404,15 +408,15 @@ export default async function HomePage() {
 
             <p className="mt-6 text-[17px] leading-relaxed font-medium max-w-[520px]" style={{ color: '#d6d6d6' }}>
               Un torneo entre amigos para pronosticar todo el Mundial, seguir el ranking en vivo y competir por premios.
-              Podés mirar reglas, premios, ranking y fixture antes de iniciar sesión.
+              Primero miralo, después probalo si te interesa y recién ahí decidí si participás oficialmente.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3 items-center">
               <Link
-                href={user ? '/mi-prode' : '#participar'}
+                href={user ? '/mi-prode' : '#contacto'}
                 className="inline-flex items-center gap-[10px] px-[26px] py-[18px] rounded-full font-extrabold text-[15px] bg-orange text-bg transition-transform duration-150 hover:-translate-y-0.5 group shadow-[0_10px_28px_-10px_rgba(255,107,0,.6)] hover:shadow-[0_18px_36px_-10px_rgba(255,107,0,.8)]"
               >
-                {user && hasMyPredictions ? 'Ver mi prode' : user ? 'Hacer mi prode' : 'Cómo participar'}
+                {user && hasMyPredictions ? 'Ver mi prode' : user ? 'Hacer mi prode' : 'Probar o participar'}
                 <svg
                   className="w-[18px] h-[18px] transition-transform duration-200 group-hover:translate-x-1"
                   viewBox="0 0 24 24"
@@ -491,7 +495,7 @@ export default async function HomePage() {
       >
         <div className="max-w-[1280px] mx-auto px-5 py-6 grid grid-cols-1 gap-x-2 gap-y-6 min-[680px]:grid-cols-3 min-[720px]:gap-5 min-[1100px]:grid-cols-7">
           <StatItem num="$20.000" label="Inscripción" live />
-          <StatItem num="$3.000" label="Por referido" />
+          <StatItem num="$3.000" label="Recompensa referido" />
           <StatItem num={inscriptos ?? typedTopRanking.length} label="Inscriptos" live />
           <StatItem num={participantIds.size} label="Participantes" />
           <StatItem num={TOURNAMENT_TOTAL_POINTS} label="Puntos en juego" />
@@ -506,13 +510,13 @@ export default async function HomePage() {
           <SectionHead
             title="Primero"
             orange="entender"
-            sub="No necesitás iniciar sesión para conocer el proyecto. La idea es que mires todo tranquilo y después decidas si querés participar."
+            sub="No necesitás iniciar sesión para conocer el proyecto. La idea es que mires todo tranquilo, pidas una prueba si te interesa y después decidas si querés participar oficialmente."
           />
           <div className="grid grid-cols-1 gap-4 min-[760px]:grid-cols-3">
             {[
-              ['1', 'Recorré la plataforma', 'Visitá premios, reglas, ranking y fixture. Todo eso es público para que veas cómo funciona antes de pagar.'],
-              ['2', 'Cargá tu Prode', 'Cuando tu correo ya está habilitado, entrás con Google y completás todos los pronósticos antes del inicio del Mundial.'],
-              ['3', 'Seguí el ranking', 'Durante el torneo se actualizan puntos, aciertos, errores y posiciones para que todos puedan controlar la tabla.'],
+              ['1', 'Conocé el Prode', 'Visitá premios, reglas, ranking y fixture. Todo eso es público para que veas cómo funciona sin iniciar sesión.'],
+              ['2', 'Probalo si te interesa', 'Nos escribís y podemos habilitar temporalmente tu correo para que cargues pronósticos, explores y se lo muestres a tus amigos.'],
+              ['3', 'Decidí después', 'Si querés participar oficialmente, abonás la inscripción y quedás habilitado. Si no continuás, podemos deshabilitar el acceso.'],
             ].map(([step, title, desc]) => (
               <article key={step} className="rounded-[22px] bg-panel p-6" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
                 <span className="font-display text-[42px] leading-none text-orange">{step}</span>
@@ -554,23 +558,23 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section id="participar" style={{ padding: 'clamp(36px, 8vw, 76px) 20px' }}>
+      <section id="contacto" style={{ padding: 'clamp(36px, 8vw, 76px) 20px' }}>
         <div className="max-w-[1280px] mx-auto grid grid-cols-1 gap-5 min-[900px]:grid-cols-[1.05fr_0.95fr]">
           <article className="rounded-[24px] bg-panel p-6 min-[760px]:p-8" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-            <p className="text-[12px] font-extrabold uppercase tracking-[0.22em] text-mint">Acceso manual</p>
+            <p className="text-[12px] font-extrabold uppercase tracking-[0.22em] text-mint">Contacto y prueba</p>
             <h2 className="mt-4 font-display text-[clamp(32px,5vw,54px)] uppercase leading-[0.92] tracking-[-0.02em]">
-              Entrar con Google no es registrarse
+              ¿Querés participar o probar el sistema?
             </h2>
             <p className="mt-4 text-[14px] font-medium leading-relaxed text-[#cfcfcf]">
-              El sistema no tiene registro libre. Google solo confirma tu identidad y revisa si ese correo ya fue habilitado por la organización.
+              Podemos habilitar temporalmente tu correo para que pruebes la plataforma antes de decidir. Durante esa prueba podés cargar pronósticos, navegar y mostrarle el Prode a tus amigos.
             </p>
             <div className="mt-6 grid gap-3">
               {[
-                'Nos escribís por WhatsApp.',
-                'Realizás el pago de $20.000.',
-                'Nos enviás el correo que vas a usar.',
-                'Habilitamos ese correo en el sistema.',
-                'Desde ese momento podés ingresar con Google.',
+                'Nos escribís por WhatsApp y nos pasás el correo que querés usar.',
+                'Si querés probar, habilitamos temporalmente ese correo.',
+                'Ingresás con Google: Google no registra, solo valida si el correo está autorizado.',
+                'Si decidís participar oficialmente, abonás la inscripción de $20.000.',
+                'Si no continuás, los administradores pueden deshabilitar el acceso.',
               ].map((item, index) => (
                 <div key={item} className="flex items-start gap-3 rounded-[16px] bg-[#0f0f0f] px-4 py-3">
                   <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-orange text-[12px] font-extrabold text-bg">{index + 1}</span>
@@ -581,18 +585,18 @@ export default async function HomePage() {
           </article>
 
           <article className="rounded-[24px] bg-[#101010] p-6 min-[760px]:p-8" style={{ border: '1px solid rgba(168,240,216,0.18)' }}>
-            <p className="text-[12px] font-extrabold uppercase tracking-[0.22em] text-muted">Referidos y consultas</p>
+            <p className="text-[12px] font-extrabold uppercase tracking-[0.22em] text-muted">Organizadores</p>
             <h2 className="mt-4 font-display text-[clamp(32px,5vw,54px)] uppercase leading-[0.92] tracking-[-0.02em]">
-              Sumá gente y recuperá <em className="italic text-mint">$3.000</em>
+              Hablá con <em className="italic text-mint">nosotros</em>
             </h2>
             <p className="mt-4 text-[14px] font-medium leading-relaxed text-[#cfcfcf]">
-              Por cada referido que se anota y paga de tu parte, obtenés $3.000. También nos podés escribir si tenés dudas, viste un error o querés entender una regla.
+              La inscripción cuesta $20.000. Si una persona se inscribe utilizando tu referencia, $3.000 de esa inscripción pasan para vos como recompensa por referido. El resto se suma al pozo de premios y a la organización del torneo.
             </p>
             <div className="mt-6">
-              <ContactLinks />
+              <ContactLinks message="Hola! Quiero participar o probar el sistema del Prode Mundial 2026." />
             </div>
             <div className="mt-5 rounded-[18px] bg-mint/10 p-4 text-[13px] font-bold leading-relaxed text-mint">
-              Podés mirar toda la web antes de participar. El login recién tiene sentido cuando tu correo ya está habilitado.
+              Primero conocé el Prode, después probalo si te interesa y recién ahí decidí si querés participar oficialmente.
             </div>
           </article>
         </div>
@@ -819,7 +823,7 @@ export default async function HomePage() {
             </h5>
             <ul className="flex flex-col gap-[10px]">
               {[
-                user ? { href: '/mi-prode', label: 'Mi Prode' } : { href: '/#participar', label: 'Cómo participar' },
+                user ? { href: '/mi-prode', label: 'Mi Prode' } : { href: '/#contacto', label: 'Probar o participar' },
                 { href: '/ranking', label: 'Ranking en vivo' },
                 { href: '/premios', label: 'Premios' },
               ].map(({ href, label }) => (
