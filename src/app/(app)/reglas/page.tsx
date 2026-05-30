@@ -173,6 +173,9 @@ export default function ReglasPage() {
           >
             Mundial 2026 · USA · Canadá · México
           </p>
+          <p className="mt-4 max-w-[720px] text-[14px] font-medium leading-relaxed text-[#cfcfcf]">
+            Te recomendamos leer estas reglas antes de participar. Podés revisarlas sin iniciar sesión y preguntar por WhatsApp cualquier duda antes de pagar.
+          </p>
         </div>
 
         {/* ── Info banner ── */}

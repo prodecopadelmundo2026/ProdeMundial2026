@@ -11,6 +11,8 @@ import {
   TOURNAMENT_TOTAL_POINTS,
   TOURNAMENT_TOTAL_TEAMS,
 } from '@/lib/tournament-config'
+import { WelcomeModal } from '@/components/WelcomeModal'
+import { SALES_CONTACTS, whatsappHref } from '@/lib/sales-contacts'
 
 export const dynamic = 'force-dynamic'
 
@@ -87,6 +89,24 @@ function SectionHead({ title, orange, sub, link }: { title: string; orange: stri
         {sub && <p className="text-muted text-[15px] max-w-[420px] leading-relaxed mt-[14px]">{sub}</p>}
       </div>
       {link && <SectionLink href={link.href} label={link.label} />}
+    </div>
+  )
+}
+
+function ContactLinks({ message = 'Hola! Quiero participar del Prode Mundial 2026.' }: { message?: string }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {SALES_CONTACTS.slice(0, 2).map((contact) => (
+        <a
+          key={contact.phone}
+          href={whatsappHref(contact.phone, message)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center rounded-full border border-mint/20 bg-mint/10 px-4 py-2.5 text-[12px] font-extrabold text-mint transition-colors hover:bg-mint/15"
+        >
+          WhatsApp {contact.name.split(' ')[0]}
+        </a>
+      ))}
     </div>
   )
 }
@@ -318,9 +338,9 @@ export default async function HomePage() {
   const showPreTournamentBanner = typedTopRanking.every(e => e.total_points === 0)
   const rankingStarted = typedTopRanking.some(e => e.total_points > 0)
   const displayedRanking = myRanking ? [...typedTopRanking, myRanking] : typedTopRanking
-
   return (
     <>
+      {!user && <WelcomeModal />}
       {/* ─── HERO ──────────────────────────────────────────────── */}
       <section
         className="relative overflow-hidden min-h-[420px] min-[980px]:min-h-[760px] flex items-center"
@@ -365,34 +385,34 @@ export default async function HomePage() {
               }}
             >
               <span className="w-2 h-2 rounded-full bg-mint" style={{ animation: 'pulse-dot 1.6s infinite' }} />
-              Mundial 2026 · USA · Canadá · México
+              Mundial 2026 · Inscripción $20.000 · Objetivo 65 jugadores
             </div>
 
             <h1
               className="font-display uppercase leading-[0.86] tracking-[-0.04em]"
               style={{ fontSize: 'clamp(56px, 13vw, 168px)' }}
             >
-              <span className="block text-white">Jugá el</span>
+              <span className="block text-white">Prode</span>
               <span className="block text-orange italic">mundial</span>
               <span
                 className="inline-block bg-mint text-bg px-[0.18em] rounded-[14px]"
                 style={{ transform: 'translateY(0.05em)' }}
               >
-                con la banda
+                2026
               </span>
             </h1>
 
             <p className="mt-6 text-[17px] leading-relaxed font-medium max-w-[520px]" style={{ color: '#d6d6d6' }}>
-              Pronósticos partido a partido, ranking en vivo y premios para el podio.
-              Cargá tu prode antes del inicio del Mundial.
+              Un torneo entre amigos para pronosticar todo el Mundial, seguir el ranking en vivo y competir por premios.
+              Podés mirar reglas, premios, ranking y fixture antes de iniciar sesión.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3 items-center">
               <Link
-                href="/mi-prode"
+                href={user ? '/mi-prode' : '#participar'}
                 className="inline-flex items-center gap-[10px] px-[26px] py-[18px] rounded-full font-extrabold text-[15px] bg-orange text-bg transition-transform duration-150 hover:-translate-y-0.5 group shadow-[0_10px_28px_-10px_rgba(255,107,0,.6)] hover:shadow-[0_18px_36px_-10px_rgba(255,107,0,.8)]"
               >
-                {user && hasMyPredictions ? 'Ver mi prode' : 'Hacer mi prode'}
+                {user && hasMyPredictions ? 'Ver mi prode' : user ? 'Hacer mi prode' : 'Cómo participar'}
                 <svg
                   className="w-[18px] h-[18px] transition-transform duration-200 group-hover:translate-x-1"
                   viewBox="0 0 24 24"
@@ -406,11 +426,11 @@ export default async function HomePage() {
                 </svg>
               </Link>
               <Link
-                href="/ranking"
+                href="/premios"
                 className="inline-flex items-center gap-[10px] px-[26px] py-[18px] rounded-full font-extrabold text-[15px] text-white transition-colors duration-150 hover:bg-white/10"
                 style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.16)' }}
               >
-                Ver el ranking
+                Ver premios
               </Link>
               <ReferralShareButton
                 name={profile?.name}
@@ -469,7 +489,9 @@ export default async function HomePage() {
         className="bg-orange text-bg overflow-hidden"
         style={{ borderTop: '2px solid #0A0A0A', borderBottom: '2px solid #0A0A0A' }}
       >
-        <div className="max-w-[1280px] mx-auto px-5 py-6 grid grid-cols-1 gap-x-2 gap-y-6 min-[680px]:grid-cols-3 min-[720px]:gap-5 min-[1100px]:grid-cols-5">
+        <div className="max-w-[1280px] mx-auto px-5 py-6 grid grid-cols-1 gap-x-2 gap-y-6 min-[680px]:grid-cols-3 min-[720px]:gap-5 min-[1100px]:grid-cols-7">
+          <StatItem num="$20.000" label="Inscripción" live />
+          <StatItem num="$3.000" label="Por referido" />
           <StatItem num={inscriptos ?? typedTopRanking.length} label="Inscriptos" live />
           <StatItem num={participantIds.size} label="Participantes" />
           <StatItem num={TOURNAMENT_TOTAL_POINTS} label="Puntos en juego" />
@@ -479,6 +501,103 @@ export default async function HomePage() {
       </div>
 
       {/* ─── UPCOMING MATCHES ───────────────────────────────────── */}
+      <section id="como-funciona" style={{ padding: 'clamp(44px, 9vw, 84px) 20px' }}>
+        <div className="max-w-[1280px] mx-auto">
+          <SectionHead
+            title="Primero"
+            orange="entender"
+            sub="No necesitás iniciar sesión para conocer el proyecto. La idea es que mires todo tranquilo y después decidas si querés participar."
+          />
+          <div className="grid grid-cols-1 gap-4 min-[760px]:grid-cols-3">
+            {[
+              ['1', 'Recorré la plataforma', 'Visitá premios, reglas, ranking y fixture. Todo eso es público para que veas cómo funciona antes de pagar.'],
+              ['2', 'Cargá tu Prode', 'Cuando tu correo ya está habilitado, entrás con Google y completás todos los pronósticos antes del inicio del Mundial.'],
+              ['3', 'Seguí el ranking', 'Durante el torneo se actualizan puntos, aciertos, errores y posiciones para que todos puedan controlar la tabla.'],
+            ].map(([step, title, desc]) => (
+              <article key={step} className="rounded-[22px] bg-panel p-6" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+                <span className="font-display text-[42px] leading-none text-orange">{step}</span>
+                <h3 className="mt-4 font-display text-[20px] uppercase leading-none">{title}</h3>
+                <p className="mt-3 text-[13px] font-medium leading-relaxed text-[#cfcfcf]">{desc}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="premios" style={{ padding: 'clamp(36px, 8vw, 76px) 20px' }}>
+        <div className="max-w-[1280px] mx-auto grid grid-cols-1 gap-5 min-[900px]:grid-cols-[0.85fr_1.15fr]">
+          <div>
+            <p className="text-[12px] font-extrabold uppercase tracking-[0.22em] text-muted">Premios proyectados</p>
+            <h2 className="mt-4 font-display text-[clamp(38px,6vw,76px)] uppercase leading-[0.9] tracking-[-0.03em]">
+              Con 65 jugadores, <em className="italic text-orange">hay podio</em>
+            </h2>
+            <p className="mt-4 max-w-[500px] text-[14px] font-medium leading-relaxed text-[#cfcfcf]">
+              El objetivo es llegar a 65 participantes pagos. Con ese piso, el premio proyectado es $800.000 al primero, $200.000 al segundo y $100.000 al tercero.
+            </p>
+            <div className="mt-5">
+              <SectionLink href="/premios" label="Ver detalle de premios" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 min-[620px]:grid-cols-3">
+            {[
+              ['1°', '$800.000', '#FFE040', 'Primer puesto'],
+              ['2°', '$200.000', '#A8F0D8', 'Segundo puesto'],
+              ['3°', '$100.000', '#E8A87C', 'Tercer puesto'],
+            ].map(([rank, amount, color, label]) => (
+              <article key={rank} className="min-h-[180px] rounded-[22px] p-5 text-bg" style={{ background: color }}>
+                <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] opacity-70">{label}</p>
+                <p className="mt-5 font-display text-[64px] leading-none">{rank}</p>
+                <p className="mt-3 font-display text-[30px] leading-none italic">{amount}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="participar" style={{ padding: 'clamp(36px, 8vw, 76px) 20px' }}>
+        <div className="max-w-[1280px] mx-auto grid grid-cols-1 gap-5 min-[900px]:grid-cols-[1.05fr_0.95fr]">
+          <article className="rounded-[24px] bg-panel p-6 min-[760px]:p-8" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+            <p className="text-[12px] font-extrabold uppercase tracking-[0.22em] text-mint">Acceso manual</p>
+            <h2 className="mt-4 font-display text-[clamp(32px,5vw,54px)] uppercase leading-[0.92] tracking-[-0.02em]">
+              Entrar con Google no es registrarse
+            </h2>
+            <p className="mt-4 text-[14px] font-medium leading-relaxed text-[#cfcfcf]">
+              El sistema no tiene registro libre. Google solo confirma tu identidad y revisa si ese correo ya fue habilitado por la organización.
+            </p>
+            <div className="mt-6 grid gap-3">
+              {[
+                'Nos escribís por WhatsApp.',
+                'Realizás el pago de $20.000.',
+                'Nos enviás el correo que vas a usar.',
+                'Habilitamos ese correo en el sistema.',
+                'Desde ese momento podés ingresar con Google.',
+              ].map((item, index) => (
+                <div key={item} className="flex items-start gap-3 rounded-[16px] bg-[#0f0f0f] px-4 py-3">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-orange text-[12px] font-extrabold text-bg">{index + 1}</span>
+                  <p className="text-[13px] font-bold leading-relaxed text-[#dddddd]">{item}</p>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="rounded-[24px] bg-[#101010] p-6 min-[760px]:p-8" style={{ border: '1px solid rgba(168,240,216,0.18)' }}>
+            <p className="text-[12px] font-extrabold uppercase tracking-[0.22em] text-muted">Referidos y consultas</p>
+            <h2 className="mt-4 font-display text-[clamp(32px,5vw,54px)] uppercase leading-[0.92] tracking-[-0.02em]">
+              Sumá gente y recuperá <em className="italic text-mint">$3.000</em>
+            </h2>
+            <p className="mt-4 text-[14px] font-medium leading-relaxed text-[#cfcfcf]">
+              Por cada referido que se anota y paga de tu parte, obtenés $3.000. También nos podés escribir si tenés dudas, viste un error o querés entender una regla.
+            </p>
+            <div className="mt-6">
+              <ContactLinks />
+            </div>
+            <div className="mt-5 rounded-[18px] bg-mint/10 p-4 text-[13px] font-bold leading-relaxed text-mint">
+              Podés mirar toda la web antes de participar. El login recién tiene sentido cuando tu correo ya está habilitado.
+            </div>
+          </article>
+        </div>
+      </section>
+
       <section style={{ padding: 'clamp(40px, 10vw, 80px) 20px' }}>
         <div className="max-w-[1280px] mx-auto">
           <SectionHead
@@ -700,7 +819,7 @@ export default async function HomePage() {
             </h5>
             <ul className="flex flex-col gap-[10px]">
               {[
-                { href: '/mi-prode', label: 'Mi Prode' },
+                user ? { href: '/mi-prode', label: 'Mi Prode' } : { href: '/#participar', label: 'Cómo participar' },
                 { href: '/ranking', label: 'Ranking en vivo' },
                 { href: '/premios', label: 'Premios' },
               ].map(({ href, label }) => (

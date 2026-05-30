@@ -11,6 +11,7 @@ const PUBLIC_LINKS = [
   { href: '/premios', label: 'Premios', exact: false, anchor: false },
   { href: '/reglas', label: 'Reglas', exact: false, anchor: false },
   { href: '/ranking', label: 'Ranking', exact: false, anchor: false },
+  { href: '/fixture', label: 'Fixture', exact: false, anchor: false },
 ]
 
 const AUTH_LINKS = [
@@ -28,8 +29,11 @@ export function NavLinks({ isLoggedIn }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
-    setActiveAnchor(null)
-    setMenuOpen(false)
+    const id = window.setTimeout(() => {
+      setActiveAnchor(null)
+      setMenuOpen(false)
+    }, 0)
+    return () => window.clearTimeout(id)
   }, [pathname])
 
   useEffect(() => {
@@ -61,7 +65,7 @@ export function NavLinks({ isLoggedIn }: Props) {
             className="ml-[6px] transition-colors duration-150"
             style={{ color: menuOpen ? 'rgba(255,107,0,0.4)' : '#FF6B00' }}
           >
-            26'
+            26&apos;
           </b>
         </span>
         <span
@@ -80,7 +84,7 @@ export function NavLinks({ isLoggedIn }: Props) {
         href="/"
         className="hidden min-[880px]:flex items-center font-display text-[18px] tracking-[-0.02em] shrink-0"
       >
-        PRODE <b className="text-orange ml-[6px]">26'</b>
+        PRODE <b className="text-orange ml-[6px]">26&apos;</b>
       </Link>
 
       {/* Desktop nav */}

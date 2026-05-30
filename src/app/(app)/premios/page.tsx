@@ -131,6 +131,9 @@ export default async function PremiosPage() {
           <p className="font-mono text-[13px] font-bold text-muted tracking-[0.04em] mt-[14px]">
             Mundial 2026 · USA · Canadá · México
           </p>
+          <p className="mt-4 max-w-[680px] text-[14px] font-medium leading-relaxed text-[#cfcfcf]">
+            La inscripción cuesta <strong className="text-white">$20.000</strong>. Los premios proyectados se calculan con el objetivo de llegar a <strong className="text-white">65 participantes pagos</strong>.
+          </p>
         </div>
 
         {/* Pozo banner */}
@@ -157,7 +160,7 @@ export default async function PremiosPage() {
             <p className="text-[#cfcfcf] text-[13px] leading-relaxed font-medium">
               El objetivo es llegar como mínimo a <strong className="text-white font-extrabold">65 jugadores pagos/confirmados</strong>.
               Los premios prometidos y el pozo final dependen de alcanzar ese piso. Por eso cada referido ayuda:
-              cuantos más jugadores se suman, más fuerte queda armado el Prode.
+              cuantos más jugadores se suman, más fuerte queda armado el Prode. Si invitás a alguien y paga de tu parte, obtenés <strong className="text-white font-extrabold">$3.000 por referido</strong>.
             </p>
           </div>
         </aside>
