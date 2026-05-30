@@ -494,15 +494,13 @@ export default async function HomePage() {
         className="bg-orange text-bg overflow-hidden"
         style={{ borderTop: '2px solid #0A0A0A', borderBottom: '2px solid #0A0A0A' }}
       >
-        <div className="max-w-[1280px] mx-auto px-5 py-6 grid grid-cols-1 gap-x-2 gap-y-6 min-[680px]:grid-cols-3 min-[720px]:gap-5 min-[1100px]:grid-cols-7">
-          <StatItem num="$20.000" label="Inscripción" live />
-          <StatItem num="$3.000" label="Recompensa referido" />
-          <StatItem num={jugadores ?? typedTopRanking.length} label="Jugadores" live />
-          <StatItem num={prodeInProcessIds.size} label="Prodes en proceso" />
-          <StatItem num={TOURNAMENT_TOTAL_POINTS} label="Puntos en juego" />
-          <StatItem num={`${finishedMatches} de ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" />
-          <StatItem num={`${aliveTeams} de ${TOURNAMENT_TOTAL_TEAMS}`} label="Selecciones" />
-        </div>
+        <div className="max-w-[1280px] mx-auto px-5 py-6 grid grid-cols-1 gap-x-2 gap-y-6 min-[680px]:grid-cols-3 min-[720px]:gap-5 min-[1100px]:grid-cols-5">
+			<StatItem num={jugadores ?? typedTopRanking.length} label="Jugadores" live />
+			<StatItem num={prodeInProcessIds.size} label="Prodes en proceso" />
+			<StatItem num={TOURNAMENT_TOTAL_POINTS} label="Puntos en juego" />
+			<StatItem num={`${finishedMatches} de ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" />
+			<StatItem num={`${aliveTeams} de ${TOURNAMENT_TOTAL_TEAMS}`} label="Selecciones" />
+		</div>
       </div>
 
       {/* ─── UPCOMING MATCHES ───────────────────────────────────── */}
