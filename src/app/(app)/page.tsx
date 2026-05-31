@@ -223,7 +223,12 @@ export default async function HomePage() {
     { data: allMatchRows },
     { data: rankingRows },
   ] = await Promise.all([
-    admin.from('authorized_emails').select('*', { count: 'exact', head: true }).eq('active', true).is('deleted_at', null),
+    admin
+      .from('authorized_emails')
+      .select('*', { count: 'exact', head: true })
+      .eq('active', true)
+      .eq('status', 'confirmed')
+      .is('deleted_at', null),
     user
       ? supabase.from('predictions').select('*', { count: 'exact', head: true }).limit(1)
       : Promise.resolve({ count: 0 }),

@@ -23,6 +23,17 @@ export type AdminToolResult = {
 }
 
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
+type ParticipantStatus = 'trial' | 'confirmed' | 'disabled'
+
+function normalizeParticipantStatus(value: FormDataEntryValue | string | null | undefined): ParticipantStatus {
+  const status = String(value ?? '').trim()
+  if (status === 'confirmed' || status === 'disabled' || status === 'trial') return status
+  return 'trial'
+}
+
+function activeFromStatus(status: ParticipantStatus) {
+  return status !== 'disabled'
+}
 
 function revalidateCorePaths() {
   revalidatePath('/admin')
@@ -128,7 +139,9 @@ export async function upsertAuthorizedEmail(formData: FormData) {
 
   const email = String(formData.get('email') ?? '').toLowerCase().trim()
   const label = String(formData.get('label') ?? '').trim()
-  const active = formData.get('active') === 'on'
+  const status = normalizeParticipantStatus(formData.get('status'))
+  const disabledReason = String(formData.get('disabled_reason') ?? '').trim()
+  const active = activeFromStatus(status)
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new Error('Email inválido')
@@ -138,6 +151,8 @@ export async function upsertAuthorizedEmail(formData: FormData) {
     p_email: email,
     p_label: label,
     p_active: active,
+    p_status: status,
+    p_disabled_reason: disabledReason,
   })
 
   if (error) throw new Error(error.message)
@@ -152,7 +167,10 @@ export async function updateAuthorizedEmail(formData: FormData) {
   const originalEmail = String(formData.get('original_email') ?? '').toLowerCase().trim()
   const email = String(formData.get('email') ?? '').toLowerCase().trim()
   const label = String(formData.get('label') ?? '').trim()
-  const active = formData.get('active') === 'on'
+  const status = normalizeParticipantStatus(formData.get('status'))
+  const disabledReason = String(formData.get('disabled_reason') ?? '').trim()
+  const active = activeFromStatus(status)
+  const now = new Date().toISOString()
 
   if (!originalEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(originalEmail)) {
     throw new Error('Email original invalido')
@@ -178,8 +196,13 @@ export async function updateAuthorizedEmail(formData: FormData) {
       email,
       label: label || null,
       active,
+      status,
+      paid_at: status === 'confirmed' ? now : null,
+      trial_started_at: status === 'trial' ? now : undefined,
+      disabled_at: status === 'disabled' ? now : null,
+      disabled_reason: status === 'disabled' ? disabledReason || null : null,
       deleted_at: null,
-      updated_at: new Date().toISOString(),
+      updated_at: now,
     })
     .eq('email', originalEmail)
 
@@ -214,6 +237,42 @@ export async function setAuthorizedEmailActive(email: string, active: boolean) {
   revalidateCorePaths()
 }
 
+export async function setAuthorizedEmailStatus(
+  email: string,
+  status: ParticipantStatus,
+  disabledReason = ''
+): Promise<AdminToolResult> {
+  try {
+    await requireAdmin()
+    const admin = createAdminClient()
+    const normalizedEmail = email.toLowerCase().trim()
+    if (!normalizedEmail) throw new Error('Email invalido')
+    const now = new Date().toISOString()
+
+    const { error } = await admin
+      .from('authorized_emails')
+      .update({
+        active: activeFromStatus(status),
+        status,
+        paid_at: status === 'confirmed' ? now : null,
+        trial_started_at: status === 'trial' ? now : undefined,
+        disabled_at: status === 'disabled' ? now : null,
+        disabled_reason: status === 'disabled' ? disabledReason.trim() || null : null,
+        deleted_at: null,
+        updated_at: now,
+      })
+      .eq('email', normalizedEmail)
+
+    if (error) throw new Error(error.message)
+
+    revalidateCorePaths()
+    const label = status === 'confirmed' ? 'pagado/confirmado' : status === 'trial' ? 'en prueba' : 'deshabilitado'
+    return { ok: true, message: `Participante marcado como ${label}.` }
+  } catch (error) {
+    return adminToolError(error)
+  }
+}
+
 export async function softDeleteAuthorizedEmail(email: string): Promise<AdminToolResult> {
   try {
     await requireAdmin()
@@ -225,6 +284,8 @@ export async function softDeleteAuthorizedEmail(email: string): Promise<AdminToo
       .from('authorized_emails')
       .update({
         active: false,
+        status: 'disabled',
+        disabled_at: new Date().toISOString(),
         deleted_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -250,6 +311,10 @@ export async function restoreAuthorizedEmail(email: string, active = true): Prom
       .from('authorized_emails')
       .update({
         active,
+        status: active ? 'trial' : 'disabled',
+        paid_at: null,
+        trial_started_at: active ? new Date().toISOString() : undefined,
+        disabled_at: active ? null : new Date().toISOString(),
         deleted_at: null,
         updated_at: new Date().toISOString(),
       })
