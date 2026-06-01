@@ -1,7 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getSupabaseConfig, isSupabaseConfigured } from '@/lib/supabase/env'
-import { createAdminClient } from '@/lib/supabase/admin'
 
 function redirectToLoginWithClearedSession(request: NextRequest, origin: string, error = 'unauthorized_email', reason?: string | null) {
   const loginUrl = new URL(`${origin}/login`)
@@ -98,13 +97,11 @@ export async function GET(request: NextRequest) {
     })
     await supabase.auth.signOut()
     if (accessError.message.toLowerCase().includes('email no autorizado')) {
-      const admin = createAdminClient()
-      const { data: authorized } = await admin
-        .from('authorized_emails')
-        .select('active, status, deleted_at, disabled_reason')
-        .eq('email', selectedEmail)
-        .maybeSingle()
-      if (authorized && (!authorized.active || authorized.status === 'disabled' || authorized.deleted_at)) {
+      const { data: state } = await supabase.rpc('get_authorized_email_login_state', {
+        p_email: selectedEmail,
+      })
+      const authorized = Array.isArray(state) ? state[0] : state
+      if (authorized?.exists_in_whitelist && (!authorized.active || authorized.status === 'disabled' || authorized.deleted_at)) {
         return redirectToLoginWithClearedSession(request, origin, 'disabled_email', authorized.disabled_reason)
       }
       return redirectToLoginWithClearedSession(request, origin)

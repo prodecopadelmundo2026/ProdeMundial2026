@@ -113,11 +113,19 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!hasAccess) {
+    const { data: accessState } = await supabase.rpc(
+      'get_authorized_email_login_state',
+      { p_email: user.email?.toLowerCase().trim() ?? '' }
+    )
+    const authorized = Array.isArray(accessState) ? accessState[0] : accessState
     await supabase.auth.signOut()
 
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
-    loginUrl.searchParams.set('error', 'disabled_email')
+    loginUrl.searchParams.set('error', authorized?.exists_in_whitelist ? 'disabled_email' : 'unauthorized_email')
+    if (authorized?.disabled_reason) {
+      loginUrl.searchParams.set('reason', String(authorized.disabled_reason).slice(0, 180))
+    }
     const redirectResponse = NextResponse.redirect(loginUrl)
     clearSupabaseAuthCookies(redirectResponse, request)
     return redirectResponse

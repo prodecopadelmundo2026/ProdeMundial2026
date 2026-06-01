@@ -31,10 +31,6 @@ function normalizeParticipantStatus(value: FormDataEntryValue | string | null | 
   return 'trial'
 }
 
-function activeFromStatus(status: ParticipantStatus) {
-  return status !== 'disabled'
-}
-
 function revalidateCorePaths() {
   revalidatePath('/admin')
   revalidatePath('/admin/whitelist')
@@ -141,7 +137,7 @@ export async function upsertAuthorizedEmail(formData: FormData) {
   const label = String(formData.get('label') ?? '').trim()
   const status = normalizeParticipantStatus(formData.get('status'))
   const disabledReason = String(formData.get('disabled_reason') ?? '').trim()
-  const active = activeFromStatus(status)
+  const active = status !== 'disabled'
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new Error('Email inválido')
@@ -161,16 +157,14 @@ export async function upsertAuthorizedEmail(formData: FormData) {
 }
 
 export async function updateAuthorizedEmail(formData: FormData) {
+  const supabase = await createClient()
   await requireAdmin()
-  const admin = createAdminClient()
 
   const originalEmail = String(formData.get('original_email') ?? '').toLowerCase().trim()
   const email = String(formData.get('email') ?? '').toLowerCase().trim()
   const label = String(formData.get('label') ?? '').trim()
   const status = normalizeParticipantStatus(formData.get('status'))
   const disabledReason = String(formData.get('disabled_reason') ?? '').trim()
-  const active = activeFromStatus(status)
-  const now = new Date().toISOString()
 
   if (!originalEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(originalEmail)) {
     throw new Error('Email original invalido')
@@ -179,47 +173,15 @@ export async function updateAuthorizedEmail(formData: FormData) {
     throw new Error('Email invalido')
   }
 
-  if (email !== originalEmail) {
-    const { data: duplicate, error: duplicateError } = await admin
-      .from('authorized_emails')
-      .select('email')
-      .eq('email', email)
-      .maybeSingle()
-
-    if (duplicateError) throw new Error(duplicateError.message)
-    if (duplicate) throw new Error('Ya existe un participante habilitado con ese email.')
-  }
-
-  const { error } = await admin
-    .from('authorized_emails')
-    .update({
-      email,
-      label: label || null,
-      active,
-      status,
-      paid_at: status === 'confirmed' ? now : null,
-      trial_started_at: status === 'trial' ? now : undefined,
-      disabled_at: status === 'disabled' ? now : null,
-      disabled_reason: status === 'disabled' ? disabledReason || null : null,
-      deleted_at: null,
-      updated_at: now,
-    })
-    .eq('email', originalEmail)
+  const { error } = await supabase.rpc('admin_update_authorized_email', {
+    p_original_email: originalEmail,
+    p_email: email,
+    p_label: label,
+    p_status: status,
+    p_disabled_reason: disabledReason,
+  })
 
   if (error) throw new Error(error.message)
-
-  const profileUpdates: Record<string, string> = {
-    email,
-    updated_at: new Date().toISOString(),
-  }
-  if (label) profileUpdates.name = label
-
-  const { error: profileError } = await admin
-    .from('profiles')
-    .update(profileUpdates)
-    .eq('email', originalEmail)
-
-  if (profileError) throw new Error(profileError.message)
   revalidateCorePaths()
 }
 
@@ -243,25 +205,16 @@ export async function setAuthorizedEmailStatus(
   disabledReason = ''
 ): Promise<AdminToolResult> {
   try {
+    const supabase = await createClient()
     await requireAdmin()
-    const admin = createAdminClient()
     const normalizedEmail = email.toLowerCase().trim()
     if (!normalizedEmail) throw new Error('Email invalido')
-    const now = new Date().toISOString()
 
-    const { error } = await admin
-      .from('authorized_emails')
-      .update({
-        active: activeFromStatus(status),
-        status,
-        paid_at: status === 'confirmed' ? now : null,
-        trial_started_at: status === 'trial' ? now : undefined,
-        disabled_at: status === 'disabled' ? now : null,
-        disabled_reason: status === 'disabled' ? disabledReason.trim() || null : null,
-        deleted_at: null,
-        updated_at: now,
-      })
-      .eq('email', normalizedEmail)
+    const { error } = await supabase.rpc('admin_set_authorized_email_status', {
+      p_email: normalizedEmail,
+      p_status: status,
+      p_disabled_reason: disabledReason,
+    })
 
     if (error) throw new Error(error.message)
 
@@ -275,21 +228,14 @@ export async function setAuthorizedEmailStatus(
 
 export async function softDeleteAuthorizedEmail(email: string): Promise<AdminToolResult> {
   try {
+    const supabase = await createClient()
     await requireAdmin()
-    const admin = createAdminClient()
     const normalizedEmail = email.toLowerCase().trim()
     if (!normalizedEmail) throw new Error('Email invalido')
 
-    const { error } = await admin
-      .from('authorized_emails')
-      .update({
-        active: false,
-        status: 'disabled',
-        disabled_at: new Date().toISOString(),
-        deleted_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('email', normalizedEmail)
+    const { error } = await supabase.rpc('admin_soft_delete_authorized_email', {
+      p_email: normalizedEmail,
+    })
 
     if (error) throw new Error(error.message)
 
@@ -302,23 +248,15 @@ export async function softDeleteAuthorizedEmail(email: string): Promise<AdminToo
 
 export async function restoreAuthorizedEmail(email: string, active = true): Promise<AdminToolResult> {
   try {
+    const supabase = await createClient()
     await requireAdmin()
-    const admin = createAdminClient()
     const normalizedEmail = email.toLowerCase().trim()
     if (!normalizedEmail) throw new Error('Email invalido')
 
-    const { error } = await admin
-      .from('authorized_emails')
-      .update({
-        active,
-        status: active ? 'trial' : 'disabled',
-        paid_at: null,
-        trial_started_at: active ? new Date().toISOString() : undefined,
-        disabled_at: active ? null : new Date().toISOString(),
-        deleted_at: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('email', normalizedEmail)
+    const { error } = await supabase.rpc('admin_restore_authorized_email', {
+      p_email: normalizedEmail,
+      p_status: active ? 'trial' : 'disabled',
+    })
 
     if (error) throw new Error(error.message)
 
