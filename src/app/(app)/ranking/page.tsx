@@ -171,7 +171,7 @@ export default async function RankingPage() {
             Mundial 2026 · USA · Canadá · México
           </p>
           <p className="mt-4 max-w-[620px] text-[13px] font-medium leading-relaxed text-muted">
-            Tocá cualquier jugador para ver su Prode completo: pronósticos, aciertos, errores y puntos partido por partido.
+            Tocá cualquier Prode para ver pronósticos, aciertos, errores y puntos partido por partido.
           </p>
           <p className="mt-3 max-w-[620px] text-[13px] font-medium leading-relaxed text-[#cfcfcf]">
             Esta tabla muestra competidores e invitados con Prodes cargados. Los invitados aparecen identificados y no participan oficialmente por premios.
@@ -192,7 +192,7 @@ export default async function RankingPage() {
             style={{ background: '#A8F0D8', animation: 'pulse-dot 1.6s infinite' }}
           />
           <span>
-            El conteo de puntos empieza cuando se carguen los primeros resultados oficiales. Hasta entonces podés revisar los Prodes cargados por cada participante.
+            El conteo de puntos empieza cuando se carguen los primeros resultados oficiales. Hasta entonces podés revisar los Prodes cargados por competidores e invitados.
           </span>
         </aside>
 

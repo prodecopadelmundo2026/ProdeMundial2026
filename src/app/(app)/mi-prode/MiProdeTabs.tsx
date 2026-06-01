@@ -426,6 +426,52 @@ export function MiProdeTabs({
     ? '#A8F0D8'
     : '#8A8A8A'
 
+  const saveOverview = (() => {
+    if (globalSaveState === 'error' || groupStatus.hasError) {
+      return {
+        label: 'Error al guardar',
+        detail: globalSaveError ?? 'Revisá los datos o la conexión y volvé a intentar.',
+        color: '#FF6B6B',
+        bg: 'rgba(255,59,59,0.1)',
+        border: 'rgba(255,59,59,0.24)',
+      }
+    }
+    if (globalSaveState === 'saving' || groupStatus.hasSaving) {
+      return {
+        label: 'Guardando...',
+        detail: 'Estamos registrando tus cambios.',
+        color: '#FFB15C',
+        bg: 'rgba(255,177,92,0.1)',
+        border: 'rgba(255,177,92,0.22)',
+      }
+    }
+    if (globalSaveState === 'dirty' || groupStatus.hasDirty) {
+      return {
+        label: 'Cambios pendientes',
+        detail: 'Los grupos se guardan automaticamente. Usá Guardar Mi Prode para confirmar eliminatorias, desempates y cambios generales.',
+        color: '#FFB15C',
+        bg: 'rgba(255,177,92,0.1)',
+        border: 'rgba(255,177,92,0.22)',
+      }
+    }
+    if (globalSaveState === 'saved' || groupStatus.allReady) {
+      return {
+        label: 'Guardado',
+        detail: 'Tus pronosticos cargados quedaron registrados.',
+        color: '#A8F0D8',
+        bg: 'rgba(168,240,216,0.09)',
+        border: 'rgba(168,240,216,0.2)',
+      }
+    }
+    return {
+      label: groupStatusLabel,
+      detail: 'Completá tus pronosticos y guardá los cambios antes del cierre.',
+      color: groupStatusColor,
+      bg: 'rgba(255,255,255,0.04)',
+      border: 'rgba(255,255,255,0.08)',
+    }
+  })()
+
   const effectiveKnockoutTiebreakers = useMemo(
     () => ({ ...tiebreakerMap, ...localKnockoutTiebreakers }),
     [tiebreakerMap, localKnockoutTiebreakers],
@@ -867,17 +913,17 @@ export function MiProdeTabs({
         style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
       >
         <div>
-          <p className="font-extrabold text-white text-[13px] leading-snug">Guardar Mi Prode</p>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <p className="font-extrabold text-white text-[13px] leading-snug">Guardar Mi Prode</p>
+            <span
+              className="rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em]"
+              style={{ background: saveOverview.bg, color: saveOverview.color, border: `1px solid ${saveOverview.border}` }}
+            >
+              {saveOverview.label}
+            </span>
+          </div>
           <p className="text-[12px] mt-0.5 text-muted">
-            {globalSaveState === 'saving'
-              ? 'Guardando todo en Supabase...'
-              : globalSaveState === 'saved'
-              ? 'Mi Prode guardado correctamente.'
-              : globalSaveState === 'error'
-              ? `No se pudo guardar: ${globalSaveError ?? 'revisá los datos.'}`
-              : globalSaveState === 'dirty' || groupStatus.hasDirty
-              ? 'Cambios sin guardar.'
-              : 'Guarda grupos, eliminatorias, desempates, llave y campeón desde Supabase.'}
+            {saveOverview.detail}
           </p>
         </div>
         <button

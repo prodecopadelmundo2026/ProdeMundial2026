@@ -21,7 +21,7 @@ function buildReferralText(
       'Yo ya estoy participando y te invito a jugar.',
       '',
       'Avisa que venis referido por:',
-      name || 'Participante del Prode',
+      name || 'Prode Mundial 2026',
       email || '',
       userId ? `ID: ${userId}` : '',
       '',

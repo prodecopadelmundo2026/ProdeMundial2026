@@ -211,7 +211,7 @@ export default async function HomePage() {
   todayStart.setUTCHours(0, 0, 0, 0)
 
   const [
-    { count: jugadores },
+    { count: competidores },
     { count: myPredsCount },
     { data: upcoming },
     { data: topRanking },
@@ -500,7 +500,7 @@ export default async function HomePage() {
         style={{ borderTop: '2px solid #0A0A0A', borderBottom: '2px solid #0A0A0A' }}
       >
         <div className="max-w-[1280px] mx-auto px-5 py-6 grid grid-cols-1 gap-x-2 gap-y-6 min-[680px]:grid-cols-3 min-[720px]:gap-5 min-[1100px]:grid-cols-5">
-          <StatItem num={jugadores ?? typedTopRanking.length} label="Participantes" live />
+          <StatItem num={competidores ?? typedTopRanking.length} label="Competidores" live />
           <StatItem num={prodeInProcessIds.size} label="Prodes oficiales en proceso" />
           <StatItem num={TOURNAMENT_TOTAL_POINTS} label="Puntos en juego" />
           <StatItem num={`${finishedMatches} de ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" />
@@ -638,7 +638,7 @@ export default async function HomePage() {
           <SectionHead
             title="Top"
             orange="10"
-            sub="Los que la están rompiendo. Tocá cualquier jugador para ver su Prode completo: pronósticos, aciertos, errores y puntos partido por partido."
+            sub="Los competidores que la están rompiendo. Tocá cualquier Prode para ver pronósticos, aciertos, errores y puntos partido por partido."
             link={{ href: '/ranking', label: 'Ver ranking completo' }}
           />
 

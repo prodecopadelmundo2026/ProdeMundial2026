@@ -12,6 +12,7 @@ import type { Match } from '@/types'
 
 type Prediction = { home_score: number; away_score: number }
 type PtsType = 'exact' | 'partial' | 'miss'
+type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 
 function calcPoints(pred: Prediction, result: Prediction): { pts: 0 | 1 | 3; type: PtsType } {
   if (pred.home_score === result.home_score && pred.away_score === result.away_score)
@@ -40,6 +41,22 @@ function PtsBadge({ pts, type }: { pts: 0 | 1 | 3; type: PtsType }) {
   )
 }
 
+function SaveStateLabel({ state }: { state: SaveState }) {
+  const config: Record<Exclude<SaveState, 'idle'>, { label: string; color: string }> = {
+    dirty: { label: 'Cambios pendientes', color: '#FFB15C' },
+    saving: { label: 'Guardando...', color: '#FFB15C' },
+    saved: { label: 'Guardado automatico', color: '#A8F0D8' },
+    error: { label: 'Error al guardar', color: '#FF6B6B' },
+  }
+  if (state === 'idle') return null
+  const item = config[state]
+  return (
+    <span className="text-[11px] font-semibold" style={{ color: item.color }}>
+      {item.label}
+    </span>
+  )
+}
+
 type Props = {
   match: Match
   prediction?: Prediction | null
@@ -62,7 +79,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
 
   const [home, setHome] = useState(initialHome ?? prediction?.home_score?.toString() ?? '')
   const [away, setAway] = useState(initialAway ?? prediction?.away_score?.toString() ?? '')
-  const [saveState, setSaveState] = useState<'idle' | 'dirty' | 'saving' | 'saved' | 'error'>(
+  const [saveState, setSaveState] = useState<SaveState>(
     !noAutosave && prediction ? 'saved' : 'idle',
   )
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -353,9 +370,9 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
                   }}
                 />
               </div>
-              {(!noAutosave && saveState === 'error') && (
+              {(!noAutosave && saveState !== 'idle' && (saveState !== 'saved' || hasPrediction)) && (
                 <div className="mt-[10px] flex justify-end">
-                  <span className="text-[11px] font-semibold" style={{ color: '#FF6B6B' }}>Error al guardar</span>
+                  <SaveStateLabel state={saveState} />
                 </div>
               )}
             </>

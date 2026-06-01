@@ -435,7 +435,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     if (profile && authorized?.active && !authorized.deleted_at && (authorized.status === 'confirmed' || authorized.status === 'trial')) {
       participantRows.push({
         user_id: profile.id,
-        name: profile.name || profile.email || 'Participante',
+        name: profile.name || profile.email || 'Invitado',
         avatar_url: profile.avatar_url,
       })
     }
@@ -512,7 +512,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
 
         {userTypedPredictions.length === 0 && userTiebreakers.length === 0 && !hasSpecialBets && (
           <div className="mb-4 rounded-[16px] px-4 py-4 text-[13px] font-semibold leading-relaxed text-muted" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
-            Este jugador todavia no cargo pronosticos.
+            Este Prode todavia no tiene pronosticos cargados.
           </div>
         )}
 

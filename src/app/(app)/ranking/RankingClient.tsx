@@ -176,16 +176,81 @@ export function RankingClient({
   const [search, setSearch] = useState('')
   const meRowRef = useRef<HTMLDivElement | null>(null)
   const stickyRef = useRef<HTMLElement | null>(null)
-  const rankingStarted = entries.some((entry) => entry.total_points > 0)
+  const officialEntries = entries.filter((entry) => entry.participant_status !== 'trial')
+  const trialEntries = entries.filter((entry) => entry.participant_status === 'trial')
+  const rankingStarted = officialEntries.some((entry) => entry.total_points > 0)
 
-  const filtered = search.trim()
-    ? entries.filter((e) =>
-        e.name.toLowerCase().includes(search.trim().toLowerCase())
-      )
-    : entries
+  const filterBySearch = (items: RankingEntry[]) => search.trim()
+    ? items.filter((e) => e.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : items
+
+  const filteredOfficial = filterBySearch(officialEntries)
+  const filteredTrial = filterBySearch(trialEntries)
+  const filtered = [...filteredOfficial, ...filteredTrial]
 
   const meEntry = entries.find((e) => e.user_id === userId)
-  const showPrizeTieNote = rankingStarted && hasPrizeTie(entries)
+  const showPrizeTieNote = rankingStarted && hasPrizeTie(officialEntries)
+
+  function RankingSection({
+    title,
+    description,
+    items,
+    empty,
+    tone = 'official',
+  }: {
+    title: string
+    description: string
+    items: RankingEntry[]
+    empty: string
+    tone?: 'official' | 'trial'
+  }) {
+    return (
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-2 px-1">
+          <div>
+            <h2 className="font-display text-[22px] uppercase leading-none tracking-[-0.02em] text-white">
+              {title}
+            </h2>
+            <p className="mt-1 max-w-[620px] text-[12px] font-semibold leading-relaxed text-muted">
+              {description}
+            </p>
+          </div>
+          <span
+            className="rounded-full px-3 py-1.5 font-mono text-[10px] font-extrabold uppercase tracking-[0.1em]"
+            style={{
+              background: tone === 'trial' ? 'rgba(255,177,92,0.1)' : 'rgba(168,240,216,0.08)',
+              color: tone === 'trial' ? '#FFB15C' : '#A8F0D8',
+              border: tone === 'trial' ? '1px solid rgba(255,177,92,0.2)' : '1px solid rgba(168,240,216,0.18)',
+            }}
+          >
+            {items.length}
+          </span>
+        </div>
+
+        <div
+          className="flex flex-col gap-1.5 rounded-[24px] p-2.5"
+          style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          {items.length === 0 ? (
+            <div className="py-10 text-center text-muted text-[14px]">
+              {empty}
+            </div>
+          ) : (
+            items.map((entry) => (
+              <RankRow
+                key={entry.user_id}
+                entry={entry}
+                isMe={entry.user_id === userId}
+                innerRef={entry.user_id === userId ? meRowRef : undefined}
+                entries={officialEntries}
+                rankingStarted={rankingStarted}
+              />
+            ))
+          )}
+        </div>
+      </section>
+    )
+  }
 
   useEffect(() => {
     const me = meRowRef.current
@@ -227,8 +292,8 @@ export function RankingClient({
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar participante…"
-            aria-label="Buscar participante"
+            placeholder="Buscar Prode…"
+            aria-label="Buscar Prode"
             className="flex-1 bg-transparent border-none outline-none text-white text-[14px] font-semibold placeholder:text-muted placeholder:font-normal"
           />
         </div>
@@ -236,7 +301,7 @@ export function RankingClient({
           className="whitespace-nowrap rounded-[14px] px-3 py-3 font-mono text-[10px] font-bold uppercase tracking-[0.08em] sm:px-4 sm:text-[11px] sm:tracking-[0.1em]"
           style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#8A8A8A' }}
         >
-          <b className="text-white">{filtered.length}</b> EN RANKING
+          <b className="text-white">{filtered.length}</b> RESULTADOS
         </div>
       </div>
 
@@ -253,7 +318,7 @@ export function RankingClient({
           style={{ background: 'rgba(168,240,216,0.07)', border: '1px solid rgba(168,240,216,0.18)', color: '#cfcfcf' }}
         >
           <strong className="block text-white font-extrabold mb-1">El conteo de puntos todavía no arrancó.</strong>
-          El conteo de puntos empieza cuando se carguen los primeros resultados oficiales. Hasta entonces podés revisar los Prodes cargados por cada participante.
+          El conteo de puntos empieza cuando se carguen los primeros resultados oficiales. Hasta entonces podés revisar los Prodes cargados por competidores e invitados.
         </div>
       )}
 
@@ -262,31 +327,25 @@ export function RankingClient({
           className="mb-5 rounded-[16px] px-4 py-3 text-[12px] font-semibold leading-relaxed sm:text-[13px]"
           style={{ background: 'rgba(168,240,216,0.07)', border: '1px solid rgba(168,240,216,0.18)', color: '#cfcfcf' }}
         >
-          <strong className="font-extrabold text-white">Empate:</strong> los jugadores igualados en puntos y exactas comparten el premio correspondiente. Si el empate excede el podio, la aclaración vale solo para los puestos premiados.
+          <strong className="font-extrabold text-white">Empate:</strong> los competidores igualados en puntos y exactas comparten el premio correspondiente. Si el empate excede el podio, la aclaración vale solo para los puestos premiados.
         </div>
       )}
 
-      {/* Lista */}
-      <div
-        className="flex flex-col gap-1.5 rounded-[24px] p-2.5"
-        style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
-      >
-          {filtered.length === 0 ? (
-            <div className="py-10 text-center text-muted text-[14px]">
-              No se encontró ningún participante.
-            </div>
-          ) : (
-            filtered.map((entry) => (
-              <RankRow
-                key={entry.user_id}
-                entry={entry}
-                isMe={entry.user_id === userId}
-                innerRef={entry.user_id === userId ? meRowRef : undefined}
-                entries={entries}
-                rankingStarted={rankingStarted}
-              />
-            ))
-          )}
+      <div className="space-y-7">
+        <RankingSection
+          title="Ranking oficial"
+          description="Competidores que participan oficialmente por premios. Las posiciones de esta tabla son las posiciones oficiales."
+          items={filteredOfficial}
+          empty={search.trim() ? 'No se encontraron competidores para esa búsqueda.' : 'Todavía no hay competidores en el ranking oficial.'}
+        />
+
+        <RankingSection
+          title="Invitados probando el sistema"
+          description="Invitados habilitados para probar, cargar pronósticos y conocer la plataforma. No tienen posición oficial ni participan por premios."
+          items={filteredTrial}
+          empty={search.trim() ? 'No se encontraron invitados para esa búsqueda.' : 'No hay invitados con Prode cargado para mostrar.'}
+          tone="trial"
+        />
       </div>
 
       {/* Sticky bottom — fila del usuario cuando scrollea hacia arriba */}

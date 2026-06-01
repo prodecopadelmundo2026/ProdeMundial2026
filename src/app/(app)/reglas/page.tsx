@@ -69,8 +69,8 @@ const GENERAL_RULES = [
 ]
 
 const TIE_EXAMPLES = [
-  'Si el 1° queda definido y dos jugadores empatan abajo, comparten 2° y 3° premio entre los dos.',
-  'Si dos jugadores empatan solo en el 3° puesto, comparten únicamente el premio del 3° puesto.',
+  'Si el 1° queda definido y dos competidores empatan abajo, comparten 2° y 3° premio entre los dos.',
+  'Si dos competidores empatan solo en el 3° puesto, comparten únicamente el premio del 3° puesto.',
 ]
 
 function InfoCard({ title, desc }: { title: string; desc: string }) {
@@ -282,7 +282,7 @@ export default function ReglasPage() {
               Ranking <em className="italic" style={{ color: '#A8F0D8' }}>transparente</em>
             </h2>
             <p className="mt-4 text-[14px] font-medium leading-relaxed" style={{ color: '#cfcfcf', maxWidth: 760 }}>
-              Durante el Mundial vas a poder entrar al ranking, tocar cualquier jugador y revisar su Prode completo:
+              Durante el Mundial vas a poder entrar al ranking, tocar cualquier Prode y revisarlo completo:
               qué resultados cargó, en cuáles acertó, en cuáles falló y cómo fue sumando puntos.
             </p>
             <p className="mt-3 text-[13px] font-bold leading-relaxed" style={{ color: '#A8F0D8', maxWidth: 760 }}>
@@ -307,7 +307,7 @@ export default function ReglasPage() {
           >
             <p className="text-[14px] font-medium leading-relaxed" style={{ color: '#cfcfcf' }}>
               El ranking ordena primero por puntos. Si hay empate en puntos, desempata la cantidad de resultados exactos.
-              Si también empatan en exactas, los jugadores comparten el puesto y el premio correspondiente.
+              Si también empatan en exactas, los competidores comparten el puesto y el premio correspondiente.
             </p>
             <div className="mt-4 grid gap-2">
               {TIE_EXAMPLES.map((example) => (
