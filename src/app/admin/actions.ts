@@ -219,7 +219,7 @@ export async function setAuthorizedEmailStatus(
     if (error) throw new Error(error.message)
 
     revalidateCorePaths()
-    const label = status === 'confirmed' ? 'pagado/confirmado' : status === 'trial' ? 'en prueba' : 'deshabilitado'
+    const label = status === 'confirmed' ? 'competidor' : status === 'trial' ? 'invitado' : 'deshabilitado'
     return { ok: true, message: `Participante marcado como ${label}.` }
   } catch (error) {
     return adminToolError(error)

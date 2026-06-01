@@ -395,7 +395,7 @@ export default async function HomePage() {
               }}
             >
               <span className="w-2 h-2 rounded-full bg-mint" style={{ animation: 'pulse-dot 1.6s infinite' }} />
-              Mundial 2026 · Inscripción $20.000 · Objetivo 65 jugadores
+              Mundial 2026 · Inscripción $20.000 · Objetivo 65 competidores
             </div>
 
             <h1
@@ -537,10 +537,10 @@ export default async function HomePage() {
           <div>
             <p className="text-[12px] font-extrabold uppercase tracking-[0.22em] text-muted">Premios proyectados</p>
             <h2 className="mt-4 font-display text-[clamp(38px,6vw,76px)] uppercase leading-[0.9] tracking-[-0.03em]">
-              Con 65 jugadores, <em className="italic text-orange">hay podio</em>
+              Con 65 competidores, <em className="italic text-orange">hay podio</em>
             </h2>
             <p className="mt-4 max-w-[500px] text-[14px] font-medium leading-relaxed text-[#cfcfcf]">
-              El objetivo es llegar a 65 participantes pagos. Con ese piso, el premio proyectado es $800.000 al primero, $200.000 al segundo y $100.000 al tercero.
+              El objetivo es llegar a 65 competidores. Con ese piso, el premio proyectado es $800.000 al primero, $200.000 al segundo y $100.000 al tercero.
             </p>
             <div className="mt-5">
               <SectionLink href="/premios" label="Ver detalle de premios" />

@@ -24,6 +24,13 @@ type UserTiebreakerRow = {
   team: string
 }
 
+type RankingParticipant = {
+  user_id: string
+  name: string
+  avatar_url: string | null
+  participant_status: 'confirmed' | 'trial'
+}
+
 function virtualPredictionToPrediction(row: VirtualPredictionRow): Prediction {
   return {
     id: row.id,
@@ -43,7 +50,7 @@ export default async function RankingPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const admin = createAdminClient()
 
-  const [{ data: participants }, { data: matches }, { data: predictions }, { data: virtualPredictions }, { data: tiebreakers }, { data: specialBets }] = await Promise.all([
+  const [{ data: participants }, { data: matches }, { data: predictions }, { data: virtualPredictions }, { data: tiebreakers }, { data: specialBets }, { data: trialAccessRows }] = await Promise.all([
     supabase
       .from('ranking_entries')
       .select('user_id, name, avatar_url'),
@@ -63,6 +70,12 @@ export default async function RankingPage() {
     supabase
       .from('special_bets')
       .select('user_id, balon, bota, guante'),
+    admin
+      .from('authorized_emails')
+      .select('email, status')
+      .eq('active', true)
+      .eq('status', 'trial')
+      .is('deleted_at', null),
   ])
 
   const allPredictions = [
@@ -81,26 +94,29 @@ export default async function RankingPage() {
       predictionCounts.set(row.user_id, (predictionCounts.get(row.user_id) ?? 0) + 1)
     }
   }
-  const participantRows = (participants ?? []).map((participant) => ({
+  const confirmedRows: RankingParticipant[] = (participants ?? []).map((participant) => ({
     user_id: participant.user_id,
     name: participant.name,
     avatar_url: participant.avatar_url,
+    participant_status: 'confirmed',
   }))
-  const knownParticipantIds = new Set(participantRows.map((participant) => participant.user_id))
-  const missingParticipantIds = [...predictionCounts.keys()].filter((userId) => !knownParticipantIds.has(userId))
-  if (missingParticipantIds.length) {
-    const { data: missingProfiles } = await admin
+  const trialEmails = ((trialAccessRows ?? []) as Array<{ email: string; status: 'trial' }>)
+    .map((row) => row.email.toLowerCase().trim())
+  const { data: trialProfiles } = trialEmails.length
+    ? await admin
       .from('profiles')
       .select('id, name, email, avatar_url')
-      .in('id', missingParticipantIds)
-    for (const profile of missingProfiles ?? []) {
-      participantRows.push({
-        user_id: profile.id,
-        name: profile.name || profile.email || 'Participante',
-        avatar_url: profile.avatar_url,
-      })
-    }
-  }
+      .in('email', trialEmails)
+    : { data: [] }
+  const confirmedIds = new Set(confirmedRows.map((participant) => participant.user_id))
+  const trialRows: RankingParticipant[] = (trialProfiles ?? [])
+    .filter((profile) => !confirmedIds.has(profile.id))
+    .map((profile) => ({
+      user_id: profile.id,
+      name: profile.name || profile.email || 'Invitado',
+      avatar_url: profile.avatar_url,
+      participant_status: 'trial',
+    }))
 
   const typedMatches = buildProjectedKnockoutMatches((matches ?? []) as Match[])
   const tiebreakersByUser = new Map<string, Record<string, string>>()
@@ -109,16 +125,29 @@ export default async function RankingPage() {
     tiebreakersByUser.get(row.user_id)![row.tiebreaker_key] = row.team
   }
 
-  const entries = buildAuditedRankingEntries(
+  const officialEntries = buildAuditedRankingEntries(
     typedMatches,
     allPredictions,
-    participantRows,
+    confirmedRows,
     tiebreakersByUser
   ).map((entry) => ({
     ...entry,
+    participant_status: 'confirmed' as const,
     predictions_count: predictionCounts.get(entry.user_id) ?? 0,
     prode_status: (predictionCounts.get(entry.user_id) ?? 0) > 0 ? 'in_progress' as const : 'empty' as const,
   }))
+  const trialEntries = buildAuditedRankingEntries(
+    typedMatches,
+    allPredictions,
+    trialRows,
+    tiebreakersByUser
+  ).map((entry) => ({
+    ...entry,
+    participant_status: 'trial' as const,
+    predictions_count: predictionCounts.get(entry.user_id) ?? 0,
+    prode_status: (predictionCounts.get(entry.user_id) ?? 0) > 0 ? 'in_progress' as const : 'empty' as const,
+  }))
+  const entries = [...officialEntries, ...trialEntries]
 
   return (
     <div style={{ padding: 'clamp(40px,8vw,64px) 20px clamp(60px,12vw,100px)' }}>
@@ -145,7 +174,7 @@ export default async function RankingPage() {
             Tocá cualquier jugador para ver su Prode completo: pronósticos, aciertos, errores y puntos partido por partido.
           </p>
           <p className="mt-3 max-w-[620px] text-[13px] font-medium leading-relaxed text-[#cfcfcf]">
-            Esta tabla muestra a los participantes habilitados, sus puntos, exactas y parciales. Podés verla sin estar registrado para entender cómo se sigue el torneo.
+            Esta tabla muestra competidores e invitados con Prodes cargados. Los invitados aparecen identificados y no participan oficialmente por premios.
           </p>
         </div>
 

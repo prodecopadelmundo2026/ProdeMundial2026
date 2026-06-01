@@ -324,9 +324,9 @@ function EmptyState({ children }: { children: React.ReactNode }) {
 
 function ParticipationBadge({ status }: { status: ParticipantAccessRow['status'] }) {
   const config = status === 'trial'
-    ? { text: 'En prueba', color: '#FFB15C', bg: 'rgba(255,177,92,0.1)' }
+    ? { text: 'Invitado', color: '#FFB15C', bg: 'rgba(255,177,92,0.1)' }
     : status === 'confirmed'
-    ? { text: 'Participante oficial', color: '#A8F0D8', bg: 'rgba(168,240,216,0.1)' }
+    ? { text: 'Competidor', color: '#A8F0D8', bg: 'rgba(168,240,216,0.1)' }
     : { text: 'Deshabilitado', color: '#FF6B6B', bg: 'rgba(255,59,59,0.1)' }
 
   return (
@@ -344,15 +344,15 @@ function NotOfficialNotice({ canSee }: { canSee: boolean }) {
     <div style={{ padding: 'clamp(32px,7vw,56px) 20px clamp(60px,12vw,100px)' }}>
       <div className="max-w-[760px] mx-auto rounded-[20px] px-5 py-6" style={{ background: '#141414', border: '1px solid rgba(255,177,92,0.2)' }}>
         <p className="font-sans text-[12px] font-extrabold tracking-[0.22em] uppercase" style={{ color: '#FFB15C' }}>
-          Usuario en prueba
+          Invitado
         </p>
         <h1 className="mt-3 font-display text-[clamp(34px,6vw,62px)] uppercase leading-[0.92]">
           No participa oficialmente todavia
         </h1>
         <p className="mt-4 text-[14px] font-semibold leading-relaxed text-muted">
           {canSee
-            ? 'Este usuario esta habilitado para probar la plataforma, pero todavia no integra el ranking oficial.'
-            : 'Este Prode pertenece a un usuario en prueba. El ranking publico muestra participantes confirmados.'}
+            ? 'Este usuario esta habilitado como invitado para probar la plataforma, pero todavia no compite oficialmente por premios.'
+            : 'Este Prode pertenece a un invitado. El ranking oficial de premios corresponde a competidores.'}
         </p>
         <Link
           href="/ranking"
@@ -417,9 +417,8 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     avatar_url: participant.avatar_url,
   }))
   const isInRankingEntries = participantRows.some((participant) => participant.user_id === userId)
-  const hasPersistedProde = isInRankingEntries || userTypedPredictions.length > 0 || userTiebreakers.length > 0 || hasSpecialBets
   let participantAccess: ParticipantAccessRow | null = null
-  if (!isInRankingEntries && hasPersistedProde) {
+  if (!isInRankingEntries) {
     const { data: profile } = await admin
       .from('profiles')
       .select('id, name, email, avatar_url')
@@ -433,8 +432,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
         .maybeSingle()
       : { data: null }
     participantAccess = authorized as ParticipantAccessRow | null
-    const canAuditNonOfficial = currentUserIsAdmin || currentUser?.id === userId
-    if (profile && authorized?.active && !authorized.deleted_at && (authorized.status === 'confirmed' || canAuditNonOfficial)) {
+    if (profile && authorized?.active && !authorized.deleted_at && (authorized.status === 'confirmed' || authorized.status === 'trial')) {
       participantRows.push({
         user_id: profile.id,
         name: profile.name || profile.email || 'Participante',
@@ -498,7 +496,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <ParticipationBadge status="trial" />
               <p className="text-[13px] font-semibold leading-relaxed text-muted">
-                No participa oficialmente todavia. Este detalle sirve para prueba y auditoria.
+                Puede probar el sistema y cargar pronosticos, pero no participa oficialmente por premios.
               </p>
             </div>
           )}

@@ -37,10 +37,15 @@ type Props = {
 }
 
 const STATUS_LABELS: Record<ParticipantStatus, string> = {
-  confirmed: 'Pago',
-  trial: 'En prueba',
+  confirmed: 'Competidor',
+  trial: 'Invitado',
   disabled: 'Deshabilitado',
 }
+
+type StatusFilter = 'all' | 'confirmed' | 'trial' | 'disabled' | 'deleted'
+type RoleFilter = 'all' | 'admin' | 'user'
+type AccountFilter = 'all' | 'with_profile' | 'without_profile'
+type ProdeFilter = 'all' | 'empty' | 'in_progress'
 
 function statusOf(row: AuthorizedEmailRow): ParticipantStatus {
   if (row.status === 'confirmed' || row.status === 'trial' || row.status === 'disabled') return row.status
@@ -62,18 +67,18 @@ function statusBadge(row: AuthorizedEmailRow) {
   const status = statusOf(row)
   if (status === 'confirmed') {
     return {
-      label: row.paid_at ? `Pago ${formatDate(row.paid_at)}` : 'Pago',
+      label: row.paid_at ? `Competidor ${formatDate(row.paid_at)}` : 'Competidor',
       style: { background: 'rgba(168,240,216,0.1)', color: '#A8F0D8', border: '1px solid rgba(168,240,216,0.22)' },
     }
   }
   if (status === 'trial') {
     return {
-      label: 'En prueba / no pago',
+      label: 'Invitado',
       style: { background: 'rgba(255,177,92,0.12)', color: '#FFB15C', border: '1px solid rgba(255,177,92,0.24)' },
     }
   }
   return {
-    label: 'No pago / deshabilitado',
+    label: 'Deshabilitado',
     style: { background: 'rgba(255,59,59,0.1)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.2)' },
   }
 }
@@ -115,17 +120,86 @@ function prodeStatus(row: AuthorizedEmailRow) {
   return 'Prode en proceso'
 }
 
+function matchesFilters(
+  row: AuthorizedEmailRow,
+  statusFilter: StatusFilter,
+  roleFilter: RoleFilter,
+  accountFilter: AccountFilter,
+  prodeFilter: ProdeFilter
+) {
+  if (statusFilter === 'deleted' && !row.deleted_at) return false
+  if (statusFilter !== 'all' && statusFilter !== 'deleted' && (row.deleted_at || statusOf(row) !== statusFilter)) return false
+  if (roleFilter === 'admin' && !row.is_admin) return false
+  if (roleFilter === 'user' && row.is_admin) return false
+  if (accountFilter === 'with_profile' && !row.profile_id) return false
+  if (accountFilter === 'without_profile' && row.profile_id) return false
+  const hasProde = (row.prode_entries_count ?? 0) > 0
+  if (prodeFilter === 'empty' && hasProde) return false
+  if (prodeFilter === 'in_progress' && !hasProde) return false
+  return true
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  options: Array<{ value: string; label: string }>
+}) {
+  return (
+    <label className="grid gap-1 text-[11px] font-extrabold uppercase tracking-[0.12em] text-muted">
+      {label}
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-10 rounded-[10px] px-3 text-[12px] font-bold normal-case tracking-normal text-white"
+        style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)', outline: 'none' }}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
+function SummaryItem({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-[14px] px-4 py-3" style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.07)' }}>
+      <p className="font-display text-[26px] leading-none text-white">{value}</p>
+      <p className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">{label}</p>
+    </div>
+  )
+}
+
 export function WhitelistForm({ rows, query }: Props) {
   const safeRows = Array.isArray(rows) ? rows : []
-  const confirmedRows = safeRows.filter((row) => !row.deleted_at && statusOf(row) === 'confirmed')
-  const trialRows = safeRows.filter((row) => !row.deleted_at && statusOf(row) === 'trial')
-  const disabledRows = safeRows.filter((row) => !row.deleted_at && statusOf(row) === 'disabled')
-  const deletedRows = safeRows.filter((row) => row.deleted_at)
-
   const [editing, setEditing] = useState<AuthorizedEmailRow | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
+  const [accountFilter, setAccountFilter] = useState<AccountFilter>('all')
+  const [prodeFilter, setProdeFilter] = useState<ProdeFilter>('all')
   const [isPending, startTransition] = useTransition()
+
+  const filteredRows = safeRows.filter((row) => matchesFilters(row, statusFilter, roleFilter, accountFilter, prodeFilter))
+  const confirmedRows = filteredRows.filter((row) => !row.deleted_at && statusOf(row) === 'confirmed')
+  const trialRows = filteredRows.filter((row) => !row.deleted_at && statusOf(row) === 'trial')
+  const disabledRows = filteredRows.filter((row) => !row.deleted_at && statusOf(row) === 'disabled')
+  const deletedRows = filteredRows.filter((row) => row.deleted_at)
+  const summary = {
+    confirmed: safeRows.filter((row) => !row.deleted_at && statusOf(row) === 'confirmed').length,
+    trial: safeRows.filter((row) => !row.deleted_at && statusOf(row) === 'trial').length,
+    disabled: safeRows.filter((row) => !row.deleted_at && statusOf(row) === 'disabled').length,
+    admins: safeRows.filter((row) => row.is_admin).length,
+    withoutProfile: safeRows.filter((row) => !row.profile_id).length,
+    prodeInProgress: safeRows.filter((row) => (row.prode_entries_count ?? 0) > 0).length,
+  }
 
   const title = useMemo(
     () => (editing ? `Editar ${editing.email}` : 'Agregar email'),
@@ -205,6 +279,8 @@ export function WhitelistForm({ rows, query }: Props) {
     outline: 'none',
     width: '100%',
   }
+  const actionButtonClass = 'px-3 py-2 rounded-[10px] text-[12px] font-extrabold transition-all duration-150 disabled:opacity-40 shadow-[inset_0_-1px_0_rgba(0,0,0,0.35)]'
+  const secondaryActionStyle: React.CSSProperties = { background: '#202020', border: '1px solid rgba(255,255,255,0.18)', color: '#f1f1f1' }
 
   function renderRows(sectionRows: AuthorizedEmailRow[], empty: string) {
     if (sectionRows.length === 0) {
@@ -244,8 +320,8 @@ export function WhitelistForm({ rows, query }: Props) {
                 <button
                   type="button"
                   onClick={() => { setEditing(row); clearMessages() }}
-                  className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150"
-                  style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}
+                  className={actionButtonClass}
+                  style={secondaryActionStyle}
                 >
                   Editar
                 </button>
@@ -254,10 +330,10 @@ export function WhitelistForm({ rows, query }: Props) {
                     type="button"
                     onClick={() => setStatus(row, 'confirmed')}
                     disabled={isPending}
-                    className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150 disabled:opacity-40"
+                    className={actionButtonClass}
                     style={{ background: 'rgba(168,240,216,0.08)', color: '#A8F0D8', border: '1px solid rgba(168,240,216,0.15)' }}
                   >
-                    Marcar pago
+                    Marcar competidor
                   </button>
                 )}
                 {status !== 'trial' && !row.deleted_at && (
@@ -265,10 +341,10 @@ export function WhitelistForm({ rows, query }: Props) {
                     type="button"
                     onClick={() => setStatus(row, 'trial')}
                     disabled={isPending}
-                    className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150 disabled:opacity-40"
+                    className={actionButtonClass}
                     style={{ background: 'rgba(255,177,92,0.1)', color: '#FFB15C', border: '1px solid rgba(255,177,92,0.2)' }}
                   >
-                    Pasar a prueba
+                    Pasar a invitado
                   </button>
                 )}
                 {status !== 'disabled' && !row.deleted_at && (
@@ -276,7 +352,7 @@ export function WhitelistForm({ rows, query }: Props) {
                     type="button"
                     onClick={() => setStatus(row, 'disabled')}
                     disabled={isPending}
-                    className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150 disabled:opacity-40"
+                    className={actionButtonClass}
                     style={{ background: 'rgba(255,59,59,0.1)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.2)' }}
                   >
                     Deshabilitar
@@ -287,7 +363,7 @@ export function WhitelistForm({ rows, query }: Props) {
                     type="button"
                     onClick={() => toggleAdmin(row)}
                     disabled={isPending || !row.profile_id}
-                    className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150 disabled:opacity-40"
+                    className={actionButtonClass}
                     style={
                       row.is_admin
                         ? { background: 'rgba(255,59,59,0.1)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.2)' }
@@ -297,32 +373,23 @@ export function WhitelistForm({ rows, query }: Props) {
                     {row.is_admin ? 'Quitar admin' : 'Dar admin'}
                   </button>
                 )}
-                {row.profile_id && (
-                  <a
-                    href={`/ranking/${row.profile_id}`}
-                    className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150"
-                    style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}
-                  >
-                    Auditar Prode
-                  </a>
-                )}
                 {row.deleted_at ? (
                   <>
                     <button
                       type="button"
                       onClick={() => restore(row, true)}
                       disabled={isPending}
-                      className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150 disabled:opacity-40"
+                      className={actionButtonClass}
                       style={{ background: 'rgba(255,177,92,0.1)', color: '#FFB15C', border: '1px solid rgba(255,177,92,0.2)' }}
                     >
-                      Restaurar prueba
+                      Restaurar invitado
                     </button>
                     <button
                       type="button"
                       onClick={() => restore(row, false)}
                       disabled={isPending}
-                      className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150 disabled:opacity-40"
-                      style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}
+                      className={actionButtonClass}
+                      style={secondaryActionStyle}
                     >
                       Restaurar deshabilitado
                     </button>
@@ -332,7 +399,7 @@ export function WhitelistForm({ rows, query }: Props) {
                     type="button"
                     onClick={() => softDelete(row)}
                     disabled={isPending}
-                    className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150 disabled:opacity-40"
+                    className={actionButtonClass}
                     style={{ background: 'rgba(255,59,59,0.1)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.2)' }}
                   >
                     Eliminar
@@ -379,6 +446,60 @@ export function WhitelistForm({ rows, query }: Props) {
         </button>
       </form>
 
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <SummaryItem label="Competidores" value={summary.confirmed} />
+        <SummaryItem label="Invitados" value={summary.trial} />
+        <SummaryItem label="Deshabilitados" value={summary.disabled} />
+        <SummaryItem label="Admins" value={summary.admins} />
+        <SummaryItem label="Sin iniciar sesion" value={summary.withoutProfile} />
+        <SummaryItem label="Prodes en proceso" value={summary.prodeInProgress} />
+      </div>
+
+      <div className="grid gap-3 rounded-[16px] p-4 sm:grid-cols-2 lg:grid-cols-4" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <FilterSelect
+          label="Estado"
+          value={statusFilter}
+          onChange={(value) => setStatusFilter(value as StatusFilter)}
+          options={[
+            { value: 'all', label: 'Todos' },
+            { value: 'confirmed', label: 'Competidores' },
+            { value: 'trial', label: 'Invitados' },
+            { value: 'disabled', label: 'Deshabilitados' },
+            { value: 'deleted', label: 'Eliminados' },
+          ]}
+        />
+        <FilterSelect
+          label="Rol"
+          value={roleFilter}
+          onChange={(value) => setRoleFilter(value as RoleFilter)}
+          options={[
+            { value: 'all', label: 'Todos' },
+            { value: 'admin', label: 'Admin' },
+            { value: 'user', label: 'Usuario' },
+          ]}
+        />
+        <FilterSelect
+          label="Cuenta"
+          value={accountFilter}
+          onChange={(value) => setAccountFilter(value as AccountFilter)}
+          options={[
+            { value: 'all', label: 'Todas' },
+            { value: 'with_profile', label: 'Ya inicio sesion' },
+            { value: 'without_profile', label: 'Nunca inicio sesion' },
+          ]}
+        />
+        <FilterSelect
+          label="Prode"
+          value={prodeFilter}
+          onChange={(value) => setProdeFilter(value as ProdeFilter)}
+          options={[
+            { value: 'all', label: 'Todos' },
+            { value: 'empty', label: 'Sin empezar' },
+            { value: 'in_progress', label: 'En proceso' },
+          ]}
+        />
+      </div>
+
       <form
         action={handleSubmit}
         className="rounded-[16px] overflow-hidden"
@@ -413,8 +534,8 @@ export function WhitelistForm({ rows, query }: Props) {
             defaultValue={editing ? statusOf(editing) : 'trial'}
             style={inputStyle}
           >
-            <option value="trial">{STATUS_LABELS.trial}</option>
             <option value="confirmed">{STATUS_LABELS.confirmed}</option>
+            <option value="trial">{STATUS_LABELS.trial}</option>
             <option value="disabled">{STATUS_LABELS.disabled}</option>
           </select>
           <textarea
@@ -454,15 +575,15 @@ export function WhitelistForm({ rows, query }: Props) {
         </div>
       </form>
 
-      <Section title="Confirmados / pagaron" count={confirmedRows.length}>
-        {renderRows(confirmedRows, query ? `Sin confirmados para "${query}".` : 'No hay participantes confirmados.')}
+      <Section title="Competidores" count={confirmedRows.length}>
+        {renderRows(confirmedRows, query ? `Sin competidores para "${query}".` : 'No hay competidores.')}
       </Section>
 
-      <Section title="En prueba / no pagaron" count={trialRows.length}>
-        {renderRows(trialRows, query ? `Sin pruebas para "${query}".` : 'No hay usuarios en prueba.')}
+      <Section title="Invitados" count={trialRows.length}>
+        {renderRows(trialRows, query ? `Sin invitados para "${query}".` : 'No hay invitados.')}
       </Section>
 
-      <Section title="Deshabilitados / no continuan" count={disabledRows.length}>
+      <Section title="Deshabilitados" count={disabledRows.length}>
         {renderRows(disabledRows, 'No hay usuarios deshabilitados.')}
       </Section>
 

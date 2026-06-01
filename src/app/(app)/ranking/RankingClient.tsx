@@ -59,6 +59,7 @@ function RankRow({
   rankingStarted: boolean
 }) {
   const hasPredictions = (entry.predictions_count ?? 0) > 0
+  const isTrial = entry.participant_status === 'trial'
   const statusText = entry.prode_status === 'complete'
     ? 'Prode completo'
     : hasPredictions
@@ -88,14 +89,20 @@ function RankRow({
         }}
       >
       {/* Posición */}
-      <RankMark entry={entry} entries={entries} color={posColor} rankingStarted={rankingStarted} />
+      {isTrial ? (
+        <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] sm:text-[11px]" style={{ color: '#FFB15C' }}>
+          Invitado
+        </span>
+      ) : (
+        <RankMark entry={entry} entries={entries.filter((item) => item.participant_status !== 'trial')} color={posColor} rankingStarted={rankingStarted} />
+      )}
 
       {/* Usuario */}
       <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
         <div
           className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[14px] font-bold text-white"
           style={{
-            background: entry.rank === 1
+            background: !isTrial && entry.rank === 1
               ? rankingStarted ? 'linear-gradient(135deg, #FF6B00, #FFE040)' : 'linear-gradient(135deg, #5B2D8E, #1565C0)'
               : 'linear-gradient(135deg, #5B2D8E, #1565C0)',
             border: '2px solid #2a2a2a',
@@ -106,6 +113,14 @@ function RankRow({
         <div className="min-w-0 flex flex-col gap-0.5">
           <div className="flex items-center gap-2 truncate text-[14px] font-extrabold leading-tight">
             {entry.name}
+            {isTrial && (
+              <span
+                className="font-mono text-[9px] font-extrabold tracking-[0.18em] px-[7px] py-[2px] rounded-[6px] shrink-0"
+                style={{ background: 'rgba(255,177,92,0.16)', color: '#FFB15C', border: '1px solid rgba(255,177,92,0.28)' }}
+              >
+                INVITADO
+              </span>
+            )}
             {isMe && (
               <span
                 className="font-mono text-[9px] font-extrabold tracking-[0.18em] px-[7px] py-[2px] rounded-[6px] shrink-0"
@@ -221,8 +236,15 @@ export function RankingClient({
           className="whitespace-nowrap rounded-[14px] px-3 py-3 font-mono text-[10px] font-bold uppercase tracking-[0.08em] sm:px-4 sm:text-[11px] sm:tracking-[0.1em]"
           style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#8A8A8A' }}
         >
-          <b className="text-white">{filtered.length}</b> JUGADORES
+          <b className="text-white">{filtered.length}</b> EN RANKING
         </div>
+      </div>
+
+      <div
+        className="mb-5 rounded-[16px] px-4 py-3 text-[12px] font-semibold leading-relaxed sm:text-[13px]"
+        style={{ background: 'rgba(255,177,92,0.07)', border: '1px solid rgba(255,177,92,0.18)', color: '#cfcfcf' }}
+      >
+        Los invitados pueden probar el sistema y cargar pronosticos, pero solo los competidores participan oficialmente por premios.
       </div>
 
       {!rankingStarted && (
@@ -278,7 +300,13 @@ export function RankingClient({
             className="grid grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 sm:grid-cols-[92px_minmax(0,1fr)_auto] sm:gap-[14px] sm:px-[14px]"
             style={{ background: 'rgba(255,107,0,0.1)' }}
           >
-            <RankMark entry={meEntry} entries={entries} color="#FF6B00" rankingStarted={rankingStarted} />
+            {meEntry.participant_status === 'trial' ? (
+              <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ color: '#FFB15C' }}>
+                Invitado
+              </span>
+            ) : (
+              <RankMark entry={meEntry} entries={entries.filter((item) => item.participant_status !== 'trial')} color="#FF6B00" rankingStarted={rankingStarted} />
+            )}
             <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
               <div
                 className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[14px] font-bold text-white"
@@ -289,6 +317,14 @@ export function RankingClient({
               <div className="min-w-0 flex flex-col gap-0.5">
                 <div className="flex items-center gap-2 truncate text-[14px] font-extrabold leading-tight">
                   {meEntry.name}
+                  {meEntry.participant_status === 'trial' && (
+                    <span
+                      className="font-mono text-[9px] font-extrabold tracking-[0.18em] px-[7px] py-[2px] rounded-[6px] shrink-0"
+                      style={{ background: 'rgba(255,177,92,0.16)', color: '#FFB15C', border: '1px solid rgba(255,177,92,0.28)' }}
+                    >
+                      INVITADO
+                    </span>
+                  )}
                   <span
                     className="font-mono text-[9px] font-extrabold tracking-[0.18em] px-[7px] py-[2px] rounded-[6px] shrink-0"
                     style={{ background: '#FF6B00', color: '#0A0A0A' }}

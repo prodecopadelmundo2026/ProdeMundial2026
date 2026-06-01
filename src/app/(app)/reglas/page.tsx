@@ -60,11 +60,11 @@ const GENERAL_RULES = [
   },
   {
     title: 'Premios',
-    desc: 'Se premia el podio final del ranking. El pozo y los premios prometidos dependen de llegar al mínimo de 65 jugadores pagos/confirmados.',
+    desc: 'Se premia el podio final del ranking oficial. El pozo y los premios proyectados dependen de llegar al mínimo de 65 competidores.',
   },
   {
-    title: 'Mínimo de jugadores',
-    desc: 'El objetivo es juntar al menos 65 jugadores. Por eso conviene invitar amigos: ayuda a completar el pozo y deja el Prode mejor armado para todos.',
+    title: 'Mínimo de competidores',
+    desc: 'El objetivo es juntar al menos 65 competidores. Por eso conviene invitar amigos: ayuda a completar el pozo y deja el Prode mejor armado para todos.',
   },
 ]
 
