@@ -28,6 +28,7 @@ export type AuthorizedEmailRow = {
   profile_id?: string | null
   profile_name?: string | null
   is_admin?: boolean | null
+  prode_entries_count?: number | null
 }
 
 type Props = {
@@ -87,6 +88,31 @@ function Badge({ row }: { row: AuthorizedEmailRow }) {
       {badge.label}
     </span>
   )
+}
+
+function MiniBadge({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'ok' | 'warn' | 'danger' | 'admin' }) {
+  const styles = {
+    neutral: { background: '#1a1a1a', color: '#8A8A8A', border: '1px solid rgba(255,255,255,0.08)' },
+    ok: { background: 'rgba(168,240,216,0.1)', color: '#A8F0D8', border: '1px solid rgba(168,240,216,0.2)' },
+    warn: { background: 'rgba(255,177,92,0.1)', color: '#FFB15C', border: '1px solid rgba(255,177,92,0.2)' },
+    danger: { background: 'rgba(255,59,59,0.1)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.2)' },
+    admin: { background: 'rgba(255,107,0,0.12)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.22)' },
+  }[tone]
+
+  return (
+    <span
+      className="text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-[0.08em] uppercase"
+      style={styles}
+    >
+      {label}
+    </span>
+  )
+}
+
+function prodeStatus(row: AuthorizedEmailRow) {
+  const count = row.prode_entries_count ?? 0
+  if (!row.profile_id || count === 0) return 'Prode sin empezar'
+  return 'Prode en proceso'
 }
 
 export function WhitelistForm({ rows, query }: Props) {
@@ -200,16 +226,10 @@ export function WhitelistForm({ rows, query }: Props) {
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-bold text-[13px] text-white">{row.email}</p>
                   <Badge row={row} />
-                  <span
-                    className="text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-[0.08em] uppercase"
-                    style={
-                      row.is_admin
-                        ? { background: 'rgba(255,107,0,0.12)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.22)' }
-                        : { background: '#1a1a1a', color: '#4a4a4a' }
-                    }
-                  >
-                    {row.profile_id ? (row.is_admin ? 'Admin' : 'Usuario') : 'Sin perfil'}
-                  </span>
+                  <MiniBadge label={row.active && !row.deleted_at ? 'Acceso activo' : 'Acceso deshabilitado'} tone={row.active && !row.deleted_at ? 'ok' : 'danger'} />
+                  <MiniBadge label={row.profile_id ? 'Ya inicio sesion' : 'Sin inicio de sesion todavia'} tone={row.profile_id ? 'ok' : 'neutral'} />
+                  <MiniBadge label={prodeStatus(row)} tone={(row.prode_entries_count ?? 0) > 0 ? 'warn' : 'neutral'} />
+                  <MiniBadge label={row.is_admin ? 'Admin' : 'Usuario'} tone={row.is_admin ? 'admin' : 'neutral'} />
                 </div>
                 <p className="mt-0.5 text-[12px] text-muted">
                   {row.label ?? row.profile_name ?? 'Sin nombre'}
@@ -276,6 +296,15 @@ export function WhitelistForm({ rows, query }: Props) {
                   >
                     {row.is_admin ? 'Quitar admin' : 'Dar admin'}
                   </button>
+                )}
+                {row.profile_id && (
+                  <a
+                    href={`/ranking/${row.profile_id}`}
+                    className="px-3 py-2 rounded-[10px] text-[12px] font-bold transition-all duration-150"
+                    style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}
+                  >
+                    Auditar Prode
+                  </a>
                 )}
                 {row.deleted_at ? (
                   <>

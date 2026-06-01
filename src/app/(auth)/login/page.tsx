@@ -8,6 +8,8 @@ import { SALES_CONTACTS, whatsappHref } from '@/lib/sales-contacts'
 const LOGIN_ERROR_MESSAGES: Record<string, string> = {
   unauthorized_email:
     'Tu correo no está autorizado para ingresar. Usá exactamente el mismo correo cargado en Participantes habilitados.',
+  disabled_email:
+    'Tu cuenta fue deshabilitada. Si crees que se trata de un error o queres volver a participar, comunicate con los organizadores.',
   auth_method_mismatch:
     'Este ingreso usa Google. Si tu correo es Hotmail, Outlook o Yahoo, solo funciona si ese mismo correo está asociado a una cuenta Google habilitada.',
   auth_callback_error:
@@ -36,9 +38,18 @@ function getInitialMessage() {
   return code ? LOGIN_INFO_MESSAGES[code] ?? null : null
 }
 
+function getInitialLoginError() {
+  if (typeof window === 'undefined') return null
+  const params = new URLSearchParams(window.location.search)
+  const code = params.get('error')
+  const reason = params.get('reason')?.trim()
+  const base = code ? LOGIN_ERROR_MESSAGES[code] ?? 'No pudimos iniciar sesion. Volve a intentarlo.' : null
+  return base && code === 'disabled_email' && reason ? `${base} Motivo: ${reason}` : base
+}
+
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(getInitialError)
+  const [error, setError] = useState<string | null>(getInitialLoginError)
   const [message, setMessage] = useState<string | null>(getInitialMessage)
 
   async function handleGoogleSignIn() {

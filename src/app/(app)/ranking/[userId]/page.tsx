@@ -73,6 +73,13 @@ type UserTiebreakerRow = {
   team: string
 }
 
+type ParticipantAccessRow = {
+  email: string
+  active: boolean
+  status: 'trial' | 'confirmed' | 'disabled'
+  deleted_at: string | null
+}
+
 function virtualPredictionToPrediction(row: VirtualPredictionRow): Prediction {
   return {
     id: row.id,
@@ -315,6 +322,50 @@ function EmptyState({ children }: { children: React.ReactNode }) {
   )
 }
 
+function ParticipationBadge({ status }: { status: ParticipantAccessRow['status'] }) {
+  const config = status === 'trial'
+    ? { text: 'En prueba', color: '#FFB15C', bg: 'rgba(255,177,92,0.1)' }
+    : status === 'confirmed'
+    ? { text: 'Participante oficial', color: '#A8F0D8', bg: 'rgba(168,240,216,0.1)' }
+    : { text: 'Deshabilitado', color: '#FF6B6B', bg: 'rgba(255,59,59,0.1)' }
+
+  return (
+    <span
+      className="inline-flex rounded-full px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em]"
+      style={{ color: config.color, background: config.bg, border: `1px solid ${config.color}33` }}
+    >
+      {config.text}
+    </span>
+  )
+}
+
+function NotOfficialNotice({ canSee }: { canSee: boolean }) {
+  return (
+    <div style={{ padding: 'clamp(32px,7vw,56px) 20px clamp(60px,12vw,100px)' }}>
+      <div className="max-w-[760px] mx-auto rounded-[20px] px-5 py-6" style={{ background: '#141414', border: '1px solid rgba(255,177,92,0.2)' }}>
+        <p className="font-sans text-[12px] font-extrabold tracking-[0.22em] uppercase" style={{ color: '#FFB15C' }}>
+          Usuario en prueba
+        </p>
+        <h1 className="mt-3 font-display text-[clamp(34px,6vw,62px)] uppercase leading-[0.92]">
+          No participa oficialmente todavia
+        </h1>
+        <p className="mt-4 text-[14px] font-semibold leading-relaxed text-muted">
+          {canSee
+            ? 'Este usuario esta habilitado para probar la plataforma, pero todavia no integra el ranking oficial.'
+            : 'Este Prode pertenece a un usuario en prueba. El ranking publico muestra participantes confirmados.'}
+        </p>
+        <Link
+          href="/ranking"
+          className="mt-5 inline-flex rounded-full px-4 py-2 text-[12px] font-extrabold uppercase"
+          style={{ background: '#FF6B00', color: '#0A0A0A' }}
+        >
+          Volver al ranking
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 export default async function ParticipantRankingPage({ params, searchParams }: Props) {
   const [{ userId }, query] = await Promise.all([params, searchParams])
   const activeStage = STAGES.some((stage) => stage.key === query.stage) ? query.stage! : 'group'
@@ -323,6 +374,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     : null
   const supabase = await createClient()
   const admin = createAdminClient()
+  const { data: { user: currentUser } } = await supabase.auth.getUser()
 
   const [
     { data: participants },
@@ -333,6 +385,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     { data: matches },
     { data: allTiebreakers },
     specialBets,
+    { data: currentProfile },
   ] = await Promise.all([
     supabase.from('ranking_entries').select('user_id, name, avatar_url'),
     supabase.from('predictions').select('*').eq('user_id', userId),
@@ -342,7 +395,11 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
     supabase.from('user_prediction_tiebreakers').select('user_id, tiebreaker_key, team'),
     loadSpecialBets(supabase, admin, userId),
+    currentUser
+      ? admin.from('profiles').select('is_admin').eq('id', currentUser.id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
+  const currentUserIsAdmin = Boolean(currentProfile?.is_admin)
 
   const allTypedPredictions = [
     ...((allPredictions ?? []) as Prediction[]),
@@ -361,6 +418,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   }))
   const isInRankingEntries = participantRows.some((participant) => participant.user_id === userId)
   const hasPersistedProde = isInRankingEntries || userTypedPredictions.length > 0 || userTiebreakers.length > 0 || hasSpecialBets
+  let participantAccess: ParticipantAccessRow | null = null
   if (!isInRankingEntries && hasPersistedProde) {
     const { data: profile } = await admin
       .from('profiles')
@@ -370,11 +428,13 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     const { data: authorized } = profile?.email
       ? await admin
         .from('authorized_emails')
-        .select('active, deleted_at')
+        .select('email, active, status, deleted_at')
         .eq('email', String(profile.email).toLowerCase().trim())
         .maybeSingle()
       : { data: null }
-    if (profile && authorized?.active && !authorized.deleted_at) {
+    participantAccess = authorized as ParticipantAccessRow | null
+    const canAuditNonOfficial = currentUserIsAdmin || currentUser?.id === userId
+    if (profile && authorized?.active && !authorized.deleted_at && (authorized.status === 'confirmed' || canAuditNonOfficial)) {
       participantRows.push({
         user_id: profile.id,
         name: profile.name || profile.email || 'Participante',
@@ -395,7 +455,11 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     tiebreakersByUser
   )
   const entry = rankingEntries.find((rankingEntry) => rankingEntry.user_id === userId)
+  if (!entry && participantAccess?.status === 'trial') {
+    return <NotOfficialNotice canSee={currentUserIsAdmin || currentUser?.id === userId} />
+  }
   if (!entry) notFound()
+  const isTrialDetail = participantAccess?.status === 'trial'
   const rankingStarted = rankingEntries.some((rankingEntry) => rankingEntry.total_points > 0)
   const typedUserPredictions = userTypedPredictions
   const hasOfficialResults = typedMatches.some((match) => match.status === 'finished' && match.home_score != null && match.away_score != null)
@@ -430,6 +494,14 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
           <h1 className="font-display uppercase leading-[.9] tracking-[-0.04em]" style={{ fontSize: 'clamp(40px, 8vw, 92px)' }}>
             {entry.name}
           </h1>
+          {isTrialDetail && (
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <ParticipationBadge status="trial" />
+              <p className="text-[13px] font-semibold leading-relaxed text-muted">
+                No participa oficialmente todavia. Este detalle sirve para prueba y auditoria.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-5 mb-5">

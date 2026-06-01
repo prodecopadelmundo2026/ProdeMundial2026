@@ -500,12 +500,12 @@ export default async function HomePage() {
         style={{ borderTop: '2px solid #0A0A0A', borderBottom: '2px solid #0A0A0A' }}
       >
         <div className="max-w-[1280px] mx-auto px-5 py-6 grid grid-cols-1 gap-x-2 gap-y-6 min-[680px]:grid-cols-3 min-[720px]:gap-5 min-[1100px]:grid-cols-5">
-			<StatItem num={jugadores ?? typedTopRanking.length} label="Jugadores" live />
-			<StatItem num={prodeInProcessIds.size} label="Prodes en proceso" />
-			<StatItem num={TOURNAMENT_TOTAL_POINTS} label="Puntos en juego" />
-			<StatItem num={`${finishedMatches} de ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" />
-			<StatItem num={`${aliveTeams} de ${TOURNAMENT_TOTAL_TEAMS}`} label="Selecciones" />
-		</div>
+          <StatItem num={jugadores ?? typedTopRanking.length} label="Participantes" live />
+          <StatItem num={prodeInProcessIds.size} label="Prodes oficiales en proceso" />
+          <StatItem num={TOURNAMENT_TOTAL_POINTS} label="Puntos en juego" />
+          <StatItem num={`${finishedMatches} de ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" />
+          <StatItem num={`${aliveTeams} de ${TOURNAMENT_TOTAL_TEAMS}`} label="Selecciones" />
+        </div>
       </div>
 
       {/* ─── UPCOMING MATCHES ───────────────────────────────────── */}

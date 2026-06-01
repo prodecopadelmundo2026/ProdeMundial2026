@@ -2,6 +2,7 @@
 
 import { MessageCircle, X } from 'lucide-react'
 import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { SALES_CONTACTS, whatsappHref } from '@/lib/sales-contacts'
 
 type Props = {
@@ -10,7 +11,10 @@ type Props = {
 
 export function WhatsAppSupportButton({ placement = 'floating' }: Props) {
   const [open, setOpen] = useState(false)
+  const pathname = usePathname()
   const isNav = placement === 'nav'
+
+  if (pathname?.startsWith('/admin')) return null
 
   return (
     <div className={isNav ? 'relative z-[120]' : 'fixed bottom-[calc(16px+env(safe-area-inset-bottom))] right-3 z-[120] flex flex-col items-end gap-3 sm:right-6 min-[880px]:bottom-6'}>

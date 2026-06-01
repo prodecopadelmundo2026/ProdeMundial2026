@@ -117,7 +117,7 @@ export async function middleware(request: NextRequest) {
 
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
-    loginUrl.searchParams.set('error', 'unauthorized_email')
+    loginUrl.searchParams.set('error', 'disabled_email')
     const redirectResponse = NextResponse.redirect(loginUrl)
     clearSupabaseAuthCookies(redirectResponse, request)
     return redirectResponse

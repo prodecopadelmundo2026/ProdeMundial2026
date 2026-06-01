@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { WhitelistForm, type AuthorizedEmailRow } from './WhitelistForm'
 import { getCurrentProfile } from '@/lib/current-profile'
 
@@ -19,6 +20,7 @@ export default async function AdminWhitelistPage({ searchParams }: Props) {
   const profile = await getCurrentProfile(user)
 
   if (!profile?.is_admin) redirect('/')
+  const admin = createAdminClient()
 
   const { data, error } = await supabase.rpc('admin_list_authorized_emails', {
     p_query: query,
@@ -27,11 +29,34 @@ export default async function AdminWhitelistPage({ searchParams }: Props) {
   const rows = Array.isArray(data) ? (data as AuthorizedEmailRow[]) : []
   const emails = rows.map((row) => row.email.toLowerCase().trim())
   const { data: profiles } = emails.length > 0
-    ? await supabase
+    ? await admin
       .from('profiles')
       .select('id, email, name, is_admin')
       .in('email', emails)
     : { data: [] }
+  const profileIds = (profiles ?? []).map((profile) => profile.id)
+  const [
+    { data: predictionRows },
+    { data: virtualPredictionRows },
+    { data: tiebreakerRows },
+    { data: specialBetRows },
+  ] = profileIds.length > 0
+    ? await Promise.all([
+        admin.from('predictions').select('user_id').in('user_id', profileIds),
+        admin.from('virtual_knockout_predictions').select('user_id').in('user_id', profileIds),
+        admin.from('user_prediction_tiebreakers').select('user_id').in('user_id', profileIds),
+        admin.from('special_bets').select('user_id, balon, bota, guante').in('user_id', profileIds),
+      ])
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }]
+  const prodeCountByUser = new Map<string, number>()
+  for (const row of [...(predictionRows ?? []), ...(virtualPredictionRows ?? []), ...(tiebreakerRows ?? [])] as Array<{ user_id: string }>) {
+    prodeCountByUser.set(row.user_id, (prodeCountByUser.get(row.user_id) ?? 0) + 1)
+  }
+  for (const row of (specialBetRows ?? []) as Array<{ user_id: string; balon: string | null; bota: string | null; guante: string | null }>) {
+    if (row.balon || row.bota || row.guante) {
+      prodeCountByUser.set(row.user_id, (prodeCountByUser.get(row.user_id) ?? 0) + 1)
+    }
+  }
   const profileByEmail = new Map(
     (profiles ?? []).map((profile) => [String(profile.email).toLowerCase().trim(), profile])
   )
@@ -42,6 +67,7 @@ export default async function AdminWhitelistPage({ searchParams }: Props) {
       profile_id: rowProfile?.id ?? null,
       profile_name: rowProfile?.name ?? null,
       is_admin: Boolean(rowProfile?.is_admin),
+      prode_entries_count: rowProfile?.id ? prodeCountByUser.get(rowProfile.id) ?? 0 : 0,
     }
   })
 
