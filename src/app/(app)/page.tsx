@@ -304,6 +304,8 @@ export default async function HomePage() {
   todayStart.setUTCHours(0, 0, 0, 0)
 
   const [
+    { count: competitorCount },
+    { count: guestCount },
     { data: authorizedRows },
     { count: myPredsCount },
     { data: upcoming },
@@ -317,9 +319,25 @@ export default async function HomePage() {
   ] = await Promise.all([
     admin
       .from('authorized_emails')
+      .select('email', { count: 'exact', head: true })
+      .eq('active', true)
+      .eq('status', 'confirmed')
+      .is('deleted_at', null)
+      .throwOnError(),
+    admin
+      .from('authorized_emails')
+      .select('email', { count: 'exact', head: true })
+      .eq('active', true)
+      .eq('status', 'trial')
+      .is('deleted_at', null)
+      .throwOnError(),
+    admin
+      .from('authorized_emails')
       .select('email, active, status, deleted_at')
       .eq('active', true)
-      .is('deleted_at', null),
+      .in('status', ['confirmed', 'trial'])
+      .is('deleted_at', null)
+      .throwOnError(),
     user
       ? supabase.from('predictions').select('*', { count: 'exact', head: true }).limit(1)
       : Promise.resolve({ count: 0 }),
@@ -337,23 +355,24 @@ export default async function HomePage() {
     user
       ? supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
       : Promise.resolve({ data: null }),
-    supabase.from('predictions').select('user_id'),
-    supabase.from('virtual_knockout_predictions').select('user_id'),
-    supabase.from('user_prediction_tiebreakers').select('user_id'),
-    supabase.from('special_bets').select('user_id, balon, bota, guante'),
-    admin.from('matches').select('*'),
+    admin.from('predictions').select('user_id').throwOnError(),
+    admin.from('virtual_knockout_predictions').select('user_id').throwOnError(),
+    admin.from('user_prediction_tiebreakers').select('user_id').throwOnError(),
+    admin.from('special_bets').select('user_id, balon, bota, guante').throwOnError(),
+    admin.from('matches').select('*').throwOnError(),
   ])
 
   const publicAuthorizedRows = ((authorizedRows ?? []) as AuthorizedEmailSummary[])
     .filter((row) => row.active && !row.deleted_at && participantStatus(row) !== 'disabled')
-  const competidores = publicAuthorizedRows.filter((row) => participantStatus(row) === 'confirmed').length
-  const invitados = publicAuthorizedRows.filter((row) => participantStatus(row) === 'trial').length
+  const competidores = competitorCount ?? 0
+  const invitados = guestCount ?? 0
   const authorizedEmails = publicAuthorizedRows.map((row) => row.email.toLowerCase().trim())
   const { data: authorizedProfiles } = authorizedEmails.length > 0
     ? await admin
       .from('profiles')
       .select('id, email')
       .in('email', authorizedEmails)
+      .throwOnError()
     : { data: [] }
   const publicProfileIds = new Set(
     ((authorizedProfiles ?? []) as ProfileSummary[])
