@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { PRODE_SUBMISSION_CUTOFF_AT } from '@/lib/tournament-dates'
 
 const DISMISS_KEY = 'specials-banner-dismissed'
 
@@ -11,6 +12,14 @@ interface Props {
 
 export function SpecialsBanner({ onClickCargar, loaded = false }: Props) {
   const [dismissed, setDismissed] = useState(false)
+  const cutoffLabel = new Intl.DateTimeFormat('es-AR', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'America/Argentina/Buenos_Aires',
+  }).format(new Date(PRODE_SUBMISSION_CUTOFF_AT))
 
   useEffect(() => {
     setDismissed(localStorage.getItem(DISMISS_KEY) === '1')
@@ -62,10 +71,10 @@ export function SpecialsBanner({ onClickCargar, loaded = false }: Props) {
         </h4>
         <p className="inline text-[#cfcfcf] font-medium text-[13px]">
           {loaded ? (
-            'Podés editarlos hasta el 11 jun.'
+            `Podes editarlos hasta el ${cutoffLabel} ART.`
           ) : (
             <>
-              Hasta <b className="text-mint font-extrabold font-mono text-[12px]">+50 pts</b> antes del 11 jun.
+              Hasta <b className="text-mint font-extrabold font-mono text-[12px]">+50 pts</b> antes del cierre.
             </>
           )}
         </p>

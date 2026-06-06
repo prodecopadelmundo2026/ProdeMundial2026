@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { saveSpecialBets, type SpecialBetsValues } from './actions'
+import { PRODE_SUBMISSION_CUTOFF_AT } from '@/lib/tournament-dates'
 
 const AWARDS = [
   { key: 'balon', label: 'Balon de Oro', sub: 'Mejor jugador del torneo', pts: '+20', color: '#5B2D8E', inputLabel: 'Jugador' },
@@ -26,6 +27,14 @@ export function SpecialsTab({ initialValues, readOnly = false }: Props) {
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cutoffLabel = new Intl.DateTimeFormat('es-AR', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'America/Argentina/Buenos_Aires',
+  }).format(new Date(PRODE_SUBMISSION_CUTOFF_AT))
 
   async function persist(next: Values) {
     if (readOnly) return
@@ -81,7 +90,7 @@ export function SpecialsTab({ initialValues, readOnly = false }: Props) {
         </h3>
         <p className="text-[14px] mt-2 leading-[1.5]" style={{ color: '#8A8A8A' }}>
           Carga quien crees que se va a llevar cada distincion. Solo se evaluan al final del torneo.{' '}
-          <b className="text-white font-extrabold">Cierran el 11 de junio.</b>
+          <b className="text-white font-extrabold">Cierran 24 horas antes del primer partido.</b>
         </p>
       </div>
 
@@ -168,11 +177,11 @@ export function SpecialsTab({ initialValues, readOnly = false }: Props) {
       >
         <span className="text-[13px]" style={{ color: '#8A8A8A' }}>
           {readOnly ? (
-            'Las apuestas especiales estan bloqueadas.'
+            'La carga del Prode ya cerro. Podes consultar tus apuestas, pero ya no editarlas.'
           ) : (
             <>
               Podes editarlas hasta el{' '}
-              <b className="font-mono text-[12px] font-extrabold tracking-[0.1em] uppercase text-white">11 jun - 15:30</b>
+              <b className="font-mono text-[12px] font-extrabold tracking-[0.1em] uppercase text-white">{cutoffLabel} ART</b>
             </>
           )}
         </span>

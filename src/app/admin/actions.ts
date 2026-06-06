@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
-import type { Match, Prediction } from '@/types'
+import type { Match } from '@/types'
 import {
   assignBestThirdsToSlots,
   buildKnockoutMap,
@@ -12,7 +12,6 @@ import {
   getPendingGroupTiebreakers,
   resolveTeamFull,
 } from '@/lib/bracket'
-import { buildMatchAuditRows } from '@/lib/ranking-audit'
 import { getProdeLockState } from '@/lib/prode-lock'
 import { getMaintenanceMode } from '@/lib/maintenance'
 
@@ -48,41 +47,6 @@ function adminToolError(error: unknown): AdminToolResult {
   }
 }
 
-async function recomputeAllPredictionPoints(admin = createAdminClient()) {
-  const [{ data: matches, error: matchesError }, { data: predictions, error: predictionsError }] = await Promise.all([
-    admin.from('matches').select('*'),
-    admin.from('predictions').select('*'),
-  ])
-
-  if (matchesError) throw new Error(matchesError.message)
-  if (predictionsError) throw new Error(predictionsError.message)
-
-  const typedMatches = (matches ?? []) as Match[]
-  const typedPredictions = (predictions ?? []) as Prediction[]
-  const byUser = new Map<string, Prediction[]>()
-  for (const prediction of typedPredictions) {
-    if (!byUser.has(prediction.user_id)) byUser.set(prediction.user_id, [])
-    byUser.get(prediction.user_id)!.push(prediction)
-  }
-
-  let updated = 0
-  for (const userPredictions of byUser.values()) {
-    const auditRows = buildMatchAuditRows(typedMatches, userPredictions)
-    for (const row of auditRows) {
-      if (!row.prediction) continue
-      if ((row.prediction.points ?? null) === (row.points ?? null)) continue
-      const { error } = await admin
-        .from('predictions')
-        .update({ points: row.points })
-        .eq('id', row.prediction.id)
-      if (error) throw new Error(error.message)
-      updated++
-    }
-  }
-
-  return updated
-}
-
 export async function requireAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -107,24 +71,18 @@ export async function setMatchResult(
   if (!Number.isInteger(homeScore) || homeScore < 0 || homeScore > 99) throw new Error('Goles inválidos')
   if (!Number.isInteger(awayScore) || awayScore < 0 || awayScore > 99) throw new Error('Goles inválidos')
 
+  const supabase = await createClient()
   await requireAdmin()
 
-  const admin = createAdminClient()
-
-  const { data, error } = await admin
-    .from('matches')
-    .update({
-      home_score: homeScore,
-      away_score: awayScore,
-      status,
-    })
-    .eq('id', matchId)
-    .select('id')
+  const { data, error } = await supabase.rpc('admin_set_match_result', {
+    p_match_id: matchId,
+    p_home_score: homeScore,
+    p_away_score: awayScore,
+    p_status: status,
+  })
 
   if (error) throw new Error(error.message)
   if (!data || data.length === 0) throw new Error('No se encontró el partido o no se pudo actualizar.')
-
-  await recomputeAllPredictionPoints(admin)
 
   revalidateCorePaths()
 }
@@ -268,18 +226,30 @@ export async function restoreAuthorizedEmail(email: string, active = true): Prom
 }
 
 export async function toggleProdeLockOverride() {
+  const supabase = await createClient()
   await requireAdmin()
-  const admin = createAdminClient()
-  const state = await getProdeLockState(admin)
+  const state = await getProdeLockState(supabase)
   const nextValue = state.locked ? 'unlocked' : 'locked'
 
-  const { error } = await admin
-    .from('app_settings')
-    .upsert({
-      key: 'prode_lock_override',
-      value: nextValue,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'key' })
+  const { error } = await supabase.rpc('admin_set_prode_lock_override', {
+    p_override: nextValue,
+  })
+
+  if (error) throw new Error(error.message)
+
+  revalidateCorePaths()
+  revalidatePath('/admin')
+}
+
+export async function setProdeLockOverride(formData: FormData) {
+  const supabase = await createClient()
+  await requireAdmin()
+  const rawValue = String(formData.get('override') ?? '').trim()
+  const override = rawValue === 'locked' || rawValue === 'unlocked' ? rawValue : null
+
+  const { error } = await supabase.rpc('admin_set_prode_lock_override', {
+    p_override: override,
+  })
 
   if (error) throw new Error(error.message)
 
@@ -288,17 +258,13 @@ export async function toggleProdeLockOverride() {
 }
 
 export async function toggleMaintenanceMode() {
+  const supabase = await createClient()
   await requireAdmin()
-  const admin = createAdminClient()
-  const enabled = await getMaintenanceMode(admin)
+  const enabled = await getMaintenanceMode(supabase)
 
-  const { error } = await admin
-    .from('app_settings')
-    .upsert({
-      key: 'maintenance_mode',
-      value: enabled ? 'off' : 'on',
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'key' })
+  const { error } = await supabase.rpc('admin_set_maintenance_mode', {
+    p_enabled: !enabled,
+  })
 
   if (error) throw new Error(error.message)
 
@@ -466,22 +432,13 @@ function resolveRoundTeams(match: Match, workingMatches: Match[]) {
 export async function adminResetMatchResults() {
   try {
     await requireAdmin()
-    const admin = createAdminClient()
+    const supabase = await createClient()
 
-    const { error: predErr } = await admin
-      .from('predictions')
-      .update({ points: null })
-      .gte('created_at', '2000-01-01')
-    if (predErr) throw new Error(predErr.message)
-
-    const { error: matchErr } = await admin
-      .from('matches')
-      .update({ home_score: null, away_score: null, status: 'upcoming' })
-      .in('stage', ALL_STAGES)
-    if (matchErr) throw new Error(matchErr.message)
+    const { data, error } = await supabase.rpc('admin_reset_match_results')
+    if (error) throw new Error(error.message)
 
     revalidateCorePaths()
-    return { ok: true, message: 'Resultados borrados. Todos los partidos volvieron a pendiente.' }
+    return { ok: true, message: 'Resultados borrados. Todos los partidos volvieron a pendiente.', count: data ?? 0 }
   } catch (error) {
     return adminToolError(error)
   }
@@ -490,9 +447,9 @@ export async function adminResetMatchResults() {
 export async function adminFillMatchesRandomly() {
   try {
     await requireAdmin()
-    const admin = createAdminClient()
+    const supabase = await createClient()
 
-    const { data: matches, error } = await admin
+    const { data: matches, error } = await supabase
       .from('matches')
       .select('*')
       .in('stage', ALL_STAGES)
@@ -536,18 +493,14 @@ export async function adminFillMatchesRandomly() {
     }
 
     for (const update of allUpdates) {
-      const { error: updateErr } = await admin
-        .from('matches')
-        .update({
-          home_score: update.home_score,
-          away_score: update.away_score,
-          status: update.status,
-        })
-        .eq('id', update.id)
+      const { error: updateErr } = await supabase.rpc('admin_set_match_result', {
+        p_match_id: update.id,
+        p_home_score: update.home_score,
+        p_away_score: update.away_score,
+        p_status: update.status,
+      })
       if (updateErr) throw new Error(updateErr.message)
     }
-
-    await recomputeAllPredictionPoints(admin)
 
     revalidateCorePaths()
     return {

@@ -18,7 +18,7 @@ import {
 } from '@/lib/bracket'
 import { AdminBracketSection } from './AdminBracketSection'
 import { getProdeLockState } from '@/lib/prode-lock'
-import { toggleMaintenanceMode, toggleProdeLockOverride } from './actions'
+import { setProdeLockOverride, toggleMaintenanceMode } from './actions'
 import { getCurrentProfile } from '@/lib/current-profile'
 import { getMaintenanceMode } from '@/lib/maintenance'
 
@@ -272,7 +272,7 @@ export default async function AdminPage() {
         </div>
 
         <form
-          action={toggleProdeLockOverride}
+          action={setProdeLockOverride}
           className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
           style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
         >
@@ -283,21 +283,35 @@ export default async function AdminPage() {
               {prodeLock.override
                 ? ` - override manual: ${prodeLock.override === 'locked' ? 'bloqueado' : 'desbloqueado'}`
                 : prodeLock.automaticLocked
-                ? ' - bloqueo automatico por resultado oficial'
-                : ' - sin resultados oficiales cargados'}
+                ? ' - cierre automatico por fecha'
+                : ' - cierre automatico pendiente'}
+            </p>
+            <p className="text-[11px] mt-1 text-muted">
+              Cierre oficial: 24 horas antes del primer partido del Mundial.
             </p>
           </div>
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase"
-            style={{
-              background: prodeLock.locked ? 'rgba(168,240,216,0.12)' : 'rgba(255,107,0,0.16)',
-              color: prodeLock.locked ? '#A8F0D8' : '#FF6B00',
-              border: prodeLock.locked ? '1px solid rgba(168,240,216,0.3)' : '1px solid rgba(255,107,0,0.3)',
-            }}
-          >
-            {prodeLock.locked ? 'Desbloquear Prode' : 'Bloquear Prode'}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { value: 'locked', label: 'Bloquear' },
+              { value: 'unlocked', label: 'Desbloquear' },
+              { value: 'auto', label: 'Auto' },
+            ].map((option) => (
+              <button
+                key={option.value}
+                type="submit"
+                name="override"
+                value={option.value}
+                className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase"
+                style={{
+                  background: option.value === 'locked' ? 'rgba(255,107,0,0.16)' : 'rgba(168,240,216,0.12)',
+                  color: option.value === 'locked' ? '#FF6B00' : '#A8F0D8',
+                  border: option.value === 'locked' ? '1px solid rgba(255,107,0,0.3)' : '1px solid rgba(168,240,216,0.3)',
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </form>
 
         <form

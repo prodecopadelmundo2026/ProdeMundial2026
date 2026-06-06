@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { WORLD_CUP_FIRST_MATCH_AT } from '@/lib/tournament-dates'
 
-const TARGET = new Date('2026-06-11T19:00:00Z')
+const TARGET = new Date(WORLD_CUP_FIRST_MATCH_AT)
 
 function pad(n: number) {
   return String(Math.max(0, n)).padStart(2, '0')

@@ -526,7 +526,7 @@ export function MiProdeTabs({
   function handleDeleteSelectedPredictions() {
     if (prodeLocked) {
       setDeleteState('error')
-      setDeleteMessage('El Prode esta bloqueado. No se pueden editar apuestas.')
+      setDeleteMessage('La carga del Prode ya cerro. Podes consultar tus pronosticos, pero ya no editarlos.')
       return
     }
     const scopes = resolveDeleteScopes()
@@ -651,11 +651,11 @@ export function MiProdeTabs({
           className="mb-5 rounded-[16px] px-5 py-4 text-[13px] font-bold"
           style={{ background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.22)', color: '#FFB15C' }}
         >
-          El Prode esta bloqueado. Las apuestas quedan en modo solo lectura.
+          La carga del Prode ya cerro. Podes consultar tus pronosticos, pero ya no editarlos.
           {lockState.override === 'locked'
             ? ' Bloqueo manual admin activo.'
             : lockState.automaticLocked
-            ? ' Ya hay al menos un resultado oficial cargado.'
+            ? ' Cierre automatico por fecha activo.'
             : ''}
         </div>
       )}

@@ -1,3 +1,5 @@
+import { PRODE_SUBMISSION_CUTOFF_AT } from '@/lib/tournament-dates'
+
 type SupabaseLike = {
   from: (table: string) => {
     select: (columns: string) => any
@@ -11,6 +13,7 @@ export type ProdeLockState = {
   locked: boolean
   automaticLocked: boolean
   override: ProdeLockOverride
+  cutoffAt: string
 }
 
 function isMissingSettingsTable(error: unknown) {
@@ -19,14 +22,7 @@ function isMissingSettingsTable(error: unknown) {
 }
 
 export async function getProdeLockState(supabase: SupabaseLike): Promise<ProdeLockState> {
-  const { data: resultRows } = await supabase
-    .from('matches')
-    .select('id')
-    .not('home_score', 'is', null)
-    .not('away_score', 'is', null)
-    .limit(1)
-
-  const automaticLocked = Boolean(resultRows?.length)
+  const automaticLocked = Date.now() >= new Date(PRODE_SUBMISSION_CUTOFF_AT).getTime()
   let override: ProdeLockOverride = null
 
   try {
@@ -46,11 +42,14 @@ export async function getProdeLockState(supabase: SupabaseLike): Promise<ProdeLo
   return {
     automaticLocked,
     override,
+    cutoffAt: PRODE_SUBMISSION_CUTOFF_AT,
     locked: override === 'locked' || (override !== 'unlocked' && automaticLocked),
   }
 }
 
 export async function assertProdeOpen(supabase: SupabaseLike) {
   const state = await getProdeLockState(supabase)
-  if (state.locked) throw new Error('El Prode esta bloqueado. No se pueden editar apuestas.')
+  if (state.locked) {
+    throw new Error('La carga del Prode ya cerro. Podes consultar tus pronosticos, pero ya no editarlos.')
+  }
 }

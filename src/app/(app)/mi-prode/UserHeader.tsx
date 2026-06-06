@@ -1,3 +1,5 @@
+import { PRODE_SUBMISSION_CUTOFF_AT } from '@/lib/tournament-dates'
+
 type Props = {
   name: string
   totalPoints: number
@@ -25,6 +27,14 @@ export function UserHeader({
       ? Math.round(((exactPredictions + partialPredictions) / finishedMatchesCount) * 100)
       : null
   const fillPercent = totalCount > 0 ? Math.round((filledCount / totalCount) * 100) : 0
+  const cutoffLabel = new Intl.DateTimeFormat('es-AR', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'America/Argentina/Buenos_Aires',
+  }).format(new Date(PRODE_SUBMISSION_CUTOFF_AT))
 
   return (
     <div
@@ -206,7 +216,7 @@ export function UserHeader({
               className="font-mono"
               style={{ display: 'block', color: '#ffffff', fontSize: '14px', letterSpacing: '-0.01em', fontWeight: 800, textTransform: 'none', marginTop: '4px' }}
             >
-              11 jun · 16:00
+              {cutoffLabel} ART
             </p>
           </div>
         </div>
