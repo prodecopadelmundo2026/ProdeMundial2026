@@ -1,8 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { buildAuditedRankingEntries } from '@/lib/ranking-audit'
-import type { Match, Prediction } from '@/types'
+import type { RankingEntry } from '@/types'
 import { NavLinks } from './NavLinks'
 import { UserMenu } from '@/components/UserMenu'
 import { isSharedRank } from '@/lib/ranking-display'
@@ -15,16 +13,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  const admin = user ? createAdminClient() : null
 
-  const [profile, { data: participants }, { data: matches }, { data: predictions }] = user
+  const [profile, { data: publicRanking }] = user
     ? await Promise.all([
         getCurrentProfile(user),
-        supabase.from('ranking_entries').select('user_id, name, avatar_url'),
-        supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
-        admin!.from('predictions').select('*'),
+        supabase.rpc('get_public_ranking'),
       ])
-    : [{ data: null }, { data: null }, { data: null }, { data: null }]
+    : [{ data: null }, { data: null }]
 
   const metadataName =
     typeof user?.user_metadata?.full_name === 'string'
@@ -34,17 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       : null
   const emailName = user?.email?.split('@')[0] ?? null
   const userName = profile?.name?.trim() || metadataName?.trim() || emailName || 'Usuario'
-  const auditedEntries = user
-    ? buildAuditedRankingEntries(
-        (matches ?? []) as Match[],
-        (predictions ?? []) as Prediction[],
-        (participants ?? []).map((participant) => ({
-          user_id: participant.user_id,
-          name: participant.name,
-          avatar_url: participant.avatar_url,
-        }))
-      )
-    : []
+  const auditedEntries = user ? (publicRanking ?? []) as RankingEntry[] : []
   const entry = user ? auditedEntries.find((rankingEntry) => rankingEntry.user_id === user.id) ?? null : null
   const initial = userName[0]?.toUpperCase() ?? 'U'
   const userIsAdmin = Boolean(profile?.is_admin)

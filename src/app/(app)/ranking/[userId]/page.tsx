@@ -3,7 +3,6 @@ import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
 import {
   buildAuditedRankingEntries,
   buildMatchAuditRows,
@@ -73,11 +72,23 @@ type UserTiebreakerRow = {
   team: string
 }
 
-type ParticipantAccessRow = {
-  email: string
-  active: boolean
-  status: 'trial' | 'confirmed' | 'disabled'
-  deleted_at: string | null
+type ParticipantStatus = 'trial' | 'confirmed'
+
+type PublicParticipant = {
+  user_id: string
+  name: string
+  avatar_url: string | null
+  participant_status: ParticipantStatus
+}
+
+type PublicPredictionDetail = {
+  participant: PublicParticipant | null
+  participants: PublicParticipant[]
+  matches: Match[]
+  predictions: Prediction[]
+  virtual_predictions: VirtualPredictionRow[]
+  tiebreakers: UserTiebreakerRow[]
+  special_bets: SpecialBetsRow | null
 }
 
 function virtualPredictionToPrediction(row: VirtualPredictionRow): Prediction {
@@ -91,45 +102,6 @@ function virtualPredictionToPrediction(row: VirtualPredictionRow): Prediction {
     tiebreaker_team: row.tiebreaker_team,
     created_at: row.created_at,
     updated_at: row.updated_at,
-  }
-}
-
-async function loadSpecialBets(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  admin: ReturnType<typeof createAdminClient>,
-  userId: string
-): Promise<SpecialBetsRow | null> {
-  const selectSpecials = async (client: typeof supabase | ReturnType<typeof createAdminClient>, table: string) => {
-    const { data, error } = await client
-      .from(table)
-      .select('balon, bota, guante')
-      .eq('user_id', userId)
-      .maybeSingle()
-
-    if (error) throw error
-    return data as SpecialBetsRow | null
-  }
-
-  try {
-    const data = await selectSpecials(supabase, 'special_bets')
-    if (data) return data
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error)
-    if (!message.includes('special_bets') && !message.includes('relation') && !message.includes('does not exist')) throw error
-  }
-
-  try {
-    const data = await selectSpecials(admin, 'special_bets')
-    if (data) return data
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error)
-    if (!message.includes('special_bets') && !message.includes('relation') && !message.includes('does not exist')) throw error
-  }
-
-  try {
-    return await selectSpecials(admin, 'especiales')
-  } catch {
-    return null
   }
 }
 
@@ -322,7 +294,7 @@ function EmptyState({ children }: { children: React.ReactNode }) {
   )
 }
 
-function ParticipationBadge({ status }: { status: ParticipantAccessRow['status'] }) {
+function ParticipationBadge({ status }: { status: ParticipantStatus }) {
   const config = status === 'trial'
     ? { text: 'Invitado', color: '#FFB15C', bg: 'rgba(255,177,92,0.1)' }
     : status === 'confirmed'
@@ -373,76 +345,36 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     ? query.result
     : null
   const supabase = await createClient()
-  const admin = createAdminClient()
-  const { data: { user: currentUser } } = await supabase.auth.getUser()
 
-  const [
-    { data: participants },
-    { data: userPredictions },
-    { data: allPredictions },
-    { data: userVirtualPredictions },
-    { data: allVirtualPredictions },
-    { data: matches },
-    { data: allTiebreakers },
-    specialBets,
-    { data: currentProfile },
-  ] = await Promise.all([
-    supabase.from('ranking_entries').select('user_id, name, avatar_url'),
-    supabase.from('predictions').select('*').eq('user_id', userId),
-    supabase.from('predictions').select('*'),
-    supabase.from('virtual_knockout_predictions').select('*').eq('user_id', userId),
-    supabase.from('virtual_knockout_predictions').select('*'),
-    supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
-    supabase.from('user_prediction_tiebreakers').select('user_id, tiebreaker_key, team'),
-    loadSpecialBets(supabase, admin, userId),
-    currentUser
-      ? admin.from('profiles').select('is_admin').eq('id', currentUser.id).maybeSingle()
-      : Promise.resolve({ data: null }),
-  ])
-  const currentUserIsAdmin = Boolean(currentProfile?.is_admin)
+  const { data: detailData, error: detailError } = await supabase.rpc('get_public_prediction_detail', {
+    p_user_id: userId,
+  })
+  if (detailError) throw detailError
+
+  const detail = detailData as PublicPredictionDetail | null
+  if (!detail?.participant) notFound()
 
   const allTypedPredictions = [
-    ...((allPredictions ?? []) as Prediction[]),
-    ...((allVirtualPredictions ?? []) as VirtualPredictionRow[]).map(virtualPredictionToPrediction),
+    ...((detail.predictions ?? []) as Prediction[]),
+    ...((detail.virtual_predictions ?? []) as VirtualPredictionRow[]).map(virtualPredictionToPrediction),
   ]
   const userTypedPredictions = [
-    ...((userPredictions ?? []) as Prediction[]),
-    ...((userVirtualPredictions ?? []) as VirtualPredictionRow[]).map(virtualPredictionToPrediction),
+    ...((detail.predictions ?? []) as Prediction[]).filter((prediction) => prediction.user_id === userId),
+    ...((detail.virtual_predictions ?? []) as VirtualPredictionRow[])
+      .filter((prediction) => prediction.user_id === userId)
+      .map(virtualPredictionToPrediction),
   ]
-  const userTiebreakers = ((allTiebreakers ?? []) as UserTiebreakerRow[]).filter((row) => row.user_id === userId)
+  const userTiebreakers = ((detail.tiebreakers ?? []) as UserTiebreakerRow[]).filter((row) => row.user_id === userId)
+  const specialBets = detail.special_bets
   const hasSpecialBets = [specialBets?.balon, specialBets?.bota, specialBets?.guante].some((value) => Boolean(value?.trim()))
-  const participantRows = (participants ?? []).map((participant) => ({
+  const participantRows = (detail.participants ?? []).map((participant) => ({
     user_id: participant.user_id,
     name: participant.name,
     avatar_url: participant.avatar_url,
   }))
-  const isInRankingEntries = participantRows.some((participant) => participant.user_id === userId)
-  let participantAccess: ParticipantAccessRow | null = null
-  if (!isInRankingEntries) {
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('id, name, email, avatar_url')
-      .eq('id', userId)
-      .maybeSingle()
-    const { data: authorized } = profile?.email
-      ? await admin
-        .from('authorized_emails')
-        .select('email, active, status, deleted_at')
-        .eq('email', String(profile.email).toLowerCase().trim())
-        .maybeSingle()
-      : { data: null }
-    participantAccess = authorized as ParticipantAccessRow | null
-    if (profile && authorized?.active && !authorized.deleted_at && (authorized.status === 'confirmed' || authorized.status === 'trial')) {
-      participantRows.push({
-        user_id: profile.id,
-        name: profile.name || profile.email || 'Invitado',
-        avatar_url: profile.avatar_url,
-      })
-    }
-  }
-  const typedMatches = buildProjectedKnockoutMatches((matches ?? []) as Match[])
+  const typedMatches = buildProjectedKnockoutMatches((detail.matches ?? []) as Match[])
   const tiebreakersByUser = new Map<string, Record<string, string>>()
-  for (const row of (allTiebreakers ?? []) as UserTiebreakerRow[]) {
+  for (const row of (detail.tiebreakers ?? []) as UserTiebreakerRow[]) {
     if (!tiebreakersByUser.has(row.user_id)) tiebreakersByUser.set(row.user_id, {})
     tiebreakersByUser.get(row.user_id)![row.tiebreaker_key] = row.team
   }
@@ -453,11 +385,8 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     tiebreakersByUser
   )
   const entry = rankingEntries.find((rankingEntry) => rankingEntry.user_id === userId)
-  if (!entry && participantAccess?.status === 'trial') {
-    return <NotOfficialNotice canSee={currentUserIsAdmin || currentUser?.id === userId} />
-  }
   if (!entry) notFound()
-  const isTrialDetail = participantAccess?.status === 'trial'
+  const isTrialDetail = detail.participant.participant_status === 'trial'
   const rankingStarted = rankingEntries.some((rankingEntry) => rankingEntry.total_points > 0)
   const typedUserPredictions = userTypedPredictions
   const hasOfficialResults = typedMatches.some((match) => match.status === 'finished' && match.home_score != null && match.away_score != null)

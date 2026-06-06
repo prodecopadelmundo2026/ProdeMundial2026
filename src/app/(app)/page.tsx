@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
 import { MatchCard } from '@/components/MatchCard'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import type { Match } from '@/types'
@@ -128,6 +127,15 @@ type RankingEntry = {
   correct_result_predictions: number
   predictions_count?: number
   prode_status?: 'empty' | 'in_progress' | 'complete'
+  participant_status?: 'confirmed' | 'trial'
+}
+
+type PublicHomeMetrics = {
+  competitors_count: number
+  invitees_count: number
+  prodes_loaded_count: number
+  finished_matches_count: number
+  alive_teams_count: number
 }
 
 type MatchSummary = Pick<Match, 'home_team' | 'away_team' | 'home_score' | 'away_score' | 'stage' | 'status'>
@@ -296,7 +304,6 @@ function RankMark({
 
 export default async function HomePage() {
   const supabase = await createClient()
-  const admin = createAdminClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -304,40 +311,13 @@ export default async function HomePage() {
   todayStart.setUTCHours(0, 0, 0, 0)
 
   const [
-    { count: competitorCount },
-    { count: guestCount },
-    { data: authorizedRows },
+    { data: metricsRows },
     { count: myPredsCount },
     { data: upcoming },
-    { data: topRanking },
+    { data: publicRanking },
     { data: profile },
-    { data: predictionRows },
-    { data: virtualPredictionRows },
-    { data: tiebreakerRows },
-    { data: specialBetRows },
-    { data: allMatchRows },
   ] = await Promise.all([
-    admin
-      .from('authorized_emails')
-      .select('email', { count: 'exact', head: true })
-      .eq('active', true)
-      .eq('status', 'confirmed')
-      .is('deleted_at', null)
-      .throwOnError(),
-    admin
-      .from('authorized_emails')
-      .select('email', { count: 'exact', head: true })
-      .eq('active', true)
-      .eq('status', 'trial')
-      .is('deleted_at', null)
-      .throwOnError(),
-    admin
-      .from('authorized_emails')
-      .select('email, active, status, deleted_at')
-      .eq('active', true)
-      .in('status', ['confirmed', 'trial'])
-      .is('deleted_at', null)
-      .throwOnError(),
+    supabase.rpc('get_public_home_metrics'),
     user
       ? supabase.from('predictions').select('*', { count: 'exact', head: true }).limit(1)
       : Promise.resolve({ count: 0 }),
@@ -347,86 +327,35 @@ export default async function HomePage() {
       .gte('scheduled_at', todayStart.toISOString())
       .order('scheduled_at', { ascending: true })
       .limit(16),
-    supabase
-      .from('ranking_entries')
-      .select('user_id, name, total_points, rank, exact_predictions, correct_result_predictions')
-      .order('rank', { ascending: true })
-      .limit(10),
+    supabase.rpc('get_public_ranking'),
     user
       ? supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
       : Promise.resolve({ data: null }),
-    admin.from('predictions').select('user_id').throwOnError(),
-    admin.from('virtual_knockout_predictions').select('user_id').throwOnError(),
-    admin.from('user_prediction_tiebreakers').select('user_id').throwOnError(),
-    admin.from('special_bets').select('user_id, balon, bota, guante').throwOnError(),
-    admin.from('matches').select('*').throwOnError(),
   ])
 
-  const publicAuthorizedRows = ((authorizedRows ?? []) as AuthorizedEmailSummary[])
-    .filter((row) => row.active && !row.deleted_at && participantStatus(row) !== 'disabled')
-  const competidores = competitorCount ?? 0
-  const invitados = guestCount ?? 0
-  const authorizedEmails = publicAuthorizedRows.map((row) => row.email.toLowerCase().trim())
-  const { data: authorizedProfiles } = authorizedEmails.length > 0
-    ? await admin
-      .from('profiles')
-      .select('id, email')
-      .in('email', authorizedEmails)
-      .throwOnError()
-    : { data: [] }
-  const publicProfileIds = new Set(
-    ((authorizedProfiles ?? []) as ProfileSummary[])
-      .map((profile) => profile.id)
-      .filter(Boolean)
-  )
-  const typedPredictionRows = (predictionRows ?? []) as Array<{ user_id: string }>
-  const typedVirtualPredictionRows = (virtualPredictionRows ?? []) as Array<{ user_id: string }>
-  const typedTiebreakerRows = (tiebreakerRows ?? []) as Array<{ user_id: string }>
-  const typedSpecialBetRows = (specialBetRows ?? []) as Array<{
-    user_id: string
-    balon: string | null
-    bota: string | null
-    guante: string | null
-  }>
-  const predictionCounts = countPredictionsByUser(
-    typedPredictionRows,
-    typedVirtualPredictionRows,
-    typedTiebreakerRows,
-    typedSpecialBetRows
-  )
-  const prodeInProcessIds = new Set<string>()
-  addStartedProdesFromRows(typedPredictionRows, publicProfileIds, prodeInProcessIds)
-  addStartedProdesFromRows(typedVirtualPredictionRows, publicProfileIds, prodeInProcessIds)
-  addStartedProdesFromRows(typedTiebreakerRows, publicProfileIds, prodeInProcessIds)
-  addStartedSpecialBets(typedSpecialBetRows, publicProfileIds, prodeInProcessIds)
-
-  const hasMyPredictions = user ? (predictionCounts.get(user.id) ?? 0) > 0 || (myPredsCount ?? 0) > 0 : false
-
-  const matchRows = (allMatchRows ?? []) as Match[]
-  const finishedMatches = countFinishedMatches(matchRows)
-  const aliveTeams = countAliveTeams(matchRows)
-
-  const typedTopRanking = ((topRanking ?? []) as RankingEntry[]).map((entry) => ({
-    ...entry,
-    predictions_count: predictionCounts.get(entry.user_id) ?? 0,
-    prode_status: (predictionCounts.get(entry.user_id) ?? 0) > 0 ? 'in_progress' as const : 'empty' as const,
-  }))
+  const metrics = ((metricsRows ?? []) as PublicHomeMetrics[])[0] ?? {
+    competitors_count: 0,
+    invitees_count: 0,
+    prodes_loaded_count: 0,
+    finished_matches_count: 0,
+    alive_teams_count: 48,
+  }
+  const typedPublicRanking = (publicRanking ?? []) as RankingEntry[]
+  const typedTopRanking = typedPublicRanking
+    .filter((entry) => entry.participant_status !== 'trial')
+    .slice(0, 10)
+    .map((entry) => ({
+      ...entry,
+      prode_status: entry.prode_status ?? ((entry.predictions_count ?? 0) > 0 ? 'in_progress' as const : 'empty' as const),
+    }))
+  const hasMyPredictions = user
+    ? (typedPublicRanking.find((entry) => entry.user_id === user.id)?.predictions_count ?? 0) > 0 || (myPredsCount ?? 0) > 0
+    : false
   const isInTop10 = user ? typedTopRanking.some(e => e.user_id === user.id) : false
 
   let myRanking: RankingEntry | null = null
   if (user && !isInTop10) {
-    const { data } = await supabase
-      .from('ranking_entries')
-      .select('user_id, name, total_points, rank, exact_predictions, correct_result_predictions')
-      .eq('user_id', user.id)
-      .maybeSingle()
-    myRanking = data
-      ? {
-          ...(data as RankingEntry),
-          predictions_count: predictionCounts.get((data as RankingEntry).user_id) ?? 0,
-          prode_status: (predictionCounts.get((data as RankingEntry).user_id) ?? 0) > 0 ? 'in_progress' as const : 'empty' as const,
-        }
-      : null
+    myRanking = typedPublicRanking.find((entry) => entry.user_id === user.id) ?? null
   }
 
   const allUpcoming = (upcoming ?? []) as Match[]
@@ -618,11 +547,11 @@ export default async function HomePage() {
         style={{ borderTop: '2px solid #0A0A0A', borderBottom: '2px solid #0A0A0A' }}
       >
         <div className="max-w-[1280px] mx-auto px-5 py-6 grid grid-cols-1 gap-x-2 gap-y-6 min-[680px]:grid-cols-3 min-[720px]:gap-5 min-[1100px]:grid-cols-5">
-          <StatItem num={competidores} label="Competidores" live />
-          <StatItem num={prodeInProcessIds.size} label="Prodes cargados" />
-          <StatItem num={invitados} label="Invitados" />
-          <StatItem num={`${finishedMatches} de ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" />
-          <StatItem num={aliveTeams} label="Selecciones disponibles" />
+          <StatItem num={metrics.competitors_count} label="Competidores" live />
+          <StatItem num={metrics.prodes_loaded_count} label="Prodes cargados" />
+          <StatItem num={metrics.invitees_count} label="Invitados" />
+          <StatItem num={`${metrics.finished_matches_count} de ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" />
+          <StatItem num={metrics.alive_teams_count} label="Selecciones disponibles" />
         </div>
       </div>
 
