@@ -109,8 +109,14 @@ const STATUS_LABELS: Record<AuditStatus, { text: string; color: string }> = {
   exact: { text: 'Exacto', color: '#A8F0D8' },
   partial: { text: 'Parcial', color: '#FFB15C' },
   incorrect: { text: 'Incorrecto', color: '#FF6B6B' },
-  pending: { text: 'Pendiente', color: '#8A8A8A' },
+  pending: { text: 'Pendiente de resultado', color: '#8A8A8A' },
   missing: { text: 'Sin pronostico', color: '#8A8A8A' },
+}
+
+const MATCH_STATUS_LABELS: Record<Match['status'], { text: string; color: string }> = {
+  upcoming: { text: 'Proximo', color: '#8A8A8A' },
+  live: { text: 'En vivo', color: '#FFB15C' },
+  finished: { text: 'Finalizado', color: '#A8F0D8' },
 }
 
 function hrefFor(userId: string, stage: StageKey, result?: AuditStatus | null) {
@@ -196,6 +202,18 @@ function ResultBadge({ status }: { status: AuditStatus }) {
   )
 }
 
+function MatchStatusBadge({ status }: { status: Match['status'] }) {
+  const label = MATCH_STATUS_LABELS[status]
+  return (
+    <span
+      className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em]"
+      style={{ color: label.color, background: '#141414', border: `1px solid ${label.color}33` }}
+    >
+      Partido: {label.text}
+    </span>
+  )
+}
+
 function AuditMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[14px] px-4 py-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -220,6 +238,7 @@ function MatchAuditCard({ row }: { row: MatchAuditRow }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+          <MatchStatusBadge status={row.match.status} />
           <ResultBadge status={row.status} />
           <p className="font-display text-[22px] leading-none tabular-nums">
             {row.points ?? 0}
@@ -243,7 +262,7 @@ function MatchAuditCard({ row }: { row: MatchAuditRow }) {
           <div className="rounded-[14px] px-4 py-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)' }}>
             <p className="font-mono text-[10px] font-extrabold tracking-[0.14em] uppercase text-muted">Cruce oficial</p>
             <p className="font-bold text-[13px] text-white mt-1">
-              {row.hasOfficialTeams ? `${row.officialHome} vs ${row.officialAway}` : 'Pendiente'}
+              {row.hasOfficialTeams ? `${row.officialHome} vs ${row.officialAway}` : 'Pendiente de resultado'}
             </p>
             <p className="font-mono text-[11px] text-muted mt-2">Resultado: <b className="text-white">{row.officialScore}</b></p>
           </div>
@@ -269,7 +288,7 @@ function SpecialAuditCard({ row, value }: { row: typeof SPECIAL_AUDIT_ROWS[numbe
         <p className="font-mono text-[10px] text-muted mt-1">{row.prompt} - hasta {row.points} pts</p>
       </div>
       <AuditMetric label="Respuesta del usuario" value={value || 'Sin cargar'} />
-      <AuditMetric label="Resultado oficial" value="Pendiente" />
+      <AuditMetric label="Resultado oficial" value="Pendiente de resultado" />
       <div className="flex flex-wrap items-center gap-3 md:justify-end">
         <ResultBadge status="pending" />
         <p className="font-display text-[22px] leading-none tabular-nums">
@@ -387,9 +406,9 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   const entry = rankingEntries.find((rankingEntry) => rankingEntry.user_id === userId)
   if (!entry) notFound()
   const isTrialDetail = detail.participant.participant_status === 'trial'
-  const rankingStarted = rankingEntries.some((rankingEntry) => rankingEntry.total_points > 0)
   const typedUserPredictions = userTypedPredictions
   const hasOfficialResults = typedMatches.some((match) => match.status === 'finished' && match.home_score != null && match.away_score != null)
+  const rankingStarted = hasOfficialResults
 
   const auditRows = buildMatchAuditRows(
     typedMatches,

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { setMatchResult } from './actions'
+import { clearMatchResult, setMatchResult } from './actions'
 import type { Match } from '@/types'
 
 export function AdminMatchForm({
@@ -57,6 +57,26 @@ export function AdminMatchForm({
     startTransition(async () => {
       try {
         await setMatchResult(match.id, Number(home), Number(away), status)
+        setOk(true)
+        router.refresh()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error desconocido')
+      }
+    })
+  }
+
+  function handleClearResult() {
+    if (!confirm('Borrar el resultado oficial de este partido? No se borran pronosticos de usuarios.')) return
+    setError(null)
+    setOk(false)
+
+    startTransition(async () => {
+      try {
+        const result = await clearMatchResult(match.id)
+        if (!result.ok) throw new Error(result.message)
+        setHome('')
+        setAway('')
+        setStatus('upcoming')
         setOk(true)
         router.refresh()
       } catch (err) {
@@ -177,6 +197,18 @@ export function AdminMatchForm({
         >
           {isPending ? 'Guardando…' : 'Guardar'}
         </button>
+
+        {(bothScoresSet || status !== 'upcoming') && (
+          <button
+            type="button"
+            disabled={isDisabled || isPending}
+            onClick={handleClearResult}
+            className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase transition-all duration-150 disabled:opacity-40"
+            style={{ background: 'rgba(255,59,59,0.12)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.24)' }}
+          >
+            Borrar resultado
+          </button>
+        )}
 
         {ok && (
           <span className="text-[12px] font-bold" style={{ color: '#A8F0D8' }}>

@@ -9,18 +9,28 @@ type PublicRankingRow = RankingEntry & {
   prode_status: 'empty' | 'in_progress' | 'complete'
 }
 
+type PublicHomeMetrics = {
+  finished_matches_count: number
+}
+
 export default async function RankingPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const { data, error } = await supabase.rpc('get_public_ranking')
+  const [{ data, error }, { data: metricsData, error: metricsError }] = await Promise.all([
+    supabase.rpc('get_public_ranking'),
+    supabase.rpc('get_public_home_metrics'),
+  ])
 
   if (error) throw error
+  if (metricsError) throw metricsError
 
   const entries = ((data ?? []) as PublicRankingRow[]).map((entry) => ({
     ...entry,
     participant_status: entry.participant_status,
     prode_status: entry.prode_status,
   }))
+  const metrics = metricsData as PublicHomeMetrics | null
+  const rankingStarted = (metrics?.finished_matches_count ?? 0) > 0
 
   return (
     <div style={{ padding: 'clamp(40px,8vw,64px) 20px clamp(60px,12vw,100px)' }}>
@@ -62,11 +72,13 @@ export default async function RankingPage() {
             style={{ background: '#A8F0D8', animation: 'pulse-dot 1.6s infinite' }}
           />
           <span>
-            El conteo de puntos empieza cuando se carguen los primeros resultados oficiales. Hasta entonces podés revisar los Prodes cargados por competidores e invitados.
+            {rankingStarted
+              ? 'Ranking actualizado con los resultados oficiales cargados.'
+              : 'El conteo de puntos empieza cuando se carguen los primeros resultados oficiales. Hasta entonces podes revisar los Prodes cargados por competidores e invitados.'}
           </span>
         </aside>
 
-        <RankingClient entries={entries} userId={user?.id} />
+        <RankingClient entries={entries} userId={user?.id} rankingStarted={rankingStarted} />
       </div>
     </div>
   )

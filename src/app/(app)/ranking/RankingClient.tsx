@@ -169,16 +169,17 @@ function RankRow({
 export function RankingClient({
   entries,
   userId,
+  rankingStarted,
 }: {
   entries: RankingEntry[]
   userId?: string
+  rankingStarted: boolean
 }) {
   const [search, setSearch] = useState('')
   const meRowRef = useRef<HTMLDivElement | null>(null)
   const stickyRef = useRef<HTMLElement | null>(null)
   const officialEntries = entries.filter((entry) => entry.participant_status !== 'trial')
   const trialEntries = entries.filter((entry) => entry.participant_status === 'trial')
-  const rankingStarted = officialEntries.some((entry) => entry.total_points > 0)
 
   const filterBySearch = (items: RankingEntry[]) => search.trim()
     ? items.filter((e) => e.name.toLowerCase().includes(search.trim().toLowerCase()))

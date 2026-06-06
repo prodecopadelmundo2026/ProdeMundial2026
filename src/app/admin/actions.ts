@@ -87,6 +87,25 @@ export async function setMatchResult(
   revalidateCorePaths()
 }
 
+export async function clearMatchResult(matchId: string): Promise<AdminToolResult> {
+  try {
+    const supabase = await createClient()
+    await requireAdmin()
+
+    const { data, error } = await supabase.rpc('admin_clear_match_result', {
+      p_match_id: matchId,
+    })
+
+    if (error) throw new Error(error.message)
+    if (!data) throw new Error('No se encontro el partido o no se pudo limpiar.')
+
+    revalidateCorePaths()
+    return { ok: true, message: 'Resultado oficial borrado. El partido volvio a Proximo.' }
+  } catch (error) {
+    return adminToolError(error)
+  }
+}
+
 export async function upsertAuthorizedEmail(formData: FormData) {
   const supabase = await createClient()
   await requireAdmin()

@@ -79,7 +79,7 @@ export function AdminTestTools() {
 
         {state === 'confirm-reset' && (
           <Confirm
-            text={<>Esto puede reemplazar datos oficiales existentes. Borrar todos los resultados y volver los partidos a <strong style={{ color: '#fff' }}>pendiente</strong>?</>}
+            text={<>Esto borra <strong style={{ color: '#fff' }}>todos los resultados oficiales</strong>, vuelve los partidos a <strong style={{ color: '#fff' }}>Proximo</strong> y no borra pronosticos de usuarios. Confirmar?</>}
             confirmLabel="Si, borrar"
             confirmStyle={{ background: 'rgba(255,59,59,0.15)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.3)' }}
             onConfirm={() => run(adminResetMatchResults)}

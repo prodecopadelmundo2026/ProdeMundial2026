@@ -49,7 +49,7 @@ function scorePoints(prediction: Prediction, match: Match) {
 }
 
 function formatScore(home: number | null | undefined, away: number | null | undefined) {
-  return home == null || away == null ? 'Pendiente' : `${home} - ${away}`
+  return home == null || away == null ? 'Pendiente de resultado' : `${home} - ${away}`
 }
 
 function buildScoreMap(matches: Match[]): ScoreMap {
