@@ -8,11 +8,15 @@ import { formatRank, rankMedal } from '@/lib/ranking-display'
 import { ReferralShareButton } from '@/components/ReferralShareButton'
 import {
   TOURNAMENT_TOTAL_MATCHES,
-  TOURNAMENT_TOTAL_POINTS,
   TOURNAMENT_TOTAL_TEAMS,
 } from '@/lib/tournament-config'
 import { WelcomeModal } from '@/components/WelcomeModal'
 import { SALES_CONTACTS, whatsappHref } from '@/lib/sales-contacts'
+import {
+  computeAllStandings,
+  computeBestThirdsGroups,
+  getPendingGroupTiebreakers,
+} from '@/lib/bracket'
 
 export const dynamic = 'force-dynamic'
 
@@ -127,6 +131,16 @@ type RankingEntry = {
 }
 
 type MatchSummary = Pick<Match, 'home_team' | 'away_team' | 'home_score' | 'away_score' | 'stage' | 'status'>
+type AuthorizedEmailSummary = {
+  email: string
+  active: boolean | null
+  status: 'trial' | 'confirmed' | 'disabled' | null
+  deleted_at: string | null
+}
+type ProfileSummary = {
+  id: string
+  email: string | null
+}
 
 const PLACEHOLDER_TEAM_PATTERN = /^(ganador|perdedor|winner|loser|\d+\s*(?:[°º]|Â°)?\s*(grupo|group)|[123][a-l]$)/i
 
@@ -148,25 +162,104 @@ function matchWinner(match: MatchSummary) {
   return match.home_score > match.away_score ? match.home_team : match.away_team
 }
 
-function countAliveTeams(matches: MatchSummary[]) {
-  const knockoutMatches = matches.filter((match) => match.stage !== 'group')
-  if (knockoutMatches.length === 0) return TOURNAMENT_TOTAL_TEAMS
+function hasOfficialScore(match: Match) {
+  return match.status === 'finished' && match.home_score != null && match.away_score != null
+}
 
-  const aliveTeams = new Set<string>()
-  for (const match of knockoutMatches) {
-    const winner = matchWinner(match)
-    if (winner) {
-      if (isRealTeamName(winner)) aliveTeams.add(winner)
-      continue
+function participantStatus(row: AuthorizedEmailSummary) {
+  if (row.status === 'confirmed' || row.status === 'trial' || row.status === 'disabled') return row.status
+  return row.active ? 'confirmed' : 'disabled'
+}
+
+function countAliveTeams(matches: Match[]) {
+  const knockoutMatches = matches.filter((match) => match.stage !== 'group')
+  const finishedKnockoutMatches = knockoutMatches.filter(hasOfficialScore)
+
+  if (finishedKnockoutMatches.length > 0) {
+    const aliveTeams = new Set<string>()
+    for (const match of knockoutMatches) {
+      if (!hasOfficialScore(match)) {
+        if (isRealTeamName(match.home_team)) aliveTeams.add(match.home_team)
+        if (isRealTeamName(match.away_team)) aliveTeams.add(match.away_team)
+        continue
+      }
+
+      const winner = matchWinner(match)
+      if (winner && isRealTeamName(winner)) aliveTeams.add(winner)
     }
 
-    if (match.status !== 'finished') {
-      if (isRealTeamName(match.home_team)) aliveTeams.add(match.home_team)
-      if (isRealTeamName(match.away_team)) aliveTeams.add(match.away_team)
+    if (aliveTeams.size > 0) return aliveTeams.size
+  }
+
+  const groupMatches = matches.filter((match) => match.stage === 'group')
+  const officialScoreMap = Object.fromEntries(
+    groupMatches
+      .filter(hasOfficialScore)
+      .map((match) => [match.id, { home_score: match.home_score!, away_score: match.away_score! }])
+  )
+  const groupsComplete = groupMatches.length > 0 && groupMatches.every(hasOfficialScore)
+  const groupsResolved = groupsComplete && getPendingGroupTiebreakers(groupMatches, officialScoreMap).length === 0
+
+  if (groupsResolved) {
+    const standings = computeAllStandings(groupMatches, officialScoreMap)
+    const bestThirdsGroups = computeBestThirdsGroups(groupMatches, officialScoreMap)
+    const aliveTeams = new Set<string>()
+
+    for (const [group, teams] of Object.entries(standings)) {
+      for (const team of teams.slice(0, 2)) aliveTeams.add(team)
+      const third = teams[2]
+      if (third && bestThirdsGroups.has(group.replace('Grupo ', ''))) aliveTeams.add(third)
+    }
+
+    if (aliveTeams.size > 0) return aliveTeams.size
+  }
+
+  return TOURNAMENT_TOTAL_TEAMS
+}
+
+function countFinishedMatches(matches: MatchSummary[]) {
+  return matches.filter((match) => match.status === 'finished').length
+}
+
+function addStartedProdesFromRows(rows: Array<{ user_id: string }>, allowedUserIds: Set<string>, target: Set<string>) {
+  for (const row of rows) {
+    if (allowedUserIds.has(row.user_id)) target.add(row.user_id)
+  }
+}
+
+function addStartedSpecialBets(
+  rows: Array<{ user_id: string; balon: string | null; bota: string | null; guante: string | null }>,
+  allowedUserIds: Set<string>,
+  target: Set<string>
+) {
+  for (const row of rows) {
+    if (allowedUserIds.has(row.user_id) && (row.balon || row.bota || row.guante)) target.add(row.user_id)
+  }
+}
+
+function countPredictionsByUser(
+  predictionRows: Array<{ user_id: string }>,
+  virtualPredictionRows: Array<{ user_id: string }>,
+  tiebreakerRows: Array<{ user_id: string }>,
+  specialBetRows: Array<{ user_id: string; balon: string | null; bota: string | null; guante: string | null }>
+) {
+  const predictionCounts = new Map<string, number>()
+  for (const prediction of predictionRows) {
+    predictionCounts.set(prediction.user_id, (predictionCounts.get(prediction.user_id) ?? 0) + 1)
+  }
+  for (const prediction of virtualPredictionRows) {
+    predictionCounts.set(prediction.user_id, (predictionCounts.get(prediction.user_id) ?? 0) + 1)
+  }
+  for (const tiebreaker of tiebreakerRows) {
+    predictionCounts.set(tiebreaker.user_id, (predictionCounts.get(tiebreaker.user_id) ?? 0) + 1)
+  }
+  for (const specialBet of specialBetRows) {
+    if (specialBet.balon || specialBet.bota || specialBet.guante) {
+      predictionCounts.set(specialBet.user_id, (predictionCounts.get(specialBet.user_id) ?? 0) + 1)
     }
   }
 
-  return aliveTeams.size > 0 ? aliveTeams.size : TOURNAMENT_TOTAL_TEAMS
+  return predictionCounts
 }
 
 function RankMark({
@@ -211,7 +304,7 @@ export default async function HomePage() {
   todayStart.setUTCHours(0, 0, 0, 0)
 
   const [
-    { count: competidores },
+    { data: authorizedRows },
     { count: myPredsCount },
     { data: upcoming },
     { data: topRanking },
@@ -221,13 +314,11 @@ export default async function HomePage() {
     { data: tiebreakerRows },
     { data: specialBetRows },
     { data: allMatchRows },
-    { data: rankingRows },
   ] = await Promise.all([
     admin
       .from('authorized_emails')
-      .select('*', { count: 'exact', head: true })
+      .select('email, active, status, deleted_at')
       .eq('active', true)
-      .eq('status', 'confirmed')
       .is('deleted_at', null),
     user
       ? supabase.from('predictions').select('*', { count: 'exact', head: true }).limit(1)
@@ -250,42 +341,50 @@ export default async function HomePage() {
     supabase.from('virtual_knockout_predictions').select('user_id'),
     supabase.from('user_prediction_tiebreakers').select('user_id'),
     supabase.from('special_bets').select('user_id, balon, bota, guante'),
-    admin.from('matches').select('home_team, away_team, home_score, away_score, stage, status'),
-    supabase.from('ranking_entries').select('user_id'),
+    admin.from('matches').select('*'),
   ])
 
-  const predictionCounts = new Map<string, number>()
-  for (const prediction of (predictionRows ?? []) as Array<{ user_id: string }>) {
-    predictionCounts.set(prediction.user_id, (predictionCounts.get(prediction.user_id) ?? 0) + 1)
-  }
-  for (const prediction of (virtualPredictionRows ?? []) as Array<{ user_id: string }>) {
-    predictionCounts.set(prediction.user_id, (predictionCounts.get(prediction.user_id) ?? 0) + 1)
-  }
-  for (const tiebreaker of (tiebreakerRows ?? []) as Array<{ user_id: string }>) {
-    predictionCounts.set(tiebreaker.user_id, (predictionCounts.get(tiebreaker.user_id) ?? 0) + 1)
-  }
-
-  const activeRankingIds = new Set(((rankingRows ?? []) as Array<{ user_id: string }>).map((entry) => entry.user_id))
-  const prodeInProcessIds = new Set<string>()
-  for (const userId of predictionCounts.keys()) {
-    if (activeRankingIds.has(userId)) prodeInProcessIds.add(userId)
-  }
-  for (const specialBet of (specialBetRows ?? []) as Array<{
+  const publicAuthorizedRows = ((authorizedRows ?? []) as AuthorizedEmailSummary[])
+    .filter((row) => row.active && !row.deleted_at && participantStatus(row) !== 'disabled')
+  const competidores = publicAuthorizedRows.filter((row) => participantStatus(row) === 'confirmed').length
+  const invitados = publicAuthorizedRows.filter((row) => participantStatus(row) === 'trial').length
+  const authorizedEmails = publicAuthorizedRows.map((row) => row.email.toLowerCase().trim())
+  const { data: authorizedProfiles } = authorizedEmails.length > 0
+    ? await admin
+      .from('profiles')
+      .select('id, email')
+      .in('email', authorizedEmails)
+    : { data: [] }
+  const publicProfileIds = new Set(
+    ((authorizedProfiles ?? []) as ProfileSummary[])
+      .map((profile) => profile.id)
+      .filter(Boolean)
+  )
+  const typedPredictionRows = (predictionRows ?? []) as Array<{ user_id: string }>
+  const typedVirtualPredictionRows = (virtualPredictionRows ?? []) as Array<{ user_id: string }>
+  const typedTiebreakerRows = (tiebreakerRows ?? []) as Array<{ user_id: string }>
+  const typedSpecialBetRows = (specialBetRows ?? []) as Array<{
     user_id: string
     balon: string | null
     bota: string | null
     guante: string | null
-  }>) {
-    if (activeRankingIds.has(specialBet.user_id) && (specialBet.balon || specialBet.bota || specialBet.guante)) {
-      prodeInProcessIds.add(specialBet.user_id)
-      predictionCounts.set(specialBet.user_id, (predictionCounts.get(specialBet.user_id) ?? 0) + 1)
-    }
-  }
+  }>
+  const predictionCounts = countPredictionsByUser(
+    typedPredictionRows,
+    typedVirtualPredictionRows,
+    typedTiebreakerRows,
+    typedSpecialBetRows
+  )
+  const prodeInProcessIds = new Set<string>()
+  addStartedProdesFromRows(typedPredictionRows, publicProfileIds, prodeInProcessIds)
+  addStartedProdesFromRows(typedVirtualPredictionRows, publicProfileIds, prodeInProcessIds)
+  addStartedProdesFromRows(typedTiebreakerRows, publicProfileIds, prodeInProcessIds)
+  addStartedSpecialBets(typedSpecialBetRows, publicProfileIds, prodeInProcessIds)
 
   const hasMyPredictions = user ? (predictionCounts.get(user.id) ?? 0) > 0 || (myPredsCount ?? 0) > 0 : false
 
-  const matchRows = (allMatchRows ?? []) as MatchSummary[]
-  const finishedMatches = matchRows.filter((match) => match.status === 'finished').length
+  const matchRows = (allMatchRows ?? []) as Match[]
+  const finishedMatches = countFinishedMatches(matchRows)
   const aliveTeams = countAliveTeams(matchRows)
 
   const typedTopRanking = ((topRanking ?? []) as RankingEntry[]).map((entry) => ({
@@ -500,11 +599,11 @@ export default async function HomePage() {
         style={{ borderTop: '2px solid #0A0A0A', borderBottom: '2px solid #0A0A0A' }}
       >
         <div className="max-w-[1280px] mx-auto px-5 py-6 grid grid-cols-1 gap-x-2 gap-y-6 min-[680px]:grid-cols-3 min-[720px]:gap-5 min-[1100px]:grid-cols-5">
-          <StatItem num={competidores ?? typedTopRanking.length} label="Competidores" live />
-          <StatItem num={prodeInProcessIds.size} label="Prodes oficiales en proceso" />
-          <StatItem num={TOURNAMENT_TOTAL_POINTS} label="Puntos en juego" />
+          <StatItem num={competidores} label="Competidores" live />
+          <StatItem num={prodeInProcessIds.size} label="Prodes cargados" />
+          <StatItem num={invitados} label="Invitados" />
           <StatItem num={`${finishedMatches} de ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" />
-          <StatItem num={`${aliveTeams} de ${TOURNAMENT_TOTAL_TEAMS}`} label="Selecciones" />
+          <StatItem num={aliveTeams} label="Selecciones disponibles" />
         </div>
       </div>
 

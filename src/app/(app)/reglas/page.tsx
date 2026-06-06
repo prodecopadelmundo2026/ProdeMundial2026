@@ -56,7 +56,7 @@ const GENERAL_RULES = [
   },
   {
     title: 'Carga de pronósticos',
-    desc: 'La carga completa del Prode se hace antes del Mundial. 24 horas antes del partido inicial se bloquean pronósticos y apuestas; desde ese momento no se puede modificar nada y solo se siguen resultados, puntos y ranking.',
+    desc: 'Podés cargar y editar resultados, eliminatorias y apuestas especiales hasta 24 horas antes del primer partido del Mundial. Desde ese cierre no se puede modificar nada y solo se siguen resultados, puntos y ranking.',
   },
   {
     title: 'Premios',
@@ -257,7 +257,7 @@ export default function ReglasPage() {
               Apuestas <em className="italic" style={{ color: '#FF6B00' }}>especiales</em>
             </h2>
             <p className="font-medium" style={{ marginTop: 8, color: '#8A8A8A', fontSize: 14, maxWidth: 520, lineHeight: 1.5 }}>
-              Cargás una sola vez antes del Mundial. Si acertás, suman al final del torneo.
+              Cargás una sola vez y podés editar hasta 24 horas antes del primer partido del Mundial. Si acertás, suman al final del torneo.
             </p>
           </div>
           <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>

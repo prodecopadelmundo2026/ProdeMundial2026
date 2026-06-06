@@ -465,7 +465,7 @@ export function MiProdeTabs({
     }
     return {
       label: groupStatusLabel,
-      detail: 'Completá tus pronosticos y guardá los cambios antes del cierre.',
+      detail: 'Completá tus pronosticos y guardá los cambios hasta 24 horas antes del primer partido del Mundial.',
       color: groupStatusColor,
       bg: 'rgba(255,255,255,0.04)',
       border: 'rgba(255,255,255,0.08)',
