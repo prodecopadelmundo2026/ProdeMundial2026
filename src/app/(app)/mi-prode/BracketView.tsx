@@ -465,7 +465,7 @@ export function BracketView({
     completeGroupMatches.length === groupMatches.length
   const pendingTiebreakers = getPendingGroupTiebreakers(completeGroupMatches, predMap, groupTiebreakerMap)
   const hasPendingTiebreakers = pendingTiebreakers.length > 0
-  const bracketLocked = readOnly || hasPendingTiebreakers
+  const canEditBracket = !readOnly && !hasPendingTiebreakers
   const standings = computeAllStandings(completeGroupMatches, predMap, groupTiebreakerMap)
   const pMap = buildKnockoutMap(knockoutMatches)
   const bestThirdsGroups = allGroupsComplete && !hasPendingTiebreakers
@@ -583,7 +583,7 @@ export function BracketView({
   }
 
   async function saveKnockoutChanges() {
-    if (bracketLocked) return
+    if (!canEditBracket) return
     const predictions = collectCompleteKnockoutPredictions()
     const matchIdsToDelete = knockoutMatches
       .filter((match) => {
@@ -663,7 +663,6 @@ export function BracketView({
   const now = new Date()
 
   function resolve(placeholder: string): string {
-    if (bracketLocked) return placeholder
     return resolveTeamFull(placeholder, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)
   }
 
@@ -674,13 +673,13 @@ export function BracketView({
   }
 
   function isMatchReady(match: Match) {
-    if (bracketLocked) return false
+    if (hasPendingTiebreakers) return false
     const { homeTeam, awayTeam } = getResolvedTeams(match)
     return !isPlaceholder(homeTeam) && !isPlaceholder(awayTeam)
   }
 
   function getAdminEligibleMatches(round?: RoundKey) {
-    if (bracketLocked) return []
+    if (!canEditBracket) return []
     return knockoutMatches.filter((match) => {
       const key = match.stage
       if (round && key !== round) return false
@@ -1201,7 +1200,7 @@ export function BracketView({
                 initialHome={localInputs[match.id]?.home ?? ''}
                 initialAway={localInputs[match.id]?.away ?? ''}
                 tiebreaker={tiebreakerMap[match.id]}
-                disabled={bracketLocked}
+                disabled={!canEditBracket}
                 onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
                 onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
               />
@@ -1227,7 +1226,7 @@ export function BracketView({
                 initialHome={localInputs[match.id]?.home ?? ''}
                 initialAway={localInputs[match.id]?.away ?? ''}
                 tiebreaker={tiebreakerMap[match.id]}
-                disabled={bracketLocked}
+                disabled={!canEditBracket}
                 onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
                 onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
               />
