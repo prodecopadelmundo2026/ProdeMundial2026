@@ -3,8 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 import type { RankingEntry } from '@/types'
 import { NavLinks } from './NavLinks'
 import { UserMenu } from '@/components/UserMenu'
+import { ProdeStatusModal } from '@/components/ProdeStatusModal'
 import { isSharedRank } from '@/lib/ranking-display'
 import { getCurrentProfile } from '@/lib/current-profile'
+import { calculatePredictionProgress, type ProdeCompletionStatus } from '@/lib/prode-progress'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,12 +16,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [profile, { data: publicRanking }] = user
+  const [profile, { data: publicRanking }, { data: metricsData }] = user
     ? await Promise.all([
         getCurrentProfile(user),
         supabase.rpc('get_public_ranking'),
+        supabase.rpc('get_public_home_metrics'),
       ])
-    : [{ data: null }, { data: null }]
+    : [{ data: null }, { data: null }, { data: null }]
 
   const metadataName =
     typeof user?.user_metadata?.full_name === 'string'
@@ -31,6 +34,33 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const userName = profile?.name?.trim() || metadataName?.trim() || emailName || 'Usuario'
   const auditedEntries = user ? (publicRanking ?? []) as RankingEntry[] : []
   const entry = user ? auditedEntries.find((rankingEntry) => rankingEntry.user_id === user.id) ?? null : null
+  const metricsRows = metricsData as Array<{
+    competitors_count?: number
+    prodes_completed_count?: number
+    prodes_pending_count?: number
+    prize_pool_ars?: number
+  }> | null
+  const metrics = Array.isArray(metricsRows) ? metricsRows[0] : metricsRows
+  const rawStatus = entry?.prode_status === 'complete' ? 'completed' : entry?.prode_status
+  const progressStatus = (
+    rawStatus === 'completed' ||
+    rawStatus === 'almost_done' ||
+    rawStatus === 'in_progress' ||
+    rawStatus === 'not_started'
+      ? rawStatus
+      : undefined
+  ) as ProdeCompletionStatus | undefined
+  const fallbackProgress = calculatePredictionProgress({
+    groupLoadedCount: entry?.predictions_count ?? 0,
+    groupExpectedCount: entry?.predictions_count ? 104 : 0,
+  })
+  const userProgress = {
+    loadedCount: entry?.loaded_count ?? entry?.predictions_count ?? fallbackProgress.loadedCount,
+    expectedCount: entry?.expected_count ?? fallbackProgress.expectedCount,
+    percentage: entry?.progress_percentage ?? fallbackProgress.percentage,
+    status: progressStatus ?? fallbackProgress.status,
+    missingSections: entry?.missing_sections ?? fallbackProgress.missingSections,
+  }
   const initial = userName[0]?.toUpperCase() ?? 'U'
   const userIsAdmin = Boolean(profile?.is_admin)
 
@@ -85,6 +115,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </header>
 
       <main className="flex-1">{children}</main>
+      {user && entry?.participant_status && (
+        <ProdeStatusModal
+          userId={user.id}
+          participantStatus={entry.participant_status}
+          progress={userProgress}
+          metrics={{
+            confirmedPlayers: metrics?.competitors_count ?? 0,
+            prizePoolArs: metrics?.prize_pool_ars ?? 0,
+            completedProdes: metrics?.prodes_completed_count ?? 0,
+            pendingProdes: metrics?.prodes_pending_count ?? 0,
+          }}
+        />
+      )}
     </div>
   )
 }

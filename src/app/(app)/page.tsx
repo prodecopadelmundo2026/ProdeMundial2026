@@ -9,8 +9,10 @@ import {
   TOURNAMENT_TOTAL_MATCHES,
   TOURNAMENT_TOTAL_TEAMS,
 } from '@/lib/tournament-config'
+import { formatPrizePool } from '@/lib/prode-progress'
 import { WelcomeModal } from '@/components/WelcomeModal'
 import { SALES_CONTACTS, whatsappHref } from '@/lib/sales-contacts'
+import { getRankingMode, isLiveRankingMode, type RankingMode } from '@/lib/ranking-mode'
 import {
   computeAllStandings,
   computeBestThirdsGroups,
@@ -126,7 +128,10 @@ type RankingEntry = {
   exact_predictions: number
   correct_result_predictions: number
   predictions_count?: number
-  prode_status?: 'empty' | 'in_progress' | 'complete'
+  loaded_count?: number
+  expected_count?: number
+  progress_percentage?: number
+  prode_status?: 'empty' | 'not_started' | 'in_progress' | 'almost_done' | 'complete' | 'completed'
   participant_status?: 'confirmed' | 'trial'
 }
 
@@ -134,7 +139,11 @@ type PublicHomeMetrics = {
   competitors_count: number
   invitees_count: number
   prodes_loaded_count: number
+  prodes_completed_count?: number
+  prodes_pending_count?: number
+  prize_pool_ars?: number
   finished_matches_count: number
+  ranking_mode?: RankingMode
   alive_teams_count: number
 }
 
@@ -270,6 +279,22 @@ function countPredictionsByUser(
   return predictionCounts
 }
 
+function rankingProgressPercentage(entry: RankingEntry) {
+  if (typeof entry.progress_percentage === 'number') return Math.max(0, Math.min(100, entry.progress_percentage))
+  if (entry.expected_count && entry.expected_count > 0) {
+    return Math.min(100, Math.round(((entry.loaded_count ?? entry.predictions_count ?? 0) / entry.expected_count) * 100))
+  }
+  return (entry.predictions_count ?? 0) > 0 ? 1 : 0
+}
+
+function rankingProgressText(entry: RankingEntry) {
+  const status = entry.prode_status === 'complete' ? 'completed' : entry.prode_status
+  if (status === 'completed') return 'Prode terminado'
+  if (status === 'almost_done') return 'Muy cerca'
+  if (status === 'in_progress' || (entry.predictions_count ?? 0) > 0) return 'Prode en proceso'
+  return 'Sin cargar'
+}
+
 function RankMark({
   entry,
   entries,
@@ -284,7 +309,7 @@ function RankMark({
   if (!active) {
     return (
       <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted min-[720px]:text-[11px]">
-        Sin puntos
+        Previa
       </span>
     )
   }
@@ -337,7 +362,11 @@ export default async function HomePage() {
     competitors_count: 0,
     invitees_count: 0,
     prodes_loaded_count: 0,
+    prodes_completed_count: 0,
+    prodes_pending_count: 0,
+    prize_pool_ars: 0,
     finished_matches_count: 0,
+    ranking_mode: 'pre_world_cup',
     alive_teams_count: 48,
   }
   const typedPublicRanking = (publicRanking ?? []) as RankingEntry[]
@@ -392,8 +421,9 @@ export default async function HomePage() {
   }
 
   const rankColors: Record<number, string> = { 1: '#FFE040', 2: '#A8F0D8', 3: '#E8A87C' }
-  const showPreTournamentBanner = typedTopRanking.every(e => e.total_points === 0)
-  const rankingStarted = typedTopRanking.some(e => e.total_points > 0)
+  const rankingMode = metrics.ranking_mode ?? getRankingMode(metrics.finished_matches_count)
+  const rankingStarted = isLiveRankingMode(rankingMode)
+  const showPreTournamentBanner = !rankingStarted
   const displayedRanking = myRanking ? [...typedTopRanking, myRanking] : typedTopRanking
   return (
     <>
@@ -547,9 +577,10 @@ export default async function HomePage() {
         style={{ borderTop: '2px solid #0A0A0A', borderBottom: '2px solid #0A0A0A' }}
       >
         <div className="max-w-[1280px] mx-auto px-5 py-6 grid grid-cols-1 gap-x-2 gap-y-6 min-[680px]:grid-cols-3 min-[720px]:gap-5 min-[1100px]:grid-cols-5">
-          <StatItem num={metrics.competitors_count} label="Competidores" live />
-          <StatItem num={metrics.prodes_loaded_count} label="Prodes cargados" />
-          <StatItem num={metrics.invitees_count} label="Invitados" />
+          <StatItem num={metrics.competitors_count} label="Confirmados" live />
+          <StatItem num={formatPrizePool(metrics.competitors_count)} label="Pozo actual" />
+          <StatItem num={metrics.prodes_completed_count ?? 0} label="Prodes terminados" />
+          <StatItem num={metrics.prodes_pending_count ?? 0} label="Pendientes" />
           <StatItem num={`${metrics.finished_matches_count} de ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" />
           <StatItem num={metrics.alive_teams_count} label="Selecciones disponibles" />
         </div>
@@ -756,9 +787,11 @@ export default async function HomePage() {
                           className="font-mono font-bold uppercase truncate"
                           style={{ fontSize: 10, color: '#8A8A8A', letterSpacing: '.16em' }}
                         >
-                          {hasPredictions
-                            ? `Prode en proceso · ${entry.exact_predictions ?? 0} exactas · ${entry.correct_result_predictions ?? 0} parciales`
-                            : 'Todavia no cargo su Prode'}
+                          {rankingStarted
+                            ? hasPredictions
+                              ? `Prode en proceso · ${entry.exact_predictions ?? 0} exactas · ${entry.correct_result_predictions ?? 0} parciales`
+                              : 'Todavia no cargo su Prode'
+                            : `${rankingProgressText(entry)} · ${rankingProgressPercentage(entry)}% cargado`}
                         </span>
                       </div>
                     </div>
@@ -776,7 +809,7 @@ export default async function HomePage() {
                             pts
                           </em>
                         </>
-                      ) : 'Sin puntos'}
+                      ) : `${rankingProgressPercentage(entry)}%`}
                     </span>
                   </Link>
                 )
@@ -822,9 +855,11 @@ export default async function HomePage() {
                           className="font-mono font-bold uppercase truncate"
                           style={{ fontSize: 10, color: '#8A8A8A', letterSpacing: '.16em' }}
                         >
-                          {(myRanking.predictions_count ?? 0) > 0
-                            ? `Prode en proceso · ${myRanking.exact_predictions ?? 0} exactas · ${myRanking.correct_result_predictions ?? 0} parciales`
-                            : 'Todavia no cargo su Prode'}
+                          {rankingStarted
+                            ? (myRanking.predictions_count ?? 0) > 0
+                              ? `Prode en proceso · ${myRanking.exact_predictions ?? 0} exactas · ${myRanking.correct_result_predictions ?? 0} parciales`
+                              : 'Todavia no cargo su Prode'
+                            : `${rankingProgressText(myRanking)} · ${rankingProgressPercentage(myRanking)}% cargado`}
                         </span>
                       </div>
                     </div>
@@ -842,7 +877,7 @@ export default async function HomePage() {
                             pts
                           </em>
                         </>
-                      ) : 'Sin puntos'}
+                      ) : `${rankingProgressPercentage(myRanking)}%`}
                     </span>
                   </Link>
                 </>

@@ -12,26 +12,19 @@ import {
 import type { Match, Prediction } from '@/types'
 import { formatRank, rankMedal } from '@/lib/ranking-display'
 import { buildProjectedKnockoutMatches } from '@/lib/bracket'
+import { TournamentBracket } from '@/components/TournamentBracket'
 
 export const dynamic = 'force-dynamic'
 
 type StageKey = Match['stage'] | 'specials'
+type ViewKey = 'all' | 'knockout' | 'bracket' | 'specials' | `group_${string}`
 
 type Props = {
   params: Promise<{ userId: string }>
-  searchParams: Promise<{ stage?: StageKey; result?: AuditStatus }>
+  searchParams: Promise<{ view?: string; stage?: StageKey; result?: AuditStatus }>
 }
 
-const STAGES: Array<{ key: StageKey; label: string }> = [
-  { key: 'group', label: 'Grupos' },
-  { key: 'round_of_32', label: 'Dieciseisavos' },
-  { key: 'round_of_16', label: 'Octavos' },
-  { key: 'quarter', label: 'Cuartos' },
-  { key: 'semi', label: 'Semis' },
-  { key: 'third_place', label: 'Tercer puesto' },
-  { key: 'final', label: 'Final' },
-  { key: 'specials', label: 'Especiales' },
-]
+const GROUP_KEYS = Array.from({ length: 12 }, (_, index) => String.fromCharCode(65 + index))
 
 const SPECIAL_AUDIT_ROWS: Array<{ key: keyof SpecialBetsRow; label: string; prompt: string; points: number }> = [
   { key: 'balon', label: 'Balon de Oro', prompt: 'Mejor jugador del torneo', points: 20 },
@@ -119,32 +112,39 @@ const MATCH_STATUS_LABELS: Record<Match['status'], { text: string; color: string
   finished: { text: 'Finalizado', color: '#A8F0D8' },
 }
 
-function hrefFor(userId: string, stage: StageKey, result?: AuditStatus | null) {
-  const params = new URLSearchParams({ stage })
+function hrefForView(userId: string, view: ViewKey, result?: AuditStatus | null) {
+  const params = new URLSearchParams({ view })
   if (result) params.set('result', result)
   return `/ranking/${userId}?${params.toString()}`
 }
 
-function stageRows(rows: MatchAuditRow[], stage: StageKey) {
-  return stage === 'specials' ? [] : rows.filter((row) => row.stage === stage)
+function normalizeView(raw: string | undefined, legacyStage: StageKey | undefined): ViewKey {
+  if (raw === 'all' || raw === 'knockout' || raw === 'bracket' || raw === 'specials') return raw
+  const group = raw?.match(/^group_([A-L])$/)
+  if (group) return `group_${group[1]}` as ViewKey
+  if (legacyStage === 'specials') return 'specials'
+  if (legacyStage && legacyStage !== 'group') return 'knockout'
+  return 'all'
 }
 
-function stageStats(rows: MatchAuditRow[], stage: StageKey) {
-  const scoped = stageRows(rows, stage)
-  return {
-    points: scoped.reduce((total, row) => total + (row.points ?? 0), 0),
-    exact: scoped.filter((row) => row.status === 'exact').length,
-    partial: scoped.filter((row) => row.status === 'partial').length,
-    incorrect: scoped.filter((row) => row.status === 'incorrect').length,
-  }
+function labelForView(view: ViewKey) {
+  if (view === 'all') return 'Resumen'
+  if (view === 'knockout') return 'Eliminatorias'
+  if (view === 'bracket') return 'Llave'
+  if (view === 'specials') return 'Apuestas especiales'
+  return `Grupo ${view.replace('group_', '')}`
 }
 
 function statusCount(rows: MatchAuditRow[], status: AuditStatus) {
   return rows.filter((row) => row.status === status).length
 }
 
-function filterHref(userId: string, stage: StageKey, result: AuditStatus, activeResult: AuditStatus | null) {
-  return hrefFor(userId, stage, activeResult === result ? null : result)
+function countLoadedSpecials(specialBets: SpecialBetsRow | null) {
+  return [specialBets?.balon, specialBets?.bota, specialBets?.guante].filter((value) => Boolean(value?.trim())).length
+}
+
+function filterHrefForView(userId: string, view: ViewKey, result: AuditStatus, activeResult: AuditStatus | null) {
+  return hrefForView(userId, view, activeResult === result ? null : result)
 }
 
 function normalizeTiebreakerKey(key: string) {
@@ -223,7 +223,7 @@ function AuditMetric({ label, value }: { label: string; value: string }) {
   )
 }
 
-function MatchAuditCard({ row }: { row: MatchAuditRow }) {
+function MatchAuditCard({ row, showScoring }: { row: MatchAuditRow; showScoring: boolean }) {
   const isGroup = row.stage === 'group'
 
   return (
@@ -240,10 +240,14 @@ function MatchAuditCard({ row }: { row: MatchAuditRow }) {
         <div className="flex flex-wrap items-center gap-3 lg:justify-end">
           <MatchStatusBadge status={row.match.status} />
           <ResultBadge status={row.status} />
-          <p className="font-display text-[22px] leading-none tabular-nums">
-            {row.points ?? 0}
-            <span className="font-mono text-[10px] font-bold tracking-[0.14em] uppercase ml-1 text-muted">pts</span>
-          </p>
+          {showScoring ? (
+            <p className="font-display text-[22px] leading-none tabular-nums">
+              {row.points ?? 0}
+              <span className="font-mono text-[10px] font-bold tracking-[0.14em] uppercase ml-1 text-muted">pts</span>
+            </p>
+          ) : (
+            <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">Previa</span>
+          )}
         </div>
       </div>
 
@@ -277,7 +281,7 @@ function MatchAuditCard({ row }: { row: MatchAuditRow }) {
   )
 }
 
-function SpecialAuditCard({ row, value }: { row: typeof SPECIAL_AUDIT_ROWS[number]; value: string | null }) {
+function SpecialAuditCard({ row, value, showScoring }: { row: typeof SPECIAL_AUDIT_ROWS[number]; value: string | null; showScoring: boolean }) {
   return (
     <div
       className="grid gap-3 px-5 py-4 md:grid-cols-[1fr_1fr_1fr_auto] md:items-center"
@@ -291,10 +295,14 @@ function SpecialAuditCard({ row, value }: { row: typeof SPECIAL_AUDIT_ROWS[numbe
       <AuditMetric label="Resultado oficial" value="Pendiente de resultado" />
       <div className="flex flex-wrap items-center gap-3 md:justify-end">
         <ResultBadge status="pending" />
-        <p className="font-display text-[22px] leading-none tabular-nums">
-          0
-          <span className="font-mono text-[10px] font-bold tracking-[0.14em] uppercase ml-1 text-muted">pts</span>
-        </p>
+        {showScoring ? (
+          <p className="font-display text-[22px] leading-none tabular-nums">
+            0
+            <span className="font-mono text-[10px] font-bold tracking-[0.14em] uppercase ml-1 text-muted">pts</span>
+          </p>
+        ) : (
+          <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">Previa</span>
+        )}
       </div>
       {!value && (
         <p className="md:col-span-4 text-[11px] font-bold text-muted">
@@ -330,40 +338,137 @@ function ParticipationBadge({ status }: { status: ParticipantStatus }) {
   )
 }
 
-function NotOfficialNotice({ canSee }: { canSee: boolean }) {
+function ViewNavigation({
+  userId,
+  activeView,
+  availableGroups,
+}: {
+  userId: string
+  activeView: ViewKey
+  availableGroups: string[]
+}) {
+  const primaryTabs: Array<{ key: ViewKey; label: string }> = [
+    { key: 'all', label: 'Todos' },
+    { key: 'bracket', label: 'Llave' },
+    { key: 'knockout', label: 'Eliminatorias' },
+    { key: 'specials', label: 'Especiales' },
+  ]
+  const groupTabs = availableGroups.map((group) => ({ key: `group_${group}` as ViewKey, label: `Grupo ${group}` }))
+
   return (
-    <div style={{ padding: 'clamp(32px,7vw,56px) 20px clamp(60px,12vw,100px)' }}>
-      <div className="max-w-[760px] mx-auto rounded-[20px] px-5 py-6" style={{ background: '#141414', border: '1px solid rgba(255,177,92,0.2)' }}>
-        <p className="font-sans text-[12px] font-extrabold tracking-[0.22em] uppercase" style={{ color: '#FFB15C' }}>
-          Invitado
-        </p>
-        <h1 className="mt-3 font-display text-[clamp(34px,6vw,62px)] uppercase leading-[0.92]">
-          No participa oficialmente todavia
-        </h1>
-        <p className="mt-4 text-[14px] font-semibold leading-relaxed text-muted">
-          {canSee
-            ? 'Este usuario esta habilitado como invitado para probar la plataforma, pero todavia no compite oficialmente por premios.'
-            : 'Este Prode pertenece a un invitado. El ranking oficial de premios corresponde a competidores.'}
-        </p>
-        <Link
-          href="/ranking"
-          className="mt-5 inline-flex rounded-full px-4 py-2 text-[12px] font-extrabold uppercase"
-          style={{ background: '#FF6B00', color: '#0A0A0A' }}
-        >
-          Volver al ranking
-        </Link>
+    <nav className="mb-5 space-y-3" aria-label="Navegar Prode">
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {[...primaryTabs, ...groupTabs].map((tab) => {
+          const active = tab.key === activeView
+          return (
+            <Link
+              key={tab.key}
+              href={hrefForView(userId, tab.key)}
+              className="shrink-0 rounded-full px-4 py-2 text-[12px] font-extrabold uppercase transition-colors duration-150"
+              style={{
+                background: active ? '#FF6B00' : '#141414',
+                color: active ? '#0A0A0A' : '#cfcfcf',
+                border: active ? '1px solid #FF6B00' : '1px solid rgba(255,255,255,0.1)',
+              }}
+            >
+              {tab.label}
+            </Link>
+          )
+        })}
       </div>
+    </nav>
+  )
+}
+
+function CompareFuturePanel({ viewerUserId, targetUserId }: { viewerUserId?: string; targetUserId: string }) {
+  const canCompareLater = Boolean(viewerUserId && viewerUserId !== targetUserId)
+  return (
+    <div
+      className="mb-5 rounded-[18px] px-5 py-4 text-[13px] font-semibold leading-relaxed"
+      style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}
+    >
+      <p className="font-extrabold text-white">Comparar con mi Prode</p>
+      <p className="mt-1 text-muted">
+        {canCompareLater
+          ? 'Queda preparado para cruzar tus elecciones contra este Prode: prediccion propia, prediccion del participante, resultado oficial, coincidencias y diferencias.'
+          : 'Cuando revises el Prode de otro participante estando logueado, esta zona puede activar la comparacion contra tus elecciones.'}
+      </p>
+    </div>
+  )
+}
+
+function OverviewTile({ label, value, detail }: { label: string; value: string | number; detail: string }) {
+  return (
+    <div className="rounded-[16px] bg-[#141414] p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+      <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">{label}</p>
+      <p className="mt-2 font-display text-[28px] leading-none text-white">{value}</p>
+      <p className="mt-2 text-[12px] font-semibold leading-snug text-muted">{detail}</p>
+    </div>
+  )
+}
+
+function ProdeOverview({
+  userId,
+  rows,
+  specialBets,
+  groupKeys,
+}: {
+  userId: string
+  rows: MatchAuditRow[]
+  specialBets: SpecialBetsRow | null
+  groupKeys: string[]
+}) {
+  const groupLoaded = rows.filter((row) => row.stage === 'group' && row.prediction).length
+  const groupTotal = rows.filter((row) => row.stage === 'group').length
+  const knockoutLoaded = rows.filter((row) => row.stage !== 'group' && row.prediction).length
+  const knockoutTotal = rows.filter((row) => row.stage !== 'group').length
+  const specialsLoaded = countLoadedSpecials(specialBets)
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <OverviewTile label="Grupos" value={`${groupLoaded}/${groupTotal}`} detail="Entrá por grupo para ver marcadores sin una lista eterna." />
+        <OverviewTile label="Eliminatorias" value={`${knockoutLoaded}/${knockoutTotal}`} detail="Cruces, avances y fases decisivas en una vista separada." />
+        <OverviewTile label="Especiales" value={`${specialsLoaded}/3`} detail="Balon, bota y guante de oro." />
+      </div>
+
+      <section className="rounded-[18px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="font-extrabold text-white">Grupos</p>
+            <p className="mt-1 text-[12px] font-semibold text-muted">Elegí un grupo para revisar solo esos partidos.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+          {groupKeys.map((group) => {
+            const scoped = rows.filter((row) => row.stage === 'group' && row.match.group === group)
+            const loaded = scoped.filter((row) => row.prediction).length
+            return (
+              <Link
+                key={group}
+                href={hrefForView(userId, `group_${group}` as ViewKey)}
+                className="rounded-[14px] px-3 py-3 transition-colors hover:bg-[#1c1c1c]"
+                style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                <p className="font-display text-[22px] leading-none text-white">Grupo {group}</p>
+                <p className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted">{loaded}/{scoped.length} cargados</p>
+              </Link>
+            )
+          })}
+        </div>
+      </section>
     </div>
   )
 }
 
 export default async function ParticipantRankingPage({ params, searchParams }: Props) {
   const [{ userId }, query] = await Promise.all([params, searchParams])
-  const activeStage = STAGES.some((stage) => stage.key === query.stage) ? query.stage! : 'group'
+  const activeView = normalizeView(query.view, query.stage)
   const activeResult = query.result && ['exact', 'partial', 'incorrect'].includes(query.result)
     ? query.result
     : null
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const { data: detailData, error: detailError } = await supabase.rpc('get_public_prediction_detail', {
     p_user_id: userId,
@@ -391,7 +496,10 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     name: participant.name,
     avatar_url: participant.avatar_url,
   }))
-  const typedMatches = buildProjectedKnockoutMatches((detail.matches ?? []) as Match[])
+  const allMatches = (detail.matches ?? []) as Match[]
+  const groupMatches = allMatches.filter((match) => match.stage === 'group')
+  const knockoutMatches = buildProjectedKnockoutMatches(allMatches.filter((match) => match.stage !== 'group'))
+  const typedMatches = [...groupMatches, ...knockoutMatches]
   const tiebreakersByUser = new Map<string, Record<string, string>>()
   for (const row of (detail.tiebreakers ?? []) as UserTiebreakerRow[]) {
     if (!tiebreakersByUser.has(row.user_id)) tiebreakersByUser.set(row.user_id, {})
@@ -415,13 +523,22 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     typedUserPredictions,
     tiebreakersByUser.get(userId) ?? {}
   )
+  const groupKeys = GROUP_KEYS.filter((group) => groupMatches.some((match) => match.group === group))
+  const predictionMap = Object.fromEntries(
+    typedUserPredictions.map((prediction) => [
+      prediction.match_id,
+      { home_score: prediction.home_score, away_score: prediction.away_score },
+    ] as const)
+  )
+  const userTiebreakerMap = tiebreakersByUser.get(userId) ?? {}
   const visibleRows = auditRows.filter((row) => {
-    if (activeStage === 'specials') return false
-    if (row.stage !== activeStage) return false
+    if (activeView === 'all' || activeView === 'bracket' || activeView === 'specials') return false
+    if (activeView === 'knockout' && row.stage === 'group') return false
+    if (activeView.startsWith('group_') && (row.stage !== 'group' || row.match.group !== activeView.replace('group_', ''))) return false
     if (activeResult && row.status !== activeResult) return false
     return true
   })
-  const activeStageLabel = STAGES.find((stage) => stage.key === activeStage)?.label ?? 'Grupos'
+  const activeStageLabel = labelForView(activeView)
 
   return (
     <div style={{ padding: 'clamp(32px,7vw,56px) 20px clamp(60px,12vw,100px)' }}>
@@ -450,13 +567,22 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
           )}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-5 mb-5">
-          <SummaryBox label="Ranking" value={rankingStarted ? `${rankMedal(entry.rank) ? `${rankMedal(entry.rank)} ` : ''}${formatRank(entry, rankingEntries)}` : 'Sin puntos'} />
-          <SummaryBox label="Puntos" value={entry.total_points} />
-          <SummaryLink label="Exactas" value={statusCount(auditRows, 'exact')} href={filterHref(userId, activeStage, 'exact', activeResult)} active={activeResult === 'exact'} />
-          <SummaryLink label="Parciales" value={statusCount(auditRows, 'partial')} href={filterHref(userId, activeStage, 'partial', activeResult)} active={activeResult === 'partial'} />
-          <SummaryLink label="Incorrectas" value={statusCount(auditRows, 'incorrect')} href={filterHref(userId, activeStage, 'incorrect', activeResult)} active={activeResult === 'incorrect'} />
-        </div>
+        {rankingStarted ? (
+          <div className="grid gap-3 sm:grid-cols-5 mb-5">
+            <SummaryBox label="Ranking" value={`${rankMedal(entry.rank) ? `${rankMedal(entry.rank)} ` : ''}${formatRank(entry, rankingEntries)}`} />
+            <SummaryBox label="Puntos" value={entry.total_points} />
+            <SummaryLink label="Exactas" value={statusCount(auditRows, 'exact')} href={filterHrefForView(userId, activeView, 'exact', activeResult)} active={activeResult === 'exact'} />
+            <SummaryLink label="Parciales" value={statusCount(auditRows, 'partial')} href={filterHrefForView(userId, activeView, 'partial', activeResult)} active={activeResult === 'partial'} />
+            <SummaryLink label="Incorrectas" value={statusCount(auditRows, 'incorrect')} href={filterHrefForView(userId, activeView, 'incorrect', activeResult)} active={activeResult === 'incorrect'} />
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-4 mb-5">
+            <SummaryBox label="Modo" value="Pre Mundial" />
+            <SummaryBox label="Pronosticos" value={userTypedPredictions.length} />
+            <SummaryBox label="Desempates" value={userTiebreakers.length} />
+            <SummaryBox label="Especiales" value={`${countLoadedSpecials(specialBets)} de 3`} />
+          </div>
+        )}
 
         {userTypedPredictions.length === 0 && userTiebreakers.length === 0 && !hasSpecialBets && (
           <div className="mb-4 rounded-[16px] px-4 py-4 text-[13px] font-semibold leading-relaxed text-muted" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -483,58 +609,13 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
           </div>
         )}
 
-        <details className="md:hidden mb-4 rounded-[16px]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <summary className="cursor-pointer px-4 py-3 font-extrabold text-[12px] uppercase" style={{ color: '#cfcfcf' }}>
-            Elegir fase: <span style={{ color: '#FF6B00' }}>{activeStageLabel}</span>
-          </summary>
-          <div className="grid gap-2 px-3 pb-3">
-            {STAGES.map((stage) => {
-              const stats = stageStats(auditRows, stage.key)
-              const active = stage.key === activeStage
-              return (
-                <Link
-                  key={stage.key}
-                  href={hrefFor(userId, stage.key, activeResult)}
-                  className="rounded-[12px] px-3 py-3 text-[12px] font-extrabold uppercase"
-                  style={{
-                    background: active ? '#FF6B00' : '#0A0A0A',
-                    color: active ? '#0A0A0A' : '#cfcfcf',
-                    border: active ? '1px solid #FF6B00' : '1px solid rgba(255,255,255,0.08)',
-                  }}
-                >
-                  {stage.label} <span className="font-mono">{stats.points} pts</span>
-                </Link>
-              )
-            })}
-          </div>
-        </details>
-
-        <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
-          {STAGES.map((stage) => {
-            const stats = stageStats(auditRows, stage.key)
-            const active = stage.key === activeStage
-            return (
-              <Link
-                key={stage.key}
-                href={hrefFor(userId, stage.key, activeResult)}
-                title={`Sumo ${stats.points} puntos en esta fase. Exactas: ${stats.exact}. Parciales: ${stats.partial}. Incorrectas: ${stats.incorrect}.`}
-                className="rounded-full px-4 py-2 text-center text-[12px] font-extrabold uppercase transition-colors duration-150"
-                style={{
-                  background: active ? '#FF6B00' : '#141414',
-                  color: active ? '#0A0A0A' : '#cfcfcf',
-                  border: active ? '1px solid #FF6B00' : '1px solid rgba(255,255,255,0.1)',
-                }}
-              >
-                {stage.label} <span className="font-mono">{stats.points} pts</span>
-              </Link>
-            )
-          })}
-        </div>
+        <CompareFuturePanel viewerUserId={user?.id} targetUserId={userId} />
+        <ViewNavigation userId={userId} activeView={activeView} availableGroups={groupKeys} />
 
         {activeResult && (
           <div className="mb-4">
             <Link
-              href={hrefFor(userId, activeStage, null)}
+              href={hrefForView(userId, activeView, null)}
               className="inline-flex rounded-full px-3 py-2 text-[11px] font-extrabold uppercase"
               style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.1)', color: '#cfcfcf' }}
             >
@@ -543,34 +624,55 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
           </div>
         )}
 
-        <div className="rounded-[20px] overflow-hidden" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}>
-          <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            <p className="font-extrabold text-white text-[14px]">{activeStageLabel}</p>
-            <p className="text-muted text-[12px] mt-1">
-              {activeStage === 'specials'
-                ? 'Apuestas especiales, resultado oficial y revision manual.'
-                : activeStage === 'group'
-                ? 'Pronostico contra resultado oficial.'
-                : 'Cruce predicho, cruce oficial, marcador apostado y puntos obtenidos.'}
-            </p>
-          </div>
-
-          {activeStage === 'specials' && !hasSpecialBets ? (
-            <EmptyState>Apuestas especiales sin cargar.</EmptyState>
-          ) : activeStage === 'specials' ? (
-            SPECIAL_AUDIT_ROWS.map((row) => (
-              <SpecialAuditCard
-                key={row.key}
-                row={row}
-                value={specialBets?.[row.key] ?? null}
+        {activeView === 'all' ? (
+          <ProdeOverview userId={userId} rows={auditRows} specialBets={specialBets} groupKeys={groupKeys} />
+        ) : activeView === 'bracket' ? (
+          <section className="rounded-[20px] overflow-hidden" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              <p className="font-extrabold text-white text-[14px]">Llave del Prode</p>
+              <p className="text-muted text-[12px] mt-1">Camino proyectado por este participante: avances, semifinales, final y campeon.</p>
+            </div>
+            <div className="p-4">
+              <TournamentBracket
+                mode={rankingStarted ? 'audit' : 'prode'}
+                groupMatches={groupMatches}
+                knockoutMatches={knockoutMatches}
+                predMap={predictionMap}
+                tiebreakerMap={userTiebreakerMap}
               />
-            ))
-          ) : visibleRows.length > 0 ? (
-            visibleRows.map((row) => <MatchAuditCard key={row.match.id} row={row} />)
-          ) : (
-            <EmptyState>No hay partidos para este filtro.</EmptyState>
-          )}
-        </div>
+            </div>
+          </section>
+        ) : (
+          <div className="rounded-[20px] overflow-hidden" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              <p className="font-extrabold text-white text-[14px]">{activeStageLabel}</p>
+              <p className="text-muted text-[12px] mt-1">
+                {activeView === 'specials'
+                  ? 'Apuestas especiales, resultado oficial y revision manual.'
+                  : activeView === 'knockout'
+                  ? 'Cruces predichos, equipos que avanzan y marcadores por fase.'
+                  : 'Pronosticos de este grupo sin el resto de la fase mezclada.'}
+              </p>
+            </div>
+
+            {activeView === 'specials' && !hasSpecialBets ? (
+              <EmptyState>Apuestas especiales sin cargar.</EmptyState>
+            ) : activeView === 'specials' ? (
+              SPECIAL_AUDIT_ROWS.map((row) => (
+                <SpecialAuditCard
+                  key={row.key}
+                  row={row}
+                  value={specialBets?.[row.key] ?? null}
+                  showScoring={rankingStarted}
+                />
+              ))
+            ) : visibleRows.length > 0 ? (
+              visibleRows.map((row) => <MatchAuditCard key={row.match.id} row={row} showScoring={rankingStarted} />)
+            ) : (
+              <EmptyState>No hay partidos para este filtro.</EmptyState>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

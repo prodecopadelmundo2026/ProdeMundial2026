@@ -4,9 +4,32 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import type { RankingEntry } from '@/types'
 import { formatRank, hasPrizeTie, rankMedal } from '@/lib/ranking-display'
+import { formatPrizePool } from '@/lib/prode-progress'
 
 function initials(name: string): string {
   return name.trim()[0]?.toUpperCase() ?? '?'
+}
+
+function normalizeProdeStatus(entry: RankingEntry) {
+  if (entry.prode_status === 'complete') return 'completed'
+  if (entry.prode_status === 'empty') return 'not_started'
+  return entry.prode_status ?? ((entry.predictions_count ?? 0) > 0 ? 'in_progress' : 'not_started')
+}
+
+function progressPercentage(entry: RankingEntry) {
+  if (typeof entry.progress_percentage === 'number') return Math.max(0, Math.min(100, entry.progress_percentage))
+  if (entry.expected_count && entry.expected_count > 0) {
+    return Math.min(100, Math.round(((entry.loaded_count ?? entry.predictions_count ?? 0) / entry.expected_count) * 100))
+  }
+  return (entry.predictions_count ?? 0) > 0 ? 1 : 0
+}
+
+function progressStatusText(entry: RankingEntry) {
+  const status = normalizeProdeStatus(entry)
+  if (status === 'completed') return 'Terminado'
+  if (status === 'almost_done') return 'En proceso'
+  if (status === 'in_progress') return 'En proceso'
+  return 'Sin cargar'
 }
 
 const TOP3_COLOR: Record<number, string> = {
@@ -60,11 +83,14 @@ function RankRow({
 }) {
   const hasPredictions = (entry.predictions_count ?? 0) > 0
   const isTrial = entry.participant_status === 'trial'
-  const statusText = entry.prode_status === 'complete'
-    ? 'Prode completo'
-    : hasPredictions
-    ? 'Prode en proceso'
-    : 'Todavia no cargo su Prode'
+  const percentage = progressPercentage(entry)
+  const statusText = rankingStarted
+    ? normalizeProdeStatus(entry) === 'completed'
+      ? 'Prode completo'
+      : hasPredictions
+      ? 'Prode en proceso'
+      : 'Todavia no cargo su Prode'
+    : progressStatusText(entry)
   const posColor = !rankingStarted ? '#8A8A8A' : isMe ? '#FF6B00' : (TOP3_COLOR[entry.rank] ?? '#4a4a4a')
 
   return (
@@ -131,9 +157,11 @@ function RankRow({
             )}
           </div>
           <div className="truncate font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted sm:tracking-[0.16em]">
-            {hasPredictions
-              ? `${statusText} · ${entry.exact_predictions ?? 0} exactas · ${entry.correct_result_predictions ?? 0} parciales · ${entry.incorrect_predictions ?? 0} incorrectas`
-              : statusText}
+            {rankingStarted
+              ? hasPredictions
+                ? `${statusText} · ${entry.exact_predictions ?? 0} exactas · ${entry.correct_result_predictions ?? 0} parciales · ${entry.incorrect_predictions ?? 0} incorrectas`
+                : statusText
+              : `${statusText} · ${percentage}% cargado`}
           </div>
         </div>
       </div>
@@ -156,9 +184,19 @@ function RankRow({
               </span>
             </>
           ) : (
-            <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted sm:text-[11px]">
-              Sin puntos
-            </span>
+            <div className="w-[86px] sm:w-[110px]">
+              <div className="mb-1 flex items-center justify-end gap-1.5">
+                {normalizeProdeStatus(entry) === 'completed' && (
+                  <span className="h-2 w-2 rounded-full" style={{ background: '#A8F0D8' }} aria-hidden="true" />
+                )}
+                <span className="font-display text-[21px] leading-none tabular-nums sm:text-[22px]">
+                  {percentage}%
+                </span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-black/35">
+                <div className="h-full rounded-full" style={{ width: `${percentage}%`, background: normalizeProdeStatus(entry) === 'completed' ? '#A8F0D8' : '#FFB15C' }} />
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -170,16 +208,26 @@ export function RankingClient({
   entries,
   userId,
   rankingStarted,
+  summary,
 }: {
   entries: RankingEntry[]
   userId?: string
   rankingStarted: boolean
+  summary?: {
+    confirmedPlayers: number
+    prizePoolArs: number
+    completedProdes: number
+    pendingProdes: number
+  }
 }) {
   const [search, setSearch] = useState('')
   const meRowRef = useRef<HTMLDivElement | null>(null)
   const stickyRef = useRef<HTMLElement | null>(null)
-  const officialEntries = entries.filter((entry) => entry.participant_status !== 'trial')
-  const trialEntries = entries.filter((entry) => entry.participant_status === 'trial')
+  const sortForCurrentMode = (items: RankingEntry[]) => rankingStarted
+    ? items
+    : [...items].sort((a, b) => progressPercentage(b) - progressPercentage(a) || a.name.localeCompare(b.name))
+  const officialEntries = sortForCurrentMode(entries.filter((entry) => entry.participant_status !== 'trial'))
+  const trialEntries = sortForCurrentMode(entries.filter((entry) => entry.participant_status === 'trial'))
 
   const filterBySearch = (items: RankingEntry[]) => search.trim()
     ? items.filter((e) => e.name.toLowerCase().includes(search.trim().toLowerCase()))
@@ -191,6 +239,7 @@ export function RankingClient({
 
   const meEntry = entries.find((e) => e.user_id === userId)
   const showPrizeTieNote = rankingStarted && hasPrizeTie(officialEntries)
+  const podiumEntries = rankingStarted ? officialEntries.filter((entry) => entry.rank <= 3).slice(0, 3) : []
 
   function RankingSection({
     title,
@@ -314,13 +363,30 @@ export function RankingClient({
       </div>
 
       {!rankingStarted && (
-        <div
-          className="mb-5 rounded-[18px] px-5 py-5 text-[13px] font-semibold leading-relaxed sm:text-[14px]"
-          style={{ background: 'rgba(168,240,216,0.07)', border: '1px solid rgba(168,240,216,0.18)', color: '#cfcfcf' }}
-        >
-          <strong className="block text-white font-extrabold mb-1">El conteo de puntos todavía no arrancó.</strong>
-          El conteo de puntos empieza cuando se carguen los primeros resultados oficiales. Hasta entonces podés revisar los Prodes cargados por competidores e invitados.
-        </div>
+        <>
+          <div
+            className="mb-5 rounded-[18px] px-5 py-5 text-[13px] font-semibold leading-relaxed sm:text-[14px]"
+            style={{ background: 'rgba(168,240,216,0.07)', border: '1px solid rgba(168,240,216,0.18)', color: '#cfcfcf' }}
+          >
+            <strong className="block text-white font-extrabold mb-1">El conteo de puntos todavia no arranco.</strong>
+            Antes de los primeros resultados oficiales, esta tabla funciona como listado de participantes y avance de carga.
+          </div>
+          {summary && (
+            <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                ['Confirmados', summary.confirmedPlayers],
+                ['Pozo actual', summary.prizePoolArs > 0 ? formatPrizePool(summary.confirmedPlayers) : '$0'],
+                ['Terminados', summary.completedProdes],
+                ['Pendientes', summary.pendingProdes],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-[16px] bg-[#141414] p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <p className="font-display text-[26px] leading-none text-white">{value}</p>
+                  <p className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">{label}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {showPrizeTieNote && (
@@ -332,10 +398,52 @@ export function RankingClient({
         </div>
       )}
 
+      {podiumEntries.length > 0 && (
+        <section className="mb-7">
+          <div className="mb-3 px-1">
+            <h2 className="font-display text-[24px] uppercase leading-none tracking-[-0.02em] text-white">
+              Podio en vivo
+            </h2>
+            <p className="mt-1 text-[12px] font-semibold leading-relaxed text-muted">
+              Top 3 competitivo segun puntos y criterios de desempate.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {podiumEntries.map((entry) => {
+              const color = TOP3_COLOR[entry.rank] ?? '#A8A8A8'
+              return (
+                <Link
+                  key={entry.user_id}
+                  href={`/ranking/${entry.user_id}`}
+                  className="rounded-[18px] p-4 transition-transform hover:-translate-y-0.5"
+                  style={{ background: '#141414', border: `1px solid ${color}55` }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="grid h-11 w-11 place-items-center rounded-full font-display text-[20px] text-bg" style={{ background: color }}>
+                      {rankMedal(entry.rank) || entry.rank}
+                    </div>
+                    <div className="text-right">
+                      <p className="font-display text-[32px] leading-none tabular-nums" style={{ color }}>
+                        {entry.total_points}
+                      </p>
+                      <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">pts</p>
+                    </div>
+                  </div>
+                  <p className="mt-4 truncate text-[15px] font-extrabold text-white">{entry.name}</p>
+                  <p className="mt-1 truncate font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
+                    {entry.exact_predictions ?? 0} exactas · {entry.correct_result_predictions ?? 0} parciales
+                  </p>
+                </Link>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       <div className="space-y-7">
         <RankingSection
           title="Ranking oficial"
-          description="Competidores que participan oficialmente por premios. Las posiciones de esta tabla son las posiciones oficiales."
+          description={rankingStarted ? 'Competidores que participan oficialmente por premios. Las posiciones de esta tabla son las posiciones oficiales.' : 'Competidores confirmados. Antes del Mundial se ordenan por avance de carga, no por puntos.'}
           items={filteredOfficial}
           empty={search.trim() ? 'No se encontraron competidores para esa búsqueda.' : 'Todavía no hay competidores en el ranking oficial.'}
         />
@@ -393,22 +501,32 @@ export function RankingClient({
                   </span>
                 </div>
                 <div className="truncate font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted sm:tracking-[0.16em]">
-                  {(meEntry.predictions_count ?? 0) > 0
-                    ? `Prode en proceso · ${meEntry.exact_predictions ?? 0} exactas · ${meEntry.correct_result_predictions ?? 0} parciales · ${meEntry.incorrect_predictions ?? 0} incorrectas`
-                    : 'Todavia no cargo su Prode'}
+                  {rankingStarted
+                    ? (meEntry.predictions_count ?? 0) > 0
+                      ? `Prode en proceso · ${meEntry.exact_predictions ?? 0} exactas · ${meEntry.correct_result_predictions ?? 0} parciales · ${meEntry.incorrect_predictions ?? 0} incorrectas`
+                      : 'Todavia no cargo su Prode'
+                    : `${progressStatusText(meEntry)} · ${progressPercentage(meEntry)}% cargado`}
                 </div>
               </div>
             </div>
             <div className="text-right shrink-0">
-              <span
-                className="font-display text-[21px] leading-none tabular-nums sm:text-[22px]"
-                style={{ color: meEntry.total_points === 0 ? '#8A8A8A' : undefined }}
-              >
-                {meEntry.total_points}
-              </span>
-              <span className="ml-1 font-mono text-[9px] font-bold uppercase tracking-[0.12em] sm:ml-1.5 sm:text-[10px] sm:tracking-[0.16em]" style={{ color: '#8A8A8A' }}>
-                pts
-              </span>
+              {rankingStarted ? (
+                <>
+                  <span
+                    className="font-display text-[21px] leading-none tabular-nums sm:text-[22px]"
+                    style={{ color: meEntry.total_points === 0 ? '#8A8A8A' : undefined }}
+                  >
+                    {meEntry.total_points}
+                  </span>
+                  <span className="ml-1 font-mono text-[9px] font-bold uppercase tracking-[0.12em] sm:ml-1.5 sm:text-[10px] sm:tracking-[0.16em]" style={{ color: '#8A8A8A' }}>
+                    pts
+                  </span>
+                </>
+              ) : (
+                <span className="font-display text-[21px] leading-none tabular-nums sm:text-[22px]">
+                  {progressPercentage(meEntry)}%
+                </span>
+              )}
             </div>
           </div>
         </aside>

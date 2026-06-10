@@ -45,7 +45,11 @@ export type RankingEntry = {
   correct_result_predictions: number
   incorrect_predictions?: number
   predictions_count?: number
-  prode_status?: 'empty' | 'in_progress' | 'complete'
+  loaded_count?: number
+  expected_count?: number
+  progress_percentage?: number
+  missing_sections?: string[]
+  prode_status?: 'empty' | 'not_started' | 'in_progress' | 'almost_done' | 'complete' | 'completed'
   participant_status?: 'confirmed' | 'trial'
   rank: number
 }

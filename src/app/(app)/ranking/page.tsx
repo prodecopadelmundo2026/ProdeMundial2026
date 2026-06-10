@@ -1,16 +1,26 @@
 import { createClient } from '@/lib/supabase/server'
 import { RankingClient } from './RankingClient'
 import type { RankingEntry } from '@/types'
+import { getRankingMode, isLiveRankingMode, type RankingMode } from '@/lib/ranking-mode'
 
 export const dynamic = 'force-dynamic'
 
 type PublicRankingRow = RankingEntry & {
   participant_status: 'confirmed' | 'trial'
-  prode_status: 'empty' | 'in_progress' | 'complete'
+  prode_status: 'not_started' | 'in_progress' | 'almost_done' | 'completed'
+  loaded_count?: number
+  expected_count?: number
+  progress_percentage?: number
+  missing_sections?: string[]
 }
 
 type PublicHomeMetrics = {
+  competitors_count: number
+  prodes_completed_count: number
+  prodes_pending_count: number
+  prize_pool_ars: number
   finished_matches_count: number
+  ranking_mode?: RankingMode
 }
 
 export default async function RankingPage() {
@@ -29,8 +39,10 @@ export default async function RankingPage() {
     participant_status: entry.participant_status,
     prode_status: entry.prode_status,
   }))
-  const metrics = metricsData as PublicHomeMetrics | null
-  const rankingStarted = (metrics?.finished_matches_count ?? 0) > 0
+  const metricsRows = metricsData as PublicHomeMetrics[] | null
+  const metrics = Array.isArray(metricsRows) ? metricsRows[0] : metricsRows
+  const rankingMode = metrics?.ranking_mode ?? getRankingMode(metrics?.finished_matches_count)
+  const rankingStarted = isLiveRankingMode(rankingMode)
 
   return (
     <div style={{ padding: 'clamp(40px,8vw,64px) 20px clamp(60px,12vw,100px)' }}>
@@ -78,7 +90,17 @@ export default async function RankingPage() {
           </span>
         </aside>
 
-        <RankingClient entries={entries} userId={user?.id} rankingStarted={rankingStarted} />
+        <RankingClient
+          entries={entries}
+          userId={user?.id}
+          rankingStarted={rankingStarted}
+          summary={{
+            confirmedPlayers: metrics?.competitors_count ?? 0,
+            prizePoolArs: metrics?.prize_pool_ars ?? 0,
+            completedProdes: metrics?.prodes_completed_count ?? 0,
+            pendingProdes: metrics?.prodes_pending_count ?? 0,
+          }}
+        />
       </div>
     </div>
   )
