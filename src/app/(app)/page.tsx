@@ -9,7 +9,7 @@ import {
   TOURNAMENT_TOTAL_MATCHES,
   TOURNAMENT_TOTAL_TEAMS,
 } from '@/lib/tournament-config'
-import { formatPrizePool } from '@/lib/prode-progress'
+import { calculateProjectedPrizes, formatCurrency, formatPrizePool, PRIZE_TARGET_PLAYERS } from '@/lib/prode-progress'
 import { WelcomeModal } from '@/components/WelcomeModal'
 import { SALES_CONTACTS, whatsappHref } from '@/lib/sales-contacts'
 import { getRankingMode, isLiveRankingMode, type RankingMode } from '@/lib/ranking-mode'
@@ -133,6 +133,19 @@ type RankingEntry = {
   progress_percentage?: number
   prode_status?: 'empty' | 'not_started' | 'in_progress' | 'almost_done' | 'complete' | 'completed'
   participant_status?: 'confirmed' | 'trial'
+}
+
+function HomeMetricCard({ value, label, detail, live }: { value: number | string; label: string; detail?: string; live?: boolean }) {
+  return (
+    <div className="min-w-0 rounded-[18px] bg-[#0A0A0A] px-4 py-4 text-white" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="flex items-center gap-2">
+        {live && <span className="h-2 w-2 rounded-full bg-mint" style={{ animation: 'pulse-dot 1.6s infinite' }} />}
+        <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">{label}</p>
+      </div>
+      <p className="mt-2 break-words font-display text-[clamp(28px,7vw,42px)] leading-none tracking-[-0.02em]">{value}</p>
+      {detail && <p className="mt-2 text-[12px] font-semibold leading-snug text-muted">{detail}</p>}
+    </div>
+  )
 }
 
 type PublicHomeMetrics = {
@@ -425,6 +438,7 @@ export default async function HomePage() {
   const rankingStarted = isLiveRankingMode(rankingMode)
   const showPreTournamentBanner = !rankingStarted
   const displayedRanking = myRanking ? [...typedTopRanking, myRanking] : typedTopRanking
+  const projectedPrizes = calculateProjectedPrizes(metrics.competitors_count)
   return (
     <>
       {!user && <WelcomeModal />}
@@ -572,19 +586,25 @@ export default async function HomePage() {
       </section>
 
       {/* ─── STATS STRIP ────────────────────────────────────────── */}
-      <div
-        className="bg-orange text-bg overflow-hidden"
-        style={{ borderTop: '2px solid #0A0A0A', borderBottom: '2px solid #0A0A0A' }}
-      >
-        <div className="max-w-[1280px] mx-auto px-5 py-6 grid grid-cols-1 gap-x-2 gap-y-6 min-[680px]:grid-cols-3 min-[720px]:gap-5 min-[1100px]:grid-cols-5">
-          <StatItem num={metrics.competitors_count} label="Confirmados" live />
-          <StatItem num={formatPrizePool(metrics.competitors_count)} label="Pozo actual" />
-          <StatItem num={metrics.prodes_completed_count ?? 0} label="Prodes terminados" />
-          <StatItem num={metrics.prodes_pending_count ?? 0} label="Pendientes" />
-          <StatItem num={`${metrics.finished_matches_count} de ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" />
-          <StatItem num={metrics.alive_teams_count} label="Selecciones disponibles" />
+      <section className="bg-orange text-bg" style={{ borderTop: '2px solid #0A0A0A', borderBottom: '2px solid #0A0A0A' }}>
+        <div className="max-w-[1280px] mx-auto px-5 py-6">
+          <div className="grid grid-cols-1 gap-3 min-[680px]:grid-cols-2 min-[1100px]:grid-cols-4">
+            <HomeMetricCard value={metrics.competitors_count} label="Participantes confirmados" detail="Cuentan para el pozo actual." live />
+            <HomeMetricCard value={formatPrizePool(metrics.competitors_count)} label="Pozo acumulado actual" detail="Confirmados x $20.000." />
+            <HomeMetricCard value={`${metrics.prodes_completed_count ?? 0} completos`} label="Avance general" detail={`${metrics.prodes_pending_count ?? 0} participantes todavía tienen cargas pendientes.`} />
+            <HomeMetricCard value={formatCurrency(projectedPrizes.first)} label="Premio estimado 1°" detail={`Proporcional a ${metrics.competitors_count}/${PRIZE_TARGET_PLAYERS} confirmados.`} />
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-3 min-[680px]:grid-cols-3">
+            <HomeMetricCard value={formatCurrency(projectedPrizes.second)} label="Premio estimado 2°" />
+            <HomeMetricCard value={formatCurrency(projectedPrizes.third)} label="Premio estimado 3°" />
+            {rankingStarted ? (
+              <HomeMetricCard value={`${metrics.finished_matches_count} de ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" detail={`${metrics.alive_teams_count} selecciones disponibles.`} />
+            ) : (
+              <HomeMetricCard value="Pre Mundial" label="Estado del torneo" detail="Los puntos arrancan cuando se cargue el primer resultado oficial." />
+            )}
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* ─── UPCOMING MATCHES ───────────────────────────────────── */}
       <section id="como-funciona" style={{ padding: 'clamp(44px, 9vw, 84px) 20px' }}>
@@ -615,10 +635,11 @@ export default async function HomePage() {
           <div>
             <p className="text-[12px] font-extrabold uppercase tracking-[0.22em] text-muted">Premios proyectados</p>
             <h2 className="mt-4 font-display text-[clamp(38px,6vw,76px)] uppercase leading-[0.9] tracking-[-0.03em]">
-              Con 65 competidores, <em className="italic text-orange">hay podio</em>
+              Premios estimados, <em className="italic text-orange">pozo real</em>
             </h2>
             <p className="mt-4 max-w-[500px] text-[14px] font-medium leading-relaxed text-[#cfcfcf]">
-              El objetivo es llegar a 65 competidores. Con ese piso, el premio proyectado es $800.000 al primero, $200.000 al segundo y $100.000 al tercero.
+              Con {metrics.competitors_count} confirmados, el podio se recalcula proporcionalmente contra el objetivo de {PRIZE_TARGET_PLAYERS} competidores.
+              Referencia completa: $800.000 al primero, $200.000 al segundo y $100.000 al tercero.
             </p>
             <div className="mt-5">
               <SectionLink href="/premios" label="Ver detalle de premios" />
@@ -626,9 +647,9 @@ export default async function HomePage() {
           </div>
           <div className="grid grid-cols-1 gap-3 min-[620px]:grid-cols-3">
             {[
-              ['1°', '$800.000', '#FFE040', 'Primer puesto'],
-              ['2°', '$200.000', '#A8F0D8', 'Segundo puesto'],
-              ['3°', '$100.000', '#E8A87C', 'Tercer puesto'],
+              ['1°', formatCurrency(projectedPrizes.first), '#FFE040', 'Primer puesto'],
+              ['2°', formatCurrency(projectedPrizes.second), '#A8F0D8', 'Segundo puesto'],
+              ['3°', formatCurrency(projectedPrizes.third), '#E8A87C', 'Tercer puesto'],
             ].map(([rank, amount, color, label]) => (
               <article key={rank} className="min-h-[180px] rounded-[22px] p-5 text-bg" style={{ background: color }}>
                 <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] opacity-70">{label}</p>

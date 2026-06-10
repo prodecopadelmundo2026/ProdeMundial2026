@@ -116,6 +116,49 @@ export async function upsertPrediction(
   revalidatePath('/')
   revalidatePath('/fixture')
   revalidatePath('/mi-prode')
+  revalidatePath('/ranking')
+  revalidatePath(`/ranking/${user.id}`)
+  revalidatePath('/ranking/[userId]', 'page')
+}
+
+export async function deletePrediction(matchId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No autenticado')
+  await assertProdeOpen(supabase)
+
+  const { data: match, error: matchError } = await supabase
+    .from('matches')
+    .select('locked_at, status')
+    .eq('id', matchId)
+    .single()
+
+  if (matchError) {
+    logActionError('deletePrediction.loadMatch', matchError, { matchId })
+    throw new Error(matchError.message)
+  }
+  if (!match) throw new Error('Partido no encontrado')
+  if (match.status !== 'upcoming' || new Date() >= new Date(match.locked_at)) {
+    throw new Error('Las predicciones para este partido ya cerraron')
+  }
+
+  const { error } = await supabase
+    .from('predictions')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('match_id', matchId)
+
+  if (error) {
+    logActionError('deletePrediction.delete', error, { matchId })
+    throw new Error(error.message)
+  }
+
+  revalidatePath('/')
+  revalidatePath('/fixture')
+  revalidatePath('/mi-prode')
+  revalidatePath('/ranking')
+  revalidatePath(`/ranking/${user.id}`)
+  revalidatePath('/ranking/[userId]', 'page')
 }
 
 export async function upsertPredictionsBatch(
@@ -167,6 +210,9 @@ export async function upsertPredictionsBatch(
   }
   revalidatePath('/')
   revalidatePath('/mi-prode')
+  revalidatePath('/ranking')
+  revalidatePath(`/ranking/${user.id}`)
+  revalidatePath('/ranking/[userId]', 'page')
 }
 
 export async function deleteGroupPredictions() {

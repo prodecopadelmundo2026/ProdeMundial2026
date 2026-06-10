@@ -2,10 +2,10 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { AlertTriangle, CheckCircle2, CircleDollarSign, Trophy, Users, X } from 'lucide-react'
-import { formatPrizePool, prodeStatusLabel, type ProdeCompletionStatus } from '@/lib/prode-progress'
+import { Trophy, X } from 'lucide-react'
+import { prodeStatusLabel, type ProdeCompletionStatus } from '@/lib/prode-progress'
 
-const STORAGE_PREFIX = 'prode-2026-status-modal'
+export const PRODE_STATUS_MODAL_STORAGE_PREFIX = 'prode-2026-status-modal'
 
 type Props = {
   userId: string
@@ -106,23 +106,43 @@ function toneStyles(tone: ReturnType<typeof modalCopy>['tone']) {
 export function ProdeStatusModal({ userId, participantStatus, progress, metrics }: Props) {
   const copy = modalCopy(participantStatus, progress)
   const styles = toneStyles(copy.tone)
-  const signature = `${STORAGE_PREFIX}:${userId}:${participantStatus}:${progress.status}`
-  const [open, setOpen] = useStateFromStorage(signature)
+  const signature = `${PRODE_STATUS_MODAL_STORAGE_PREFIX}:${userId}:${participantStatus}:${progress.status}:${progress.percentage}:${progress.loadedCount}-${progress.expectedCount}`
+  const [mounted, setMounted] = useStateFromSession(signature)
+  const [visible, setVisible] = useState(false)
   const percentage = Math.max(0, Math.min(100, progress.percentage))
-  const pool = metrics.prizePoolArs > 0 ? formatPrizePool(metrics.confirmedPlayers) : '$0'
+
+  useEffect(() => {
+    if (!mounted) return
+    const id = window.setTimeout(() => setVisible(true), 20)
+    return () => window.clearTimeout(id)
+  }, [mounted])
+
+  useEffect(() => {
+    if (!mounted) return
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') closeModal()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, signature])
 
   function closeModal() {
-    window.localStorage.setItem(signature, '1')
-    setOpen(false)
+    window.sessionStorage.setItem(signature, '1')
+    setVisible(false)
+    window.setTimeout(() => setMounted(false), 160)
   }
 
-  if (!open) return null
+  if (!mounted) return null
 
   return (
-    <div className="fixed inset-0 z-[210] grid place-items-center px-4 py-6">
+    <div
+      className="fixed inset-0 z-[210] grid place-items-center px-4 py-6 transition-opacity duration-200"
+      style={{ opacity: visible ? 1 : 0 }}
+    >
       <button
         type="button"
-        className="absolute inset-0 cursor-default bg-black/72"
+        className="absolute inset-0 cursor-default bg-black/72 transition-opacity duration-200"
         aria-label="Cerrar aviso de Prode"
         onClick={closeModal}
       />
@@ -130,7 +150,8 @@ export function ProdeStatusModal({ userId, participantStatus, progress, metrics 
         role="dialog"
         aria-modal="true"
         aria-labelledby="prode-status-title"
-        className="relative w-full max-w-[640px] overflow-hidden rounded-[22px] border border-white/10 bg-[#101010] p-5 shadow-2xl sm:p-7"
+        className="relative w-full max-w-[620px] overflow-hidden rounded-[22px] border border-white/10 bg-[#101010] p-5 shadow-2xl transition-all duration-200 sm:p-7"
+        style={{ transform: visible ? 'translateY(0) scale(1)' : 'translateY(10px) scale(0.98)' }}
       >
         <div className="absolute inset-x-0 top-0 h-1.5" style={{ background: styles.accent }} aria-hidden="true" />
         <button
@@ -173,20 +194,9 @@ export function ProdeStatusModal({ userId, participantStatus, progress, metrics 
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[
-            { icon: Users, label: 'Confirmados', value: metrics.confirmedPlayers },
-            { icon: CircleDollarSign, label: 'Pozo actual', value: pool },
-            { icon: CheckCircle2, label: 'Terminados', value: metrics.completedProdes },
-            { icon: AlertTriangle, label: 'Pendientes', value: metrics.pendingProdes },
-          ].map(({ icon: Icon, label, value }) => (
-            <div key={label} className="rounded-[14px] bg-[#151515] p-3" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-              <Icon size={16} aria-hidden="true" style={{ color: styles.accent }} />
-              <p className="mt-2 truncate font-display text-[22px] leading-none text-white">{value}</p>
-              <p className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">{label}</p>
-            </div>
-          ))}
-        </div>
+        <p className="mt-4 rounded-[14px] bg-white/[0.03] px-4 py-3 text-[12px] font-semibold leading-relaxed text-muted" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+          {metrics.completedProdes} participantes ya completaron su Prode. {metrics.pendingProdes} participantes todavía tienen cargas pendientes.
+        </p>
 
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
@@ -210,12 +220,12 @@ export function ProdeStatusModal({ userId, participantStatus, progress, metrics 
   )
 }
 
-function useStateFromStorage(signature: string) {
+function useStateFromSession(signature: string) {
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
     const id = window.setTimeout(() => {
-      setOpen(window.localStorage.getItem(signature) !== '1')
+      setOpen(window.sessionStorage.getItem(signature) !== '1')
     }, 0)
     return () => window.clearTimeout(id)
   }, [signature])

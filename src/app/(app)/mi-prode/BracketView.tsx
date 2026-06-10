@@ -585,15 +585,28 @@ export function BracketView({
   async function saveKnockoutChanges() {
     if (!canEditBracket) return
     const predictions = collectCompleteKnockoutPredictions()
+    const partialLabels = knockoutMatches
+      .filter((match) => {
+        const input = localInputs[match.id]
+        if (!input) return false
+        const homeBlank = input.home === ''
+        const awayBlank = input.away === ''
+        return homeBlank !== awayBlank
+      })
+      .map((match) => `${resolve(match.home_team)} vs ${resolve(match.away_team)}`)
     const matchIdsToDelete = knockoutMatches
       .filter((match) => {
         if (!predMap[match.id]) return false
         const input = localInputs[match.id]
-        const h = parseScoreInput(input?.home ?? '')
-        const a = parseScoreInput(input?.away ?? '')
-        return h == null || a == null
+        return input?.home === '' && input?.away === ''
       })
       .map((match) => match.id)
+
+    if (partialLabels.length) {
+      setManualSaveState('error')
+      setManualSaveError(`Hay ${partialLabels.length} marcador(es) parcial(es). Completa ambos goles o borra ambos antes de guardar.`)
+      return
+    }
 
     if (!predictions.length && !matchIdsToDelete.length) {
       setManualSaveState('error')

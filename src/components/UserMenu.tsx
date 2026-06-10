@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { rankMedal } from '@/lib/ranking-display'
+import { PRODE_STATUS_MODAL_STORAGE_PREFIX } from '@/components/ProdeStatusModal'
 
 interface Props {
   initial: string
@@ -56,6 +57,14 @@ export function UserMenu({ initial, name, pts, rank, sharedRank = false, exact, 
       setLoggingOut(false)
       return
     }
+
+    try {
+      for (const key of Object.keys(window.sessionStorage)) {
+        if (key.startsWith(PRODE_STATUS_MODAL_STORAGE_PREFIX)) {
+          window.sessionStorage.removeItem(key)
+        }
+      }
+    } catch {}
 
     router.push('/login?message=signed_out')
     router.refresh()

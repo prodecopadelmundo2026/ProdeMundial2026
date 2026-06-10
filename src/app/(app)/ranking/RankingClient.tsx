@@ -376,8 +376,8 @@ export function RankingClient({
               {[
                 ['Confirmados', summary.confirmedPlayers],
                 ['Pozo actual', summary.prizePoolArs > 0 ? formatPrizePool(summary.confirmedPlayers) : '$0'],
-                ['Terminados', summary.completedProdes],
-                ['Pendientes', summary.pendingProdes],
+                ['Prodes completos', summary.completedProdes],
+                ['Con carga pendiente', summary.pendingProdes],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-[16px] bg-[#141414] p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
                   <p className="font-display text-[26px] leading-none text-white">{value}</p>

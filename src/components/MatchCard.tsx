@@ -6,7 +6,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { StatusBadge } from './StatusBadge'
 import { getTeam, flagUrl } from '@/lib/teams'
-import { upsertPrediction } from '@/app/(app)/fixture/actions'
+import { deletePrediction, upsertPrediction } from '@/app/(app)/fixture/actions'
 import { normalizeScoreInput, parseScoreInput } from '@/lib/score-input'
 import type { Match } from '@/types'
 
@@ -124,6 +124,24 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
     })
   }
 
+  function doDelete(h: string, a: string) {
+    if (!prediction) return
+    setSaveState('saving')
+    onSaveStateChange?.('saving')
+    startTransition(async () => {
+      try {
+        await deletePrediction(match.id)
+        const isLatest = latestValuesRef.current.home === h && latestValuesRef.current.away === a
+        setSaveState(isLatest ? 'saved' : 'dirty')
+        onSaveStateChange?.(isLatest ? 'saved' : 'dirty')
+      } catch (error) {
+        console.error('Error al borrar pronostico', error)
+        setSaveState('error')
+        onSaveStateChange?.('error')
+      }
+    })
+  }
+
   function handleChange(field: 'home' | 'away', val: string) {
     if (!isOpen) return
     const nextValue = normalizeScoreInput(val)
@@ -137,7 +155,9 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
     setSaveState('dirty')
     onSaveStateChange?.('dirty')
     if (timerRef.current) clearTimeout(timerRef.current)
-    if (h !== '' && a !== '') {
+    if (h === '' && a === '') {
+      timerRef.current = setTimeout(() => doDelete(h, a), 500)
+    } else if (h !== '' && a !== '') {
       timerRef.current = setTimeout(() => doSave(h, a), 500)
     }
   }
