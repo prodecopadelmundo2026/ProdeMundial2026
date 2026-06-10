@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { rankMedal } from '@/lib/ranking-display'
-import { PRODE_STATUS_MODAL_STORAGE_PREFIX } from '@/components/ProdeStatusModal'
+import { PRODE_STATUS_MODAL_OPEN_EVENT, PRODE_STATUS_MODAL_STORAGE_PREFIX } from '@/components/ProdeStatusModal'
 
 interface Props {
   initial: string
@@ -68,6 +68,11 @@ export function UserMenu({ initial, name, pts, rank, sharedRank = false, exact, 
 
     router.push('/login?message=signed_out')
     router.refresh()
+  }
+
+  function handleOpenProgressModal() {
+    window.dispatchEvent(new Event(PRODE_STATUS_MODAL_OPEN_EVENT))
+    setOpen(false)
   }
 
   return (
@@ -181,6 +186,23 @@ export function UserMenu({ initial, name, pts, rank, sharedRank = false, exact, 
             </Link>
           </div>
         )}
+
+        <div
+          className="p-1.5"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <button
+            type="button"
+            onClick={handleOpenProgressModal}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] font-bold text-[14px] text-left transition-colors duration-150"
+            style={{ color: '#FFFFFF' }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,.06)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            role="menuitem"
+          >
+            Ver estado de mi Prode
+          </button>
+        </div>
 
         <div className="p-1.5">
           {logoutError && (

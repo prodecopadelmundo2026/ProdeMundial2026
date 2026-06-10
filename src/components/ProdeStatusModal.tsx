@@ -6,6 +6,7 @@ import { Trophy, X } from 'lucide-react'
 import { prodeStatusLabel, type ProdeCompletionStatus } from '@/lib/prode-progress'
 
 export const PRODE_STATUS_MODAL_STORAGE_PREFIX = 'prode-2026-status-modal'
+export const PRODE_STATUS_MODAL_OPEN_EVENT = 'prode-status-modal:open'
 
 type Props = {
   userId: string
@@ -127,6 +128,15 @@ export function ProdeStatusModal({ userId, participantStatus, progress, metrics 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, signature])
 
+  useEffect(() => {
+    function handleManualOpen() {
+      setMounted(true)
+      window.setTimeout(() => setVisible(true), 20)
+    }
+    window.addEventListener(PRODE_STATUS_MODAL_OPEN_EVENT, handleManualOpen)
+    return () => window.removeEventListener(PRODE_STATUS_MODAL_OPEN_EVENT, handleManualOpen)
+  }, [setMounted])
+
   function closeModal() {
     window.sessionStorage.setItem(signature, '1')
     setVisible(false)
@@ -189,14 +199,22 @@ export function ProdeStatusModal({ userId, participantStatus, progress, metrics 
             <div className="h-full rounded-full transition-[width]" style={{ width: `${percentage}%`, background: styles.accent }} />
           </div>
           <div className="mt-2 flex items-center justify-between gap-3 text-[12px] font-bold text-muted">
-            <span>{progress.loadedCount} de {progress.expectedCount} cargas</span>
+            <span>{progress.loadedCount} de {progress.expectedCount} predicciones cargadas</span>
             <span>{percentage}%</span>
           </div>
+          <p className="mt-2 text-[11px] font-semibold leading-relaxed text-muted">
+            Incluye partidos, eliminatorias y apuestas especiales.
+          </p>
         </div>
 
-        <p className="mt-4 rounded-[14px] bg-white/[0.03] px-4 py-3 text-[12px] font-semibold leading-relaxed text-muted" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
-          {metrics.completedProdes} participantes ya completaron su Prode. {metrics.pendingProdes} participantes todavía tienen cargas pendientes.
-        </p>
+        <div className="mt-4 rounded-[14px] bg-white/[0.05] px-4 py-3" style={{ border: `1px solid ${styles.border}` }}>
+          <p className="text-[13px] font-extrabold leading-relaxed text-white">
+            {metrics.completedProdes} participantes ya completaron su Prode.
+          </p>
+          <p className="mt-1 text-[12px] font-semibold leading-relaxed text-[#cfcfcf]">
+            {metrics.pendingProdes} participantes todavía tienen cargas pendientes.
+          </p>
+        </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
           <Link

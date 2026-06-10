@@ -169,10 +169,26 @@ function predictionsMatch(first?: Prediction, second?: Prediction) {
   )
 }
 
+function rowsHaveSamePredictedCross(first?: MatchAuditRow, second?: MatchAuditRow) {
+  return Boolean(
+    first &&
+    second &&
+    first.predictedHome === second.predictedHome &&
+    first.predictedAway === second.predictedAway
+  )
+}
+
 function comparisonStatus(targetPrediction?: Prediction, viewerPrediction?: Prediction, isOwnProfile = false) {
   if (isOwnProfile) return null
   if (!targetPrediction || !viewerPrediction) return { label: 'Sin cargar', color: '#8A8A8A' }
   if (predictionsMatch(targetPrediction, viewerPrediction)) return { label: 'Coinciden', color: '#A8F0D8' }
+  return { label: 'Diferente', color: '#FFB15C' }
+}
+
+function knockoutComparisonStatus(targetRow?: MatchAuditRow, viewerRow?: MatchAuditRow, isOwnProfile = false) {
+  if (isOwnProfile) return null
+  if (!targetRow?.prediction || !viewerRow?.prediction) return { label: 'Sin cargar', color: '#8A8A8A' }
+  if (rowsHaveSamePredictedCross(targetRow, viewerRow)) return { label: 'Coinciden', color: '#A8F0D8' }
   return { label: 'Diferente', color: '#FFB15C' }
 }
 
@@ -281,20 +297,60 @@ function PredictionPanel({
   )
 }
 
+function BracketComparisonPanel({
+  label,
+  home,
+  away,
+  score,
+  emptyText,
+  accent,
+}: {
+  label: string
+  home: string | null
+  away: string | null
+  score: string | null
+  emptyText: string
+  accent?: string
+}) {
+  const hasCross = Boolean(home && away)
+  return (
+    <div className="rounded-[16px] px-4 py-3" style={{ background: '#141414', border: `1px solid ${accent ? `${accent}55` : 'rgba(255,255,255,0.06)'}` }}>
+      <p className="font-mono text-[10px] font-extrabold tracking-[0.14em] uppercase text-muted">{label}</p>
+      {hasCross ? (
+        <>
+          <div className="mt-3 grid gap-2 text-[13px] font-extrabold text-white">
+            <TeamChip name={home!} />
+            <TeamChip name={away!} />
+          </div>
+          <p className="mt-3 font-display text-[24px] leading-none text-white tabular-nums">
+            {score ?? 'Pendiente'}
+          </p>
+        </>
+      ) : (
+        <p className="mt-3 text-[12px] font-bold leading-snug text-muted">{emptyText}</p>
+      )}
+    </div>
+  )
+}
+
 function MatchAuditCard({
   row,
   showScoring,
   viewerPrediction,
+  viewerRow,
   isOwnProfile,
 }: {
   row: MatchAuditRow
   showScoring: boolean
   viewerPrediction?: Prediction
+  viewerRow?: MatchAuditRow
   isOwnProfile: boolean
 }) {
   const isGroup = row.stage === 'group'
   const targetPrediction = row.prediction
-  const status = comparisonStatus(targetPrediction, viewerPrediction, isOwnProfile)
+  const status = isGroup
+    ? comparisonStatus(targetPrediction, viewerPrediction, isOwnProfile)
+    : knockoutComparisonStatus(row, viewerRow, isOwnProfile)
   const targetLabel = isOwnProfile ? 'Tu pronóstico' : 'Su pronóstico'
   const officialValue = row.match.status === 'finished' && row.match.home_score != null && row.match.away_score != null
     ? row.officialScore
@@ -335,23 +391,45 @@ function MatchAuditCard({
         </div>
       </div>
 
-      <div className={`mt-4 grid gap-3 ${isOwnProfile ? 'sm:grid-cols-2' : 'lg:grid-cols-3'}`}>
-        <PredictionPanel label={targetLabel} value={formatPredictionScore(targetPrediction)} emptyText="Sin cargar" />
-        {!isOwnProfile && (
-          <PredictionPanel
-            label="Mi pronóstico"
-            value={formatPredictionScore(viewerPrediction)}
-            emptyText="Todavía no cargaste este partido"
-            accent={status?.label === 'Coinciden' ? '#A8F0D8' : status?.label === 'Diferente' ? '#FFB15C' : undefined}
+      {isGroup ? (
+        <div className={`mt-4 grid gap-3 ${isOwnProfile ? 'sm:grid-cols-2' : 'lg:grid-cols-3'}`}>
+          <PredictionPanel label={targetLabel} value={formatPredictionScore(targetPrediction)} emptyText="Sin cargar" />
+          {!isOwnProfile && (
+            <PredictionPanel
+              label="Mi pronóstico"
+              value={formatPredictionScore(viewerPrediction)}
+              emptyText="Todavía no cargaste este partido"
+              accent={status?.label === 'Coinciden' ? '#A8F0D8' : status?.label === 'Diferente' ? '#FFB15C' : undefined}
+            />
+          )}
+          <PredictionPanel label="Resultado oficial" value={officialValue} emptyText="Pendiente" />
+        </div>
+      ) : (
+        <div className={`mt-4 grid gap-3 ${isOwnProfile ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`}>
+          <BracketComparisonPanel
+            label={isOwnProfile ? 'Tu cruce' : 'Cruce del participante'}
+            home={targetPrediction ? row.predictedHome : null}
+            away={targetPrediction ? row.predictedAway : null}
+            score={formatPredictionScore(targetPrediction)}
+            emptyText="Sin cargar"
           />
-        )}
-        <PredictionPanel label="Resultado oficial" value={officialValue} emptyText="Pendiente" />
-      </div>
-
-      {!isGroup && (
-        <div className="mt-3 grid gap-3 lg:grid-cols-2">
-          <AuditMetric label="Cruce del Prode" value={`${row.predictedHome} vs ${row.predictedAway}`} />
-          <AuditMetric label="Cruce oficial" value={row.hasOfficialTeams ? `${row.officialHome} vs ${row.officialAway}` : 'Pendiente de resultado'} />
+          {!isOwnProfile && (
+            <BracketComparisonPanel
+              label="Mi cruce"
+              home={viewerRow?.prediction ? viewerRow.predictedHome : null}
+              away={viewerRow?.prediction ? viewerRow.predictedAway : null}
+              score={formatPredictionScore(viewerPrediction)}
+              emptyText="Todavía no cargaste esta llave"
+              accent={status?.label === 'Coinciden' ? '#A8F0D8' : status?.label === 'Diferente' ? '#FFB15C' : undefined}
+            />
+          )}
+          <BracketComparisonPanel
+            label="Cruce oficial"
+            home={row.hasOfficialTeams ? row.officialHome : null}
+            away={row.hasOfficialTeams ? row.officialAway : null}
+            score={officialValue}
+            emptyText="Pendiente"
+          />
         </div>
       )}
 
@@ -633,6 +711,13 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     typedUserPredictions,
     tiebreakersByUser.get(userId) ?? {}
   )
+  const viewerAuditRows = user
+    ? buildMatchAuditRows(
+        typedMatches,
+        viewerTypedPredictions,
+        tiebreakersByUser.get(user.id) ?? {}
+      )
+    : []
   const groupKeys = GROUP_KEYS.filter((group) => groupMatches.some((match) => match.group === group))
   const predictionMap = Object.fromEntries(
     typedUserPredictions.map((prediction) => [
@@ -641,6 +726,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     ] as const)
   )
   const viewerPredictionByMatch = new Map(viewerTypedPredictions.map((prediction) => [prediction.match_id, prediction]))
+  const viewerRowByMatch = new Map(viewerAuditRows.map((row) => [row.match.id, row]))
   const userTiebreakerMap = tiebreakersByUser.get(userId) ?? {}
   const visibleRows = auditRows.filter((row) => {
     if (activeView === 'all' || activeView === 'bracket' || activeView === 'specials') return false
@@ -783,6 +869,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                   row={row}
                   showScoring={rankingStarted}
                   viewerPrediction={viewerPredictionByMatch.get(row.match.id)}
+                  viewerRow={viewerRowByMatch.get(row.match.id)}
                   isOwnProfile={isOwnProfile}
                 />
               ))
