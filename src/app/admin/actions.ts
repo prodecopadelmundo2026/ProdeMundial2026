@@ -35,6 +35,7 @@ function revalidateCorePaths() {
   revalidatePath('/admin/whitelist')
   revalidatePath('/fixture')
   revalidatePath('/mi-prode')
+  revalidatePath('/premios')
   revalidatePath('/ranking')
   revalidatePath('/ranking/[userId]', 'page')
   revalidatePath('/')
@@ -289,6 +290,45 @@ export async function toggleMaintenanceMode() {
 
   revalidateCorePaths()
   revalidatePath('/maintenance')
+}
+
+function parsePrizeValue(formData: FormData, key: string) {
+  const raw = String(formData.get(key) ?? '').trim()
+  const value = Number(raw)
+  if (!raw || !Number.isInteger(value)) throw new Error('Los premios tienen que ser numeros enteros.')
+  if (value < 0) throw new Error('Los premios no pueden ser negativos.')
+  return value
+}
+
+export async function updatePrizeSettings(
+  _prevState: AdminToolResult | null,
+  formData: FormData
+): Promise<AdminToolResult> {
+  try {
+    const supabase = await createClient()
+    await requireAdmin()
+
+    const firstPrize = parsePrizeValue(formData, 'first_prize')
+    const secondPrize = parsePrizeValue(formData, 'second_prize')
+    const thirdPrize = parsePrizeValue(formData, 'third_prize')
+
+    if (firstPrize < secondPrize || secondPrize < thirdPrize) {
+      throw new Error('El primer premio debe ser mayor o igual al segundo, y el segundo mayor o igual al tercero.')
+    }
+
+    const { error } = await supabase.rpc('admin_set_prize_settings', {
+      p_first_prize: firstPrize,
+      p_second_prize: secondPrize,
+      p_third_prize: thirdPrize,
+    })
+
+    if (error) throw new Error(error.message)
+
+    revalidateCorePaths()
+    return { ok: true, message: 'Premios actualizados correctamente.' }
+  } catch (error) {
+    return adminToolError(error)
+  }
 }
 
 // ─── Test tools (operan sobre resultados de partidos, no sobre predicciones) ──

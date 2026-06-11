@@ -586,7 +586,7 @@ export function TournamentBracket({
   }
 
   return (
-    <div>
+    <div style={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
       {/* Audit legend */}
       {mode === 'audit' && (
         <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -597,7 +597,7 @@ export function TournamentBracket({
       )}
 
       {/* Scroll wrapper */}
-      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' as React.CSSProperties['WebkitOverflowScrolling'], paddingBottom: 12 }}>
+      <div style={{ overflowX: 'auto', maxWidth: '100%', WebkitOverflowScrolling: 'touch' as React.CSSProperties['WebkitOverflowScrolling'], paddingBottom: 12 }}>
         <div style={{ position: 'relative', width: TOTAL_W, minWidth: TOTAL_W }}>
 
           {/* Headers */}

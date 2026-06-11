@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import type { Match } from '@/types'
 import { AdminMatchForm } from './AdminMatchForm'
 import { AdminTestTools } from './AdminTestTools'
+import { PrizeSettingsForm } from './PrizeSettingsForm'
 import {
   assignBestThirdsToSlots,
   buildKnockoutMap,
@@ -21,6 +22,7 @@ import { getProdeLockState } from '@/lib/prode-lock'
 import { setProdeLockOverride, toggleMaintenanceMode } from './actions'
 import { getCurrentProfile } from '@/lib/current-profile'
 import { getMaintenanceMode } from '@/lib/maintenance'
+import { getPublicPrizeSettings, resolvePrizes } from '@/lib/prize-settings'
 
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
 
@@ -119,6 +121,13 @@ export default async function AdminPage() {
   }))
   const prodeLock = await getProdeLockState(supabase)
   const maintenanceMode = await getMaintenanceMode(supabase)
+  const [{ data: metricsData }, prizeSettings] = await Promise.all([
+    supabase.rpc('get_public_home_metrics'),
+    getPublicPrizeSettings(supabase),
+  ])
+  const metricsRows = metricsData as Array<{ competitors_count?: number | null }> | { competitors_count?: number | null } | null
+  const metrics = Array.isArray(metricsRows) ? metricsRows[0] : metricsRows
+  const resolvedPrizes = resolvePrizes(metrics?.competitors_count ?? 0, prizeSettings)
   const groupMatches = allMatches.filter((m) => m.stage === 'group')
   const knockoutMatches = allMatches.filter((m) => m.stage !== 'group')
   const officialScoreMap: ScoreMap = Object.fromEntries(
@@ -220,6 +229,7 @@ export default async function AdminPage() {
   const knockoutEntries = Object.entries(groups).filter(([groupName]) => !groupName.startsWith('Grupo '))
   const adminSections = [
     { label: 'Clasificación', href: '#admin-section-clasificacion' },
+    { label: 'Premios', href: '#admin-section-premios' },
     { label: 'Especiales', href: '#admin-section-especiales' },
     { label: 'Grupos', href: '#admin-section-grupos' },
     { label: 'Dieciseisavos', href: '#admin-section-dieciseisavos' },
@@ -339,6 +349,25 @@ export default async function AdminPage() {
             {maintenanceMode ? 'Desactivar mantenimiento' : 'Activar mantenimiento'}
           </button>
         </form>
+
+        <section
+          id="admin-section-premios"
+          className="mb-5 rounded-[16px] px-5 py-4"
+          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)', scrollMarginTop: 20 }}
+        >
+          <div className="mb-4">
+            <p className="font-extrabold text-white text-[13px] leading-snug">Premios publicados</p>
+            <p className="text-[12px] mt-0.5 text-muted">
+              Configura los importes visibles en Home y Premios. Si no hay configuracion manual, la web usa el calculo proporcional automatico.
+            </p>
+          </div>
+          <PrizeSettingsForm
+            firstPrize={resolvedPrizes.first}
+            secondPrize={resolvedPrizes.second}
+            thirdPrize={resolvedPrizes.third}
+            isManual={resolvedPrizes.source === 'manual'}
+          />
+        </section>
 
         <AdminTestTools />
 

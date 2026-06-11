@@ -11,7 +11,7 @@ import {
 } from '@/lib/ranking-audit'
 import type { Match, Prediction } from '@/types'
 import { formatRank, rankMedal } from '@/lib/ranking-display'
-import { buildProjectedKnockoutMatches } from '@/lib/bracket'
+import { buildProjectedKnockoutMatches, KNOCKOUT_FIXTURES } from '@/lib/bracket'
 import { TournamentBracket } from '@/components/TournamentBracket'
 import { flagUrl, getTeam } from '@/lib/teams'
 
@@ -26,6 +26,7 @@ type Props = {
 }
 
 const GROUP_KEYS = Array.from({ length: 12 }, (_, index) => String.fromCharCode(65 + index))
+const KNOCKOUT_STAGE_ORDER: Exclude<Match['stage'], 'group'>[] = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'third_place', 'final']
 
 const SPECIAL_AUDIT_ROWS: Array<{ key: keyof SpecialBetsRow; label: string; prompt: string; points: number }> = [
   { key: 'balon', label: 'Balon de Oro', prompt: 'Mejor jugador del torneo', points: 20 },
@@ -113,16 +114,21 @@ const MATCH_STATUS_LABELS: Record<Match['status'], { text: string; color: string
   finished: { text: 'Finalizado', color: '#A8F0D8' },
 }
 
-function hrefForView(userId: string, view: ViewKey, result?: AuditStatus | null) {
+function hrefForView(userId: string, view: ViewKey, result?: AuditStatus | null, stage?: Match['stage'] | null) {
   const params = new URLSearchParams({ view })
+  if (stage && stage !== 'group') params.set('stage', stage)
   if (result) params.set('result', result)
   return `/ranking/${userId}?${params.toString()}`
 }
 
 function normalizeView(raw: string | undefined, legacyStage: StageKey | undefined): ViewKey {
-  if (raw === 'all' || raw === 'knockout' || raw === 'bracket' || raw === 'specials') return raw
-  const group = raw?.match(/^group_([A-L])$/)
-  if (group) return `group_${group[1]}` as ViewKey
+  const normalized = raw?.trim().toLowerCase().replace(/\s+/g, '-')
+  if (normalized === 'all' || normalized === 'todos') return 'all'
+  if (normalized === 'knockout' || normalized === 'eliminatorias') return 'knockout'
+  if (normalized === 'bracket' || normalized === 'llave') return 'bracket'
+  if (normalized === 'specials' || normalized === 'especiales') return 'specials'
+  const group = normalized?.match(/^(?:group|grupo)[_-]([a-l])$/)
+  if (group) return `group_${group[1].toUpperCase()}` as ViewKey
   if (legacyStage === 'specials') return 'specials'
   if (legacyStage && legacyStage !== 'group') return 'knockout'
   return 'all'
@@ -144,8 +150,8 @@ function countLoadedSpecials(specialBets: SpecialBetsRow | null) {
   return [specialBets?.balon, specialBets?.bota, specialBets?.guante].filter((value) => Boolean(value?.trim())).length
 }
 
-function filterHrefForView(userId: string, view: ViewKey, result: AuditStatus, activeResult: AuditStatus | null) {
-  return hrefForView(userId, view, activeResult === result ? null : result)
+function filterHrefForView(userId: string, view: ViewKey, result: AuditStatus, activeResult: AuditStatus | null, stage?: Match['stage'] | null) {
+  return hrefForView(userId, view, activeResult === result ? null : result, stage)
 }
 
 function normalizeTiebreakerKey(key: string) {
@@ -169,6 +175,14 @@ function predictionsMatch(first?: Prediction, second?: Prediction) {
   )
 }
 
+function predictionWinner(row?: MatchAuditRow, tiebreakerTeam?: string | null) {
+  const prediction = row?.prediction
+  if (!row || !prediction) return null
+  if (prediction.home_score > prediction.away_score) return row.predictedHome
+  if (prediction.away_score > prediction.home_score) return row.predictedAway
+  return tiebreakerTeam ?? prediction.tiebreaker_team ?? null
+}
+
 function rowsHaveSamePredictedCross(first?: MatchAuditRow, second?: MatchAuditRow) {
   return Boolean(
     first &&
@@ -176,6 +190,20 @@ function rowsHaveSamePredictedCross(first?: MatchAuditRow, second?: MatchAuditRo
     first.predictedHome === second.predictedHome &&
     first.predictedAway === second.predictedAway
   )
+}
+
+function knockoutComparisonParts(targetRow?: MatchAuditRow, viewerRow?: MatchAuditRow, targetTiebreaker?: string | null, viewerTiebreaker?: string | null, isOwnProfile = false) {
+  if (isOwnProfile || !targetRow?.prediction || !viewerRow?.prediction) {
+    return [] as Array<{ label: string; color: string }>
+  }
+  const sameCross = rowsHaveSamePredictedCross(targetRow, viewerRow)
+  const sameScore = predictionsMatch(targetRow.prediction, viewerRow.prediction)
+  const sameWinner = predictionWinner(targetRow, targetTiebreaker) === predictionWinner(viewerRow, viewerTiebreaker)
+  return [
+    { label: sameCross ? 'Cruce coincide' : 'Cruce distinto', color: sameCross ? '#A8F0D8' : '#FFB15C' },
+    { label: sameScore ? 'Marcador coincide' : 'Marcador distinto', color: sameScore ? '#A8F0D8' : '#FFB15C' },
+    { label: sameWinner ? 'Avance coincide' : 'Avance distinto', color: sameWinner ? '#A8F0D8' : '#FFB15C' },
+  ]
 }
 
 function comparisonStatus(targetPrediction?: Prediction, viewerPrediction?: Prediction, isOwnProfile = false) {
@@ -190,6 +218,21 @@ function knockoutComparisonStatus(targetRow?: MatchAuditRow, viewerRow?: MatchAu
   if (!targetRow?.prediction || !viewerRow?.prediction) return { label: 'Sin cargar', color: '#8A8A8A' }
   if (rowsHaveSamePredictedCross(targetRow, viewerRow)) return { label: 'Coinciden', color: '#A8F0D8' }
   return { label: 'Diferente', color: '#FFB15C' }
+}
+
+function pNumberForMatch(match: Match) {
+  const virtual = match.id.match(/^virtual-p(\d+)$/i)
+  if (virtual) return Number(virtual[1])
+  const found = Object.entries(KNOCKOUT_FIXTURES).find(([, [home, away]]) => match.home_team === home && match.away_team === away)
+  return found ? Number(found[0]) : null
+}
+
+function formatFixtureOrigin(match: Match) {
+  if (match.stage === 'group') return null
+  const pNum = pNumberForMatch(match)
+  const fixture = pNum ? KNOCKOUT_FIXTURES[pNum] : null
+  if (!fixture) return null
+  return `${fixture[0]} vs ${fixture[1]}`
 }
 
 function formatTiebreakerText(
@@ -297,34 +340,71 @@ function PredictionPanel({
   )
 }
 
+function MiniBadge({ label, color }: { label: string; color: string }) {
+  return (
+    <span
+      className="inline-flex rounded-full px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.08em]"
+      style={{ color, background: '#0A0A0A', border: `1px solid ${color}44` }}
+    >
+      {label}
+    </span>
+  )
+}
+
+function TeamScoreLine({
+  team,
+  score,
+  winner,
+}: {
+  team: string
+  score: number | null
+  winner: boolean
+}) {
+  return (
+    <div
+      className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[12px] px-3 py-2"
+      style={{ background: winner ? 'rgba(255,107,0,0.12)' : '#0A0A0A', border: winner ? '1px solid rgba(255,107,0,0.32)' : '1px solid rgba(255,255,255,0.06)' }}
+    >
+      <TeamChip name={team} />
+      <div className="flex shrink-0 items-center gap-2">
+        {winner && <MiniBadge label="Elegido para avanzar" color="#FFB15C" />}
+        {score != null && <span className="font-display text-[22px] leading-none text-white tabular-nums">{score}</span>}
+      </div>
+    </div>
+  )
+}
+
 function BracketComparisonPanel({
   label,
   home,
   away,
-  score,
+  prediction,
+  winner,
   emptyText,
   accent,
 }: {
   label: string
   home: string | null
   away: string | null
-  score: string | null
+  prediction?: Prediction
+  winner?: string | null
   emptyText: string
   accent?: string
 }) {
   const hasCross = Boolean(home && away)
+  const isDraw = Boolean(prediction && prediction.home_score === prediction.away_score && winner)
   return (
     <div className="rounded-[16px] px-4 py-3" style={{ background: '#141414', border: `1px solid ${accent ? `${accent}55` : 'rgba(255,255,255,0.06)'}` }}>
-      <p className="font-mono text-[10px] font-extrabold tracking-[0.14em] uppercase text-muted">{label}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-mono text-[10px] font-extrabold tracking-[0.14em] uppercase text-muted">{label}</p>
+        {isDraw && <MiniBadge label="Pasa por desempate" color="#FFB15C" />}
+      </div>
       {hasCross ? (
         <>
           <div className="mt-3 grid gap-2 text-[13px] font-extrabold text-white">
-            <TeamChip name={home!} />
-            <TeamChip name={away!} />
+            <TeamScoreLine team={home!} score={prediction?.home_score ?? null} winner={winner === home} />
+            <TeamScoreLine team={away!} score={prediction?.away_score ?? null} winner={winner === away} />
           </div>
-          <p className="mt-3 font-display text-[24px] leading-none text-white tabular-nums">
-            {score ?? 'Pendiente'}
-          </p>
         </>
       ) : (
         <p className="mt-3 text-[12px] font-bold leading-snug text-muted">{emptyText}</p>
@@ -338,12 +418,16 @@ function MatchAuditCard({
   showScoring,
   viewerPrediction,
   viewerRow,
+  targetTiebreaker,
+  viewerTiebreaker,
   isOwnProfile,
 }: {
   row: MatchAuditRow
   showScoring: boolean
   viewerPrediction?: Prediction
   viewerRow?: MatchAuditRow
+  targetTiebreaker?: string | null
+  viewerTiebreaker?: string | null
   isOwnProfile: boolean
 }) {
   const isGroup = row.stage === 'group'
@@ -355,17 +439,55 @@ function MatchAuditCard({
   const officialValue = row.match.status === 'finished' && row.match.home_score != null && row.match.away_score != null
     ? row.officialScore
     : null
+  const pNum = pNumberForMatch(row.match)
+  const fixtureOrigin = formatFixtureOrigin(row.match)
+  const targetWinner = predictionWinner(row, targetTiebreaker)
+  const viewerWinner = predictionWinner(viewerRow, viewerTiebreaker)
+  const officialWinner = row.match.status === 'finished' && row.match.home_score != null && row.match.away_score != null
+    ? row.match.home_score > row.match.away_score
+      ? row.officialHome
+      : row.match.away_score > row.match.home_score
+      ? row.officialAway
+      : null
+    : null
+  const officialPrediction = row.match.status === 'finished' && row.match.home_score != null && row.match.away_score != null
+    ? ({
+        id: `official-${row.match.id}`,
+        user_id: 'official',
+        match_id: row.match.id,
+        home_score: row.match.home_score,
+        away_score: row.match.away_score,
+        points: null,
+        tiebreaker_team: null,
+        created_at: row.match.created_at,
+        updated_at: row.match.created_at,
+      } as Prediction)
+    : undefined
+  const comparisonParts = isGroup ? [] : knockoutComparisonParts(row, viewerRow, targetTiebreaker, viewerTiebreaker, isOwnProfile)
 
   return (
     <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
       <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
         <div className="min-w-0">
-          <div className="grid min-w-0 gap-2 text-[13px] font-extrabold text-white min-[560px]:grid-cols-[1fr_auto_1fr] min-[560px]:items-center">
-            <TeamChip name={isGroup ? row.match.home_team : row.predictedHome} />
-            <span className="hidden text-center font-display text-[11px] tracking-[0.16em] text-muted min-[560px]:block">VS</span>
-            <TeamChip name={isGroup ? row.match.away_team : row.predictedAway} />
-          </div>
-          <p className="font-mono text-[10px] text-muted mt-1">
+          {isGroup ? (
+            <div className="grid min-w-0 gap-2 text-[13px] font-extrabold text-white min-[560px]:grid-cols-[1fr_auto_1fr] min-[560px]:items-center">
+              <TeamChip name={row.match.home_team} />
+              <span className="hidden text-center font-display text-[11px] tracking-[0.16em] text-muted min-[560px]:block">VS</span>
+              <TeamChip name={row.match.away_team} />
+            </div>
+          ) : (
+            <>
+              <p className="font-extrabold text-[14px] text-white">
+                {STAGE_LABELS[row.stage]}{pNum ? ` · Partido ${pNum}` : ''}
+              </p>
+              {fixtureOrigin && (
+                <p className="mt-1 text-[12px] font-semibold leading-snug text-muted">
+                  Origen: {fixtureOrigin}
+                </p>
+              )}
+            </>
+          )}
+          <p className="font-mono text-[10px] text-muted mt-2">
             {format(new Date(row.match.scheduled_at), 'd MMM yyyy - HH:mm', { locale: es })}
           </p>
         </div>
@@ -380,6 +502,15 @@ function MatchAuditCard({
               {status.label}
             </span>
           )}
+          {comparisonParts.map((part) => (
+            <span
+              key={part.label}
+              className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em]"
+              style={{ color: part.color, background: '#141414', border: `1px solid ${part.color}33` }}
+            >
+              {part.label}
+            </span>
+          ))}
           {showScoring ? (
             <p className="font-display text-[22px] leading-none tabular-nums">
               {row.points ?? 0}
@@ -410,7 +541,8 @@ function MatchAuditCard({
             label={isOwnProfile ? 'Tu cruce' : 'Cruce del participante'}
             home={targetPrediction ? row.predictedHome : null}
             away={targetPrediction ? row.predictedAway : null}
-            score={formatPredictionScore(targetPrediction)}
+            prediction={targetPrediction}
+            winner={targetWinner}
             emptyText="Sin cargar"
           />
           {!isOwnProfile && (
@@ -418,7 +550,8 @@ function MatchAuditCard({
               label="Mi cruce"
               home={viewerRow?.prediction ? viewerRow.predictedHome : null}
               away={viewerRow?.prediction ? viewerRow.predictedAway : null}
-              score={formatPredictionScore(viewerPrediction)}
+              prediction={viewerPrediction}
+              winner={viewerWinner}
               emptyText="Todavía no cargaste esta llave"
               accent={status?.label === 'Coinciden' ? '#A8F0D8' : status?.label === 'Diferente' ? '#FFB15C' : undefined}
             />
@@ -427,7 +560,8 @@ function MatchAuditCard({
             label="Cruce oficial"
             home={row.hasOfficialTeams ? row.officialHome : null}
             away={row.hasOfficialTeams ? row.officialAway : null}
-            score={officialValue}
+            prediction={officialPrediction}
+            winner={officialWinner}
             emptyText="Pendiente"
           />
         </div>
@@ -616,6 +750,7 @@ function ProdeOverview({
         <OverviewTile label="Especiales" value={`${specialsLoaded}/3`} detail="Balon, bota y guante de oro." />
       </div>
 
+      {false && (
       <section className="rounded-[18px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -641,6 +776,14 @@ function ProdeOverview({
           })}
         </div>
       </section>
+      )}
+
+      <section className="rounded-[18px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+        <p className="font-extrabold text-white">Resumen general</p>
+        <p className="mt-1 text-[12px] font-semibold leading-relaxed text-muted">
+          Usá el selector “Elegir grupo” para entrar a un grupo específico, o la pestaña Eliminatorias para revisar cruces por fase.
+        </p>
+      </section>
     </div>
   )
 }
@@ -651,6 +794,9 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   const activeResult = query.result && ['exact', 'partial', 'incorrect'].includes(query.result)
     ? query.result
     : null
+  const activeKnockoutStage = query.stage && KNOCKOUT_STAGE_ORDER.includes(query.stage as Exclude<Match['stage'], 'group'>)
+    ? query.stage as Exclude<Match['stage'], 'group'>
+    : 'round_of_32'
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -725,12 +871,20 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
       { home_score: prediction.home_score, away_score: prediction.away_score },
     ] as const)
   )
+  const viewerPredictionMap = Object.fromEntries(
+    viewerTypedPredictions.map((prediction) => [
+      prediction.match_id,
+      { home_score: prediction.home_score, away_score: prediction.away_score },
+    ] as const)
+  )
   const viewerPredictionByMatch = new Map(viewerTypedPredictions.map((prediction) => [prediction.match_id, prediction]))
   const viewerRowByMatch = new Map(viewerAuditRows.map((row) => [row.match.id, row]))
   const userTiebreakerMap = tiebreakersByUser.get(userId) ?? {}
+  const viewerTiebreakerMap = user ? tiebreakersByUser.get(user.id) ?? {} : {}
   const visibleRows = auditRows.filter((row) => {
     if (activeView === 'all' || activeView === 'bracket' || activeView === 'specials') return false
     if (activeView === 'knockout' && row.stage === 'group') return false
+    if (activeView === 'knockout' && row.stage !== activeKnockoutStage) return false
     if (activeView.startsWith('group_') && (row.stage !== 'group' || row.match.group !== activeView.replace('group_', ''))) return false
     if (activeResult && row.status !== activeResult) return false
     return true
@@ -768,9 +922,9 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
           <div className="grid gap-3 sm:grid-cols-5 mb-5">
             <SummaryBox label="Ranking" value={`${rankMedal(entry.rank) ? `${rankMedal(entry.rank)} ` : ''}${formatRank(entry, rankingEntries)}`} />
             <SummaryBox label="Puntos" value={entry.total_points} />
-            <SummaryLink label="Exactas" value={statusCount(auditRows, 'exact')} href={filterHrefForView(userId, activeView, 'exact', activeResult)} active={activeResult === 'exact'} />
-            <SummaryLink label="Parciales" value={statusCount(auditRows, 'partial')} href={filterHrefForView(userId, activeView, 'partial', activeResult)} active={activeResult === 'partial'} />
-            <SummaryLink label="Incorrectas" value={statusCount(auditRows, 'incorrect')} href={filterHrefForView(userId, activeView, 'incorrect', activeResult)} active={activeResult === 'incorrect'} />
+            <SummaryLink label="Exactas" value={statusCount(auditRows, 'exact')} href={filterHrefForView(userId, activeView, 'exact', activeResult, activeView === 'knockout' ? activeKnockoutStage : null)} active={activeResult === 'exact'} />
+            <SummaryLink label="Parciales" value={statusCount(auditRows, 'partial')} href={filterHrefForView(userId, activeView, 'partial', activeResult, activeView === 'knockout' ? activeKnockoutStage : null)} active={activeResult === 'partial'} />
+            <SummaryLink label="Incorrectas" value={statusCount(auditRows, 'incorrect')} href={filterHrefForView(userId, activeView, 'incorrect', activeResult, activeView === 'knockout' ? activeKnockoutStage : null)} active={activeResult === 'incorrect'} />
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-4 mb-5">
@@ -811,7 +965,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
         {activeResult && (
           <div className="mb-4">
             <Link
-              href={hrefForView(userId, activeView, null)}
+              href={hrefForView(userId, activeView, null, activeView === 'knockout' ? activeKnockoutStage : null)}
               className="inline-flex rounded-full px-3 py-2 text-[11px] font-extrabold uppercase"
               style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.1)', color: '#cfcfcf' }}
             >
@@ -823,21 +977,41 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
         {activeView === 'all' ? (
           <ProdeOverview userId={userId} rows={auditRows} specialBets={specialBets} groupKeys={groupKeys} />
         ) : activeView === 'bracket' ? (
-          <section className="rounded-[20px] overflow-hidden" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <p className="font-extrabold text-white text-[14px]">Llave del Prode</p>
-              <p className="text-muted text-[12px] mt-1">Camino proyectado por este participante: avances, semifinales, final y campeon.</p>
-            </div>
-            <div className="p-4">
-              <TournamentBracket
-                mode={rankingStarted ? 'audit' : 'prode'}
-                groupMatches={groupMatches}
-                knockoutMatches={knockoutMatches}
-                predMap={predictionMap}
-                tiebreakerMap={userTiebreakerMap}
-              />
-            </div>
-          </section>
+          <div className="grid min-w-0 gap-4">
+            <section className="min-w-0 rounded-[20px] overflow-hidden" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <p className="font-extrabold text-white text-[14px]">{isOwnProfile ? 'Mi llave' : 'Llave del participante'}</p>
+                <p className="text-muted text-[12px] mt-1">Camino proyectado: avances, semifinales, final y campeón.</p>
+              </div>
+              <div className="min-w-0 p-4">
+                <TournamentBracket
+                  mode={rankingStarted ? 'audit' : 'prode'}
+                  groupMatches={groupMatches}
+                  knockoutMatches={knockoutMatches}
+                  predMap={predictionMap}
+                  tiebreakerMap={userTiebreakerMap}
+                />
+              </div>
+            </section>
+
+            {!isOwnProfile && user && (
+              <section className="min-w-0 rounded-[20px] overflow-hidden" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <p className="font-extrabold text-white text-[14px]">Mi llave</p>
+                  <p className="text-muted text-[12px] mt-1">Tu camino proyectado para comparar cruces, semifinalistas, finalistas y campeón.</p>
+                </div>
+                <div className="min-w-0 p-4">
+                  <TournamentBracket
+                    mode="prode"
+                    groupMatches={groupMatches}
+                    knockoutMatches={knockoutMatches}
+                    predMap={viewerPredictionMap}
+                    tiebreakerMap={viewerTiebreakerMap}
+                  />
+                </div>
+              </section>
+            )}
+          </div>
         ) : (
           <div className="rounded-[20px] overflow-hidden" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}>
             <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
@@ -849,6 +1023,28 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                   ? 'Cruces predichos, equipos que avanzan y marcadores por fase.'
                   : 'Pronosticos de este grupo sin el resto de la fase mezclada.'}
               </p>
+              {activeView === 'knockout' && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {KNOCKOUT_STAGE_ORDER.map((stage) => {
+                    const active = stage === activeKnockoutStage
+                    const count = auditRows.filter((row) => row.stage === stage).length
+                    return (
+                      <Link
+                        key={stage}
+                        href={hrefForView(userId, 'knockout', activeResult, stage)}
+                        className="rounded-full px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.08em] transition-colors"
+                        style={{
+                          background: active ? '#FF6B00' : 'rgba(255,255,255,0.04)',
+                          color: active ? '#0A0A0A' : '#d9d9d9',
+                          border: active ? '1px solid #FF6B00' : '1px solid rgba(255,255,255,0.08)',
+                        }}
+                      >
+                        {STAGE_LABELS[stage]} · {count}
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             {activeView === 'specials' && !hasSpecialBets ? (
@@ -870,6 +1066,8 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                   showScoring={rankingStarted}
                   viewerPrediction={viewerPredictionByMatch.get(row.match.id)}
                   viewerRow={viewerRowByMatch.get(row.match.id)}
+                  targetTiebreaker={userTiebreakerMap[row.match.id]}
+                  viewerTiebreaker={viewerTiebreakerMap[row.match.id]}
                   isOwnProfile={isOwnProfile}
                 />
               ))

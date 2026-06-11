@@ -1,7 +1,8 @@
 import { PRIZE_TIE_RULES } from '@/lib/ranking-display'
 import { createClient } from '@/lib/supabase/server'
 import { ReferralShareButton } from '@/components/ReferralShareButton'
-import { calculateProjectedPrizes, formatCurrency, formatPrizePool, PRIZE_TARGET_PLAYERS } from '@/lib/prode-progress'
+import { formatCurrency, formatPrizePool, PRIZE_TARGET_PLAYERS } from '@/lib/prode-progress'
+import { getPublicPrizeSettings, resolvePrizes } from '@/lib/prize-settings'
 
 type PublicHomeMetrics = {
   competitors_count?: number
@@ -121,16 +122,18 @@ export default async function PremiosPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  const [{ data: profile }, { data: metricsData }] = await Promise.all([
+  const [{ data: profile }, { data: metricsData }, prizeSettings] = await Promise.all([
     user
       ? supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase.rpc('get_public_home_metrics'),
+    getPublicPrizeSettings(supabase),
   ])
   const metricsRows = metricsData as PublicHomeMetrics[] | PublicHomeMetrics | null
   const metrics = Array.isArray(metricsRows) ? metricsRows[0] : metricsRows
   const confirmedPlayers = metrics?.competitors_count ?? 0
-  const projectedPrizes = calculateProjectedPrizes(confirmedPlayers)
+  const displayedPrizes = resolvePrizes(confirmedPlayers, prizeSettings)
+  const isManualPrize = displayedPrizes.source === 'manual'
 
   return (
     <div style={{ padding: '48px 20px 100px' }}>
@@ -139,7 +142,7 @@ export default async function PremiosPage() {
         {/* Header */}
         <div className="mb-10">
           <p className="text-[12px] font-extrabold tracking-[0.22em] uppercase text-muted mb-[18px]">
-            Qué se gana
+            {isManualPrize ? 'Premios actuales' : 'Premios estimados'}
           </p>
           <h1
             className="font-display uppercase leading-[0.9] tracking-[-0.04em]"
@@ -151,7 +154,7 @@ export default async function PremiosPage() {
             Mundial 2026 · USA · Canadá · México
           </p>
           <p className="mt-4 max-w-[680px] text-[14px] font-medium leading-relaxed text-[#cfcfcf]">
-            La inscripción cuesta <strong className="text-white">$20.000</strong>. Con <strong className="text-white">{confirmedPlayers} confirmados</strong>, los premios estimados se ajustan proporcionalmente contra el objetivo de <strong className="text-white">{PRIZE_TARGET_PLAYERS} competidores</strong>.
+            La inscripción cuesta <strong className="text-white">$20.000</strong>. Con <strong className="text-white">{confirmedPlayers} confirmados</strong>, {isManualPrize ? 'los premios actuales fueron configurados por la organización y tienen prioridad sobre el cálculo automático' : <>los premios estimados se ajustan proporcionalmente contra el objetivo de <strong className="text-white">{PRIZE_TARGET_PLAYERS} competidores</strong></>}.
           </p>
         </div>
 
@@ -190,20 +193,20 @@ export default async function PremiosPage() {
         <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-4 mb-[60px]">
           <PrizeCard
             rank="1" suffix="er" metaLabel="1º Puesto" name="Oro" prizeTag="Premio mayor"
-            cur="$" amount={formatPrizeNumber(projectedPrizes.first)} bg="#FFE040" champion
+            cur="$" amount={formatPrizeNumber(displayedPrizes.first)} bg="#FFE040" champion
             minHeight={360} rankSize={120} nameSize={26} amountSize={62}
             decorBefore={{ right: '-30%', bottom: '-30%', width: '80%', height: '80%', borderRadius: '50%', background: 'rgba(0,0,0,.07)' }}
             decorAfter={{ left: '-12%', top: '-12%', width: '38%', height: '38%', borderRadius: '50%', background: 'rgba(0,0,0,.05)' }}
           />
           <PrizeCard
             rank="2" suffix="do" metaLabel="2º Puesto" name="Plata" prizeTag="Subcampeón"
-            cur="$" amount={formatPrizeNumber(projectedPrizes.second)} bg="#A8F0D8"
+            cur="$" amount={formatPrizeNumber(displayedPrizes.second)} bg="#A8F0D8"
             minHeight={320} rankSize={84} nameSize={22} amountSize={46}
             decorBefore={{ right: '-25%', top: '-25%', width: '70%', height: '70%', borderRadius: '50% 0 50% 50%', background: 'rgba(0,0,0,.07)' }}
           />
           <PrizeCard
             rank="3" suffix="er" metaLabel="3º Puesto" name="Bronce" prizeTag="Tercer lugar"
-            cur="$" amount={formatPrizeNumber(projectedPrizes.third)} bg="#E8A87C"
+            cur="$" amount={formatPrizeNumber(displayedPrizes.third)} bg="#E8A87C"
             minHeight={300} rankSize={72} nameSize={22} amountSize={40}
             decorBefore={{ left: '-20%', bottom: '-20%', width: '65%', height: '65%', borderRadius: '0 50% 50% 50%', background: 'rgba(0,0,0,.07)' }}
           />

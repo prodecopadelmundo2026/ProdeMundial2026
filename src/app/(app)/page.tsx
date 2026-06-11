@@ -9,10 +9,11 @@ import {
   TOURNAMENT_TOTAL_MATCHES,
   TOURNAMENT_TOTAL_TEAMS,
 } from '@/lib/tournament-config'
-import { calculateProjectedPrizes, formatCurrency, formatPrizePool, PRIZE_TARGET_PLAYERS } from '@/lib/prode-progress'
+import { formatCurrency, formatPrizePool, PRIZE_TARGET_PLAYERS } from '@/lib/prode-progress'
 import { WelcomeModal } from '@/components/WelcomeModal'
 import { SALES_CONTACTS, whatsappHref } from '@/lib/sales-contacts'
 import { getRankingMode, isLiveRankingMode, type RankingMode } from '@/lib/ranking-mode'
+import { getPublicPrizeSettings, resolvePrizes } from '@/lib/prize-settings'
 import {
   computeAllStandings,
   computeBestThirdsGroups,
@@ -354,6 +355,7 @@ export default async function HomePage() {
     { data: upcoming },
     { data: publicRanking },
     { data: profile },
+    prizeSettings,
   ] = await Promise.all([
     supabase.rpc('get_public_home_metrics'),
     user
@@ -369,6 +371,7 @@ export default async function HomePage() {
     user
       ? supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
       : Promise.resolve({ data: null }),
+    getPublicPrizeSettings(supabase),
   ])
 
   const metrics = ((metricsRows ?? []) as PublicHomeMetrics[])[0] ?? {
@@ -438,7 +441,22 @@ export default async function HomePage() {
   const rankingStarted = isLiveRankingMode(rankingMode)
   const showPreTournamentBanner = !rankingStarted
   const displayedRanking = myRanking ? [...typedTopRanking, myRanking] : typedTopRanking
-  const projectedPrizes = calculateProjectedPrizes(metrics.competitors_count)
+  const displayedPrizes = resolvePrizes(metrics.competitors_count, prizeSettings)
+  const prizeCopy = displayedPrizes.source === 'manual'
+    ? {
+        metricLabel: 'Premio actual 1°',
+        metricDetail: 'Configurado por la organizacion.',
+        eyebrow: 'Premios actuales',
+        title: <>Premios actuales, <em className="italic text-orange">pozo real</em></>,
+        body: 'Importes configurados por la organizacion. Si el pozo cambia, esta publicacion manual tiene prioridad sobre el calculo proporcional automatico.',
+      }
+    : {
+        metricLabel: 'Premio estimado 1°',
+        metricDetail: `Proporcional a ${metrics.competitors_count}/${PRIZE_TARGET_PLAYERS} confirmados.`,
+        eyebrow: 'Premios proyectados',
+        title: <>Premios estimados, <em className="italic text-orange">pozo real</em></>,
+        body: `Con ${metrics.competitors_count} confirmados, el podio se recalcula proporcionalmente contra el objetivo de ${PRIZE_TARGET_PLAYERS} competidores. Referencia completa: $800.000 al primero, $200.000 al segundo y $100.000 al tercero.`,
+      }
   return (
     <>
       {!user && <WelcomeModal />}
@@ -592,11 +610,11 @@ export default async function HomePage() {
             <HomeMetricCard value={metrics.competitors_count} label="Participantes confirmados" detail="Cuentan para el pozo actual." live />
             <HomeMetricCard value={formatPrizePool(metrics.competitors_count)} label="Pozo acumulado actual" detail="Confirmados x $20.000." />
             <HomeMetricCard value={`${metrics.prodes_completed_count ?? 0} completos`} label="Avance general" detail={`${metrics.prodes_pending_count ?? 0} participantes todavía tienen cargas pendientes.`} />
-            <HomeMetricCard value={formatCurrency(projectedPrizes.first)} label="Premio estimado 1°" detail={`Proporcional a ${metrics.competitors_count}/${PRIZE_TARGET_PLAYERS} confirmados.`} />
+            <HomeMetricCard value={formatCurrency(displayedPrizes.first)} label={prizeCopy.metricLabel} detail={prizeCopy.metricDetail} />
           </div>
           <div className="mt-3 grid grid-cols-1 gap-3 min-[680px]:grid-cols-3">
-            <HomeMetricCard value={formatCurrency(projectedPrizes.second)} label="Premio estimado 2°" />
-            <HomeMetricCard value={formatCurrency(projectedPrizes.third)} label="Premio estimado 3°" />
+            <HomeMetricCard value={formatCurrency(displayedPrizes.second)} label={displayedPrizes.source === 'manual' ? 'Premio actual 2°' : 'Premio estimado 2°'} />
+            <HomeMetricCard value={formatCurrency(displayedPrizes.third)} label={displayedPrizes.source === 'manual' ? 'Premio actual 3°' : 'Premio estimado 3°'} />
             {rankingStarted ? (
               <HomeMetricCard value={`${metrics.finished_matches_count} de ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" detail={`${metrics.alive_teams_count} selecciones disponibles.`} />
             ) : (
@@ -633,13 +651,12 @@ export default async function HomePage() {
       <section id="premios" style={{ padding: 'clamp(36px, 8vw, 76px) 20px' }}>
         <div className="max-w-[1280px] mx-auto grid grid-cols-1 gap-5 min-[900px]:grid-cols-[0.85fr_1.15fr]">
           <div>
-            <p className="text-[12px] font-extrabold uppercase tracking-[0.22em] text-muted">Premios proyectados</p>
+            <p className="text-[12px] font-extrabold uppercase tracking-[0.22em] text-muted">{prizeCopy.eyebrow}</p>
             <h2 className="mt-4 font-display text-[clamp(38px,6vw,76px)] uppercase leading-[0.9] tracking-[-0.03em]">
-              Premios estimados, <em className="italic text-orange">pozo real</em>
+              {prizeCopy.title}
             </h2>
             <p className="mt-4 max-w-[500px] text-[14px] font-medium leading-relaxed text-[#cfcfcf]">
-              Con {metrics.competitors_count} confirmados, el podio se recalcula proporcionalmente contra el objetivo de {PRIZE_TARGET_PLAYERS} competidores.
-              Referencia completa: $800.000 al primero, $200.000 al segundo y $100.000 al tercero.
+              {prizeCopy.body}
             </p>
             <div className="mt-5">
               <SectionLink href="/premios" label="Ver detalle de premios" />
@@ -647,9 +664,9 @@ export default async function HomePage() {
           </div>
           <div className="grid grid-cols-1 gap-3 min-[620px]:grid-cols-3">
             {[
-              ['1°', formatCurrency(projectedPrizes.first), '#FFE040', 'Primer puesto'],
-              ['2°', formatCurrency(projectedPrizes.second), '#A8F0D8', 'Segundo puesto'],
-              ['3°', formatCurrency(projectedPrizes.third), '#E8A87C', 'Tercer puesto'],
+              ['1°', formatCurrency(displayedPrizes.first), '#FFE040', 'Primer puesto'],
+              ['2°', formatCurrency(displayedPrizes.second), '#A8F0D8', 'Segundo puesto'],
+              ['3°', formatCurrency(displayedPrizes.third), '#E8A87C', 'Tercer puesto'],
             ].map(([rank, amount, color, label]) => (
               <article key={rank} className="min-h-[180px] rounded-[22px] p-5 text-bg" style={{ background: color }}>
                 <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] opacity-70">{label}</p>
