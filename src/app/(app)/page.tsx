@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { CSSProperties, ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { MatchCard } from '@/components/MatchCard'
 import { CountdownTimer } from '@/components/CountdownTimer'
@@ -122,7 +123,7 @@ function ContactLinks({ message = 'Hola! Quiero participar del Prode Mundial 202
 }
 
 type RankingEntry = {
-  user_id: string
+  user_id: string | null
   name: string
   total_points: number
   rank: number
@@ -146,6 +147,32 @@ function HomeMetricCard({ value, label, detail, live }: { value: number | string
       <p className="mt-2 break-words font-display text-[clamp(28px,7vw,42px)] leading-none tracking-[-0.02em]">{value}</p>
       {detail && <p className="mt-2 text-[12px] font-semibold leading-snug text-muted">{detail}</p>}
     </div>
+  )
+}
+
+function PublicRankingRowLink({
+  userId,
+  className,
+  style,
+  children,
+}: {
+  userId: string | null
+  className: string
+  style: CSSProperties
+  children: ReactNode
+}) {
+  if (!userId) {
+    return (
+      <div className={className} style={style}>
+        {children}
+      </div>
+    )
+  }
+
+  return (
+    <Link href={`/ranking/${userId}`} className={className} style={style}>
+      {children}
+    </Link>
   )
 }
 
@@ -788,13 +815,14 @@ export default async function HomePage() {
                 const hasPredictions = (entry.predictions_count ?? 0) > 0
                 const rankColor = rankColors[entry.rank] ?? (isMe ? '#FF6B00' : '#8A8A8A')
                 return (
-                  <Link
-                    key={entry.user_id}
-                    href={`/ranking/${entry.user_id}`}
-                    className="grid grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors hover:bg-panel-2 min-[720px]:grid-cols-[96px_minmax(0,1fr)_auto] min-[720px]:gap-[14px] min-[720px]:px-[14px]"
+                  <PublicRankingRowLink
+                    key={entry.user_id ?? `pending-${entry.name}`}
+                    userId={entry.user_id}
+                    className={`grid grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors min-[720px]:grid-cols-[96px_minmax(0,1fr)_auto] min-[720px]:gap-[14px] min-[720px]:px-[14px] ${entry.user_id ? 'hover:bg-panel-2' : ''}`}
                     style={{
-                      cursor: 'pointer',
+                      cursor: entry.user_id ? 'pointer' : 'default',
                       opacity: hasPredictions ? 1 : 0.82,
+                      ...(!entry.user_id ? { background: 'rgba(255,255,255,0.02)' } : {}),
                       ...(isMe ? { background: 'rgba(255,107,0,.1)', border: '1px solid rgba(255,107,0,.22)' } : {}),
                     }}
                   >
@@ -849,7 +877,7 @@ export default async function HomePage() {
                         </>
                       ) : `${rankingProgressPercentage(entry)}%`}
                     </span>
-                  </Link>
+                  </PublicRankingRowLink>
                 )
               })}
 

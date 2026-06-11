@@ -37,7 +37,7 @@ export type Profile = {
 }
 
 export type RankingEntry = {
-  user_id: string
+  user_id: string | null
   name: string
   avatar_url: string | null
   total_points: number

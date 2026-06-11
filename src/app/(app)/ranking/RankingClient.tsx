@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import type { RankingEntry } from '@/types'
 import { formatRank, hasPrizeTie, rankMedal } from '@/lib/ranking-display'
@@ -30,6 +31,15 @@ function progressStatusText(entry: RankingEntry) {
   if (status === 'almost_done') return 'En proceso'
   if (status === 'in_progress') return 'En proceso'
   return 'Sin cargar'
+}
+
+function RankingRowWrapper({ userId, children }: { userId: string | null; children: ReactNode }) {
+  if (!userId) return <div className="block">{children}</div>
+  return (
+    <Link href={`/ranking/${userId}`} className="block">
+      {children}
+    </Link>
+  )
 }
 
 const TOP3_COLOR: Record<number, string> = {
@@ -82,6 +92,7 @@ function RankRow({
   rankingStarted: boolean
 }) {
   const hasPredictions = (entry.predictions_count ?? 0) > 0
+  const hasDetail = Boolean(entry.user_id)
   const isTrial = entry.participant_status === 'trial'
   const percentage = progressPercentage(entry)
   const statusText = rankingStarted
@@ -94,24 +105,21 @@ function RankRow({
   const posColor = !rankingStarted ? '#8A8A8A' : isMe ? '#FF6B00' : (TOP3_COLOR[entry.rank] ?? '#4a4a4a')
 
   return (
-    <Link
-      href={`/ranking/${entry.user_id}`}
-      className="block"
-    >
+    <RankingRowWrapper userId={entry.user_id}>
       <div
         ref={innerRef}
         className="grid grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors duration-150 sm:grid-cols-[92px_minmax(0,1fr)_auto] sm:gap-[14px] sm:px-[14px]"
         style={{
           background: isMe ? 'rgba(255,107,0,0.1)' : 'transparent',
           border: isMe ? '1px solid rgba(255,107,0,0.28)' : '1px solid transparent',
-          cursor: 'pointer',
+          cursor: hasDetail ? 'pointer' : 'default',
           opacity: hasPredictions ? 1 : 0.82,
         }}
         onMouseEnter={(e) => {
-          if (!isMe) (e.currentTarget as HTMLElement).style.background = '#1c1c1c'
+          if (hasDetail && !isMe) (e.currentTarget as HTMLElement).style.background = '#1c1c1c'
         }}
         onMouseLeave={(e) => {
-          if (!isMe) (e.currentTarget as HTMLElement).style.background = 'transparent'
+          if (hasDetail && !isMe) (e.currentTarget as HTMLElement).style.background = 'transparent'
         }}
       >
       {/* Posición */}
@@ -200,7 +208,7 @@ function RankRow({
           )}
         </div>
       </div>
-    </Link>
+    </RankingRowWrapper>
   )
 }
 
@@ -288,10 +296,10 @@ export function RankingClient({
           ) : (
             items.map((entry) => (
               <RankRow
-                key={entry.user_id}
+                key={entry.user_id ?? `pending-${entry.name}`}
                 entry={entry}
-                isMe={entry.user_id === userId}
-                innerRef={entry.user_id === userId ? meRowRef : undefined}
+                isMe={Boolean(entry.user_id) && entry.user_id === userId}
+                innerRef={entry.user_id && entry.user_id === userId ? meRowRef : undefined}
                 entries={officialEntries}
                 rankingStarted={rankingStarted}
               />
@@ -409,12 +417,12 @@ export function RankingClient({
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
-            {podiumEntries.map((entry) => {
+            {podiumEntries.filter((entry) => entry.user_id).map((entry) => {
               const color = TOP3_COLOR[entry.rank] ?? '#A8A8A8'
               return (
                 <Link
-                  key={entry.user_id}
-                  href={`/ranking/${entry.user_id}`}
+                  key={entry.user_id ?? entry.name}
+                  href={`/ranking/${entry.user_id!}`}
                   className="rounded-[18px] p-4 transition-transform hover:-translate-y-0.5"
                   style={{ background: '#141414', border: `1px solid ${color}55` }}
                 >
