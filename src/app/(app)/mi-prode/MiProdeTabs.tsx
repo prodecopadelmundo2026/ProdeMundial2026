@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Trash2, Shuffle } from 'lucide-react'
+import { Save, Trash2, Shuffle } from 'lucide-react'
 import type { Match } from '@/types'
 import { GroupBatchEditor } from './GroupBatchEditor'
 import { BracketView } from './BracketView'
@@ -104,6 +104,7 @@ export function MiProdeTabs({
   const [fakeError, setFakeError] = useState<string | null>(null)
   const [globalSaveState, setGlobalSaveState] = useState<SaveState>('idle')
   const [globalSaveError, setGlobalSaveError] = useState<string | null>(null)
+  const [knockoutHasUnsavedChanges, setKnockoutHasUnsavedChanges] = useState(false)
   const [bracketModalSignal, setBracketModalSignal] = useState(0)
   const [tiebreakers, setTiebreakers] = useState<Record<string, string>>(tiebreakerMap)
   const [localKnockoutPreds, setLocalKnockoutPreds] = useState<Record<string, { home: string; away: string }>>({})
@@ -116,6 +117,16 @@ export function MiProdeTabs({
     return init
   })
   const [, startTransition] = useTransition()
+
+  useEffect(() => {
+    if (!knockoutHasUnsavedChanges) return
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [knockoutHasUnsavedChanges])
 
   const groupedByGroup: Record<string, Match[]> = {}
   for (const m of groupMatches) {
@@ -320,6 +331,7 @@ export function MiProdeTabs({
           return next
         })
         setGlobalSaveState('saved')
+        setKnockoutHasUnsavedChanges(false)
         router.refresh()
       } catch (error) {
         setGlobalSaveState('error')
@@ -332,6 +344,7 @@ export function MiProdeTabs({
     if (prodeLocked) return
     setLocalKnockoutPreds((prev) => ({ ...prev, [matchId]: { home, away } }))
     setGlobalSaveState('dirty')
+    setKnockoutHasUnsavedChanges(true)
     setGlobalSaveError(null)
   }
 
@@ -345,7 +358,17 @@ export function MiProdeTabs({
       return { ...prev, [matchId]: team }
     })
     setGlobalSaveState('dirty')
+    setKnockoutHasUnsavedChanges(true)
     setGlobalSaveError(null)
+  }
+
+  function handleTabChange(tab: TabId) {
+    if (tab === activeTab) return
+    if (knockoutHasUnsavedChanges) {
+      const shouldLeave = window.confirm('Tenes cambios de eliminatorias sin guardar. Si cambias de seccion, seguis en la pagina pero acordate de guardar antes de salir o refrescar. ¿Continuar?')
+      if (!shouldLeave) return
+    }
+    setActiveTab(tab)
   }
 
   function hasCompleteGroupInput(matchId: string) {
@@ -669,7 +692,7 @@ export function MiProdeTabs({
           {(['grupos', 'eliminatoria', 'llave', 'especiales'] as TabId[]).map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => handleTabChange(tab)}
               className="px-[14px] py-[7px] rounded-full font-extrabold text-[12px] transition-all duration-150 whitespace-nowrap"
               style={
                 activeTab === tab
@@ -903,7 +926,7 @@ export function MiProdeTabs({
       {/* SpecialsBanner — hidden when already on especiales tab */}
       {activeTab !== 'especiales' && (
         <SpecialsBanner
-          onClickCargar={() => setActiveTab('especiales')}
+          onClickCargar={() => handleTabChange('especiales')}
           loaded={Boolean(initialSpecialBets.balon && initialSpecialBets.bota && initialSpecialBets.guante)}
         />
       )}
@@ -981,6 +1004,37 @@ export function MiProdeTabs({
       <div style={{ display: activeTab === 'especiales' ? undefined : 'none' }}>
         <SpecialsTab initialValues={initialSpecialBets} readOnly={prodeLocked} />
       </div>
+
+      {knockoutHasUnsavedChanges && (activeTab === 'eliminatoria' || activeTab === 'llave') && (
+        <div
+          className="fixed inset-x-0 z-[80] flex justify-center px-4 min-[720px]:hidden"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', pointerEvents: 'none' }}
+        >
+          <button
+            type="button"
+            onClick={handleSaveFullProde}
+            disabled={prodeLocked || globalSaveState === 'saving'}
+            className="inline-flex min-h-[48px] w-full max-w-[420px] items-center justify-center gap-2 rounded-full px-5 text-[13px] font-extrabold uppercase shadow-2xl transition-transform active:scale-[0.98] disabled:opacity-60"
+            style={{
+              background: '#FF6B00',
+              color: '#0A0A0A',
+              border: '1px solid rgba(255,255,255,0.16)',
+              boxShadow: '0 18px 55px rgba(0,0,0,0.45)',
+              pointerEvents: 'auto',
+            }}
+          >
+            {globalSaveState === 'saving' ? (
+              <span
+                className="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
+                aria-hidden="true"
+              />
+            ) : (
+              <Save size={16} strokeWidth={2.6} aria-hidden="true" />
+            )}
+            {globalSaveState === 'saving' ? 'Guardando...' : 'Guardar cambios'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

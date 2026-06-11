@@ -7,6 +7,8 @@ import { prodeStatusLabel, type ProdeCompletionStatus } from '@/lib/prode-progre
 
 export const PRODE_STATUS_MODAL_STORAGE_PREFIX = 'prode-2026-status-modal'
 export const PRODE_STATUS_MODAL_OPEN_EVENT = 'prode-status-modal:open'
+const SESSION_AUTO_OPEN_SUFFIX = 'session-auto-opened'
+const COMPLETED_AUTO_OPEN_SUFFIX = 'completed-auto-opened'
 
 type Props = {
   userId: string
@@ -107,8 +109,9 @@ function toneStyles(tone: ReturnType<typeof modalCopy>['tone']) {
 export function ProdeStatusModal({ userId, participantStatus, progress, metrics }: Props) {
   const copy = modalCopy(participantStatus, progress)
   const styles = toneStyles(copy.tone)
-  const signature = `${PRODE_STATUS_MODAL_STORAGE_PREFIX}:${userId}:${participantStatus}:${progress.status}:${progress.percentage}:${progress.loadedCount}-${progress.expectedCount}`
-  const [mounted, setMounted] = useStateFromSession(signature)
+  const autoOpenKey = `${PRODE_STATUS_MODAL_STORAGE_PREFIX}:${userId}:${SESSION_AUTO_OPEN_SUFFIX}`
+  const completedOpenKey = `${PRODE_STATUS_MODAL_STORAGE_PREFIX}:${userId}:${COMPLETED_AUTO_OPEN_SUFFIX}`
+  const [mounted, setMounted] = useAutoOpenState(autoOpenKey, completedOpenKey, progress.status === 'completed')
   const [visible, setVisible] = useState(false)
   const percentage = Math.max(0, Math.min(100, progress.percentage))
 
@@ -126,7 +129,7 @@ export function ProdeStatusModal({ userId, participantStatus, progress, metrics 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted, signature])
+  }, [mounted])
 
   useEffect(() => {
     function handleManualOpen() {
@@ -138,7 +141,6 @@ export function ProdeStatusModal({ userId, participantStatus, progress, metrics 
   }, [setMounted])
 
   function closeModal() {
-    window.sessionStorage.setItem(signature, '1')
     setVisible(false)
     window.setTimeout(() => setMounted(false), 160)
   }
@@ -238,15 +240,33 @@ export function ProdeStatusModal({ userId, participantStatus, progress, metrics 
   )
 }
 
-function useStateFromSession(signature: string) {
+function useAutoOpenState(autoOpenKey: string, completedOpenKey: string, isCompleted: boolean) {
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
     const id = window.setTimeout(() => {
-      setOpen(window.sessionStorage.getItem(signature) !== '1')
+      const shouldOpenCompleted =
+        isCompleted && window.localStorage.getItem(completedOpenKey) !== '1'
+      const shouldOpenSession =
+        window.sessionStorage.getItem(autoOpenKey) !== '1'
+
+      if (shouldOpenCompleted) {
+        window.localStorage.setItem(completedOpenKey, '1')
+        window.sessionStorage.setItem(autoOpenKey, '1')
+        setOpen(true)
+        return
+      }
+
+      if (shouldOpenSession) {
+        window.sessionStorage.setItem(autoOpenKey, '1')
+        setOpen(true)
+        return
+      }
+
+      setOpen(false)
     }, 0)
     return () => window.clearTimeout(id)
-  }, [signature])
+  }, [autoOpenKey, completedOpenKey, isCompleted])
 
   return [open, setOpen] as const
 }

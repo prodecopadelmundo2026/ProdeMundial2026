@@ -25,6 +25,35 @@ function formatClientError(error: unknown) {
   return String(error)
 }
 
+function focusNextScoreInput(current: HTMLInputElement) {
+  const inputs = Array.from(
+    document.querySelectorAll<HTMLInputElement>('input.score:not(:disabled)')
+  )
+  const currentIndex = inputs.indexOf(current)
+  const nextInput = inputs[currentIndex + 1]
+  if (nextInput) nextInput.focus()
+}
+
+function keepCardComfortablyVisible(card: HTMLElement | null) {
+  if (!card || window.innerWidth >= 720) return
+  const target = card
+
+  const viewportHeight = window.visualViewport?.height ?? window.innerHeight
+  const topComfort = 84
+  const bottomComfort = Math.max(160, viewportHeight * 0.28)
+
+  function adjust() {
+    const rect = target.getBoundingClientRect()
+    const tooHigh = rect.top < topComfort
+    const tooLow = rect.bottom > viewportHeight - bottomComfort
+    if (!tooHigh && !tooLow) return
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  window.setTimeout(adjust, 80)
+  window.setTimeout(adjust, 320)
+}
+
 interface Props {
   groupMatches: Match[]
   knockoutMatches: Match[]
@@ -153,6 +182,7 @@ function BracketMatchCard({
 
   const [home, setHome] = useState(initialHome)
   const [away, setAway] = useState(initialAway)
+  const cardRef = useRef<HTMLElement>(null)
   const homeInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -184,6 +214,7 @@ function BracketMatchCard({
 
   return (
     <article
+      ref={cardRef}
       className="relative bg-panel overflow-hidden transition-all duration-200 hover:-translate-y-[3px]"
       style={{
         border: '1px solid rgba(255,255,255,0.08)',
@@ -351,9 +382,15 @@ function BracketMatchCard({
             style={isOpen ? undefined : { cursor: 'not-allowed' }}
             onFocus={(e) => {
               if (isOpen) {
+                keepCardComfortablyVisible(cardRef.current)
                 e.target.style.background = 'rgba(255,107,0,0.12)'
                 e.target.style.boxShadow = 'inset 0 0 0 2px #FF6B00'
               }
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter') return
+              e.preventDefault()
+              focusNextScoreInput(e.currentTarget)
             }}
             onBlur={(e) => {
               e.target.style.background = 'transparent'
@@ -375,9 +412,15 @@ function BracketMatchCard({
             style={isOpen ? undefined : { cursor: 'not-allowed' }}
             onFocus={(e) => {
               if (isOpen) {
+                keepCardComfortablyVisible(cardRef.current)
                 e.target.style.background = 'rgba(255,107,0,0.12)'
                 e.target.style.boxShadow = 'inset 0 0 0 2px #FF6B00'
               }
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter') return
+              e.preventDefault()
+              focusNextScoreInput(e.currentTarget)
             }}
             onBlur={(e) => {
               e.target.style.background = 'transparent'
