@@ -491,7 +491,7 @@ function MatchAuditCard({
             {format(new Date(row.match.scheduled_at), 'd MMM yyyy - HH:mm', { locale: es })}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+        {isGroup && <div className="flex flex-wrap items-center gap-3 lg:justify-end">
           <MatchStatusBadge status={row.match.status} />
           <ResultBadge status={row.status} />
           {status && (
@@ -519,7 +519,7 @@ function MatchAuditCard({
           ) : (
             <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">Previa</span>
           )}
-        </div>
+        </div>}
       </div>
 
       {isGroup ? (
@@ -564,6 +564,38 @@ function MatchAuditCard({
             winner={officialWinner}
             emptyText="Pendiente"
           />
+        </div>
+      )}
+
+      {!isGroup && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <MatchStatusBadge status={row.match.status} />
+          <ResultBadge status={row.status} />
+          {status && (
+            <span
+              className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em]"
+              style={{ color: status.color, background: '#141414', border: `1px solid ${status.color}33` }}
+            >
+              {status.label}
+            </span>
+          )}
+          {comparisonParts.map((part) => (
+            <span
+              key={part.label}
+              className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em]"
+              style={{ color: part.color, background: '#141414', border: `1px solid ${part.color}33` }}
+            >
+              {part.label}
+            </span>
+          ))}
+          {showScoring ? (
+            <p className="ml-auto font-display text-[22px] leading-none tabular-nums">
+              {row.points ?? 0}
+              <span className="font-mono text-[10px] font-bold tracking-[0.14em] uppercase ml-1 text-muted">pts</span>
+            </p>
+          ) : (
+            <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">Previa</span>
+          )}
         </div>
       )}
 
@@ -678,7 +710,7 @@ function ViewNavigation({
           })}
         </div>
 
-        <details className="group relative min-[760px]:w-[230px]">
+        <details key={activeGroup ?? 'all'} className="group relative min-[760px]:w-[230px]">
           <summary
             className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-[16px] bg-[#151515] px-4 py-3 text-[12px] font-extrabold uppercase tracking-[0.08em] text-white transition-colors hover:bg-[#1c1c1c]"
             style={{ border: activeGroup ? '1px solid #FF6B00' : '1px solid rgba(255,255,255,0.1)' }}

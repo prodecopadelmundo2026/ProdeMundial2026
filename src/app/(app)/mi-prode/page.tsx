@@ -229,7 +229,8 @@ export default async function MiProdePage() {
       <div className="max-w-[1280px] mx-auto">
 
         {/* Page head */}
-        <div style={{ marginBottom: '20px' }}>
+        <div className="mb-5 flex flex-col gap-4 min-[860px]:flex-row min-[860px]:items-end min-[860px]:justify-between">
+          <div>
           <span
             className="inline-block font-sans text-[11px] font-extrabold tracking-[0.22em] uppercase text-muted"
             style={{ marginBottom: '10px' }}
@@ -245,6 +246,20 @@ export default async function MiProdePage() {
           <p className="font-mono text-[12px] font-bold text-muted tracking-[0.04em] mt-[8px]">
             Mundial 2026 · USA · Canadá · México
           </p>
+          </div>
+          {prodeLock.locked && (
+            <div
+              className="max-w-[560px] rounded-[16px] px-4 py-3 text-[12px] font-bold leading-relaxed min-[860px]:text-right"
+              style={{ background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.22)', color: '#FFB15C' }}
+            >
+              La carga del Prode ya cerro. Podes consultar tus pronosticos, pero ya no editarlos.
+              {prodeLock.override === 'locked'
+                ? ' Bloqueo manual admin activo.'
+                : prodeLock.automaticLocked
+                ? ' Cierre automatico por fecha activo.'
+                : ''}
+            </div>
+          )}
         </div>
 
         <MiProdeTabs
@@ -254,7 +269,6 @@ export default async function MiProdePage() {
           tiebreakerMap={tiebreakerMap}
           isAdmin={Boolean(profile?.is_admin)}
           prodeLocked={prodeLock.locked}
-          lockState={prodeLock}
           initialSpecialBets={{
             balon: specialBets?.balon ?? '',
             bota: specialBets?.bota ?? '',

@@ -11,7 +11,6 @@ import { TournamentBracket } from '@/components/TournamentBracket'
 import { SpecialsBanner } from './SpecialsBanner'
 import { deletePredictionsByStages, generateRandomGroupPredictions } from '@/app/(app)/fixture/actions'
 import { parseScoreInput } from '@/lib/score-input'
-import type { ProdeLockState } from '@/lib/prode-lock'
 import { deleteSpecialBets, deleteVirtualKnockoutPredictionsByStages, savePredictionTiebreakers, saveFullProdeSafe, type SpecialBetsValues } from './actions'
 import { buildProjectedKnockoutMatches, isVirtualKnockoutMatch } from '@/lib/bracket'
 
@@ -76,7 +75,6 @@ interface Props {
   tiebreakerMap: Record<string, string>
   isAdmin: boolean
   prodeLocked: boolean
-  lockState: ProdeLockState
   initialSpecialBets: SpecialBetsValues
 }
 
@@ -87,7 +85,6 @@ export function MiProdeTabs({
   tiebreakerMap,
   isAdmin,
   prodeLocked,
-  lockState,
   initialSpecialBets,
 }: Props) {
   const router = useRouter()
@@ -669,20 +666,6 @@ export function MiProdeTabs({
 
   return (
     <div>
-      {prodeLocked && (
-        <div
-          className="mb-5 rounded-[16px] px-5 py-4 text-[13px] font-bold"
-          style={{ background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.22)', color: '#FFB15C' }}
-        >
-          La carga del Prode ya cerro. Podes consultar tus pronosticos, pero ya no editarlos.
-          {lockState.override === 'locked'
-            ? ' Bloqueo manual admin activo.'
-            : lockState.automaticLocked
-            ? ' Cierre automatico por fecha activo.'
-            : ''}
-        </div>
-      )}
-
       {/* Toolbar: phase tabs (left) + admin actions (right) */}
       <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
         <div
@@ -711,7 +694,7 @@ export function MiProdeTabs({
           ))}
         </div>
 
-        {isAdmin && (
+        {isAdmin && !prodeLocked && (
           <div className="flex items-center gap-2">
             {/* Admin-only test data generator — tab-aware */}
             <button
@@ -776,7 +759,7 @@ export function MiProdeTabs({
       </div>
 
       {/* Inline confirm bar — grupos random */}
-      {isAdmin && fakeState !== 'idle' && activeTab === 'grupos' && (
+      {isAdmin && !prodeLocked && fakeState !== 'idle' && activeTab === 'grupos' && (
         <div
           className="mb-5 flex flex-wrap items-center justify-between gap-3 px-5 py-4 rounded-[16px] text-[13px]"
           style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
@@ -821,7 +804,7 @@ export function MiProdeTabs({
         </div>
       )}
 
-      {deleteModalOpen && (
+      {!prodeLocked && deleteModalOpen && (
         <div
           className="fixed inset-0 z-50 overflow-y-auto"
           style={{ background: 'rgba(0,0,0,0.72)' }}
@@ -924,41 +907,43 @@ export function MiProdeTabs({
       )}
 
       {/* SpecialsBanner — hidden when already on especiales tab */}
-      {activeTab !== 'especiales' && (
+      {!prodeLocked && activeTab !== 'especiales' && (
         <SpecialsBanner
           onClickCargar={() => handleTabChange('especiales')}
           loaded={Boolean(initialSpecialBets.balon && initialSpecialBets.bota && initialSpecialBets.guante)}
         />
       )}
 
-      <div
-        className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
-        style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
-      >
-        <div>
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <p className="font-extrabold text-white text-[13px] leading-snug">Guardar Mi Prode</p>
-            <span
-              className="rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em]"
-              style={{ background: saveOverview.bg, color: saveOverview.color, border: `1px solid ${saveOverview.border}` }}
-            >
-              {saveOverview.label}
-            </span>
-          </div>
-          <p className="text-[12px] mt-0.5 text-muted">
-            {saveOverview.detail}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={handleSaveFullProde}
-          disabled={prodeLocked || globalSaveState === 'saving'}
-          className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
-          style={{ background: '#FF6B00', color: '#0A0A0A' }}
+      {!prodeLocked && (
+        <div
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
+          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
         >
-          {globalSaveState === 'saving' ? 'Guardando...' : 'Guardar Mi Prode'}
-        </button>
-      </div>
+          <div>
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <p className="font-extrabold text-white text-[13px] leading-snug">Guardar Mi Prode</p>
+              <span
+                className="rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em]"
+                style={{ background: saveOverview.bg, color: saveOverview.color, border: `1px solid ${saveOverview.border}` }}
+              >
+                {saveOverview.label}
+              </span>
+            </div>
+            <p className="text-[12px] mt-0.5 text-muted">
+              {saveOverview.detail}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSaveFullProde}
+            disabled={globalSaveState === 'saving'}
+            className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
+            style={{ background: '#FF6B00', color: '#0A0A0A' }}
+          >
+            {globalSaveState === 'saving' ? 'Guardando...' : 'Guardar Mi Prode'}
+          </button>
+        </div>
+      )}
 
       {/* All tabs kept mounted to preserve state; only one visible at a time */}
       <div style={{ display: activeTab === 'grupos' ? undefined : 'none' }}>
@@ -1005,7 +990,7 @@ export function MiProdeTabs({
         <SpecialsTab initialValues={initialSpecialBets} readOnly={prodeLocked} />
       </div>
 
-      {knockoutHasUnsavedChanges && (activeTab === 'eliminatoria' || activeTab === 'llave') && (
+      {!prodeLocked && knockoutHasUnsavedChanges && (activeTab === 'eliminatoria' || activeTab === 'llave') && (
         <div
           className="fixed inset-x-0 z-[80] flex justify-center px-4 min-[720px]:hidden"
           style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', pointerEvents: 'none' }}

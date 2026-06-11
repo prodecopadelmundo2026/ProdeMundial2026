@@ -2,7 +2,7 @@ import type { RankingEntry } from '@/types'
 
 type RankingDisplayEntry = Pick<
   RankingEntry,
-  'user_id' | 'rank' | 'total_points' | 'exact_predictions' | 'correct_result_predictions'
+  'user_id' | 'rank' | 'total_points' | 'exact_predictions' | 'correct_result_predictions' | 'incorrect_predictions'
 >
 
 export const RANK_MEDALS: Record<number, string> = {
@@ -20,7 +20,9 @@ export const PRIZE_TIE_RULES = [
 export function isSameRankingLine(a: RankingDisplayEntry, b: RankingDisplayEntry) {
   return (
     a.total_points === b.total_points &&
-    a.exact_predictions === b.exact_predictions
+    a.exact_predictions === b.exact_predictions &&
+    a.correct_result_predictions === b.correct_result_predictions &&
+    (a.incorrect_predictions ?? 0) === (b.incorrect_predictions ?? 0)
   )
 }
 

@@ -296,6 +296,8 @@ export function buildAuditedRankingEntries(
     .sort((a, b) => {
       if (b.total_points !== a.total_points) return b.total_points - a.total_points
       if (b.exact_predictions !== a.exact_predictions) return b.exact_predictions - a.exact_predictions
+      if (b.correct_result_predictions !== a.correct_result_predictions) return b.correct_result_predictions - a.correct_result_predictions
+      if (a.incorrect_predictions !== b.incorrect_predictions) return a.incorrect_predictions - b.incorrect_predictions
       return a.name.localeCompare(b.name)
     })
 
@@ -305,7 +307,9 @@ export function buildAuditedRankingEntries(
     if (
       !previous ||
       previous.total_points !== entry.total_points ||
-      previous.exact_predictions !== entry.exact_predictions
+      previous.exact_predictions !== entry.exact_predictions ||
+      previous.correct_result_predictions !== entry.correct_result_predictions ||
+      previous.incorrect_predictions !== entry.incorrect_predictions
     ) {
       currentRank = index + 1
     }

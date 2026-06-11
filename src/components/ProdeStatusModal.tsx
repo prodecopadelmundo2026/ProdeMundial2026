@@ -241,32 +241,10 @@ export function ProdeStatusModal({ userId, participantStatus, progress, metrics 
 }
 
 function useAutoOpenState(autoOpenKey: string, completedOpenKey: string, isCompleted: boolean) {
+  void autoOpenKey
+  void completedOpenKey
+  void isCompleted
   const [open, setOpen] = useState(false)
-
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      const shouldOpenCompleted =
-        isCompleted && window.localStorage.getItem(completedOpenKey) !== '1'
-      const shouldOpenSession =
-        window.sessionStorage.getItem(autoOpenKey) !== '1'
-
-      if (shouldOpenCompleted) {
-        window.localStorage.setItem(completedOpenKey, '1')
-        window.sessionStorage.setItem(autoOpenKey, '1')
-        setOpen(true)
-        return
-      }
-
-      if (shouldOpenSession) {
-        window.sessionStorage.setItem(autoOpenKey, '1')
-        setOpen(true)
-        return
-      }
-
-      setOpen(false)
-    }, 0)
-    return () => window.clearTimeout(id)
-  }, [autoOpenKey, completedOpenKey, isCompleted])
 
   return [open, setOpen] as const
 }
