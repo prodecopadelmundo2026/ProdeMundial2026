@@ -34,12 +34,23 @@ function MatchRow({ match }: { match: Match }) {
       <span className="font-mono text-[11px] text-muted w-9 shrink-0">{time}</span>
 
       {stageLabel && (
-        <span
-          className="hidden min-[520px]:block text-[9px] font-extrabold tracking-[0.12em] uppercase shrink-0 px-1.5 py-0.5 rounded-[4px]"
-          style={{ background: '#1a1a1a', color: '#5a5a5a' }}
-        >
-          {stageLabel}
-        </span>
+        match.stage === 'group' && match.group ? (
+          <a
+            href={`#tabla-grupo-${match.group}`}
+            className="hidden shrink-0 rounded-[4px] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.12em] transition-colors hover:text-white min-[520px]:block"
+            style={{ background: '#1a1a1a', color: '#8A8A8A' }}
+            aria-label={`Ver tabla del Grupo ${match.group}`}
+          >
+            {stageLabel}
+          </a>
+        ) : (
+          <span
+            className="hidden min-[520px]:block text-[9px] font-extrabold tracking-[0.12em] uppercase shrink-0 px-1.5 py-0.5 rounded-[4px]"
+            style={{ background: '#1a1a1a', color: '#5a5a5a' }}
+          >
+            {stageLabel}
+          </span>
+        )
       )}
 
       {/* Home */}
@@ -61,7 +72,7 @@ function MatchRow({ match }: { match: Match }) {
       <div className="shrink-0 w-[60px] text-center">
         {isScored ? (
           <span className="font-display text-[15px] tracking-[-0.02em]">
-            {match.home_score}–{match.away_score}
+            {match.home_score}-{match.away_score}
           </span>
         ) : (
           <span className="text-muted text-[11px] tracking-[0.12em] font-bold">VS</span>
@@ -91,6 +102,14 @@ function MatchRow({ match }: { match: Match }) {
         {isFinished && (
           <span className="text-[10px] font-bold text-muted">Final</span>
         )}
+        {match.stage === 'group' && match.group && (
+          <a
+            href={`#tabla-grupo-${match.group}`}
+            className="mt-0.5 block text-[9px] font-extrabold uppercase tracking-[0.08em] text-orange hover:text-white"
+          >
+            Tabla
+          </a>
+        )}
       </div>
     </div>
   )
@@ -101,7 +120,7 @@ const STAGE_LABELS: Record<string, string> = {
   round_of_16: 'Octavos',
   quarter: 'Cuartos',
   semi: 'Semis',
-  third_place: '3° Puesto',
+  third_place: '3? Puesto',
   final: 'Final',
 }
 
@@ -173,6 +192,7 @@ export function FixtureList({ matches }: { matches: Match[] }) {
         id: group,
         title: `Grupo ${group}`,
         description: 'Tabla oficial',
+        anchorId: `tabla-grupo-${group}`,
         rows: buildGroupTableRows(scoped, scoreMap, {}, `Grupo ${group}`),
         tone: 'official',
       }

@@ -359,7 +359,7 @@ function SavedTiebreakerItem({
           <TiebreakerTeam name={match.away_team} />
         </div>
         <div className="flex min-w-0 items-center gap-2 sm:justify-end">
-          <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">Eligió</span>
+          <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">Eligio</span>
           <TiebreakerTeam name={row.team} />
         </div>
       </div>
@@ -409,10 +409,12 @@ function TeamScoreLine({
   team,
   score,
   winner,
+  showAdvanceBadge,
 }: {
   team: string
   score: number | null
   winner: boolean
+  showAdvanceBadge: boolean
 }) {
   return (
     <div
@@ -421,7 +423,7 @@ function TeamScoreLine({
     >
       <TeamChip name={team} />
       <div className="flex min-w-0 shrink-0 items-center justify-end gap-2">
-        {winner && <MiniBadge label="Elegido para avanzar" color="#FFB15C" />}
+        {showAdvanceBadge && <MiniBadge label="Elegido para avanzar" color="#FFB15C" />}
         {score != null && <span className="font-display text-[22px] leading-none text-white tabular-nums">{score}</span>}
       </div>
     </div>
@@ -455,8 +457,8 @@ function BracketComparisonPanel({
       </div>
       {hasCross ? (
         <div className="mt-3 grid min-h-[100px] content-start gap-2 text-[13px] font-extrabold text-white">
-          <TeamScoreLine team={home!} score={prediction?.home_score ?? null} winner={winner === home} />
-          <TeamScoreLine team={away!} score={prediction?.away_score ?? null} winner={winner === away} />
+          <TeamScoreLine team={home!} score={prediction?.home_score ?? null} winner={winner === home} showAdvanceBadge={isDraw && winner === home} />
+          <TeamScoreLine team={away!} score={prediction?.away_score ?? null} winner={winner === away} showAdvanceBadge={isDraw && winner === away} />
         </div>
       ) : (
         <div className="mt-3 flex min-h-[100px] items-start rounded-[12px] px-3 py-3" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.06)' }}>

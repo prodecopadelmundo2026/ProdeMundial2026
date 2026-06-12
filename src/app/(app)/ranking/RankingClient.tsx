@@ -453,13 +453,14 @@ export function RankingClient({
                         <Link
                           key={entry.user_id ?? entry.name}
                           href={`/ranking/${entry.user_id!}`}
-                          className="inline-flex min-w-0 max-w-full items-center justify-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-extrabold transition-colors hover:bg-white/10"
+                          className="grid min-w-0 max-w-full grid-cols-[20px_minmax(0,1fr)_20px] items-center rounded-full px-2 py-1 text-[11px] font-extrabold transition-colors hover:bg-white/10"
                           style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff' }}
                         >
                           <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] text-white" style={{ background: 'linear-gradient(135deg, #5B2D8E, #1565C0)' }}>
                             {initials(entry.name)}
                           </span>
-                          <span className="truncate">{entry.name}</span>
+                          <span className="truncate px-1 text-center">{entry.name}</span>
+                          <span aria-hidden="true" />
                         </Link>
                       ))}
                     </div>

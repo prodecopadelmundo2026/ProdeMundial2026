@@ -200,7 +200,7 @@ type ProfileSummary = {
   email: string | null
 }
 
-const PLACEHOLDER_TEAM_PATTERN = /^(ganador|perdedor|winner|loser|\d+\s*(?:[°º]|Â°)?\s*(grupo|group)|[123][a-l]$)/i
+const PLACEHOLDER_TEAM_PATTERN = /^(ganador|perdedor|winner|loser|\d+\s*(?:[°º]|°)?\s*(grupo|group)|[123][a-l]$)/i
 
 function isRealTeamName(team: string) {
   const normalized = team.trim()
@@ -627,6 +627,57 @@ export default async function HomePage() {
               <CountdownTimer />
             </div>
           </aside>
+        </div>
+      </section>
+
+
+      <section style={{ padding: '0 20px clamp(34px, 7vw, 64px)' }}>
+        <div className="mx-auto grid max-w-[1280px] gap-4 min-[820px]:grid-cols-2">
+          <Link
+            href="/fixture"
+            className="group min-h-[190px] rounded-[24px] p-6 transition-transform hover:-translate-y-1 min-[760px]:p-8"
+            style={{ background: '#141414', border: '1px solid rgba(168,240,216,0.24)', boxShadow: '0 20px 55px -38px rgba(168,240,216,0.55)' }}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] text-mint">Fixture / En vivo</p>
+                <h2 className="mt-4 font-display text-[clamp(30px,5vw,54px)] uppercase leading-[0.9] tracking-[-0.02em] text-white">
+                  Partidos y grupos en vivo
+                </h2>
+              </div>
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-mint text-bg transition-transform group-hover:translate-x-1">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 12h14M13 5l7 7-7 7" />
+                </svg>
+              </span>
+            </div>
+            <p className="mt-5 max-w-[520px] text-[14px] font-semibold leading-relaxed text-[#cfcfcf]">
+              Segui los partidos, resultados y como van quedando los grupos.
+            </p>
+          </Link>
+
+          <Link
+            href="/ranking"
+            className="group min-h-[190px] rounded-[24px] p-6 transition-transform hover:-translate-y-1 min-[760px]:p-8"
+            style={{ background: '#141414', border: '1px solid rgba(255,107,0,0.30)', boxShadow: '0 20px 55px -38px rgba(255,107,0,0.7)' }}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange">Ranking / Competencia</p>
+                <h2 className="mt-4 font-display text-[clamp(30px,5vw,54px)] uppercase leading-[0.9] tracking-[-0.02em] text-white">
+                  Ver como viene el Prode
+                </h2>
+              </div>
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-orange text-bg transition-transform group-hover:translate-x-1">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 12h14M13 5l7 7-7 7" />
+                </svg>
+              </span>
+            </div>
+            <p className="mt-5 max-w-[520px] text-[14px] font-semibold leading-relaxed text-[#cfcfcf]">
+              Revisa quien va arriba, compara Prodes y segui la pelea por los premios.
+            </p>
+          </Link>
         </div>
       </section>
 
