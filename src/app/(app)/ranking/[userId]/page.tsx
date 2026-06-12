@@ -952,7 +952,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
 
         {rankingStarted ? (
           <div className="grid gap-3 sm:grid-cols-5 mb-5">
-            <SummaryBox label="Ranking" value={`${rankMedal(entry.rank) ? `${rankMedal(entry.rank)} ` : ''}${formatRank(entry, rankingEntries)}`} />
+            <SummaryBox label="Ranking" value={`${rankMedal(entry.rank, entry.total_points) ? `${rankMedal(entry.rank, entry.total_points)} ` : ''}${formatRank(entry, rankingEntries)}`} />
             <SummaryBox label="Puntos" value={entry.total_points} />
             <SummaryLink label="Exactas" value={statusCount(auditRows, 'exact')} href={filterHrefForView(userId, activeView, 'exact', activeResult, activeView === 'knockout' ? activeKnockoutStage : null)} active={activeResult === 'exact'} />
             <SummaryLink label="Parciales" value={statusCount(auditRows, 'partial')} href={filterHrefForView(userId, activeView, 'partial', activeResult, activeView === 'knockout' ? activeKnockoutStage : null)} active={activeResult === 'partial'} />

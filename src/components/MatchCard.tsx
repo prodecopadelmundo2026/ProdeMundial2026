@@ -86,6 +86,15 @@ function SaveStateLabel({ state }: { state: SaveState }) {
   )
 }
 
+function pendingOfficialText(match: Match, now: Date) {
+  if (match.status === 'live') return 'Resultado oficial pendiente'
+  const diffMs = new Date(match.scheduled_at).getTime() - now.getTime()
+  if (diffMs <= 0) return 'Proximo a jugar'
+  const hours = Math.ceil(diffMs / (1000 * 60 * 60))
+  if (hours < 48) return `Empieza en ${hours} h`
+  return `Empieza en ${Math.ceil(hours / 24)} dias`
+}
+
 type Props = {
   match: Match
   prediction?: Prediction | null
@@ -205,6 +214,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
     showPrediction && hasRealScore && predObj && match.home_score != null && match.away_score != null
       ? calcPoints(predObj, { home_score: match.home_score, away_score: match.away_score })
       : null
+  const pendingText = pendingOfficialText(match, now)
 
   return (
     <article
@@ -440,6 +450,20 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
               )}
             </>
           )}
+
+          <div className="mt-[10px]">
+            <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] mb-[5px]" style={{ color: '#6a6a6a' }}>
+              Resultado oficial
+            </p>
+            <div
+              className="flex min-h-[58px] items-center justify-center rounded-[12px]"
+              style={{ padding: '10px 8px', background: 'rgba(255,255,255,.035)', border: '1px solid rgba(255,255,255,0.07)' }}
+            >
+              <span className="font-mono text-[11px] font-extrabold uppercase tracking-[0.12em]" style={{ color: '#8A8A8A' }}>
+                {pendingText}
+              </span>
+            </div>
+          </div>
         </>
       )}
     </article>

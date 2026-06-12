@@ -154,7 +154,7 @@ export function UserMenu({ initial, name, pts, rank, sharedRank = false, exact, 
               className="font-display text-[22px] leading-none tracking-[-0.03em] tabular-nums"
               style={{ color: '#A8F0D8' }}
             >
-              {showRank ? `${rankMedal(rank!) ? `${rankMedal(rank!)} ` : ''}${sharedRank ? 'T' : '#'}${rank}` : '-'}
+              {showRank ? `${rankMedal(rank!, pts ?? 0) ? `${rankMedal(rank!, pts ?? 0)} ` : ''}${sharedRank ? 'T' : '#'}${rank}` : '-'}
             </div>
             <div className="text-[9px] font-extrabold tracking-[0.18em] uppercase text-muted mt-1.5">
               Ranking

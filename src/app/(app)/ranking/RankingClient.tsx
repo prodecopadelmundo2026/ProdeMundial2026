@@ -67,7 +67,7 @@ function RankMark({
     )
   }
 
-  const medal = rankMedal(entry.rank)
+  const medal = rankMedal(entry.rank, entry.total_points)
   return (
     <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap leading-none" style={{ color }}>
       {medal && <span className="text-[16px] leading-none sm:text-[18px]" aria-hidden="true">{medal}</span>}
@@ -247,7 +247,7 @@ export function RankingClient({
 
   const meEntry = entries.find((e) => e.user_id === userId)
   const showPrizeTieNote = rankingStarted && hasPrizeTie(officialEntries)
-  const podiumEntries = rankingStarted ? officialEntries.filter((entry) => entry.rank <= 3).slice(0, 3) : []
+  const podiumEntries = rankingStarted ? officialEntries.filter((entry) => entry.rank <= 3 && entry.total_points > 0) : []
 
   function RankingSection({
     title,
@@ -428,7 +428,7 @@ export function RankingClient({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="grid h-11 w-11 place-items-center rounded-full font-display text-[20px] text-bg" style={{ background: color }}>
-                      {rankMedal(entry.rank) || entry.rank}
+                      {rankMedal(entry.rank, entry.total_points) || entry.rank}
                     </div>
                     <div className="text-right">
                       <p className="font-display text-[32px] leading-none tabular-nums" style={{ color }}>

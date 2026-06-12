@@ -229,7 +229,7 @@ export default async function MiProdePage() {
       <div className="max-w-[1280px] mx-auto">
 
         {/* Page head */}
-        <div className="mb-5 flex flex-col gap-4 min-[860px]:flex-row min-[860px]:items-end min-[860px]:justify-between">
+        <div className="mb-5 flex flex-col gap-3 min-[900px]:flex-row min-[900px]:items-center">
           <div>
           <span
             className="inline-block font-sans text-[11px] font-extrabold tracking-[0.22em] uppercase text-muted"
@@ -249,7 +249,7 @@ export default async function MiProdePage() {
           </div>
           {prodeLock.locked && (
             <div
-              className="max-w-[560px] rounded-[16px] px-4 py-3 text-[12px] font-bold leading-relaxed min-[860px]:text-right"
+              className="w-fit max-w-full rounded-[14px] px-4 py-2 text-[12px] font-bold leading-snug min-[900px]:ml-4 min-[900px]:max-w-[620px]"
               style={{ background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.22)', color: '#FFB15C' }}
             >
               La carga del Prode ya cerro. Podes consultar tus pronosticos, pero ya no editarlos.

@@ -355,7 +355,7 @@ function RankMark({
     )
   }
 
-  const medal = rankMedal(entry.rank)
+  const medal = rankMedal(entry.rank, entry.total_points)
   return (
     <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap leading-none" style={{ color }}>
       {medal && <span className="text-[16px] leading-none min-[720px]:text-[18px]" aria-hidden="true">{medal}</span>}

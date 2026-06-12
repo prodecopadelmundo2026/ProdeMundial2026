@@ -311,7 +311,7 @@ export function buildAuditedRankingEntries(
       previous.correct_result_predictions !== entry.correct_result_predictions ||
       previous.incorrect_predictions !== entry.incorrect_predictions
     ) {
-      currentRank = index + 1
+      currentRank += 1
     }
     return { ...entry, rank: currentRank }
   })

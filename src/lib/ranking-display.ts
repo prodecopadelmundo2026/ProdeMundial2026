@@ -33,13 +33,11 @@ export function isSharedRank(entry: RankingDisplayEntry, entries: RankingDisplay
 export function formatRank(entry: RankingDisplayEntry, entries: RankingDisplayEntry[]) {
   const sharedEntries = entries.filter((other) => isSameRankingLine(other, entry))
   if (sharedEntries.length <= 1) return `#${entry.rank}`
-
-  const endRank = entry.rank + sharedEntries.length - 1
-  if (entry.rank < 3 && endRank <= 3) return `#${entry.rank}-${endRank}`
   return `#${entry.rank}`
 }
 
-export function rankMedal(rank: number) {
+export function rankMedal(rank: number, totalPoints = 1) {
+  if (totalPoints <= 0) return null
   return RANK_MEDALS[rank] ?? null
 }
 
@@ -47,6 +45,6 @@ export function hasPrizeTie(entries: RankingDisplayEntry[]) {
   return entries.some((entry) => {
     const sharedEntries = entries.filter((other) => isSameRankingLine(other, entry))
     if (sharedEntries.length <= 1) return false
-    return entry.rank <= 3
+    return entry.rank <= 3 && entry.total_points > 0
   })
 }
