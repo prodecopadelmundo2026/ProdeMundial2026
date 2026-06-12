@@ -343,7 +343,7 @@ function PredictionPanel({
 function MiniBadge({ label, color }: { label: string; color: string }) {
   return (
     <span
-      className="inline-flex rounded-full px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.08em]"
+      className="inline-flex max-w-[150px] truncate whitespace-nowrap rounded-full px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.08em]"
       style={{ color, background: '#0A0A0A', border: `1px solid ${color}44` }}
     >
       {label}
@@ -362,11 +362,11 @@ function TeamScoreLine({
 }) {
   return (
     <div
-      className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[12px] px-3 py-2"
+      className="grid min-h-[46px] min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[12px] px-3 py-2"
       style={{ background: winner ? 'rgba(255,107,0,0.12)' : '#0A0A0A', border: winner ? '1px solid rgba(255,107,0,0.32)' : '1px solid rgba(255,255,255,0.06)' }}
     >
       <TeamChip name={team} />
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex min-w-0 shrink-0 items-center justify-end gap-2">
         {winner && <MiniBadge label="Elegido para avanzar" color="#FFB15C" />}
         {score != null && <span className="font-display text-[22px] leading-none text-white tabular-nums">{score}</span>}
       </div>
@@ -395,19 +395,19 @@ function BracketComparisonPanel({
   const isDraw = Boolean(prediction && prediction.home_score === prediction.away_score && winner)
   return (
     <div className="rounded-[16px] px-4 py-3" style={{ background: '#141414', border: `1px solid ${accent ? `${accent}55` : 'rgba(255,255,255,0.06)'}` }}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-mono text-[10px] font-extrabold tracking-[0.14em] uppercase text-muted">{label}</p>
+      <div className="flex min-h-[28px] items-center justify-between gap-3">
+        <p className="min-w-0 truncate font-mono text-[10px] font-extrabold tracking-[0.14em] uppercase text-muted">{label}</p>
         {isDraw && <MiniBadge label="Pasa por desempate" color="#FFB15C" />}
       </div>
       {hasCross ? (
-        <>
-          <div className="mt-3 grid gap-2 text-[13px] font-extrabold text-white">
-            <TeamScoreLine team={home!} score={prediction?.home_score ?? null} winner={winner === home} />
-            <TeamScoreLine team={away!} score={prediction?.away_score ?? null} winner={winner === away} />
-          </div>
-        </>
+        <div className="mt-3 grid min-h-[100px] content-start gap-2 text-[13px] font-extrabold text-white">
+          <TeamScoreLine team={home!} score={prediction?.home_score ?? null} winner={winner === home} />
+          <TeamScoreLine team={away!} score={prediction?.away_score ?? null} winner={winner === away} />
+        </div>
       ) : (
-        <p className="mt-3 text-[12px] font-bold leading-snug text-muted">{emptyText}</p>
+        <div className="mt-3 flex min-h-[100px] items-start rounded-[12px] px-3 py-3" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <p className="text-[12px] font-bold leading-snug text-muted">{emptyText}</p>
+        </div>
       )}
     </div>
   )
@@ -980,16 +980,27 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
         )}
 
         {userTiebreakers.length > 0 && (
-          <div className="mb-4 rounded-[16px] px-4 py-4 text-[13px] font-semibold leading-relaxed" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <p className="font-extrabold text-white mb-2">Desempates guardados</p>
-            <div className="grid gap-2">
+          <details className="group mb-4 rounded-[16px] px-4 py-3 text-[13px] font-semibold leading-relaxed" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate font-extrabold text-white">Desempates guardados</span>
+                <span className="rounded-full px-2 py-1 font-mono text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)', color: '#A8F0D8' }}>
+                  {userTiebreakers.length}
+                </span>
+              </span>
+              <span className="shrink-0 rounded-full px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#d9d9d9' }}>
+                <span className="group-open:hidden">Ver</span>
+                <span className="hidden group-open:inline">Ocultar</span>
+              </span>
+            </summary>
+            <div className="mt-3 grid gap-2">
               {userTiebreakers.map((row) => (
                 <p key={`${row.tiebreaker_key}-${row.team}`} className="rounded-[12px] px-3 py-2 text-[12px] font-bold" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}>
                   {formatTiebreakerText(row, typedMatches, typedUserPredictions)}
                 </p>
               ))}
             </div>
-          </div>
+          </details>
         )}
 
         <ViewNavigation userId={userId} activeView={activeView} availableGroups={groupKeys} />

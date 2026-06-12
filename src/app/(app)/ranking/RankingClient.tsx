@@ -229,25 +229,30 @@ export function RankingClient({
   }
 }) {
   const [search, setSearch] = useState('')
+  const [showPodium, setShowPodium] = useState(true)
   const meRowRef = useRef<HTMLDivElement | null>(null)
   const stickyRef = useRef<HTMLElement | null>(null)
   const sortForCurrentMode = (items: RankingEntry[]) => rankingStarted
     ? items
     : [...items].sort((a, b) => progressPercentage(b) - progressPercentage(a) || a.name.localeCompare(b.name))
   const officialEntries = sortForCurrentMode(entries.filter((entry) => entry.participant_status !== 'trial'))
-  const trialEntries = sortForCurrentMode(entries.filter((entry) => entry.participant_status === 'trial'))
 
   const filterBySearch = (items: RankingEntry[]) => search.trim()
     ? items.filter((e) => e.name.toLowerCase().includes(search.trim().toLowerCase()))
     : items
 
   const filteredOfficial = filterBySearch(officialEntries)
-  const filteredTrial = filterBySearch(trialEntries)
-  const filtered = [...filteredOfficial, ...filteredTrial]
 
-  const meEntry = entries.find((e) => e.user_id === userId)
+  const meEntry = officialEntries.find((e) => e.user_id === userId)
   const showPrizeTieNote = rankingStarted && hasPrizeTie(officialEntries)
-  const podiumEntries = rankingStarted ? officialEntries.filter((entry) => entry.rank <= 3 && entry.total_points > 0) : []
+  const podiumGroups = rankingStarted
+    ? ([1, 2, 3] as const)
+        .map((rank) => ({
+          rank,
+          entries: officialEntries.filter((entry) => entry.rank === rank && entry.total_points > 0),
+        }))
+        .filter((group) => group.entries.length > 0)
+    : []
 
   function RankingSection({
     title,
@@ -359,15 +364,8 @@ export function RankingClient({
           className="whitespace-nowrap rounded-[14px] px-3 py-3 font-mono text-[10px] font-bold uppercase tracking-[0.08em] sm:px-4 sm:text-[11px] sm:tracking-[0.1em]"
           style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#8A8A8A' }}
         >
-          <b className="text-white">{filtered.length}</b> RESULTADOS
+          <b className="text-white">{filteredOfficial.length}</b> RESULTADOS
         </div>
-      </div>
-
-      <div
-        className="mb-5 rounded-[16px] px-4 py-3 text-[12px] font-semibold leading-relaxed sm:text-[13px]"
-        style={{ background: 'rgba(255,177,92,0.07)', border: '1px solid rgba(255,177,92,0.18)', color: '#cfcfcf' }}
-      >
-        Los invitados pueden probar el sistema y cargar pronosticos, pero solo los competidores participan oficialmente por premios.
       </div>
 
       {!rankingStarted && (
@@ -406,7 +404,76 @@ export function RankingClient({
         </div>
       )}
 
-      {podiumEntries.length > 0 && (
+      {podiumGroups.length > 0 && (
+        <section className="mb-6 rounded-[20px] bg-[#101010] p-3 sm:p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 px-1">
+            <div>
+              <h2 className="font-display text-[22px] uppercase leading-none tracking-[-0.02em] text-white">
+                Podio en vivo
+              </h2>
+              <p className="mt-1 text-[12px] font-semibold leading-relaxed text-muted">
+                Bloques empatados segun puntos y criterios de desempate.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPodium((value) => !value)}
+              className="rounded-full px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em]"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#d9d9d9' }}
+              aria-expanded={showPodium}
+            >
+              {showPodium ? 'Ocultar' : 'Ver'}
+            </button>
+          </div>
+          {showPodium && (
+            <div className="grid gap-2 min-[760px]:grid-cols-3">
+              {podiumGroups.map(({ rank, entries: groupEntries }) => {
+                const leader = groupEntries[0]
+                const color = TOP3_COLOR[rank] ?? '#A8A8A8'
+                return (
+                  <article key={rank} className="min-w-0 rounded-[16px] px-3 py-3" style={{ background: '#141414', border: `1px solid ${color}55` }}>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full font-display text-[16px] text-bg" style={{ background: color }}>
+                          {rankMedal(rank, leader?.total_points ?? 0) || rank}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-display text-[20px] leading-none" style={{ color }}>#{rank}</p>
+                          <p className="font-mono text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted">{groupEntries.length} empatado{groupEntries.length === 1 ? '' : 's'}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-display text-[28px] leading-none tabular-nums" style={{ color }}>{leader?.total_points ?? 0}</p>
+                        <p className="font-mono text-[9px] font-extrabold uppercase tracking-[0.14em] text-muted">pts</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {groupEntries.filter((entry) => entry.user_id).map((entry) => (
+                        <Link
+                          key={entry.user_id ?? entry.name}
+                          href={`/ranking/${entry.user_id!}`}
+                          className="inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-extrabold transition-colors hover:bg-white/10"
+                          style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff' }}
+                        >
+                          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] text-white" style={{ background: 'linear-gradient(135deg, #5B2D8E, #1565C0)' }}>
+                            {initials(entry.name)}
+                          </span>
+                          <span className="truncate">{entry.name}</span>
+                        </Link>
+                      ))}
+                    </div>
+                    <p className="mt-2 truncate font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted">
+                      {leader?.exact_predictions ?? 0} exactas Â· {leader?.correct_result_predictions ?? 0} parciales
+                    </p>
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {false && (
         <section className="mb-7">
           <div className="mb-3 px-1">
             <h2 className="font-display text-[24px] uppercase leading-none tracking-[-0.02em] text-white">
@@ -417,7 +484,7 @@ export function RankingClient({
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
-            {podiumEntries.filter((entry) => entry.user_id).map((entry) => {
+            {([] as RankingEntry[]).filter((entry) => entry.user_id).map((entry) => {
               const color = TOP3_COLOR[entry.rank] ?? '#A8A8A8'
               return (
                 <Link
@@ -456,13 +523,13 @@ export function RankingClient({
           empty={search.trim() ? 'No se encontraron competidores para esa búsqueda.' : 'Todavía no hay competidores en el ranking oficial.'}
         />
 
-        <RankingSection
+        {false && <RankingSection
           title="Invitados probando el sistema"
           description="Invitados habilitados para probar, cargar pronósticos y conocer la plataforma. No tienen posición oficial ni participan por premios."
-          items={filteredTrial}
+          items={[]}
           empty={search.trim() ? 'No se encontraron invitados para esa búsqueda.' : 'No hay invitados con Prode cargado para mostrar.'}
           tone="trial"
-        />
+        />}
       </div>
 
       {/* Sticky bottom — fila del usuario cuando scrollea hacia arriba */}
@@ -476,13 +543,7 @@ export function RankingClient({
             className="grid grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 sm:grid-cols-[92px_minmax(0,1fr)_auto] sm:gap-[14px] sm:px-[14px]"
             style={{ background: 'rgba(255,107,0,0.1)' }}
           >
-            {meEntry.participant_status === 'trial' ? (
-              <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ color: '#FFB15C' }}>
-                Invitado
-              </span>
-            ) : (
-              <RankMark entry={meEntry} entries={entries.filter((item) => item.participant_status !== 'trial')} color="#FF6B00" rankingStarted={rankingStarted} />
-            )}
+            <RankMark entry={meEntry} entries={officialEntries} color="#FF6B00" rankingStarted={rankingStarted} />
             <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
               <div
                 className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[14px] font-bold text-white"
