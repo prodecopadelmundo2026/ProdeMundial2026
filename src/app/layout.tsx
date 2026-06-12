@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Archivo, Archivo_Black, JetBrains_Mono } from 'next/font/google'
 import { WhatsAppSupportButton } from '@/components/WhatsAppSupportButton'
 import { ScrollToTopButton } from '@/components/ScrollToTopButton'
@@ -22,15 +22,23 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: 'Prode Mundial 2026',
+  applicationName: 'Prode Mundial 2026',
   description: 'Prode Mundial 2026',
-  manifest: '/site.webmanifest',
+  manifest: '/manifest.json',
   icons: {
     icon: [
       { url: '/favicon.ico' },
       { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
       { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
     ],
     apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
+  appleWebApp: {
+    capable: true,
+    title: 'Prode 26',
+    statusBarStyle: 'black-translucent',
   },
   openGraph: {
     title: 'Prode Mundial 2026',
@@ -38,6 +46,10 @@ export const metadata: Metadata = {
     locale: 'es_AR',
     type: 'website',
   },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#ff6a00',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
