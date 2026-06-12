@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Archivo, Archivo_Black, JetBrains_Mono } from 'next/font/google'
 import { WhatsAppSupportButton } from '@/components/WhatsAppSupportButton'
+import { ScrollToTopButton } from '@/components/ScrollToTopButton'
 import './globals.css'
 
 const archivo = Archivo({
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="h-full bg-bg text-text font-sans antialiased">
         {children}
+        <ScrollToTopButton />
         <WhatsAppSupportButton />
       </body>
     </html>

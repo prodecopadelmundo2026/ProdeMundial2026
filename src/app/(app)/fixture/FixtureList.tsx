@@ -15,6 +15,7 @@ function MatchRow({ match }: { match: Match }) {
   const isLive = match.status === 'live'
   const isFinished = match.status === 'finished'
   const isScored = isLive || isFinished
+  const groupAnchor = match.stage === 'group' && match.group ? `tabla-grupo-${match.group}` : null
   const time = format(new Date(match.scheduled_at), 'HH:mm')
 
   const stageLabel =
@@ -24,8 +25,33 @@ function MatchRow({ match }: { match: Match }) {
       ? `Grupo ${match.group}`
       : ''
 
+  function goToGroupTable() {
+    if (!groupAnchor) return
+    const target = document.getElementById(groupAnchor)
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      window.history.replaceState(null, '', `#${groupAnchor}`)
+    }
+  }
+
   return (
-    <div className="flex items-center gap-3 px-4 py-3 border-b border-[#1a1a1a] last:border-0 hover:bg-white/[0.025] transition-colors">
+    <div
+      className={clsx(
+        'flex items-center gap-3 px-4 py-3 border-b border-[#1a1a1a] last:border-0 hover:bg-white/[0.025] transition-colors',
+        groupAnchor && 'cursor-pointer'
+      )}
+      role={groupAnchor ? 'link' : undefined}
+      tabIndex={groupAnchor ? 0 : undefined}
+      onClick={goToGroupTable}
+      onKeyDown={(event) => {
+        if (!groupAnchor) return
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          goToGroupTable()
+        }
+      }}
+      aria-label={groupAnchor ? `Ir a la tabla del Grupo ${match.group}` : undefined}
+    >
       <span
         className="w-1.5 h-1.5 rounded-full shrink-0"
         style={{ background: isLive ? '#FF3B3B' : isFinished ? '#3a3a3a' : '#FF6B00' }}
@@ -37,6 +63,7 @@ function MatchRow({ match }: { match: Match }) {
         match.stage === 'group' && match.group ? (
           <a
             href={`#tabla-grupo-${match.group}`}
+            onClick={(event) => event.stopPropagation()}
             className="hidden shrink-0 rounded-[4px] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.12em] transition-colors hover:text-white min-[520px]:block"
             style={{ background: '#1a1a1a', color: '#8A8A8A' }}
             aria-label={`Ver tabla del Grupo ${match.group}`}
@@ -105,9 +132,10 @@ function MatchRow({ match }: { match: Match }) {
         {match.stage === 'group' && match.group && (
           <a
             href={`#tabla-grupo-${match.group}`}
+            onClick={(event) => event.stopPropagation()}
             className="mt-0.5 block text-[9px] font-extrabold uppercase tracking-[0.08em] text-orange hover:text-white"
           >
-            Tabla
+            Ver grupo
           </a>
         )}
       </div>
