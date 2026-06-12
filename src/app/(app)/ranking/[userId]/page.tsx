@@ -13,7 +13,9 @@ import type { Match, Prediction } from '@/types'
 import { formatRank, rankMedal } from '@/lib/ranking-display'
 import { buildProjectedKnockoutMatches, KNOCKOUT_FIXTURES } from '@/lib/bracket'
 import { TournamentBracket } from '@/components/TournamentBracket'
+import { GroupStandingsTables, type GroupTableSection } from '@/components/GroupStandingsTables'
 import { flagUrl, getTeam } from '@/lib/teams'
+import { buildGroupTableRows, buildOfficialGroupScoreMap } from '@/lib/group-standings'
 
 export const dynamic = 'force-dynamic'
 
@@ -316,6 +318,58 @@ function TeamChip({ name }: { name: string }) {
       </span>
       <span className="truncate">{name}</span>
     </span>
+  )
+}
+
+function TiebreakerTeam({ name }: { name: string }) {
+  const meta = getTeam(name)
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1.5">
+      <span className="grid h-5 w-5 shrink-0 place-items-center overflow-hidden rounded-full bg-black/40" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+        {meta.iso2 ? (
+          <img src={flagUrl(meta.iso2)} alt="" className="h-[14px] w-[20px] object-contain" />
+        ) : (
+          <span className="text-[12px]">{meta.flag}</span>
+        )}
+      </span>
+      <span className="truncate">{name}</span>
+    </span>
+  )
+}
+
+function SavedTiebreakerItem({
+  row,
+  matches,
+  predictions,
+}: {
+  row: UserTiebreakerRow
+  matches: Match[]
+  predictions: Prediction[]
+}) {
+  const key = normalizeTiebreakerKey(row.tiebreaker_key)
+  const prediction = predictions.find((item) => normalizeTiebreakerKey(item.match_id) === key)
+  const match = matches.find((item) => normalizeTiebreakerKey(item.id) === key)
+
+  if (match && prediction) {
+    return (
+      <div className="grid gap-2 rounded-[12px] px-3 py-2 text-[12px] font-bold sm:grid-cols-[minmax(0,1fr)_auto]" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <TiebreakerTeam name={match.home_team} />
+          <span className="font-display text-[15px] leading-none text-white tabular-nums">{prediction.home_score}-{prediction.away_score}</span>
+          <TiebreakerTeam name={match.away_team} />
+        </div>
+        <div className="flex min-w-0 items-center gap-2 sm:justify-end">
+          <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">Eligió</span>
+          <TiebreakerTeam name={row.team} />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <p className="rounded-[12px] px-3 py-2 text-[12px] font-bold" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}>
+      {formatTiebreakerText(row, matches, predictions)}
+    </p>
   )
 }
 
@@ -922,6 +976,38 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     return true
   })
   const activeStageLabel = labelForView(activeView)
+  const activeGroupKey = activeView.startsWith('group_') ? activeView.replace('group_', '') : null
+  const activeGroupMatches = activeGroupKey
+    ? groupMatches.filter((match) => match.group === activeGroupKey)
+    : []
+  const officialGroupScoreMap = buildOfficialGroupScoreMap(groupMatches)
+  const groupTableSections: GroupTableSection[] = activeGroupKey
+    ? [
+        {
+          id: 'participant',
+          title: 'Participante',
+          description: detail.participant.name,
+          rows: buildGroupTableRows(activeGroupMatches, predictionMap, userTiebreakerMap, `Grupo ${activeGroupKey}`),
+          tone: 'participant',
+        },
+        ...(user
+          ? [{
+              id: 'viewer',
+              title: 'Mi Prode',
+              description: isOwnProfile ? 'Tu misma carga' : 'Tu tabla para comparar',
+              rows: buildGroupTableRows(activeGroupMatches, viewerPredictionMap, viewerTiebreakerMap, `Grupo ${activeGroupKey}`),
+              tone: 'viewer' as const,
+            }]
+          : []),
+        {
+          id: 'official',
+          title: 'Oficial',
+          description: 'Resultados cargados',
+          rows: buildGroupTableRows(activeGroupMatches, officialGroupScoreMap, {}, `Grupo ${activeGroupKey}`),
+          tone: 'official',
+        },
+      ]
+    : []
 
   return (
     <div style={{ padding: 'clamp(32px,7vw,56px) 20px clamp(60px,12vw,100px)' }}>
@@ -995,9 +1081,12 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
             </summary>
             <div className="mt-3 grid gap-2">
               {userTiebreakers.map((row) => (
-                <p key={`${row.tiebreaker_key}-${row.team}`} className="rounded-[12px] px-3 py-2 text-[12px] font-bold" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfcf' }}>
-                  {formatTiebreakerText(row, typedMatches, typedUserPredictions)}
-                </p>
+                <SavedTiebreakerItem
+                  key={`${row.tiebreaker_key}-${row.team}`}
+                  row={row}
+                  matches={typedMatches}
+                  predictions={typedUserPredictions}
+                />
               ))}
             </div>
           </details>
@@ -1089,6 +1178,16 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                 </div>
               )}
             </div>
+
+            {activeGroupKey && (
+              <div className="p-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <GroupStandingsTables
+                  title={`Tablas del Grupo ${activeGroupKey}`}
+                  subtitle="Compará posiciones, diferencia de gol y clasificados entre el Prode del participante, tu Prode y la tabla oficial."
+                  sections={groupTableSections}
+                />
+              </div>
+            )}
 
             {activeView === 'specials' && !hasSpecialBets ? (
               <EmptyState>Apuestas especiales sin cargar.</EmptyState>

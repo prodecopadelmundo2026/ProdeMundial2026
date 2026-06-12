@@ -6,6 +6,8 @@ import { es } from 'date-fns/locale'
 import clsx from 'clsx'
 import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
+import { buildGroupTableRows, buildOfficialGroupScoreMap } from '@/lib/group-standings'
+import { GroupStandingsTables, type GroupTableSection } from '@/components/GroupStandingsTables'
 
 function MatchRow({ match }: { match: Match }) {
   const home = getTeam(match.home_team)
@@ -158,6 +160,25 @@ export function FixtureList({ matches }: { matches: Match[] }) {
       }))
   }, [filtered])
 
+  const officialGroupTables = useMemo<GroupTableSection[]>(() => {
+    const groupMatches = matches.filter((match) => match.stage === 'group' && match.group)
+    const scoreMap = buildOfficialGroupScoreMap(groupMatches)
+    const visibleGroups = filter === 'all' || filter === 'eliminatoria'
+      ? groups
+      : groups.filter((group) => group === filter)
+
+    return visibleGroups.map((group) => {
+      const scoped = groupMatches.filter((match) => match.group === group)
+      return {
+        id: group,
+        title: `Grupo ${group}`,
+        description: 'Tabla oficial',
+        rows: buildGroupTableRows(scoped, scoreMap, {}, `Grupo ${group}`),
+        tone: 'official',
+      }
+    })
+  }, [filter, groups, matches])
+
   if (!matches.length) {
     return (
       <div
@@ -233,6 +254,15 @@ export function FixtureList({ matches }: { matches: Match[] }) {
           <p className="text-muted text-[14px] text-center py-12">
             No hay partidos para este filtro.
           </p>
+        )}
+
+        {officialGroupTables.length > 0 && (
+          <GroupStandingsTables
+            title="Tablas oficiales en vivo"
+            subtitle="Posiciones reales calculadas con los resultados cargados."
+            sections={officialGroupTables}
+            controls={false}
+          />
         )}
       </div>
     </div>

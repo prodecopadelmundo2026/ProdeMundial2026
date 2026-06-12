@@ -355,7 +355,7 @@ export function RankingClient({
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar Prode…"
+            placeholder="Buscar Prodeâ€¦"
             aria-label="Buscar Prode"
             className="flex-1 bg-transparent border-none outline-none text-white text-[14px] font-semibold placeholder:text-muted placeholder:font-normal"
           />
@@ -406,7 +406,8 @@ export function RankingClient({
 
       {podiumGroups.length > 0 && (
         <section className="mb-6 rounded-[20px] bg-[#101010] p-3 sm:p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 px-1">
+          <div className="mb-3 grid gap-3 px-1 text-center sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+            <div className="hidden sm:block" />
             <div>
               <h2 className="font-display text-[22px] uppercase leading-none tracking-[-0.02em] text-white">
                 Podio en vivo
@@ -418,7 +419,7 @@ export function RankingClient({
             <button
               type="button"
               onClick={() => setShowPodium((value) => !value)}
-              className="rounded-full px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em]"
+              className="justify-self-center rounded-full px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] sm:justify-self-end"
               style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#d9d9d9' }}
               aria-expanded={showPodium}
             >
@@ -426,14 +427,14 @@ export function RankingClient({
             </button>
           </div>
           {showPodium && (
-            <div className="grid gap-2 min-[760px]:grid-cols-3">
+            <div className="grid gap-2 min-[760px]:grid-cols-2 min-[1080px]:grid-cols-3">
               {podiumGroups.map(({ rank, entries: groupEntries }) => {
                 const leader = groupEntries[0]
                 const color = TOP3_COLOR[rank] ?? '#A8A8A8'
                 return (
-                  <article key={rank} className="min-w-0 rounded-[16px] px-3 py-3" style={{ background: '#141414', border: `1px solid ${color}55` }}>
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-2">
+                  <article key={rank} className="min-w-0 rounded-[16px] px-3 py-3 text-center" style={{ background: '#141414', border: `1px solid ${color}55` }}>
+                    <div className="mb-3 flex flex-col items-center gap-2">
+                      <div className="flex min-w-0 items-center justify-center gap-2">
                         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full font-display text-[16px] text-bg" style={{ background: color }}>
                           {rankMedal(rank, leader?.total_points ?? 0) || rank}
                         </span>
@@ -442,17 +443,17 @@ export function RankingClient({
                           <p className="font-mono text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted">{groupEntries.length} empatado{groupEntries.length === 1 ? '' : 's'}</p>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div>
                         <p className="font-display text-[28px] leading-none tabular-nums" style={{ color }}>{leader?.total_points ?? 0}</p>
                         <p className="font-mono text-[9px] font-extrabold uppercase tracking-[0.14em] text-muted">pts</p>
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-1.5">
                       {groupEntries.filter((entry) => entry.user_id).map((entry) => (
                         <Link
                           key={entry.user_id ?? entry.name}
                           href={`/ranking/${entry.user_id!}`}
-                          className="inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-extrabold transition-colors hover:bg-white/10"
+                          className="inline-flex min-w-0 max-w-full items-center justify-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-extrabold transition-colors hover:bg-white/10"
                           style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff' }}
                         >
                           <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] text-white" style={{ background: 'linear-gradient(135deg, #5B2D8E, #1565C0)' }}>
@@ -462,8 +463,8 @@ export function RankingClient({
                         </Link>
                       ))}
                     </div>
-                    <p className="mt-2 truncate font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted">
-                      {leader?.exact_predictions ?? 0} exactas Â· {leader?.correct_result_predictions ?? 0} parciales
+                    <p className="mt-2 text-center font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted">
+                      {leader?.exact_predictions ?? 0} exactas · {leader?.correct_result_predictions ?? 0} parciales
                     </p>
                   </article>
                 )
@@ -473,47 +474,6 @@ export function RankingClient({
         </section>
       )}
 
-      {false && (
-        <section className="mb-7">
-          <div className="mb-3 px-1">
-            <h2 className="font-display text-[24px] uppercase leading-none tracking-[-0.02em] text-white">
-              Podio en vivo
-            </h2>
-            <p className="mt-1 text-[12px] font-semibold leading-relaxed text-muted">
-              Top 3 competitivo segun puntos y criterios de desempate.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {([] as RankingEntry[]).filter((entry) => entry.user_id).map((entry) => {
-              const color = TOP3_COLOR[entry.rank] ?? '#A8A8A8'
-              return (
-                <Link
-                  key={entry.user_id ?? entry.name}
-                  href={`/ranking/${entry.user_id!}`}
-                  className="rounded-[18px] p-4 transition-transform hover:-translate-y-0.5"
-                  style={{ background: '#141414', border: `1px solid ${color}55` }}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="grid h-11 w-11 place-items-center rounded-full font-display text-[20px] text-bg" style={{ background: color }}>
-                      {rankMedal(entry.rank, entry.total_points) || entry.rank}
-                    </div>
-                    <div className="text-right">
-                      <p className="font-display text-[32px] leading-none tabular-nums" style={{ color }}>
-                        {entry.total_points}
-                      </p>
-                      <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">pts</p>
-                    </div>
-                  </div>
-                  <p className="mt-4 truncate text-[15px] font-extrabold text-white">{entry.name}</p>
-                  <p className="mt-1 truncate font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
-                    {entry.exact_predictions ?? 0} exactas · {entry.correct_result_predictions ?? 0} parciales
-                  </p>
-                </Link>
-              )
-            })}
-          </div>
-        </section>
-      )}
 
       <div className="space-y-7">
         <RankingSection
@@ -523,16 +483,9 @@ export function RankingClient({
           empty={search.trim() ? 'No se encontraron competidores para esa búsqueda.' : 'Todavía no hay competidores en el ranking oficial.'}
         />
 
-        {false && <RankingSection
-          title="Invitados probando el sistema"
-          description="Invitados habilitados para probar, cargar pronósticos y conocer la plataforma. No tienen posición oficial ni participan por premios."
-          items={[]}
-          empty={search.trim() ? 'No se encontraron invitados para esa búsqueda.' : 'No hay invitados con Prode cargado para mostrar.'}
-          tone="trial"
-        />}
       </div>
 
-      {/* Sticky bottom — fila del usuario cuando scrollea hacia arriba */}
+      {/* Sticky bottom â€” fila del usuario cuando scrollea hacia arriba */}
       {meEntry && userId && (
         <aside
           ref={stickyRef as React.RefObject<HTMLElement>}
