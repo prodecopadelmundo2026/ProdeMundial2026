@@ -50,20 +50,17 @@ function Stat({ value, strong = false }: { value: number; strong?: boolean }) {
 function GroupTableCard({ section }: { section: GroupTableSection }) {
   const color = TONE_COLOR[section.tone ?? 'official']
   return (
-    <article id={section.anchorId} className="min-w-0 scroll-mt-24 rounded-[16px] bg-[#141414] p-3" style={{ border: `1px solid ${color}33` }}>
-      <div className="mb-3 flex items-start justify-between gap-3">
+    <article id={section.anchorId} className="min-w-0 overflow-hidden scroll-mt-24 rounded-[16px] bg-[#141414] p-3" style={{ border: `1px solid ${color}33` }}>
+      <div className="mb-3 min-w-0">
         <div className="min-w-0">
           <p className="truncate text-[13px] font-extrabold text-white">{section.title}</p>
           {section.description && (
             <p className="mt-0.5 truncate text-[11px] font-semibold text-muted">{section.description}</p>
           )}
         </div>
-        <span className="rounded-full px-2 py-1 font-mono text-[9px] font-extrabold uppercase tracking-[0.12em]" style={{ color, background: '#0A0A0A', border: `1px solid ${color}33` }}>
-          Top 2
-        </span>
       </div>
 
-      <div className="grid grid-cols-[minmax(64px,1fr)_repeat(8,minmax(14px,18px))] items-center gap-x-0.5 rounded-[10px] px-1.5 py-1.5 font-mono text-[8px] font-extrabold uppercase tracking-[0.04em] text-muted sm:grid-cols-[minmax(96px,1fr)_repeat(8,minmax(20px,24px))] sm:gap-x-1.5 sm:px-2 sm:text-[9px] sm:tracking-[0.08em]" style={{ background: '#0A0A0A' }}>
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_repeat(8,minmax(15px,19px))] items-center gap-x-0.5 rounded-[10px] px-1.5 py-1.5 font-mono text-[8px] font-extrabold uppercase tracking-[0.04em] text-muted sm:grid-cols-[minmax(0,1fr)_repeat(8,minmax(18px,22px))] sm:gap-x-1 sm:px-2 sm:text-[9px] sm:tracking-[0.08em]" style={{ background: '#0A0A0A' }}>
         <span>Equipo</span>
         <span className="text-center">PJ</span>
         <span className="text-center">PG</span>
@@ -81,7 +78,7 @@ function GroupTableCard({ section }: { section: GroupTableSection }) {
           return (
             <div
               key={row.name}
-              className="grid min-h-[34px] grid-cols-[minmax(64px,1fr)_repeat(8,minmax(14px,18px))] items-center gap-x-0.5 rounded-[10px] px-1.5 sm:grid-cols-[minmax(96px,1fr)_repeat(8,minmax(20px,24px))] sm:gap-x-1.5 sm:px-2"
+              className="grid min-h-[34px] min-w-0 grid-cols-[minmax(0,1fr)_repeat(8,minmax(15px,19px))] items-center gap-x-0.5 rounded-[10px] px-1.5 sm:grid-cols-[minmax(0,1fr)_repeat(8,minmax(18px,22px))] sm:gap-x-1 sm:px-2"
               style={{
                 background: rankStyle.background,
                 border: rankStyle.border,
@@ -160,7 +157,7 @@ export function GroupStandingsTables({
       </div>
 
       {visibleSections.length > 0 && (
-        <div className={clsx('grid min-w-0 gap-3', visibleSections.length === 1 ? 'mx-auto max-w-[430px]' : 'lg:grid-cols-3')}>
+        <div className={clsx('grid min-w-0 gap-3', visibleSections.length === 1 ? 'mx-auto max-w-[430px]' : 'lg:grid-cols-[repeat(3,minmax(0,1fr))]')}>
           {visibleSections.map((section) => (
             <GroupTableCard key={section.id} section={section} />
           ))}

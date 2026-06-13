@@ -46,7 +46,8 @@ export function AdminTestTools() {
   })
 
   return (
-    <div
+    <details
+      className="group"
       style={{
         background: '#0d0d0d',
         border: '1px solid rgba(255,255,255,0.07)',
@@ -55,14 +56,21 @@ export function AdminTestTools() {
         marginBottom: '32px',
       }}
     >
-      <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', background: 'rgba(255,177,92,0.12)', color: '#FFB15C', border: '1px solid rgba(255,177,92,0.2)', padding: '3px 8px', borderRadius: '999px' }}>
-          Dev
+      <summary
+        className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden"
+        style={{ padding: '14px 20px' }}
+      >
+        <span style={{ display: 'flex', minWidth: 0, alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', background: 'rgba(255,177,92,0.12)', color: '#FFB15C', border: '1px solid rgba(255,177,92,0.2)', padding: '3px 8px', borderRadius: '999px' }}>
+            Dev
+          </span>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: '#cfcfcf' }}>Herramientas de prueba</span>
         </span>
-        <p style={{ fontSize: '13px', fontWeight: 700, color: '#cfcfcf' }}>Herramientas de prueba (Admin)</p>
-      </div>
+        <span className="group-open:hidden" style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8A8A8A' }}>Ver</span>
+        <span className="hidden group-open:inline" style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8A8A8A' }}>Ocultar</span>
+      </summary>
 
-      <div style={{ padding: '16px 20px' }}>
+      <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         {state === 'idle' && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             <button style={pill({ background: 'rgba(255,59,59,0.12)', color: '#FF6B6B', border: '1px solid rgba(255,59,59,0.2)' })} onClick={() => setState('confirm-reset')}>
@@ -135,7 +143,7 @@ export function AdminTestTools() {
           </div>
         )}
       </div>
-    </div>
+    </details>
   )
 }
 

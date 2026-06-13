@@ -85,6 +85,14 @@ function sameTableLine(a: { pts: number; gd: number; gf: number }, b: { pts: num
   return a.pts === b.pts && a.gd === b.gd && a.gf === b.gf
 }
 
+function formatAdminPrize(amount: number) {
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 0,
+  }).format(amount)
+}
+
 export default async function AdminPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -219,14 +227,23 @@ export default async function AdminPage() {
     return 'Este cruce todavia no puede cargarse porque falta resolver una instancia previa.'
   }
 
-  const groups: Record<string, Match[]> = {}
-  for (const m of allMatches) {
-    const key = m.group ? `Grupo ${m.group}` : stageLabel(m.stage)
-    if (!groups[key]) groups[key] = []
-    groups[key].push(m)
-  }
-  const groupEntries = Object.entries(groups).filter(([groupName]) => groupName.startsWith('Grupo '))
-  const knockoutEntries = Object.entries(groups).filter(([groupName]) => !groupName.startsWith('Grupo '))
+  const sortBySchedule = (items: Match[]) =>
+    [...items].sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+  const knockoutStageOrder: Match['stage'][] = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'third_place', 'final']
+  const adminMatchSections = [
+    { key: 'Grupos', label: 'Fase de grupos', matches: sortBySchedule(groupMatches) },
+    ...knockoutStageOrder.map((stage) => ({
+      key: stageLabel(stage),
+      label: stageLabel(stage),
+      matches: sortBySchedule(knockoutMatches.filter((match) => match.stage === stage)),
+    })),
+  ].filter((section) => section.matches.length > 0)
+  const prodeLockLabel = prodeLock.override === 'locked'
+    ? 'Bloqueado'
+    : prodeLock.override === 'unlocked'
+    ? 'Desbloqueado'
+    : 'Auto'
+  const prizeSummary = `1° ${formatAdminPrize(resolvedPrizes.first)} · 2° ${formatAdminPrize(resolvedPrizes.second)} · 3° ${formatAdminPrize(resolvedPrizes.third)}`
   const adminSections = [
     { label: 'Clasificación', href: '#admin-section-clasificacion' },
     { label: 'Premios', href: '#admin-section-premios' },
@@ -259,7 +276,7 @@ export default async function AdminPage() {
             >
               Panel <em className="not-italic italic" style={{ color: '#FF6B00' }}>Admin</em>
             </h1>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
               <Link
                 href="/"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-extrabold text-[12px] uppercase transition-all duration-150"
@@ -274,6 +291,53 @@ export default async function AdminPage() {
               >
                 Participantes habilitados
               </Link>
+              <details className="group relative">
+                <summary
+                  className="inline-flex cursor-pointer list-none items-center gap-2 rounded-full px-4 py-2 text-[12px] font-extrabold uppercase transition-all duration-150 [&::-webkit-details-marker]:hidden"
+                  style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.1)', color: '#cfcfcf' }}
+                >
+                  Estado del Prode: <span style={{ color: prodeLockLabel === 'Bloqueado' ? '#FF6B00' : prodeLockLabel === 'Desbloqueado' ? '#A8F0D8' : '#FFB15C' }}>{prodeLockLabel}</span>
+                </summary>
+                <form
+                  action={setProdeLockOverride}
+                  className="absolute right-0 z-20 mt-2 grid min-w-[220px] gap-2 rounded-[14px] p-2"
+                  style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 18px 60px rgba(0,0,0,0.45)' }}
+                >
+                  {[
+                    { value: 'locked', label: 'Bloquear' },
+                    { value: 'unlocked', label: 'Desbloquear' },
+                    { value: 'auto', label: 'Auto' },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="submit"
+                      name="override"
+                      value={option.value}
+                      className="rounded-[10px] px-3 py-2 text-left text-[12px] font-extrabold uppercase"
+                      style={{
+                        background: option.value === prodeLock.override || (option.value === 'auto' && !prodeLock.override) ? 'rgba(255,255,255,0.08)' : 'transparent',
+                        color: option.value === 'locked' ? '#FF6B00' : option.value === 'unlocked' ? '#A8F0D8' : '#FFB15C',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </form>
+              </details>
+              <form action={toggleMaintenanceMode}>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-extrabold uppercase transition-all duration-150"
+                  style={{
+                    background: maintenanceMode ? 'rgba(168,240,216,0.12)' : 'rgba(255,107,0,0.16)',
+                    color: maintenanceMode ? '#A8F0D8' : '#FF6B00',
+                    border: maintenanceMode ? '1px solid rgba(168,240,216,0.3)' : '1px solid rgba(255,107,0,0.3)',
+                  }}
+                >
+                  {maintenanceMode ? 'Desactivar mantenimiento' : 'Activar mantenimiento'}
+                </button>
+              </form>
             </div>
           </div>
           <p className="font-mono text-[12px] font-bold text-muted tracking-[0.04em] mt-[8px]">
@@ -281,109 +345,59 @@ export default async function AdminPage() {
           </p>
         </div>
 
-        <form
-          action={setProdeLockOverride}
-          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
-          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
-        >
-          <div>
-            <p className="font-extrabold text-white text-[13px] leading-snug">Estado del Prode</p>
-            <p className="text-[12px] mt-0.5 text-muted">
-              {prodeLock.locked ? 'Apuestas bloqueadas' : 'Apuestas abiertas'}
-              {prodeLock.override
-                ? ` - override manual: ${prodeLock.override === 'locked' ? 'bloqueado' : 'desbloqueado'}`
-                : prodeLock.automaticLocked
-                ? ' - cierre automatico por fecha'
-                : ' - cierre automatico pendiente'}
-            </p>
-            <p className="text-[11px] mt-1 text-muted">
-              Cierre oficial: 24 horas antes del primer partido del Mundial.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { value: 'locked', label: 'Bloquear' },
-              { value: 'unlocked', label: 'Desbloquear' },
-              { value: 'auto', label: 'Auto' },
-            ].map((option) => (
-              <button
-                key={option.value}
-                type="submit"
-                name="override"
-                value={option.value}
-                className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase"
-                style={{
-                  background: option.value === 'locked' ? 'rgba(255,107,0,0.16)' : 'rgba(168,240,216,0.12)',
-                  color: option.value === 'locked' ? '#FF6B00' : '#A8F0D8',
-                  border: option.value === 'locked' ? '1px solid rgba(255,107,0,0.3)' : '1px solid rgba(168,240,216,0.3)',
-                }}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </form>
-
-        <form
-          action={toggleMaintenanceMode}
-          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
-          style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
-        >
-          <div>
-            <p className="font-extrabold text-white text-[13px] leading-snug">Modo mantenimiento</p>
-            <p className="text-[12px] mt-0.5 text-muted">
-              {maintenanceMode
-                ? 'Activo: solo administradores pueden usar la web.'
-                : 'Inactivo: usuarios habilitados pueden ingresar normalmente.'}
-            </p>
-          </div>
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase"
-            style={{
-              background: maintenanceMode ? 'rgba(168,240,216,0.12)' : 'rgba(255,107,0,0.16)',
-              color: maintenanceMode ? '#A8F0D8' : '#FF6B00',
-              border: maintenanceMode ? '1px solid rgba(168,240,216,0.3)' : '1px solid rgba(255,107,0,0.3)',
-            }}
-          >
-            {maintenanceMode ? 'Desactivar mantenimiento' : 'Activar mantenimiento'}
-          </button>
-        </form>
-
-        <section
+        <details
           id="admin-section-premios"
-          className="mb-5 rounded-[16px] px-5 py-4"
+          className="group mb-5 rounded-[16px]"
           style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)', scrollMarginTop: 20 }}
         >
-          <div className="mb-4">
-            <p className="font-extrabold text-white text-[13px] leading-snug">Premios publicados</p>
-            <p className="text-[12px] mt-0.5 text-muted">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
+            <span className="min-w-0">
+              <span className="block font-extrabold text-white text-[13px] leading-snug">Premios publicados</span>
+              <span className="mt-0.5 block truncate text-[12px] text-muted">{prizeSummary}</span>
+            </span>
+            <span className="shrink-0 rounded-full px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#d9d9d9' }}>
+              <span className="group-open:hidden">Editar</span>
+              <span className="hidden group-open:inline">Ocultar</span>
+            </span>
+          </summary>
+          <div className="px-5 pb-4">
+            <p className="mb-4 text-[12px] text-muted">
               Configura los importes visibles en Home y Premios. Si no hay configuracion manual, la web usa el calculo proporcional automatico.
             </p>
+            <PrizeSettingsForm
+              firstPrize={resolvedPrizes.first}
+              secondPrize={resolvedPrizes.second}
+              thirdPrize={resolvedPrizes.third}
+              isManual={resolvedPrizes.source === 'manual'}
+            />
           </div>
-          <PrizeSettingsForm
-            firstPrize={resolvedPrizes.first}
-            secondPrize={resolvedPrizes.second}
-            thirdPrize={resolvedPrizes.third}
-            isManual={resolvedPrizes.source === 'manual'}
-          />
-        </section>
+        </details>
 
         <AdminTestTools />
 
-        <div
+        <details
           id="admin-section-especiales"
-          className="mb-8 rounded-[16px] overflow-hidden"
+          className="group mb-8 rounded-[16px] overflow-hidden"
           style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)', scrollMarginTop: 20 }}
         >
-          <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            <p className="font-extrabold text-white text-[14px]">Apuestas especiales</p>
-            <p className="text-muted text-[12px] mt-1">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
+            <span className="min-w-0">
+              <span className="block font-extrabold text-white text-[14px]">Apuestas especiales</span>
+              <span className="mt-1 block truncate text-muted text-[12px]">
+                {specialBets.length} {specialBets.length === 1 ? 'participante cargado' : 'participantes cargados'}
+              </span>
+            </span>
+            <span className="shrink-0 rounded-full px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#d9d9d9' }}>
+              <span className="group-open:hidden">Ver</span>
+              <span className="hidden group-open:inline">Ocultar</span>
+            </span>
+          </summary>
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <p className="px-5 pt-4 text-muted text-[12px]">
               Revision manual de Balon de Oro, Bota de Oro y Guante de Oro. No suma puntos automaticamente.
             </p>
-          </div>
-          {specialBets.length > 0 ? (
-            <div className="grid gap-2 p-3">
+            {specialBets.length > 0 ? (
+              <div className="grid gap-2 p-3">
               {specialBets.map((bet) => {
                 const displayName = bet.profile?.name || bet.profile?.email || bet.user_id
                 return (
@@ -411,11 +425,12 @@ export default async function AdminPage() {
                   </div>
                 )
               })}
-            </div>
-          ) : (
-            <p className="px-5 py-6 text-[13px] text-muted">Todavia no hay apuestas especiales cargadas.</p>
-          )}
-        </div>
+              </div>
+            ) : (
+              <p className="px-5 py-6 text-[13px] text-muted">Todavia no hay apuestas especiales cargadas.</p>
+            )}
+          </div>
+        </details>
 
         <div className="mb-6">
           <details className="md:hidden rounded-[16px]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -534,22 +549,20 @@ export default async function AdminPage() {
           </div>
         ) : (
           <div className="space-y-8">
-            {[...groupEntries, ...knockoutEntries].map(([groupName, groupMatches], sectionIndex) => (
+            {adminMatchSections.map((section) => (
               <div
-                key={groupName}
-                id={groupName.startsWith('Grupo ')
-                  ? sectionIndex === 0 ? adminSectionId('Grupos') : undefined
-                  : adminSectionId(groupName)}
+                key={section.key}
+                id={adminSectionId(section.key)}
                 style={{ scrollMarginTop: '20px' }}
               >
                 <p
                   className="text-[10px] font-extrabold tracking-[0.2em] uppercase mb-3"
                   style={{ color: '#4a4a4a' }}
                 >
-                  {groupName.toUpperCase()}
+                  {section.label.toUpperCase()}
                 </p>
                 <div className="space-y-2">
-                  {groupMatches.map((match) => {
+                  {section.matches.map((match) => {
                     const resolvedHome = match.stage === 'group' ? match.home_team : resolveOfficialTeam(match.home_team)
                     const resolvedAway = match.stage === 'group' ? match.away_team : resolveOfficialTeam(match.away_team)
                     const homeUnresolved = match.stage !== 'group' && !isResolvedTeam(resolvedHome)

@@ -355,8 +355,8 @@ export function RankingClient({
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar Prodeâ€¦"
-            aria-label="Buscar Prode"
+            placeholder="Buscar participante"
+            aria-label="Buscar participante"
             className="flex-1 bg-transparent border-none outline-none text-white text-[14px] font-semibold placeholder:text-muted placeholder:font-normal"
           />
         </div>
@@ -432,20 +432,21 @@ export function RankingClient({
                 const leader = groupEntries[0]
                 const color = TOP3_COLOR[rank] ?? '#A8A8A8'
                 return (
-                  <article key={rank} className="min-w-0 rounded-[16px] px-3 py-3 text-center" style={{ background: '#141414', border: `1px solid ${color}55` }}>
-                    <div className="mb-3 flex flex-col items-center gap-2">
-                      <div className="flex min-w-0 items-center justify-center gap-2">
+                  <article key={rank} className="min-w-0 rounded-[16px] px-3 py-3" style={{ background: '#141414', border: `1px solid ${color}55` }}>
+                    <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
                         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full font-display text-[16px] text-bg" style={{ background: color }}>
                           {rankMedal(rank, leader?.total_points ?? 0) || rank}
                         </span>
-                        <div className="min-w-0">
-                          <p className="font-display text-[20px] leading-none" style={{ color }}>#{rank}</p>
-                          <p className="font-mono text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted">{groupEntries.length} empatado{groupEntries.length === 1 ? '' : 's'}</p>
-                        </div>
+                        <p className="min-w-0 truncate font-mono text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted">
+                          <span className="font-display text-[20px] leading-none normal-case tracking-normal" style={{ color }}>#{rank}</span>
+                          <span className="mx-1.5 text-muted">·</span>
+                          {groupEntries.length} empatado{groupEntries.length === 1 ? '' : 's'}
+                        </p>
                       </div>
-                      <div>
-                        <p className="font-display text-[28px] leading-none tabular-nums" style={{ color }}>{leader?.total_points ?? 0}</p>
-                        <p className="font-mono text-[9px] font-extrabold uppercase tracking-[0.14em] text-muted">pts</p>
+                      <div className="shrink-0 text-right">
+                        <span className="font-display text-[24px] leading-none tabular-nums" style={{ color }}>{leader?.total_points ?? 0}</span>
+                        <span className="ml-1 font-mono text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted">pts</span>
                       </div>
                     </div>
                     <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-1.5">
