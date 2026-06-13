@@ -532,9 +532,16 @@ function MatchAuditCard({
   const comparisonParts = isGroup ? [] : knockoutComparisonParts(row, viewerRow, targetTiebreaker, viewerTiebreaker, isOwnProfile)
 
   if (variant === 'compact') {
+    const pointColor = STATUS_LABELS[row.status].color
     return (
-      <div className="rounded-[16px] bg-[#141414] p-3" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
-        <div className="grid gap-3 min-[720px]:grid-cols-[minmax(0,1.15fr)_minmax(0,1.45fr)_auto] min-[720px]:items-center">
+      <div className="px-4 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div
+          className={
+            showViewerPrediction
+              ? 'grid gap-3 min-[900px]:grid-cols-[minmax(260px,1fr)_128px_128px_128px_76px] min-[900px]:items-center min-[1120px]:grid-cols-[minmax(300px,1fr)_164px_164px_164px_92px]'
+              : 'grid gap-3 min-[720px]:grid-cols-[minmax(260px,1fr)_128px_128px_76px] min-[720px]:items-center min-[1040px]:grid-cols-[minmax(300px,1fr)_172px_172px_92px]'
+          }
+        >
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <p className="min-w-0 truncate text-[13px] font-extrabold text-white">
@@ -547,20 +554,21 @@ function MatchAuditCard({
             </p>
           </div>
 
-          <div className={`grid min-w-0 gap-2 ${showViewerPrediction ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
-            <AuditMetric label="Oficial" value={officialValue ?? 'Pendiente'} />
-            <AuditMetric label={targetLabel} value={formatPredictionScore(targetPrediction) ?? 'Sin cargar'} />
-            {showViewerPrediction && (
-              <AuditMetric label="Mi pronostico" value={formatPredictionScore(viewerPrediction) ?? 'Sin cargar'} />
-            )}
+          <div className="grid h-12 min-w-0 place-items-center rounded-[10px] bg-[#0d0d0d] px-3 text-center font-display text-[22px] leading-none text-white tabular-nums" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+            {officialValue ?? '-'}
           </div>
+          <div className="grid h-12 min-w-0 place-items-center rounded-[10px] bg-[#0d0d0d] px-3 text-center font-display text-[22px] leading-none text-white tabular-nums" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+            {formatPredictionScore(targetPrediction) ?? '-'}
+          </div>
+          {showViewerPrediction && (
+            <div className="grid h-12 min-w-0 place-items-center rounded-[10px] bg-[#0d0d0d] px-3 text-center font-display text-[22px] leading-none text-white tabular-nums" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+              {formatPredictionScore(viewerPrediction) ?? '-'}
+            </div>
+          )}
 
-          <div className="flex items-center justify-between gap-3 min-[720px]:justify-end">
-            <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ color: STATUS_LABELS[row.status].color }}>
-              {STATUS_LABELS[row.status].text}
-            </span>
+          <div className="flex items-center justify-end">
             {showScoring ? (
-              <p className="shrink-0 font-display text-[24px] leading-none tabular-nums text-white">
+              <p className="shrink-0 font-display text-[24px] leading-none tabular-nums" style={{ color: pointColor }}>
                 {row.points ?? 0}
                 <span className="ml-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted">pts</span>
               </p>
@@ -955,7 +963,21 @@ function ProdeOverview({
         </div>
 
         {scoredRows.length > 0 ? (
-          <div className="grid gap-2">
+          <div className="overflow-hidden rounded-[16px]" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div
+              className={
+                showViewerPrediction
+                  ? 'hidden px-4 py-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted min-[900px]:grid min-[900px]:grid-cols-[minmax(260px,1fr)_128px_128px_128px_76px] min-[1120px]:grid-cols-[minmax(300px,1fr)_164px_164px_164px_92px]'
+                  : 'hidden px-4 py-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted min-[720px]:grid min-[720px]:grid-cols-[minmax(260px,1fr)_128px_128px_76px] min-[1040px]:grid-cols-[minmax(300px,1fr)_172px_172px_92px]'
+              }
+              style={{ background: '#101010', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <span>Partido</span>
+              <span className="text-center">Oficial</span>
+              <span className="text-center">{isOwnProfile ? 'Tu pronostico' : 'Su pronostico'}</span>
+              {showViewerPrediction && <span className="text-center">Mi pronostico</span>}
+              <span className="text-right">Pts</span>
+            </div>
             {scoredRows.map((row) => (
               <MatchAuditCard
                 key={row.match.id}
