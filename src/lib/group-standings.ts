@@ -16,6 +16,44 @@ export type GroupTableRow = {
   pts: number
 }
 
+export type GroupStandingRowStyle = {
+  label: string
+  color: string
+  background: string
+  border: string
+}
+
+export const GROUP_STANDING_ROW_STYLES: readonly GroupStandingRowStyle[] = [
+  {
+    label: '1',
+    color: '#FFE040',
+    background: 'rgba(255,224,64,0.12)',
+    border: '1px solid rgba(255,224,64,0.32)',
+  },
+  {
+    label: '2',
+    color: '#D7DEE8',
+    background: 'rgba(215,222,232,0.11)',
+    border: '1px solid rgba(215,222,232,0.24)',
+  },
+  {
+    label: '3',
+    color: '#E8A87C',
+    background: 'rgba(232,168,124,0.10)',
+    border: '1px solid rgba(232,168,124,0.22)',
+  },
+  {
+    label: '4',
+    color: '#8A8A8A',
+    background: 'rgba(255,255,255,0.025)',
+    border: '1px solid rgba(255,255,255,0.04)',
+  },
+] as const
+
+export function getGroupStandingRowStyle(positionIndex: number): GroupStandingRowStyle {
+  return GROUP_STANDING_ROW_STYLES[positionIndex] ?? GROUP_STANDING_ROW_STYLES[3]
+}
+
 function emptyRow(name: string): GroupTableRow {
   return {
     name,

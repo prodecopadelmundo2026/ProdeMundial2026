@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import clsx from 'clsx'
-import type { GroupTableRow } from '@/lib/group-standings'
+import { getGroupStandingRowStyle, type GroupStandingRowStyle, type GroupTableRow } from '@/lib/group-standings'
 import { flagUrl, getTeam } from '@/lib/teams'
 
 export type GroupTableSection = {
@@ -20,34 +20,7 @@ const TONE_COLOR = {
   official: '#FFFFFF',
 } as const
 
-const ROW_STYLE = [
-  {
-    label: '1',
-    color: '#FFE040',
-    background: 'rgba(255,224,64,0.12)',
-    border: '1px solid rgba(255,224,64,0.32)',
-  },
-  {
-    label: '2',
-    color: '#D7DEE8',
-    background: 'rgba(215,222,232,0.11)',
-    border: '1px solid rgba(215,222,232,0.24)',
-  },
-  {
-    label: '3',
-    color: '#E8A87C',
-    background: 'rgba(232,168,124,0.10)',
-    border: '1px solid rgba(232,168,124,0.22)',
-  },
-  {
-    label: '4',
-    color: '#8A8A8A',
-    background: 'rgba(255,255,255,0.025)',
-    border: '1px solid rgba(255,255,255,0.04)',
-  },
-] as const
-
-function TeamCell({ name, rankStyle }: { name: string; rankStyle: typeof ROW_STYLE[number] }) {
+function TeamCell({ name, rankStyle }: { name: string; rankStyle: GroupStandingRowStyle }) {
   const meta = getTeam(name)
   return (
     <div className="flex min-w-0 items-center gap-2">
@@ -104,7 +77,7 @@ function GroupTableCard({ section }: { section: GroupTableSection }) {
 
       <div className="mt-1.5 grid gap-1">
         {section.rows.map((row, index) => {
-          const rankStyle = ROW_STYLE[index] ?? ROW_STYLE[3]
+          const rankStyle = getGroupStandingRowStyle(index)
           return (
             <div
               key={row.name}
