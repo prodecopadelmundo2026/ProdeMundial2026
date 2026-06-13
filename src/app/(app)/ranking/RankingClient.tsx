@@ -44,7 +44,7 @@ function RankingRowWrapper({ userId, children }: { userId: string | null; childr
 
 const TOP3_COLOR: Record<number, string> = {
   1: '#FFE040',
-  2: '#A8F0D8',
+  2: '#D7DEE8',
   3: '#E8A87C',
 }
 

@@ -116,6 +116,12 @@ const MATCH_STATUS_LABELS: Record<Match['status'], { text: string; color: string
   finished: { text: 'Finalizado', color: '#A8F0D8' },
 }
 
+const RANK_COLOR: Record<number, string> = {
+  1: '#FFE040',
+  2: '#D7DEE8',
+  3: '#E8A87C',
+}
+
 function hrefForView(userId: string, view: ViewKey, result?: AuditStatus | null, stage?: Match['stage'] | null) {
   const params = new URLSearchParams({ view })
   if (stage && stage !== 'group') params.set('stage', stage)
@@ -477,6 +483,8 @@ function MatchAuditCard({
   targetTiebreaker,
   viewerTiebreaker,
   isOwnProfile,
+  showViewerPrediction = !isOwnProfile,
+  variant = 'full',
 }: {
   row: MatchAuditRow
   showScoring: boolean
@@ -485,6 +493,8 @@ function MatchAuditCard({
   targetTiebreaker?: string | null
   viewerTiebreaker?: string | null
   isOwnProfile: boolean
+  showViewerPrediction?: boolean
+  variant?: 'full' | 'compact'
 }) {
   const isGroup = row.stage === 'group'
   const targetPrediction = row.prediction
@@ -520,6 +530,48 @@ function MatchAuditCard({
       } as Prediction)
     : undefined
   const comparisonParts = isGroup ? [] : knockoutComparisonParts(row, viewerRow, targetTiebreaker, viewerTiebreaker, isOwnProfile)
+
+  if (variant === 'compact') {
+    return (
+      <div className="rounded-[16px] bg-[#141414] p-3" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="grid gap-3 min-[720px]:grid-cols-[minmax(0,1.15fr)_minmax(0,1.45fr)_auto] min-[720px]:items-center">
+          <div className="min-w-0">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <p className="min-w-0 truncate text-[13px] font-extrabold text-white">
+                {isGroup ? `${row.match.home_team} vs ${row.match.away_team}` : `${row.officialHome} vs ${row.officialAway}`}
+              </p>
+              <ResultBadge status={row.status} />
+            </div>
+            <p className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-muted">
+              {row.stage === 'group' && row.match.group ? `Grupo ${row.match.group}` : STAGE_LABELS[row.stage]} · {format(new Date(row.match.scheduled_at), 'd MMM · HH:mm', { locale: es })}
+            </p>
+          </div>
+
+          <div className={`grid min-w-0 gap-2 ${showViewerPrediction ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+            <AuditMetric label="Oficial" value={officialValue ?? 'Pendiente'} />
+            <AuditMetric label={targetLabel} value={formatPredictionScore(targetPrediction) ?? 'Sin cargar'} />
+            {showViewerPrediction && (
+              <AuditMetric label="Mi pronostico" value={formatPredictionScore(viewerPrediction) ?? 'Sin cargar'} />
+            )}
+          </div>
+
+          <div className="flex items-center justify-between gap-3 min-[720px]:justify-end">
+            <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ color: STATUS_LABELS[row.status].color }}>
+              {STATUS_LABELS[row.status].text}
+            </span>
+            {showScoring ? (
+              <p className="shrink-0 font-display text-[24px] leading-none tabular-nums text-white">
+                {row.points ?? 0}
+                <span className="ml-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted">pts</span>
+              </p>
+            ) : (
+              <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">Previa</span>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
@@ -818,17 +870,34 @@ function ProdeOverview({
   rows,
   specialBets,
   groupKeys,
+  showScoring,
+  viewerPredictionByMatch,
+  viewerRowByMatch,
+  userTiebreakerMap,
+  viewerTiebreakerMap,
+  isOwnProfile,
+  showViewerPrediction,
 }: {
   userId: string
   rows: MatchAuditRow[]
   specialBets: SpecialBetsRow | null
   groupKeys: string[]
+  showScoring: boolean
+  viewerPredictionByMatch: Map<string, Prediction>
+  viewerRowByMatch: Map<string, MatchAuditRow>
+  userTiebreakerMap: Record<string, string>
+  viewerTiebreakerMap: Record<string, string>
+  isOwnProfile: boolean
+  showViewerPrediction: boolean
 }) {
   const groupLoaded = rows.filter((row) => row.stage === 'group' && row.prediction).length
   const groupTotal = rows.filter((row) => row.stage === 'group').length
   const knockoutLoaded = rows.filter((row) => row.stage !== 'group' && row.prediction).length
   const knockoutTotal = rows.filter((row) => row.stage !== 'group').length
   const specialsLoaded = countLoadedSpecials(specialBets)
+  const scoredRows = rows
+    .filter((row) => row.match.status === 'finished' && row.points != null)
+    .sort((a, b) => new Date(a.match.scheduled_at).getTime() - new Date(b.match.scheduled_at).getTime())
 
   return (
     <div className="space-y-5">
@@ -871,6 +940,42 @@ function ProdeOverview({
         <p className="mt-1 text-[12px] font-semibold leading-relaxed text-muted">
           Usá el selector “Elegir grupo” para entrar a un grupo específico, o la pestaña Eliminatorias para revisar cruces por fase.
         </p>
+      </section>
+      <section className="rounded-[18px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <p className="font-extrabold text-white">Partidos ya puntuados</p>
+            <p className="mt-1 text-[12px] font-semibold leading-relaxed text-muted">
+              Estos son los partidos finalizados que ya impactaron en el ranking.
+            </p>
+          </div>
+          <span className="rounded-full px-3 py-1.5 font-mono text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#D7DEE8' }}>
+            {scoredRows.length}
+          </span>
+        </div>
+
+        {scoredRows.length > 0 ? (
+          <div className="grid gap-2">
+            {scoredRows.map((row) => (
+              <MatchAuditCard
+                key={row.match.id}
+                row={row}
+                showScoring={showScoring}
+                viewerPrediction={viewerPredictionByMatch.get(row.match.id)}
+                viewerRow={viewerRowByMatch.get(row.match.id)}
+                targetTiebreaker={userTiebreakerMap[row.match.id]}
+                viewerTiebreaker={viewerTiebreakerMap[row.match.id]}
+                isOwnProfile={isOwnProfile}
+                showViewerPrediction={showViewerPrediction}
+                variant="compact"
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-[14px] bg-[#141414] px-4 py-4 text-[13px] font-semibold text-muted" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+            Todavia no hay partidos finalizados para auditar.
+          </p>
+        )}
       </section>
     </div>
   )
@@ -1040,7 +1145,11 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
 
         {rankingStarted ? (
           <div className="grid gap-3 sm:grid-cols-5 mb-5">
-            <SummaryBox label="Ranking" value={`${rankMedal(entry.rank, entry.total_points) ? `${rankMedal(entry.rank, entry.total_points)} ` : ''}${formatRank(entry, rankingEntries)}`} />
+            <SummaryBox
+              label="Ranking"
+              value={`${rankMedal(entry.rank, entry.total_points) ? `${rankMedal(entry.rank, entry.total_points)} ` : ''}${formatRank(entry, rankingEntries)}`}
+              color={RANK_COLOR[entry.rank]}
+            />
             <SummaryBox label="Puntos" value={entry.total_points} />
             <SummaryLink label="Exactas" value={statusCount(auditRows, 'exact')} href={filterHrefForView(userId, activeView, 'exact', activeResult, activeView === 'knockout' ? activeKnockoutStage : null)} active={activeResult === 'exact'} />
             <SummaryLink label="Parciales" value={statusCount(auditRows, 'partial')} href={filterHrefForView(userId, activeView, 'partial', activeResult, activeView === 'knockout' ? activeKnockoutStage : null)} active={activeResult === 'partial'} />
@@ -1109,7 +1218,19 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
         )}
 
         {activeView === 'all' ? (
-          <ProdeOverview userId={userId} rows={auditRows} specialBets={specialBets} groupKeys={groupKeys} />
+          <ProdeOverview
+            userId={userId}
+            rows={auditRows}
+            specialBets={specialBets}
+            groupKeys={groupKeys}
+            showScoring={rankingStarted}
+            viewerPredictionByMatch={viewerPredictionByMatch}
+            viewerRowByMatch={viewerRowByMatch}
+            userTiebreakerMap={userTiebreakerMap}
+            viewerTiebreakerMap={viewerTiebreakerMap}
+            isOwnProfile={isOwnProfile}
+            showViewerPrediction={Boolean(user && !isOwnProfile)}
+          />
         ) : activeView === 'bracket' ? (
           <div className="grid min-w-0 gap-4">
             <section className="min-w-0 rounded-[20px] overflow-hidden" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}>
@@ -1225,11 +1346,11 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   )
 }
 
-function SummaryBox({ label, value }: { label: string; value: string | number }) {
+function SummaryBox({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
     <div className="rounded-[16px] px-4 py-4" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
       <p className="font-mono text-[10px] font-extrabold tracking-[0.16em] uppercase text-muted">{label}</p>
-      <p className="font-display text-[28px] leading-none mt-2">{value}</p>
+      <p className="font-display text-[28px] leading-none mt-2" style={{ color }}>{value}</p>
     </div>
   )
 }
