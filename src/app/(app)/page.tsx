@@ -111,7 +111,7 @@ function HomeMetricCard({
         {live && <span className="h-2 w-2 rounded-full bg-mint" style={{ animation: 'pulse-dot 1.6s infinite' }} />}
         <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">{label}</p>
       </div>
-      <p className="mt-2 break-words font-display text-[clamp(28px,7vw,42px)] leading-none tracking-[-0.02em]">{value}</p>
+      <p className="mt-2 whitespace-nowrap font-display text-[clamp(28px,7vw,42px)] leading-none tracking-[-0.02em]">{value}</p>
       {detail && <p className="mt-2 text-[12px] font-semibold leading-snug text-muted">{detail}</p>}
     </div>
   )
@@ -458,9 +458,9 @@ const nextMatchStats = normalizePredictionInsights(nextMatchStatsRow)
           <div className="grid grid-cols-1 gap-3 min-[680px]:grid-cols-2 min-[1100px]:grid-cols-5">
             <HomeMetricCard value={metrics.competitors_count} label="Participantes" detail="Confirmados activos." live />
             <HomeMetricCard value={`${metrics.finished_matches_count} de ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" detail={`${metrics.alive_teams_count} selecciones disponibles.`} />
-            <HomeMetricCard value={formatCurrency(OFFICIAL_PRIZES.first)} label="Premio 1er" detail="Oro." />
-            <HomeMetricCard value={formatCurrency(OFFICIAL_PRIZES.second)} label="Premio 2do" detail="Plata." />
-            <HomeMetricCard value={formatCurrency(OFFICIAL_PRIZES.third)} label="Premio 3er" detail="Bronce." />
+            <HomeMetricCard value={formatCurrency(OFFICIAL_PRIZES.first)} label="1er premio" detail="Oro." />
+            <HomeMetricCard value={formatCurrency(OFFICIAL_PRIZES.second)} label="2do premio" detail="Plata." />
+            <HomeMetricCard value={formatCurrency(OFFICIAL_PRIZES.third)} label="3er premio" detail="Bronce." />
           </div>
         </div>
       </section>
@@ -604,28 +604,6 @@ const nextMatchStats = normalizePredictionInsights(nextMatchStatsRow)
                 ) : (
                   <p className="mt-3 text-[13px] font-semibold leading-relaxed text-muted">Todavía no hay pronósticos cargados para este partido.</p>
                 )}
-              </div>
-            </article>
-
-            <article className="rounded-[24px] bg-[#101010] p-5 min-[760px]:p-6" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div className="flex items-end justify-between gap-4">
-                <div>
-                  <h2 className="font-display text-[clamp(26px,4vw,42px)] uppercase leading-none">Podio</h2>
-                </div>
-                <SectionLink href="/premios" label="Ver premios" />
-              </div>
-              <div className="mt-5 grid gap-3 min-[520px]:grid-cols-3 min-[980px]:grid-cols-1 min-[1180px]:grid-cols-3">
-                {[
-                  ['1er', 'Oro', formatCurrency(OFFICIAL_PRIZES.first), '#FFE040'],
-                  ['2do', 'Plata', formatCurrency(OFFICIAL_PRIZES.second), '#D7DADF'],
-                  ['3er', 'Bronce', formatCurrency(OFFICIAL_PRIZES.third), '#E8A87C'],
-                ].map(([rank, label, amount, color]) => (
-                  <div key={rank} className="rounded-[18px] p-4 text-bg" style={{ background: color }}>
-                    <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] opacity-60">{label}</p>
-                    <p className="mt-3 font-display text-[42px] leading-none">{rank}</p>
-                    <p className="mt-2 font-display text-[24px] italic leading-none">{amount}</p>
-                  </div>
-                ))}
               </div>
             </article>
           </div>
