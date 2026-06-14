@@ -610,8 +610,7 @@ const nextMatchStats = normalizePredictionInsights(nextMatchStatsRow)
             <article className="rounded-[24px] bg-[#101010] p-5 min-[760px]:p-6" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
               <div className="flex items-end justify-between gap-4">
                 <div>
-                  <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] text-muted">Premios oficiales</p>
-                  <h2 className="mt-3 font-display text-[clamp(26px,4vw,42px)] uppercase leading-none">Podio</h2>
+                  <h2 className="font-display text-[clamp(26px,4vw,42px)] uppercase leading-none">Podio</h2>
                 </div>
                 <SectionLink href="/premios" label="Ver premios" />
               </div>

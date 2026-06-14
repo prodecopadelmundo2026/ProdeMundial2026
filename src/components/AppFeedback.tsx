@@ -49,7 +49,7 @@ export function AppFeedback() {
 
     function alreadyPlayed() {
       try {
-        return sessionStorage.getItem(WELCOME_AUDIO_KEY) === '1'
+        return localStorage.getItem(WELCOME_AUDIO_KEY) === '1'
       } catch {
         return true
       }
@@ -57,7 +57,7 @@ export function AppFeedback() {
 
     function markPlayed() {
       try {
-        sessionStorage.setItem(WELCOME_AUDIO_KEY, '1')
+        localStorage.setItem(WELCOME_AUDIO_KEY, '1')
       } catch {}
     }
 

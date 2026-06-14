@@ -101,6 +101,14 @@ function virtualPredictionToPrediction(row: VirtualPredictionRow): Prediction {
   }
 }
 
+function predictionTiebreakerMap(predictions: Prediction[]): Record<string, string> {
+  return Object.fromEntries(
+    predictions
+      .filter((prediction) => prediction.tiebreaker_team?.trim())
+      .map((prediction) => [prediction.match_id, prediction.tiebreaker_team!.trim()])
+  )
+}
+
 const STATUS_LABELS: Record<AuditStatus, { text: string; color: string }> = {
   exact: { text: 'Exacto', color: '#A8F0D8' },
   partial: { text: 'Parcial', color: '#FFB15C' },
@@ -1210,6 +1218,14 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   const viewerRowByMatch = new Map(viewerAuditRows.map((row) => [row.match.id, row]))
   const userTiebreakerMap = tiebreakersByUser.get(userId) ?? {}
   const viewerTiebreakerMap = user ? tiebreakersByUser.get(user.id) ?? {} : {}
+  const userBracketTiebreakerMap = {
+    ...userTiebreakerMap,
+    ...predictionTiebreakerMap(typedUserPredictions),
+  }
+  const viewerBracketTiebreakerMap = {
+    ...viewerTiebreakerMap,
+    ...predictionTiebreakerMap(viewerTypedPredictions),
+  }
   const visibleRows = auditRows.filter((row) => {
     if (activeView === 'all' || activeView === 'bracket' || activeView === 'specials') return false
     if (activeView === 'knockout' && row.stage === 'group') return false
@@ -1380,7 +1396,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                   groupMatches={groupMatches}
                   knockoutMatches={knockoutMatches}
                   predMap={predictionMap}
-                  tiebreakerMap={userTiebreakerMap}
+                  tiebreakerMap={userBracketTiebreakerMap}
                 />
               </div>
             </section>
@@ -1397,7 +1413,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                     groupMatches={groupMatches}
                     knockoutMatches={knockoutMatches}
                     predMap={viewerPredictionMap}
-                    tiebreakerMap={viewerTiebreakerMap}
+                    tiebreakerMap={viewerBracketTiebreakerMap}
                   />
                 </div>
               </section>
