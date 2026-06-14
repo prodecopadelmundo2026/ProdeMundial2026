@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Archivo, Archivo_Black, JetBrains_Mono } from 'next/font/google'
+import { AppFeedback } from '@/components/AppFeedback'
 import { WhatsAppSupportButton } from '@/components/WhatsAppSupportButton'
 import { ScrollToTopButton } from '@/components/ScrollToTopButton'
 import './globals.css'
@@ -59,6 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`h-full ${archivo.variable} ${archivoBlack.variable} ${mono.variable}`}
     >
       <body className="h-full bg-bg text-text font-sans antialiased">
+        <AppFeedback />
         {children}
         <ScrollToTopButton />
         <WhatsAppSupportButton />

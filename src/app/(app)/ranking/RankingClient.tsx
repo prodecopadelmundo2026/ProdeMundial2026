@@ -108,7 +108,7 @@ function RankRow({
     <RankingRowWrapper userId={entry.user_id}>
       <div
         ref={innerRef}
-        className="grid grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors duration-150 sm:grid-cols-[92px_minmax(0,1fr)_auto] sm:gap-[14px] sm:px-[14px]"
+        className="tap-card grid grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors duration-150 sm:grid-cols-[92px_minmax(0,1fr)_auto] sm:gap-[14px] sm:px-[14px]"
         style={{
           background: isMe ? 'rgba(255,107,0,0.1)' : 'transparent',
           border: isMe ? '1px solid rgba(255,107,0,0.28)' : '1px solid transparent',
@@ -432,7 +432,7 @@ export function RankingClient({
                 const leader = groupEntries[0]
                 const color = TOP3_COLOR[rank] ?? '#A8A8A8'
                 return (
-                  <article key={rank} className="min-w-0 rounded-[16px] px-3 py-3" style={{ background: '#141414', border: `1px solid ${color}55` }}>
+                  <article key={rank} className="tap-card min-w-0 rounded-[16px] px-3 py-3" style={{ background: '#141414', border: `1px solid ${color}55` }}>
                     <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-2">
                         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full font-display text-[16px] text-bg" style={{ background: color }}>
@@ -454,7 +454,7 @@ export function RankingClient({
                         <Link
                           key={entry.user_id ?? entry.name}
                           href={`/ranking/${entry.user_id!}`}
-                          className="grid min-w-0 max-w-full grid-cols-[20px_minmax(0,1fr)_20px] items-center rounded-full px-2 py-1 text-[11px] font-extrabold transition-colors hover:bg-white/10"
+                          className="grid min-w-0 max-w-full grid-cols-[20px_minmax(0,1fr)_20px] items-center rounded-full px-2 py-1 text-[11px] font-extrabold transition-colors hover:bg-white/10 active:scale-[0.98]"
                           style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff' }}
                         >
                           <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] text-white" style={{ background: 'linear-gradient(135deg, #5B2D8E, #1565C0)' }}>

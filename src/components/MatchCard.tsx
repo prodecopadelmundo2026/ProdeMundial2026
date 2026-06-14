@@ -219,7 +219,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
   return (
     <article
       ref={cardRef}
-      className="relative flex h-full min-h-[246px] flex-col overflow-hidden bg-panel transition-all duration-200 hover:-translate-y-[3px]"
+      className="tap-card relative flex h-full min-h-[246px] flex-col overflow-hidden bg-panel transition-all duration-200 hover:-translate-y-[3px]"
       style={{
         border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: '18px',

@@ -19,7 +19,7 @@ export function AdminBracketSection({ groupMatches, knockoutMatches }: Props) {
   return (
     <div className="mt-10">
       <div
-        className="flex items-center justify-between px-5 py-4 rounded-[16px] cursor-pointer transition-colors duration-150"
+        className="tap-card flex items-center justify-between px-5 py-4 rounded-[16px] cursor-pointer transition-colors duration-150"
         style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}
         onClick={() => setOpen((v) => !v)}
         role="button"
@@ -47,15 +47,17 @@ export function AdminBracketSection({ groupMatches, knockoutMatches }: Props) {
         </svg>
       </div>
 
-      {open && (
-        <div className="mt-4">
-          <TournamentBracket
-            mode="official"
-            groupMatches={groupMatches}
-            knockoutMatches={knockoutMatches}
-          />
+      <div className={open ? 'grid grid-rows-[1fr] transition-[grid-template-rows,opacity] duration-200 opacity-100' : 'grid grid-rows-[0fr] transition-[grid-template-rows,opacity] duration-200 opacity-0'}>
+        <div className="overflow-hidden">
+          <div className="mt-4">
+            <TournamentBracket
+              mode="official"
+              groupMatches={groupMatches}
+              knockoutMatches={knockoutMatches}
+            />
+          </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

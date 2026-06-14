@@ -676,7 +676,7 @@ export function MiProdeTabs({
             <button
               key={tab}
               onClick={() => handleTabChange(tab)}
-              className="px-[14px] py-[7px] rounded-full font-extrabold text-[12px] transition-all duration-150 whitespace-nowrap"
+              className="px-[14px] py-[7px] rounded-full font-extrabold text-[12px] transition-all duration-150 whitespace-nowrap active:scale-[0.98]"
               style={
                 activeTab === tab
                   ? { background: '#FF6B00', color: '#0A0A0A' }
@@ -937,16 +937,17 @@ export function MiProdeTabs({
             type="button"
             onClick={handleSaveFullProde}
             disabled={globalSaveState === 'saving'}
-            className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase disabled:opacity-40"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-extrabold uppercase active:scale-[0.98] disabled:opacity-40"
             style={{ background: '#FF6B00', color: '#0A0A0A' }}
           >
+            {globalSaveState === 'saving' && <span className="action-spinner" aria-hidden="true" />}
             {globalSaveState === 'saving' ? 'Guardando...' : 'Guardar Mi Prode'}
           </button>
         </div>
       )}
 
       {/* All tabs kept mounted to preserve state; only one visible at a time */}
-      <div style={{ display: activeTab === 'grupos' ? undefined : 'none' }}>
+      <div className={activeTab === 'grupos' ? 'page-fade' : undefined} style={{ display: activeTab === 'grupos' ? undefined : 'none' }}>
         <GroupBatchEditor
           grouped={groupedByGroup}
           predMap={predMap}
@@ -959,7 +960,7 @@ export function MiProdeTabs({
         />
 
       </div>
-      <div style={{ display: activeTab === 'eliminatoria' ? undefined : 'none' }}>
+      <div className={activeTab === 'eliminatoria' ? 'page-fade' : undefined} style={{ display: activeTab === 'eliminatoria' ? undefined : 'none' }}>
         <BracketView
           groupMatches={groupMatches}
           knockoutMatches={projectedKnockoutMatches}
@@ -974,7 +975,7 @@ export function MiProdeTabs({
           onKnockoutTiebreakerChange={handleKnockoutTiebreakerChange}
         />
       </div>
-      <div style={{ display: activeTab === 'llave' ? undefined : 'none' }}>
+      <div className={activeTab === 'llave' ? 'page-fade' : undefined} style={{ display: activeTab === 'llave' ? undefined : 'none' }}>
         <p className="text-[11px] font-medium mb-4 px-1" style={{ color: '#3e3a35' }}>
           Tu bracket según tus pronósticos de grupos y eliminatorias. Vista de solo lectura.
         </p>
@@ -986,7 +987,7 @@ export function MiProdeTabs({
           tiebreakerMap={{ ...effectiveKnockoutTiebreakers, ...tiebreakers }}
         />
       </div>
-      <div style={{ display: activeTab === 'especiales' ? undefined : 'none' }}>
+      <div className={activeTab === 'especiales' ? 'page-fade' : undefined} style={{ display: activeTab === 'especiales' ? undefined : 'none' }}>
         <SpecialsTab initialValues={initialSpecialBets} readOnly={prodeLocked} />
       </div>
 

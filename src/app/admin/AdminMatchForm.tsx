@@ -190,7 +190,7 @@ export function AdminMatchForm({
         <button
           type="submit"
           disabled={isDisabled || isPending}
-          className="px-4 py-2 rounded-full text-[12px] font-extrabold uppercase transition-all duration-150 disabled:opacity-40"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-extrabold uppercase transition-all duration-150 active:scale-[0.98] disabled:opacity-40"
           style={{ background: '#FF6B00', color: '#0A0A0A' }}
           onMouseEnter={(e) => { if (!isPending) e.currentTarget.style.background = '#ff7d1a' }}
           onMouseLeave={(e) => { e.currentTarget.style.background = '#FF6B00' }}

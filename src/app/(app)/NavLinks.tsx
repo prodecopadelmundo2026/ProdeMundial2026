@@ -54,7 +54,7 @@ export function NavLinks({ isLoggedIn }: Props) {
     <>
       {/* Brand: botón en mobile (abre menú), link en desktop */}
       <button
-        className="min-[880px]:hidden flex items-center gap-2 font-display text-[18px] tracking-[-0.02em] shrink-0 select-none"
+        className="tap-card min-[880px]:hidden flex items-center gap-2 font-display text-[18px] tracking-[-0.02em] shrink-0 select-none"
         onClick={() => setMenuOpen((v) => !v)}
         aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
         aria-expanded={menuOpen}
@@ -83,7 +83,7 @@ export function NavLinks({ isLoggedIn }: Props) {
 
       <Link
         href="/"
-        className="hidden min-[880px]:flex items-center font-display text-[18px] tracking-[-0.02em] shrink-0"
+        className="hidden min-[880px]:flex items-center font-display text-[18px] tracking-[-0.02em] shrink-0 active:scale-[0.98]"
       >
         PRODE <b className="text-orange ml-[6px]">26&apos;</b>
       </Link>
@@ -100,7 +100,7 @@ export function NavLinks({ isLoggedIn }: Props) {
               href={href}
               onClick={anchor ? () => setActiveAnchor(href) : undefined}
               className={clsx(
-                'relative flex h-full items-center transition-colors duration-150',
+                'relative flex h-full items-center transition-colors duration-150 active:scale-[0.98]',
                 active
                   ? 'text-white after:absolute after:left-0 after:right-0 after:bottom-0 after:h-[3px] after:bg-orange after:rounded-t-sm'
                   : 'text-[#cfcfcf] hover:text-white',
@@ -152,7 +152,7 @@ export function NavLinks({ isLoggedIn }: Props) {
                   setMenuOpen(false)
                 }}
                 className={clsx(
-                  'flex items-center gap-3 px-4 py-[11px] rounded-[12px] text-[15px] font-semibold transition-all duration-150',
+                  'flex items-center gap-3 px-4 py-[11px] rounded-[12px] text-[15px] font-semibold transition-all duration-150 active:scale-[0.99]',
                   active
                     ? 'text-white'
                     : 'text-[#b0b0b0] hover:text-white hover:bg-white/5',

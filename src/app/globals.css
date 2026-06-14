@@ -72,6 +72,22 @@
   25%       { transform: translateX(-4px); }
   75%       { transform: translateX(4px); }
 }
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes route-progress {
+  0%   { transform: translateX(-100%) scaleX(0.2); }
+  55%  { transform: translateX(-12%) scaleX(0.72); }
+  100% { transform: translateX(0) scaleX(1); }
+}
+@keyframes soft-shimmer {
+  0%   { background-position: 160% 0; }
+  100% { background-position: -160% 0; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 
 @layer base {
   html, body {
@@ -113,6 +129,26 @@
   input[type='number'].score::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
+  }
+
+  :where(button:not(:disabled), a[href], [role='button'], summary, select) {
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(255, 107, 0, 0.18);
+    transition-duration: 160ms;
+    transition-timing-function: ease-out;
+    transition-property: transform, color, background-color, border-color, opacity, box-shadow, filter;
+  }
+
+  :where(button:not(:disabled), a[href], [role='button'], summary, select):active {
+    transform: translateY(1px) scale(0.985);
+    filter: brightness(1.06);
+  }
+
+  @media (hover: hover) {
+    :where(button:not(:disabled), a[href], [role='button'], summary):hover {
+      filter: brightness(1.06);
+    }
   }
 }
 
@@ -175,9 +211,66 @@
     color: #8A8A8A;
     border: 1px solid rgba(255, 255, 255, 0.08);
   }
+
+  .action-spinner {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 999px;
+    animation: spin 0.75s linear infinite;
+  }
 }
 
 @layer utilities {
+  .page-fade {
+    animation: fade-up 180ms ease-out both;
+  }
+
+  .tap-card {
+    transition: transform 160ms ease-out, border-color 160ms ease-out, background-color 160ms ease-out, box-shadow 160ms ease-out, filter 160ms ease-out;
+  }
+  .tap-card:active {
+    transform: scale(0.99);
+  }
+  @media (hover: hover) {
+    .tap-card:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.04);
+    }
+  }
+
+  .route-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    width: 100%;
+    height: 3px;
+    pointer-events: none;
+    opacity: 0;
+    transform-origin: left;
+    background: linear-gradient(90deg, transparent, #FF6B00 20%, #A8F0D8 80%, transparent);
+    box-shadow: 0 0 20px rgba(255, 107, 0, 0.45);
+  }
+  .route-progress--active {
+    opacity: 1;
+    animation: route-progress 620ms ease-out infinite;
+  }
+
+  .page-loader {
+    animation: fade-up 180ms ease-out both;
+  }
+  .loading-panel {
+    border: 1px solid rgba(255,255,255,0.08);
+    background:
+      linear-gradient(90deg, rgba(255,255,255,0.035), rgba(255,255,255,0.09), rgba(255,255,255,0.035)),
+      #101010;
+    background-size: 220% 100%;
+    animation: soft-shimmer 1.4s ease-in-out infinite;
+  }
+
   /* Hide scrollbar cross-browser */
   .scrollbar-none {
     scrollbar-width: none;

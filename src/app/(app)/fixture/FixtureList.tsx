@@ -36,7 +36,7 @@ function MatchRow({ match }: { match: Match }) {
   return (
     <div
       className={clsx(
-        'flex items-center gap-3 px-4 py-3 border-b border-[#1a1a1a] last:border-0 hover:bg-white/[0.025] transition-colors',
+        'tap-card flex items-center gap-3 px-4 py-3 border-b border-[#1a1a1a] last:border-0 hover:bg-white/[0.025] transition-colors',
         groupAnchor && 'cursor-pointer'
       )}
       role={groupAnchor ? 'link' : undefined}
@@ -158,7 +158,7 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
     <button
       onClick={onClick}
       className={clsx(
-        'px-3.5 py-[7px] rounded-full text-[11px] font-extrabold tracking-[0.07em] uppercase transition-all duration-150',
+        'px-3.5 py-[7px] rounded-full text-[11px] font-extrabold tracking-[0.07em] uppercase transition-all duration-150 active:scale-[0.98]',
         active ? 'bg-orange text-bg' : 'text-muted hover:text-white'
       )}
       style={

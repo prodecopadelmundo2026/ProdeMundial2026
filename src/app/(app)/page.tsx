@@ -64,7 +64,7 @@ function SectionLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="inline-flex items-center gap-2 font-bold text-[14px] px-[18px] py-3 rounded-full bg-panel transition-colors hover:bg-panel-2 shrink-0"
+      className="inline-flex items-center gap-2 font-bold text-[14px] px-[18px] py-3 rounded-full bg-panel transition-colors hover:bg-panel-2 shrink-0 active:scale-[0.98]"
       style={{ border: '1px solid rgba(255,255,255,0.08)' }}
     >
       {label}
@@ -109,7 +109,7 @@ function ContactLinks({ message = 'Hola! Quiero participar del Prode Mundial 202
           href={whatsappHref(contact.phone, message)}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex min-h-[68px] items-center justify-between gap-3 rounded-[16px] border border-mint/20 bg-mint/10 px-4 py-3 text-mint transition-colors hover:bg-mint/15"
+          className="tap-card flex min-h-[68px] items-center justify-between gap-3 rounded-[16px] border border-mint/20 bg-mint/10 px-4 py-3 text-mint transition-colors hover:bg-mint/15"
         >
           <span className="min-w-0">
             <span className="block truncate text-[14px] font-extrabold text-white">{contact.name}</span>
@@ -139,7 +139,7 @@ type RankingEntry = {
 
 function HomeMetricCard({ value, label, detail, live }: { value: number | string; label: string; detail?: string; live?: boolean }) {
   return (
-    <div className="min-w-0 rounded-[18px] bg-[#0A0A0A] px-4 py-4 text-white" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+    <div className="tap-card min-w-0 rounded-[18px] bg-[#0A0A0A] px-4 py-4 text-white" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
       <div className="flex items-center gap-2">
         {live && <span className="h-2 w-2 rounded-full bg-mint" style={{ animation: 'pulse-dot 1.6s infinite' }} />}
         <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">{label}</p>
@@ -869,7 +869,7 @@ export default async function HomePage() {
                   <PublicRankingRowLink
                     key={entry.user_id ?? `pending-${entry.name}`}
                     userId={entry.user_id}
-                    className={`grid grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors min-[720px]:grid-cols-[96px_minmax(0,1fr)_auto] min-[720px]:gap-[14px] min-[720px]:px-[14px] ${entry.user_id ? 'hover:bg-panel-2' : ''}`}
+                    className={`tap-card grid grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors min-[720px]:grid-cols-[96px_minmax(0,1fr)_auto] min-[720px]:gap-[14px] min-[720px]:px-[14px] ${entry.user_id ? 'hover:bg-panel-2' : ''}`}
                     style={{
                       cursor: entry.user_id ? 'pointer' : 'default',
                       opacity: hasPredictions ? 1 : 0.82,
@@ -942,7 +942,7 @@ export default async function HomePage() {
                   </div>
                   <Link
                     href={`/ranking/${user.id}`}
-                    className="grid grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors hover:bg-panel-2 min-[720px]:grid-cols-[96px_minmax(0,1fr)_auto] min-[720px]:gap-[14px] min-[720px]:px-[14px]"
+                    className="tap-card grid grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors hover:bg-panel-2 min-[720px]:grid-cols-[96px_minmax(0,1fr)_auto] min-[720px]:gap-[14px] min-[720px]:px-[14px]"
                     style={{
                       background: 'rgba(255,107,0,.1)',
                       border: '1px solid rgba(255,107,0,.22)',

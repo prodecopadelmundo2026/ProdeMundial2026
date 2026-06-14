@@ -51,9 +51,10 @@ export function PrizeSettingsForm({ firstPrize, secondPrize, thirdPrize, isManua
         <button
           type="submit"
           disabled={pending}
-          className="rounded-full px-5 py-3 text-[12px] font-extrabold uppercase transition-opacity disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-[12px] font-extrabold uppercase transition-opacity active:scale-[0.98] disabled:opacity-60"
           style={{ background: '#FF6B00', color: '#0A0A0A', border: '1px solid #FF6B00' }}
         >
+          {pending && <span className="action-spinner" aria-hidden="true" />}
           {pending ? 'Guardando...' : 'Guardar premios'}
         </button>
       </div>
