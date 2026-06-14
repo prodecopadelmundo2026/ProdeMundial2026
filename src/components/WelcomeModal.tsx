@@ -2,21 +2,12 @@
 
 import Link from 'next/link'
 import { MessageCircle, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 const STORAGE_KEY = 'prode-2026-welcome-seen'
 
 export function WelcomeModal() {
   const [open, setOpen] = useState(false)
-
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      if (window.localStorage.getItem(STORAGE_KEY) !== '1') {
-        setOpen(true)
-      }
-    }, 0)
-    return () => window.clearTimeout(id)
-  }, [])
 
   function closeModal() {
     window.localStorage.setItem(STORAGE_KEY, '1')

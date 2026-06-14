@@ -114,7 +114,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </header>
 
-      <main className="page-fade flex-1">{children}</main>
+      <main className="flex-1">{children}</main>
       {user && entry?.participant_status && (
         <ProdeStatusModal
           userId={user.id}

@@ -41,7 +41,11 @@ export function AppFeedback() {
 
   useEffect(() => {
     let disposed = false
-    let listenersAttached = false
+    let playing = false
+    const audio = new Audio('/audio/welcome.mp3')
+    // Colocar el archivo corto de bienvenida en public/audio/welcome.mp3.
+    audio.preload = 'auto'
+    audio.volume = 0.18
 
     function alreadyPlayed() {
       try {
@@ -57,48 +61,47 @@ export function AppFeedback() {
       } catch {}
     }
 
-    function removeInteractionListeners() {
-      if (!listenersAttached) return
-      window.removeEventListener('click', playOnInteraction)
-      window.removeEventListener('touchstart', playOnInteraction)
-      window.removeEventListener('keydown', playOnInteraction)
-      listenersAttached = false
-    }
-
-    async function tryPlay(fromInteraction = false) {
-      if (disposed || alreadyPlayed()) {
+    async function playWelcomeAudio() {
+      if (disposed || playing || alreadyPlayed()) {
         removeInteractionListeners()
         return
       }
 
-      // Colocar el archivo corto de bienvenida en public/audio/welcome.mp3.
-      const audio = new Audio('/audio/welcome.mp3')
-      audio.preload = 'auto'
-      audio.volume = 0.35
-
+      playing = true
       try {
+        audio.currentTime = 0
         await audio.play()
         if (!disposed) markPlayed()
         removeInteractionListeners()
       } catch {
-        if (fromInteraction) {
-          removeInteractionListeners()
-          return
-        }
-        if (!listenersAttached) {
-          window.addEventListener('click', playOnInteraction, { once: true })
-          window.addEventListener('touchstart', playOnInteraction, { once: true })
-          window.addEventListener('keydown', playOnInteraction, { once: true })
-          listenersAttached = true
-        }
+        // Si el archivo no existe o el navegador rechaza el play, no bloqueamos la UI.
+        // Si fue bloqueo de activacion/autoplay, mantenemos listeners para reintentar en el proximo gesto real.
+      } finally {
+        playing = false
       }
     }
 
-    function playOnInteraction() {
-      void tryPlay(true)
+    function handleFirstInteraction() {
+      void playWelcomeAudio()
     }
 
-    void tryPlay(false)
+    function removeInteractionListeners() {
+      window.removeEventListener('pointerdown', handleFirstInteraction)
+      window.removeEventListener('click', handleFirstInteraction)
+      window.removeEventListener('touchstart', handleFirstInteraction)
+      window.removeEventListener('touchmove', handleFirstInteraction)
+      window.removeEventListener('scroll', handleFirstInteraction)
+      window.removeEventListener('wheel', handleFirstInteraction)
+    }
+
+    if (!alreadyPlayed()) {
+      window.addEventListener('pointerdown', handleFirstInteraction, { passive: true })
+      window.addEventListener('click', handleFirstInteraction, { passive: true })
+      window.addEventListener('touchstart', handleFirstInteraction, { passive: true })
+      window.addEventListener('touchmove', handleFirstInteraction, { passive: true })
+      window.addEventListener('scroll', handleFirstInteraction, { passive: true })
+      window.addEventListener('wheel', handleFirstInteraction, { passive: true })
+    }
 
     return () => {
       disposed = true

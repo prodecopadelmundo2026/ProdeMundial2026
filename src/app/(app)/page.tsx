@@ -11,7 +11,6 @@ import {
   TOURNAMENT_TOTAL_TEAMS,
 } from '@/lib/tournament-config'
 import { formatCurrency, formatPrizePool, PRIZE_TARGET_PLAYERS } from '@/lib/prode-progress'
-import { WelcomeModal } from '@/components/WelcomeModal'
 import { SALES_CONTACTS, whatsappHref } from '@/lib/sales-contacts'
 import { getRankingMode, isLiveRankingMode, type RankingMode } from '@/lib/ranking-mode'
 import { getPublicPrizeSettings, resolvePrizes } from '@/lib/prize-settings'
@@ -486,7 +485,6 @@ export default async function HomePage() {
       }
   return (
     <>
-      {!user && <WelcomeModal />}
       {/* ─── HERO ──────────────────────────────────────────────── */}
       <section
         className="relative overflow-hidden min-h-[420px] min-[980px]:min-h-[760px] flex items-center"
