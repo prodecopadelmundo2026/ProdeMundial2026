@@ -13,6 +13,7 @@ import {
   type PredictionInsights,
   type ResultDistributionRow,
 } from '@/lib/prediction-insights'
+import { ResultUsersTable } from './ResultUsersTable'
 
 export const dynamic = 'force-dynamic'
 
@@ -186,25 +187,7 @@ export default async function PronosticoDetallePage({
                 </div>
                 <p className="text-[12px] font-semibold text-muted">Ordenado por cantidad</p>
               </div>
-              <div className="overflow-hidden rounded-[18px] bg-[#0A0A0A]" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-                <div className="grid grid-cols-[1fr_120px_120px] gap-3 border-b border-white/10 px-4 py-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.16em] text-muted max-[560px]:grid-cols-[1fr_74px_74px]">
-                  <span>Resultado</span>
-                  <span className="text-right">Cantidad</span>
-                  <span className="text-right">Porcentaje</span>
-                </div>
-                {distribution.map((row) => (
-                  <div
-                    key={`${row.home_score}-${row.away_score}`}
-                    className="grid grid-cols-[1fr_120px_120px] gap-3 border-b border-white/[0.06] px-4 py-3 last:border-0 max-[560px]:grid-cols-[1fr_74px_74px]"
-                  >
-                    <span className="font-display text-[24px] leading-none">{row.home_score}-{row.away_score}</span>
-                    <span className="text-right text-[14px] font-bold tabular-nums">{row.picked_count}</span>
-                    <span className="text-right text-[14px] font-bold tabular-nums text-orange">
-                      {percent(row.picked_count, insights.total_count)}%
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <ResultUsersTable matchId={match.id} rows={distribution} totalCount={insights.total_count} />
             </section>
           </div>
         ) : (
