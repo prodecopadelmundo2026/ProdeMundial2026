@@ -76,6 +76,11 @@ function hasScore(map: PredMap, match?: Match): boolean {
   return Boolean(match && map[match.id])
 }
 
+function normalizeTiebreakerTeam(value?: string | null) {
+  const trimmed = value?.trim()
+  return trimmed && trimmed.length > 0 ? trimmed : null
+}
+
 function buildScopedStandings(groupMatches: Match[], scoreMap: PredMap, tiebreakerMap: TbMap) {
   const byGroup: Record<string, Match[]> = {}
   for (const match of groupMatches) {
@@ -111,12 +116,16 @@ function getWinner(
   homeTeam: string,
   awayTeam: string,
   pred?: { home_score: number; away_score: number },
-  tb?: string,
+  tb?: string | null,
 ): string | null {
   if (!pred) return null
   if (pred.home_score > pred.away_score) return homeTeam
   if (pred.away_score > pred.home_score) return awayTeam
-  return tb ?? null
+  const tiebreaker = normalizeTiebreakerTeam(tb)
+  if (!tiebreaker) return null
+  if (tiebreaker === homeTeam) return homeTeam
+  if (tiebreaker === awayTeam) return awayTeam
+  return tiebreaker
 }
 
 function isPlaceholderName(name: string): boolean {
@@ -499,12 +508,13 @@ export function TournamentBracket({
 
     if (score.home_score === score.away_score) {
       if (source === 'official') return fallback
-      const tiebreaker = context.tiebreakers[match.id]
+      const tiebreaker = normalizeTiebreakerTeam(context.tiebreakers[match.id])
       if (!tiebreaker) return fallback
-      const homeWins = tiebreaker === home
+      if (tiebreaker === home) return knockout[1] === 'Ganador' ? home : away
+      if (tiebreaker === away) return knockout[1] === 'Ganador' ? away : home
       return knockout[1] === 'Ganador'
-        ? (homeWins ? home : away)
-        : (homeWins ? away : home)
+        ? tiebreaker
+        : fallback
     }
 
     const homeWins = score.home_score > score.away_score
@@ -524,7 +534,7 @@ export function TournamentBracket({
     const awayTeam = rawAway ? resolveFromSource(rawAway, source) : fallbackSlotLabel(pNum, 1)
 
     const rawPred = match ? scoreMap[match.id] : undefined
-    const tb   = match ? tiebreakerMap[match.id] : undefined
+    const tb   = match ? normalizeTiebreakerTeam(tiebreakerMap[match.id]) : undefined
     const teamsResolved = !isPlaceholderName(homeTeam) && !isPlaceholderName(awayTeam)
     const pred = teamsResolved ? rawPred : undefined
 
