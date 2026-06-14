@@ -1,19 +1,16 @@
-import { PRIZE_TIE_RULES } from '@/lib/ranking-display'
-import { createClient } from '@/lib/supabase/server'
-import { ReferralShareButton } from '@/components/ReferralShareButton'
-import { formatCurrency, formatPrizePool, PRIZE_TARGET_PLAYERS } from '@/lib/prode-progress'
-import { getPublicPrizeSettings, resolvePrizes } from '@/lib/prize-settings'
-
-type PublicHomeMetrics = {
-  competitors_count?: number
-  prize_pool_ars?: number
-}
+﻿import type { CSSProperties } from 'react'
 
 function formatPrizeNumber(amount: number) {
   return new Intl.NumberFormat('es-AR', {
     maximumFractionDigits: 0,
   }).format(Math.max(0, Math.round(amount)))
 }
+
+const OFFICIAL_PRIZES = {
+  first: 600000,
+  second: 150000,
+  third: 50000,
+} as const
 
 function PrizeCard({
   rank,
@@ -45,8 +42,8 @@ function PrizeCard({
   rankSize: number
   nameSize: number
   amountSize: number
-  decorBefore: React.CSSProperties
-  decorAfter?: React.CSSProperties
+  decorBefore: CSSProperties
+  decorAfter?: CSSProperties
 }) {
   return (
     <div
@@ -58,11 +55,10 @@ function PrizeCard({
           CAMPEÓN
         </span>
       )}
-      {/* decorative circles */}
+
       <div className="absolute pointer-events-none" style={{ zIndex: -1, ...decorBefore }} />
       {decorAfter && <div className="absolute pointer-events-none" style={{ zIndex: -1, ...decorAfter }} />}
 
-      {/* head: meta pill + rank */}
       <div className="flex justify-between items-start gap-[10px] mb-[6px]">
         <span
           className="font-mono text-[10px] font-bold tracking-[0.24em] uppercase px-[10px] py-[6px] rounded-full shrink-0"
@@ -84,12 +80,10 @@ function PrizeCard({
         </span>
       </div>
 
-      {/* name pushed to bottom */}
       <div className="font-display tracking-[-0.02em] uppercase leading-none mt-auto" style={{ fontSize: nameSize }}>
         {name}
       </div>
 
-      {/* amount */}
       <div className="mt-[10px] flex items-baseline gap-[6px] font-display">
         <span
           className="font-mono font-bold opacity-50 tracking-[-0.02em] self-start"
@@ -105,7 +99,6 @@ function PrizeCard({
         </span>
       </div>
 
-      {/* tag */}
       <div
         className="mt-[12px] font-mono text-[11px] font-bold tracking-[0.18em] uppercase inline-flex items-center gap-[6px]"
         style={{ color: 'rgba(0,0,0,.55)' }}
@@ -117,32 +110,13 @@ function PrizeCard({
   )
 }
 
-export default async function PremiosPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  const [{ data: profile }, { data: metricsData }, prizeSettings] = await Promise.all([
-    user
-      ? supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
-      : Promise.resolve({ data: null }),
-    supabase.rpc('get_public_home_metrics'),
-    getPublicPrizeSettings(supabase),
-  ])
-  const metricsRows = metricsData as PublicHomeMetrics[] | PublicHomeMetrics | null
-  const metrics = Array.isArray(metricsRows) ? metricsRows[0] : metricsRows
-  const confirmedPlayers = metrics?.competitors_count ?? 0
-  const displayedPrizes = resolvePrizes(confirmedPlayers, prizeSettings)
-  const isManualPrize = displayedPrizes.source === 'manual'
-
+export default function PremiosPage() {
   return (
     <div style={{ padding: '48px 20px 100px' }}>
       <div className="max-w-[1280px] mx-auto">
-
-        {/* Header */}
         <div className="mb-10">
-          <p className="text-[12px] font-extrabold tracking-[0.22em] uppercase text-muted mb-[18px]">
-            {isManualPrize ? 'Premios actuales' : 'Premios estimados'}
+          <p className="mb-[18px] text-[12px] font-extrabold uppercase tracking-[0.22em] text-muted">
+            Premios oficiales del torneo
           </p>
           <h1
             className="font-display uppercase leading-[0.9] tracking-[-0.04em]"
@@ -150,108 +124,76 @@ export default async function PremiosPage() {
           >
             Podio de <em className="italic text-orange">premios</em>
           </h1>
-          <p className="font-mono text-[13px] font-bold text-muted tracking-[0.04em] mt-[14px]">
+          <p className="mt-[14px] font-mono text-[13px] font-bold tracking-[0.04em] text-muted">
             Mundial 2026 · USA · Canadá · México
-          </p>
-          <p className="mt-4 max-w-[680px] text-[14px] font-medium leading-relaxed text-[#cfcfcf]">
-            La inscripción cuesta <strong className="text-white">$20.000</strong>. Con <strong className="text-white">{confirmedPlayers} confirmados</strong>, {isManualPrize ? 'los premios actuales fueron configurados por la organización y tienen prioridad sobre el cálculo automático' : <>los premios estimados se ajustan proporcionalmente contra el objetivo de <strong className="text-white">{PRIZE_TARGET_PLAYERS} competidores</strong></>}.
           </p>
         </div>
 
-        {/* Pozo banner */}
-        <aside
-          className="mb-10 rounded-[20px] flex items-start gap-[14px]"
-          style={{
-            background: 'linear-gradient(90deg,rgba(255,224,64,.07),rgba(255,224,64,.02))',
-            border: '1px solid rgba(255,224,64,.22)',
-            padding: '20px 24px',
-          }}
-        >
-          <div
-            className="w-8 h-8 rounded-[10px] shrink-0 grid place-items-center"
-            style={{ background: '#FFE040', color: '#0A0A0A' }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-            </svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <h4 className="font-extrabold text-[14px] mb-1" style={{ color: '#FFE040' }}>
-              Pozo actual: {formatPrizePool(confirmedPlayers)}
-            </h4>
-            <p className="text-[#cfcfcf] text-[13px] leading-relaxed font-medium">
-              El objetivo de referencia es llegar a <strong className="text-white font-extrabold">{PRIZE_TARGET_PLAYERS} competidores</strong>.
-              Con ese objetivo completo, el podio de referencia es {formatCurrency(800000)}, {formatCurrency(200000)} y {formatCurrency(100000)}.
-              Si alguien se inscribe utilizando tu referencia,
-              <strong className="text-white font-extrabold"> $3.000 de esa inscripción pasan para vos</strong> como recompensa por referido.
-              El resto se suma al pozo de premios y a la organización del torneo.
-            </p>
-          </div>
-        </aside>
-
-        {/* Prize grid */}
-        <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-4 mb-[60px]">
+        <div className="mb-[60px] grid grid-cols-1 gap-4 min-[780px]:grid-cols-3">
           <PrizeCard
-            rank="1" suffix="er" metaLabel="1º Puesto" name="Oro" prizeTag="Premio mayor"
-            cur="$" amount={formatPrizeNumber(displayedPrizes.first)} bg="#FFE040" champion
-            minHeight={360} rankSize={120} nameSize={26} amountSize={62}
+            rank="1"
+            suffix="er"
+            metaLabel="1er puesto"
+            name="Oro"
+            prizeTag="Premio mayor"
+            cur="$"
+            amount={formatPrizeNumber(OFFICIAL_PRIZES.first)}
+            bg="#FFE040"
+            champion
+            minHeight={360}
+            rankSize={120}
+            nameSize={26}
+            amountSize={62}
             decorBefore={{ right: '-30%', bottom: '-30%', width: '80%', height: '80%', borderRadius: '50%', background: 'rgba(0,0,0,.07)' }}
             decorAfter={{ left: '-12%', top: '-12%', width: '38%', height: '38%', borderRadius: '50%', background: 'rgba(0,0,0,.05)' }}
           />
           <PrizeCard
-            rank="2" suffix="do" metaLabel="2º Puesto" name="Plata" prizeTag="Subcampeón"
-            cur="$" amount={formatPrizeNumber(displayedPrizes.second)} bg="#A8F0D8"
-            minHeight={320} rankSize={84} nameSize={22} amountSize={46}
+            rank="2"
+            suffix="do"
+            metaLabel="2do puesto"
+            name="Plata"
+            prizeTag="Subcampeón"
+            cur="$"
+            amount={formatPrizeNumber(OFFICIAL_PRIZES.second)}
+            bg="#D7DADF"
+            minHeight={320}
+            rankSize={84}
+            nameSize={22}
+            amountSize={46}
             decorBefore={{ right: '-25%', top: '-25%', width: '70%', height: '70%', borderRadius: '50% 0 50% 50%', background: 'rgba(0,0,0,.07)' }}
+            decorAfter={{ left: '-18%', bottom: '-25%', width: '54%', height: '54%', borderRadius: '50%', background: 'rgba(255,255,255,.18)' }}
           />
           <PrizeCard
-            rank="3" suffix="er" metaLabel="3º Puesto" name="Bronce" prizeTag="Tercer lugar"
-            cur="$" amount={formatPrizeNumber(displayedPrizes.third)} bg="#E8A87C"
-            minHeight={300} rankSize={72} nameSize={22} amountSize={40}
+            rank="3"
+            suffix="er"
+            metaLabel="3er puesto"
+            name="Bronce"
+            prizeTag="Tercer lugar"
+            cur="$"
+            amount={formatPrizeNumber(OFFICIAL_PRIZES.third)}
+            bg="#E8A87C"
+            minHeight={300}
+            rankSize={72}
+            nameSize={22}
+            amountSize={40}
             decorBefore={{ left: '-20%', bottom: '-20%', width: '65%', height: '65%', borderRadius: '0 50% 50% 50%', background: 'rgba(0,0,0,.07)' }}
           />
         </div>
 
         <aside
-          className="mb-[60px] rounded-[20px] px-5 py-4"
-          style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
+          className="rounded-[24px] px-6 py-6 min-[760px]:px-8 min-[760px]:py-7"
+          style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.1)' }}
         >
-          <p className="font-extrabold text-white text-[13px]">Criterio para premios empatados</p>
-          <div className="mt-3 grid gap-2">
-            {PRIZE_TIE_RULES.map((rule) => (
-              <p key={rule} className="text-[12px] font-bold leading-relaxed text-muted">
-                {rule}
-              </p>
-            ))}
+          <p className="font-display text-[clamp(24px,3vw,34px)] uppercase leading-none text-white">
+            Criterio de desempate
+          </p>
+          <div className="mt-5 grid gap-4 text-[14px] font-bold leading-relaxed text-[#cfcfcf]">
+            <p>El ranking ordena primero por puntos totales.</p>
+            <p>Si hay empate en puntos, queda arriba quien tenga más resultados exactos.</p>
+            <p>Si el empate continúa, se mantiene el empate en la posición correspondiente.</p>
+            <p>Si varios participantes empatan en puestos con premio, comparten el premio correspondiente según la posición alcanzada.</p>
           </div>
         </aside>
-
-        {/* Referral card */}
-        <aside
-          className="bg-panel rounded-[24px] grid gap-6 items-center"
-          style={{ border: '1px solid rgba(255,255,255,0.08)', padding: '32px 28px', gridTemplateColumns: '1fr' }}
-        >
-          <div>
-            <h3
-              className="font-display leading-none tracking-[-0.02em] uppercase"
-              style={{ fontSize: 'clamp(22px,3vw,30px)' }}
-            >
-              Más amigos, <em className="italic text-orange">más premio</em>
-            </h3>
-            <p className="mt-3 text-[#cfcfcf] text-[14px] leading-relaxed font-medium">
-              Invitá a tu grupo por WhatsApp y que avisen que vienen de tu parte. No reemplaza a Consultas:
-              este botón es solo para compartir tu invitación.
-            </p>
-          </div>
-          <div className="flex items-center gap-[14px] flex-wrap">
-            <ReferralShareButton
-              name={profile?.name}
-              email={user?.email}
-              userId={user?.id}
-            />
-          </div>
-        </aside>
-
       </div>
     </div>
   )
