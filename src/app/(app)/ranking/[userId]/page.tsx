@@ -378,6 +378,12 @@ function SavedTiebreakerItem({
   )
 }
 
+function auditTableGridClass(showViewerPrediction: boolean) {
+  return showViewerPrediction
+    ? 'gap-3 min-[900px]:grid-cols-[minmax(260px,1fr)_128px_128px_128px_76px] min-[900px]:items-center min-[1120px]:grid-cols-[minmax(300px,1fr)_164px_164px_164px_92px]'
+    : 'gap-3 min-[720px]:grid-cols-[minmax(260px,1fr)_128px_128px_76px] min-[720px]:items-center min-[1040px]:grid-cols-[minmax(300px,1fr)_172px_172px_92px]'
+}
+
 function PredictionPanel({
   label,
   value,
@@ -540,11 +546,7 @@ function MatchAuditCard({
     return (
       <div className="px-4 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div
-          className={
-            showViewerPrediction
-              ? 'grid gap-3 min-[900px]:grid-cols-[minmax(260px,1fr)_128px_128px_128px_76px] min-[900px]:items-center min-[1120px]:grid-cols-[minmax(300px,1fr)_164px_164px_164px_92px]'
-              : 'grid gap-3 min-[720px]:grid-cols-[minmax(260px,1fr)_128px_128px_76px] min-[720px]:items-center min-[1040px]:grid-cols-[minmax(300px,1fr)_172px_172px_92px]'
-          }
+          className={`grid ${auditTableGridClass(showViewerPrediction)}`}
         >
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -590,11 +592,7 @@ function MatchAuditCard({
     return (
       <div className="px-4 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div
-          className={
-            showViewerPrediction
-              ? 'grid gap-3 min-[900px]:grid-cols-[minmax(260px,1fr)_128px_128px_128px_76px] min-[900px]:items-center min-[1120px]:grid-cols-[minmax(300px,1fr)_164px_164px_164px_92px]'
-              : 'grid gap-3 min-[720px]:grid-cols-[minmax(260px,1fr)_128px_128px_76px] min-[720px]:items-center min-[1040px]:grid-cols-[minmax(300px,1fr)_172px_172px_92px]'
-          }
+          className={`grid ${auditTableGridClass(showViewerPrediction)}`}
         >
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -644,10 +642,17 @@ function MatchAuditCard({
               <TeamChip name={row.match.home_team} />
               <span className="font-display text-[11px] tracking-[0.16em] text-muted">VS</span>
               <TeamChip name={row.match.away_team} />
+              <span className="hidden text-muted sm:inline">&middot;</span>
+              <span className="font-mono text-[10px] font-bold text-muted">
+                {formatMatchDateTimeArgentina(row.match.scheduled_at, { includeYear: true, separator: ' - ' })}
+              </span>
             </div>
           ) : (
             <>
               <p className="font-extrabold text-[14px] text-white">
+                <span className="mr-2 font-mono text-[10px] font-bold text-muted">
+                  {formatMatchDateTimeArgentina(row.match.scheduled_at, { includeYear: true, separator: ' - ' })}
+                </span>
                 {STAGE_LABELS[row.stage]}{pNum ? ` · Partido ${pNum}` : ''}
               </p>
               {fixtureOrigin && (
@@ -657,9 +662,11 @@ function MatchAuditCard({
               )}
             </>
           )}
-          <p className="font-mono text-[10px] text-muted mt-2">
-            {formatMatchDateTimeArgentina(row.match.scheduled_at, { includeYear: true, separator: ' - ' })}
-          </p>
+          {!isGroup && (
+            <p className="hidden font-mono text-[10px] text-muted mt-2">
+              {formatMatchDateTimeArgentina(row.match.scheduled_at, { includeYear: true, separator: ' - ' })}
+            </p>
+          )}
         </div>
         {isGroup && <div className="flex flex-wrap items-center gap-3 lg:justify-end">
           <MatchStatusBadge status={row.match.status} />
@@ -1030,11 +1037,7 @@ function ProdeOverview({
         {scoredRows.length > 0 ? (
           <div className="overflow-hidden rounded-[16px]" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
             <div
-              className={
-                showViewerPrediction
-                  ? 'hidden px-4 py-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted min-[900px]:grid min-[900px]:grid-cols-[minmax(260px,1fr)_128px_128px_128px_76px] min-[1120px]:grid-cols-[minmax(300px,1fr)_164px_164px_164px_92px]'
-                  : 'hidden px-4 py-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted min-[720px]:grid min-[720px]:grid-cols-[minmax(260px,1fr)_128px_128px_76px] min-[1040px]:grid-cols-[minmax(300px,1fr)_172px_172px_92px]'
-              }
+              className={`hidden px-4 py-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted ${showViewerPrediction ? 'min-[900px]:grid' : 'min-[720px]:grid'} ${auditTableGridClass(showViewerPrediction)}`}
               style={{ background: '#101010', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
             >
               <span>Partido</span>
@@ -1080,11 +1083,7 @@ function ProdeOverview({
         {upcomingRows.length > 0 ? (
           <div className="overflow-hidden rounded-[16px]" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
             <div
-              className={
-                showViewerPrediction
-                  ? 'hidden px-4 py-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted min-[900px]:grid min-[900px]:grid-cols-[minmax(260px,1fr)_128px_128px_128px_76px] min-[1120px]:grid-cols-[minmax(300px,1fr)_164px_164px_164px_92px]'
-                  : 'hidden px-4 py-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted min-[720px]:grid min-[720px]:grid-cols-[minmax(260px,1fr)_128px_128px_76px] min-[1040px]:grid-cols-[minmax(300px,1fr)_172px_172px_92px]'
-              }
+              className={`hidden px-4 py-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted ${showViewerPrediction ? 'min-[900px]:grid' : 'min-[720px]:grid'} ${auditTableGridClass(showViewerPrediction)}`}
               style={{ background: '#101010', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
             >
               <span>Partido</span>
