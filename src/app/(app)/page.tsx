@@ -369,14 +369,20 @@ export default async function HomePage() {
 
   const allUpcoming = (upcoming ?? []) as Match[]
   const nextMatch = allUpcoming.find((match) => match.status !== 'finished') ?? null
-  const nextMatchPredictions = nextMatch
-    ? (((await supabase
-        .from('predictions')
-        .select('home_score, away_score')
-        .eq('match_id', nextMatch.id)
-      ).data ?? []) as PredictionScoreRow[])
-    : []
-  const nextMatchStats = outcomeStats(nextMatchPredictions)
+  const { data: nextMatchStatsRows } = nextMatch
+  ? await supabase.rpc('get_match_prediction_outcome_stats', {
+      p_match_id: nextMatch.id,
+    })
+  : { data: null }
+
+const nextMatchStatsRow = Array.isArray(nextMatchStatsRows) ? nextMatchStatsRows[0] : null
+
+const nextMatchStats = {
+  home_count: Number(nextMatchStatsRow?.home_count ?? 0),
+  draw_count: Number(nextMatchStatsRow?.draw_count ?? 0),
+  away_count: Number(nextMatchStatsRow?.away_count ?? 0),
+  total_count: Number(nextMatchStatsRow?.total_count ?? 0),
+}
 
   const liveRankColors: Record<number, string> = { 1: '#FFE040', 2: '#D7DADF', 3: '#E8A87C' }
   const liveRankingMode = metrics.ranking_mode ?? getRankingMode(metrics.finished_matches_count)
@@ -532,12 +538,32 @@ export default async function HomePage() {
 
               <div className="rounded-[18px] bg-[#0A0A0A] p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
                 <p className="font-extrabold text-white">Cómo lo pronosticaron</p>
-                {nextMatch && nextMatchStats.total > 0 ? (
+                {nextMatch && nextMatchStats.total_count > 0 ? (
                   <div className="mt-4 grid gap-4">
-                    <PredictionBar label={`Gana ${nextMatch.home_team}`} value={nextMatchStats.home} total={nextMatchStats.total} color="#A8F0D8" />
-                    <PredictionBar label="Empate" value={nextMatchStats.draw} total={nextMatchStats.total} color="#FFE040" />
-                    <PredictionBar label={`Gana ${nextMatch.away_team}`} value={nextMatchStats.away} total={nextMatchStats.total} color="#FF6B00" />
-                    <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">{nextMatchStats.total} pronósticos cargados</p>
+                    <PredictionBar
+                      label={`Gana ${nextMatch.home_team}`}
+                      value={nextMatchStats.home_count}
+                      total={nextMatchStats.total_count}
+                      color="#A8F0D8"
+                    />
+
+                    <PredictionBar
+                      label="Empate"
+                      value={nextMatchStats.draw_count}
+                      total={nextMatchStats.total_count}
+                      color="#FFE040"
+                    />
+
+                    <PredictionBar
+                      label={`Gana ${nextMatch.away_team}`}
+                      value={nextMatchStats.away_count}
+                      total={nextMatchStats.total_count}
+                      color="#FF6B00"
+                    />
+
+                    <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
+                      {nextMatchStats.total_count} pronósticos cargados
+                    </p>
                   </div>
                 ) : (
                   <p className="mt-3 text-[13px] font-semibold leading-relaxed text-muted">Todavía no hay pronósticos cargados para este partido.</p>
