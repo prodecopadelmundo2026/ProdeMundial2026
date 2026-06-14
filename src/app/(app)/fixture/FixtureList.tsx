@@ -1,11 +1,10 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
 import clsx from 'clsx'
 import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
+import { formatMatchDayKeyArgentina, formatMatchDayLabelArgentina, formatMatchTimeArgentina } from '@/lib/match-datetime'
 import { buildGroupTableRows, buildOfficialGroupScoreMap } from '@/lib/group-standings'
 import { GroupStandingsTables, type GroupTableSection } from '@/components/GroupStandingsTables'
 
@@ -16,7 +15,7 @@ function MatchRow({ match }: { match: Match }) {
   const isFinished = match.status === 'finished'
   const isScored = isLive || isFinished
   const groupAnchor = match.stage === 'group' && match.group ? `tabla-grupo-${match.group}` : null
-  const time = format(new Date(match.scheduled_at), 'HH:mm')
+  const time = formatMatchTimeArgentina(match.scheduled_at)
 
   const stageLabel =
     match.stage !== 'group'
@@ -193,7 +192,7 @@ export function FixtureList({ matches }: { matches: Match[] }) {
   const days = useMemo(() => {
     const map: Record<string, Match[]> = {}
     for (const m of filtered) {
-      const day = format(new Date(m.scheduled_at), 'yyyy-MM-dd')
+      const day = formatMatchDayKeyArgentina(m.scheduled_at)
       if (!map[day]) map[day] = []
       map[day].push(m)
     }
@@ -266,7 +265,7 @@ export function FixtureList({ matches }: { matches: Match[] }) {
       {/* Day-grouped list */}
       <div className="space-y-5">
         {days.map(({ day, matches: dayMatches }) => {
-          const label = format(new Date(day + 'T12:00:00'), "EEEE d 'de' MMMM", { locale: es })
+          const label = formatMatchDayLabelArgentina(day)
           return (
             <div key={day}>
               <div className="flex items-center gap-3 mb-2 px-1">

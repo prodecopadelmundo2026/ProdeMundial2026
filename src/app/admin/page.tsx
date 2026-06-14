@@ -1,7 +1,5 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/server'
 import type { Match } from '@/types'
 import { AdminMatchForm } from './AdminMatchForm'
@@ -22,6 +20,7 @@ import { getProdeLockState } from '@/lib/prode-lock'
 import { setProdeLockOverride, toggleMaintenanceMode } from './actions'
 import { getCurrentProfile } from '@/lib/current-profile'
 import { getMaintenanceMode } from '@/lib/maintenance'
+import { formatMatchDateTimeArgentina } from '@/lib/match-datetime'
 import { getPublicPrizeSettings, resolvePrizes } from '@/lib/prize-settings'
 
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
@@ -590,7 +589,7 @@ export default async function AdminPage() {
                             </p>
                           )}
                           <p className="font-mono text-[11px] text-muted mt-0.5">
-                            {format(new Date(match.scheduled_at), "EEE d MMM yyyy · HH:mm", { locale: es })}
+                            {formatMatchDateTimeArgentina(match.scheduled_at, { includeYear: true, separator: ' · ' })}
                             {match.home_score !== null && match.away_score !== null && (
                               <span className="ml-2 font-extrabold" style={{ color: '#A8F0D8' }}>
                                 {match.home_score} — {match.away_score}

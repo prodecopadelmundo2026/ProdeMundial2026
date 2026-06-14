@@ -3,12 +3,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
 import { Shuffle, AlertTriangle, Zap, Pencil } from 'lucide-react'
 import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
 import { StatusBadge } from '@/components/StatusBadge'
+import { formatMatchKickoffArgentina } from '@/lib/match-datetime'
 import { generateRandomKnockoutPredictions } from '@/app/(app)/fixture/actions'
 import { deleteRealPredictionsByMatchIds, deleteVirtualKnockoutPredictionsByMatchIds, saveRealPredictions, saveVirtualKnockoutPredictions } from './actions'
 import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups, assignBestThirdsToSlots, getPendingGroupTiebreakers, isVirtualKnockoutMatch } from '@/lib/bracket'
@@ -208,7 +207,7 @@ function BracketMatchCard({
   const awayFmt = awayPH ? formatPlaceholder(awayTeam) : null
 
   const stageLabel = ROUND_LABELS[match.stage] ?? match.stage
-  const kickoffStr = format(new Date(match.scheduled_at), 'EEE d MMM · HH:mm', { locale: es })
+  const kickoffStr = formatMatchKickoffArgentina(match.scheduled_at)
   const hasPrediction = home !== '' && away !== ''
   const isDrawPred = hasPrediction && Number(home) === Number(away)
 

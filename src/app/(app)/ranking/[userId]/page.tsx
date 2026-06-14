@@ -1,7 +1,5 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/server'
 import {
   buildAuditedRankingEntries,
@@ -16,6 +14,7 @@ import { TournamentBracket } from '@/components/TournamentBracket'
 import { GroupStandingsTables, type GroupTableSection } from '@/components/GroupStandingsTables'
 import { flagUrl, getTeam } from '@/lib/teams'
 import { buildGroupTableRows, buildOfficialGroupScoreMap } from '@/lib/group-standings'
+import { formatMatchDateTimeArgentina, formatMatchDayKeyArgentina } from '@/lib/match-datetime'
 
 export const dynamic = 'force-dynamic'
 
@@ -494,7 +493,7 @@ function MatchAuditCard({
   viewerTiebreaker?: string | null
   isOwnProfile: boolean
   showViewerPrediction?: boolean
-  variant?: 'full' | 'compact'
+  variant?: 'full' | 'compact' | 'upcoming'
 }) {
   const isGroup = row.stage === 'group'
   const targetPrediction = row.prediction
@@ -531,6 +530,61 @@ function MatchAuditCard({
     : undefined
   const comparisonParts = isGroup ? [] : knockoutComparisonParts(row, viewerRow, targetTiebreaker, viewerTiebreaker, isOwnProfile)
 
+  if (variant === 'upcoming') {
+    const stateLabel = row.match.status === 'live' ? 'En vivo' : 'Proximo'
+    const stateColor = row.match.status === 'live' ? '#FF6B6B' : '#D7DEE8'
+    const officialPreview = row.match.status === 'live' && row.match.home_score != null && row.match.away_score != null
+      ? row.officialScore
+      : 'Pendiente'
+
+    return (
+      <div className="px-4 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div
+          className={
+            showViewerPrediction
+              ? 'grid gap-3 min-[900px]:grid-cols-[minmax(260px,1fr)_128px_128px_128px_76px] min-[900px]:items-center min-[1120px]:grid-cols-[minmax(300px,1fr)_164px_164px_164px_92px]'
+              : 'grid gap-3 min-[720px]:grid-cols-[minmax(260px,1fr)_128px_128px_76px] min-[720px]:items-center min-[1040px]:grid-cols-[minmax(300px,1fr)_172px_172px_92px]'
+          }
+        >
+          <div className="min-w-0">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <p className="min-w-0 truncate text-[13px] font-extrabold text-white">
+                {isGroup ? `${row.match.home_team} vs ${row.match.away_team}` : `${row.officialHome} vs ${row.officialAway}`}
+              </p>
+              <span
+                className="inline-flex rounded-full px-2 py-0.5 font-mono text-[9px] font-extrabold uppercase tracking-[0.12em]"
+                style={{ color: stateColor, background: '#101010', border: `1px solid ${stateColor}33` }}
+              >
+                {stateLabel}
+              </span>
+            </div>
+            <p className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-muted">
+              {row.stage === 'group' && row.match.group ? `Grupo ${row.match.group}` : STAGE_LABELS[row.stage]} · {formatMatchDateTimeArgentina(row.match.scheduled_at, { includeYear: true, separator: ' - ' })}
+            </p>
+          </div>
+
+          <div className="grid h-12 min-w-0 place-items-center rounded-[10px] bg-[#0d0d0d] px-3 text-center font-display text-[18px] leading-none text-white tabular-nums" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+            {officialPreview}
+          </div>
+          <div className="grid h-12 min-w-0 place-items-center rounded-[10px] bg-[#0d0d0d] px-3 text-center font-display text-[22px] leading-none text-white tabular-nums" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+            {formatPredictionScore(targetPrediction) ?? '-'}
+          </div>
+          {showViewerPrediction && (
+            <div className="grid h-12 min-w-0 place-items-center rounded-[10px] bg-[#0d0d0d] px-3 text-center font-display text-[22px] leading-none text-white tabular-nums" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+              {formatPredictionScore(viewerPrediction) ?? '-'}
+            </div>
+          )}
+
+          <div className="flex items-center justify-end">
+            <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ color: stateColor }}>
+              {stateLabel}
+            </span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (variant === 'compact') {
     const pointColor = STATUS_LABELS[row.status].color
     return (
@@ -550,7 +604,7 @@ function MatchAuditCard({
               <ResultBadge status={row.status} />
             </div>
             <p className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-muted">
-              {row.stage === 'group' && row.match.group ? `Grupo ${row.match.group}` : STAGE_LABELS[row.stage]} · {format(new Date(row.match.scheduled_at), 'd MMM · HH:mm', { locale: es })}
+              {row.stage === 'group' && row.match.group ? `Grupo ${row.match.group}` : STAGE_LABELS[row.stage]} · {formatMatchDateTimeArgentina(row.match.scheduled_at, { separator: ' · ' })}
             </p>
           </div>
 
@@ -586,9 +640,9 @@ function MatchAuditCard({
       <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
         <div className="min-w-0">
           {isGroup ? (
-            <div className="grid min-w-0 gap-2 text-[13px] font-extrabold text-white min-[560px]:grid-cols-[1fr_auto_1fr] min-[560px]:items-center">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 text-[13px] font-extrabold text-white">
               <TeamChip name={row.match.home_team} />
-              <span className="hidden text-center font-display text-[11px] tracking-[0.16em] text-muted min-[560px]:block">VS</span>
+              <span className="font-display text-[11px] tracking-[0.16em] text-muted">VS</span>
               <TeamChip name={row.match.away_team} />
             </div>
           ) : (
@@ -604,7 +658,7 @@ function MatchAuditCard({
             </>
           )}
           <p className="font-mono text-[10px] text-muted mt-2">
-            {format(new Date(row.match.scheduled_at), 'd MMM yyyy - HH:mm', { locale: es })}
+            {formatMatchDateTimeArgentina(row.match.scheduled_at, { includeYear: true, separator: ' - ' })}
           </p>
         </div>
         {isGroup && <div className="flex flex-wrap items-center gap-3 lg:justify-end">
@@ -627,7 +681,7 @@ function MatchAuditCard({
               {part.label}
             </span>
           ))}
-          {showScoring ? (
+          {showScoring && row.points != null ? (
             <p className="font-display text-[22px] leading-none tabular-nums">
               {row.points ?? 0}
               <span className="font-mono text-[10px] font-bold tracking-[0.14em] uppercase ml-1 text-muted">pts</span>
@@ -704,7 +758,7 @@ function MatchAuditCard({
               {part.label}
             </span>
           ))}
-          {showScoring ? (
+          {showScoring && row.points != null ? (
             <p className="ml-auto font-display text-[22px] leading-none tabular-nums">
               {row.points ?? 0}
               <span className="font-mono text-[10px] font-bold tracking-[0.14em] uppercase ml-1 text-muted">pts</span>
@@ -906,6 +960,17 @@ function ProdeOverview({
   const scoredRows = rows
     .filter((row) => row.match.status === 'finished' && row.points != null)
     .sort((a, b) => new Date(a.match.scheduled_at).getTime() - new Date(b.match.scheduled_at).getTime())
+  const now = new Date()
+  const todayKey = formatMatchDayKeyArgentina(now)
+  const tomorrowKey = formatMatchDayKeyArgentina(new Date(now.getTime() + 24 * 60 * 60 * 1000))
+  const futureRows = rows
+    .filter((row) => row.match.status !== 'finished')
+    .sort((a, b) => new Date(a.match.scheduled_at).getTime() - new Date(b.match.scheduled_at).getTime())
+  const nearFutureRows = futureRows.filter((row) => {
+    const dayKey = formatMatchDayKeyArgentina(row.match.scheduled_at)
+    return dayKey === todayKey || dayKey === tomorrowKey
+  })
+  const upcomingRows = (nearFutureRows.length >= 3 ? nearFutureRows : futureRows).slice(0, 6)
 
   return (
     <div className="space-y-5">
@@ -996,6 +1061,56 @@ function ProdeOverview({
         ) : (
           <p className="rounded-[14px] bg-[#141414] px-4 py-4 text-[13px] font-semibold text-muted" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
             Todavia no hay partidos finalizados para auditar.
+          </p>
+        )}
+      </section>
+      <section className="rounded-[18px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <p className="font-extrabold text-white">Proximos partidos</p>
+            <p className="mt-1 text-[12px] font-semibold leading-relaxed text-muted">
+              Estos son los proximos partidos con el pronostico del participante y tu comparacion.
+            </p>
+          </div>
+          <span className="rounded-full px-3 py-1.5 font-mono text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#D7DEE8' }}>
+            {upcomingRows.length}
+          </span>
+        </div>
+
+        {upcomingRows.length > 0 ? (
+          <div className="overflow-hidden rounded-[16px]" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div
+              className={
+                showViewerPrediction
+                  ? 'hidden px-4 py-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted min-[900px]:grid min-[900px]:grid-cols-[minmax(260px,1fr)_128px_128px_128px_76px] min-[1120px]:grid-cols-[minmax(300px,1fr)_164px_164px_164px_92px]'
+                  : 'hidden px-4 py-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted min-[720px]:grid min-[720px]:grid-cols-[minmax(260px,1fr)_128px_128px_76px] min-[1040px]:grid-cols-[minmax(300px,1fr)_172px_172px_92px]'
+              }
+              style={{ background: '#101010', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <span>Partido</span>
+              <span className="text-center">Oficial</span>
+              <span className="text-center">{isOwnProfile ? 'Tu pronostico' : 'Su pronostico'}</span>
+              {showViewerPrediction && <span className="text-center">Mi pronostico</span>}
+              <span className="text-right">Estado</span>
+            </div>
+            {upcomingRows.map((row) => (
+              <MatchAuditCard
+                key={row.match.id}
+                row={row}
+                showScoring={false}
+                viewerPrediction={viewerPredictionByMatch.get(row.match.id)}
+                viewerRow={viewerRowByMatch.get(row.match.id)}
+                targetTiebreaker={userTiebreakerMap[row.match.id]}
+                viewerTiebreaker={viewerTiebreakerMap[row.match.id]}
+                isOwnProfile={isOwnProfile}
+                showViewerPrediction={showViewerPrediction}
+                variant="upcoming"
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-[14px] bg-[#141414] px-4 py-4 text-[13px] font-semibold text-muted" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+            Todavia no hay proximos partidos para auditar.
           </p>
         )}
       </section>

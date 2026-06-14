@@ -2,11 +2,10 @@
 
 import { useRef, useState, useTransition, useEffect } from 'react'
 import { Pencil } from 'lucide-react'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
 import { StatusBadge } from './StatusBadge'
 import { getTeam, flagUrl } from '@/lib/teams'
 import { deletePrediction, upsertPrediction } from '@/app/(app)/fixture/actions'
+import { formatMatchKickoffArgentina } from '@/lib/match-datetime'
 import { normalizeScoreInput, parseScoreInput } from '@/lib/score-input'
 import type { Match } from '@/types'
 
@@ -113,6 +112,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
   const isOpen = match.status === 'upcoming' && now < lockedAt && !readOnly
   const hasRealScore = (match.status === 'finished' || match.status === 'live')
     && match.home_score != null && match.away_score != null
+  const hasFinalScore = match.status === 'finished' && match.home_score != null && match.away_score != null
   const isInputLocked = !isOpen
 
   const [home, setHome] = useState(initialHome ?? prediction?.home_score?.toString() ?? '')
@@ -204,14 +204,14 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
   const homeTeam = getTeam(match.home_team)
   const awayTeam = getTeam(match.away_team)
   const groupLabel = match.group ? `GRUPO ${match.group}` : match.stage.replace('_', ' ').toUpperCase()
-  const kickoffStr = format(new Date(match.scheduled_at), "EEE d MMM · HH:mm", { locale: es })
+  const kickoffStr = formatMatchKickoffArgentina(match.scheduled_at)
 
   const hasPrediction = home !== '' && away !== ''
   const predObj = hasPrediction
     ? { home_score: Number(home), away_score: Number(away) }
     : null
   const ptsBadge =
-    showPrediction && hasRealScore && predObj && match.home_score != null && match.away_score != null
+    showPrediction && hasFinalScore && predObj && match.home_score != null && match.away_score != null
       ? calcPoints(predObj, { home_score: match.home_score, away_score: match.away_score })
       : null
   const pendingText = pendingOfficialText(match, now)
@@ -321,7 +321,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
             {/* Resultado final */}
             <div>
               <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] mb-[5px]" style={{ color: '#9a9a9a' }}>
-                Resultado final
+                {match.status === 'live' ? 'Resultado parcial' : 'Resultado final'}
               </p>
               <div
                 className="flex items-center justify-center rounded-[12px]"
