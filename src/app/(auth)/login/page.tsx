@@ -198,7 +198,7 @@ export default function LoginPage() {
               Este no es un registro abierto. Elegí tu cuenta de Google solamente si ya nos escribiste y tu correo fue habilitado para prueba o participación oficial.
             </p>
             <p className="mt-3 rounded-[14px] bg-mint/10 px-4 py-3 text-[12px] font-bold leading-relaxed text-mint">
-              Iniciar sesión con Google solo valida si tu correo ya está autorizado. No crea una cuenta ni una inscripción nueva.
+              Iniciar sesión con Google solo valida si tu correo ya está autorizado. No crea una cuenta nueva.
             </p>
           </div>
 

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { MessageCircle, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { useState } from 'react'
 
 const STORAGE_KEY = 'prode-2026-welcome-seen'
@@ -51,9 +51,8 @@ export function WelcomeModal() {
         </p>
 
         <div className="mt-5 grid gap-3 text-[13px] font-semibold leading-relaxed text-[#d8d8d8]">
-          <p>Si te interesa, escribinos y podemos habilitar temporalmente tu correo para que pruebes el sistema.</p>
-          <p>Durante la prueba podés cargar pronósticos, navegar, explorar y mostrarle la plataforma a tus amigos.</p>
-          <p>Después decidís: si querés participar oficialmente, abonás la inscripción de <strong className="text-white">$20.000</strong>; si no continuás, los administradores pueden deshabilitar el acceso.</p>
+          <p>Podés ver el ranking, el fixture, las reglas, los premios y las estadísticas públicas de pronósticos.</p>
+          <p>Si ya tenés acceso, ingresá con Google para cargar o revisar tu Prode.</p>
           <p>Ingresar con Google <strong className="text-white">no crea una cuenta</strong>: solamente valida si tu correo ya fue autorizado.</p>
         </div>
 
@@ -71,14 +70,6 @@ export function WelcomeModal() {
             className="inline-flex items-center rounded-full border border-white/12 bg-white/5 px-5 py-3 text-[13px] font-extrabold text-white transition-colors hover:bg-white/10"
           >
             Ver premios
-          </Link>
-          <Link
-            href="/#contacto"
-            onClick={closeModal}
-            className="inline-flex items-center gap-2 rounded-full border border-mint/20 bg-mint/10 px-5 py-3 text-[13px] font-extrabold text-mint transition-colors hover:bg-mint/15"
-          >
-            <MessageCircle size={16} aria-hidden="true" />
-            Contacto
           </Link>
         </div>
       </section>

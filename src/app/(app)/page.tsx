@@ -11,6 +11,11 @@ import { formatCurrency } from '@/lib/prode-progress'
 import { getRankingMode, isLiveRankingMode, type RankingMode } from '@/lib/ranking-mode'
 import { formatMatchKickoffArgentina } from '@/lib/match-datetime'
 import {
+  formatAverageScore,
+  formatPickedResult,
+  normalizePredictionInsights,
+} from '@/lib/prediction-insights'
+import {
   computeAllStandings,
   computeBestThirdsGroups,
   getPendingGroupTiebreakers,
@@ -83,11 +88,6 @@ type RankingEntry = {
   participant_status?: 'confirmed' | 'trial'
 }
 
-type PredictionScoreRow = {
-  home_score: number | null
-  away_score: number | null
-}
-
 const OFFICIAL_PRIZES = {
   first: 600000,
   second: 150000,
@@ -117,21 +117,6 @@ function HomeMetricCard({
   )
 }
 
-function outcomeStats(predictions: PredictionScoreRow[]) {
-  const stats = { home: 0, draw: 0, away: 0, total: 0 }
-
-  for (const prediction of predictions) {
-    if (prediction.home_score == null || prediction.away_score == null) continue
-
-    stats.total += 1
-    if (prediction.home_score > prediction.away_score) stats.home += 1
-    else if (prediction.home_score < prediction.away_score) stats.away += 1
-    else stats.draw += 1
-  }
-
-  return stats
-}
-
 function percent(value: number, total: number) {
   if (total <= 0) return 0
   return Math.round((value / total) * 100)
@@ -151,6 +136,26 @@ function PredictionBar({ label, value, total, color }: { label: string; value: n
       <div className="h-2 overflow-hidden rounded-full bg-white/10">
         <div className="h-full rounded-full" style={{ width: `${width}%`, background: color }} />
       </div>
+    </div>
+  )
+}
+
+function InsightMiniCard({
+  label,
+  value,
+  className = '',
+}: {
+  label: string
+  value: string
+  className?: string
+}) {
+  return (
+    <div
+      className={`rounded-[14px] bg-white/[0.035] px-3 py-3 ${className}`}
+      style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+    >
+      <p className="font-mono text-[9px] font-extrabold uppercase tracking-[0.16em] text-muted">{label}</p>
+      <p className="mt-1 text-[13px] font-extrabold leading-snug text-white">{value}</p>
     </div>
   )
 }
@@ -370,19 +375,14 @@ export default async function HomePage() {
   const allUpcoming = (upcoming ?? []) as Match[]
   const nextMatch = allUpcoming.find((match) => match.status !== 'finished') ?? null
   const { data: nextMatchStatsRows } = nextMatch
-  ? await supabase.rpc('get_match_prediction_outcome_stats', {
+  ? await supabase.rpc('get_match_prediction_insights', {
       p_match_id: nextMatch.id,
     })
   : { data: null }
 
 const nextMatchStatsRow = Array.isArray(nextMatchStatsRows) ? nextMatchStatsRows[0] : null
 
-const nextMatchStats = {
-  home_count: Number(nextMatchStatsRow?.home_count ?? 0),
-  draw_count: Number(nextMatchStatsRow?.draw_count ?? 0),
-  away_count: Number(nextMatchStatsRow?.away_count ?? 0),
-  total_count: Number(nextMatchStatsRow?.total_count ?? 0),
-}
+const nextMatchStats = normalizePredictionInsights(nextMatchStatsRow)
 
   const liveRankColors: Record<number, string> = { 1: '#FFE040', 2: '#D7DADF', 3: '#E8A87C' }
   const liveRankingMode = metrics.ranking_mode ?? getRankingMode(metrics.finished_matches_count)
@@ -564,6 +564,42 @@ const nextMatchStats = {
                     <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
                       {nextMatchStats.total_count} pronósticos cargados
                     </p>
+
+                    <div className="grid gap-3 min-[620px]:grid-cols-2">
+                      <InsightMiniCard
+                        label="Resultado más elegido"
+                        value={formatPickedResult(
+                          nextMatchStats.most_picked_home_score,
+                          nextMatchStats.most_picked_away_score,
+                          nextMatchStats.most_picked_count
+                        )}
+                      />
+                      <InsightMiniCard
+                        label="Resultado menos elegido"
+                        value={formatPickedResult(
+                          nextMatchStats.least_picked_home_score,
+                          nextMatchStats.least_picked_away_score,
+                          nextMatchStats.least_picked_count
+                        )}
+                      />
+                      <InsightMiniCard
+                        label="Gol visitante"
+                        value={`${nextMatchStats.away_goal_count} ${
+                          nextMatchStats.away_goal_count === 1 ? 'persona puso' : 'personas pusieron'
+                        } gol de ${nextMatch.away_team}`}
+                      />
+                      <InsightMiniCard
+                        label="Promedio esperado"
+                        value={formatAverageScore(nextMatch.home_team, nextMatch.away_team, nextMatchStats)}
+                      />
+                      <InsightMiniCard
+                        label="Resultados distintos"
+                        value={`${nextMatchStats.distinct_results_count} ${
+                          nextMatchStats.distinct_results_count === 1 ? 'combinación' : 'combinaciones'
+                        }`}
+                        className="min-[620px]:col-span-2"
+                      />
+                    </div>
                   </div>
                 ) : (
                   <p className="mt-3 text-[13px] font-semibold leading-relaxed text-muted">Todavía no hay pronósticos cargados para este partido.</p>

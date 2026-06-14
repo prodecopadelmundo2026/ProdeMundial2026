@@ -35,9 +35,9 @@ function modalCopy(participantStatus: Props['participantStatus'], progress: Prop
       eyebrow: 'Activacion',
       title: 'Recordatorio importante',
       body: [
-        'Si todavia no activaste tu cuenta, tenes tiempo hasta el jueves a las 16:00.',
-        'Despues de ese horario, las cuentas pendientes podran ser deshabilitadas.',
-        'Contactate con quien te vendio el Prode para confirmar tu inscripcion. Si ya pagaste, avisa asi revisamos tu estado.',
+        'Tu cuenta todavia figura como pendiente de confirmacion.',
+        'Hasta que se confirme el estado, algunas funciones pueden quedar limitadas.',
+        'Revisa tu Prode y volve mas tarde para confirmar que el estado se haya actualizado.',
       ],
       cta: 'Ir a Mi Prode',
     }

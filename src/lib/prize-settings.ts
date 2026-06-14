@@ -1,5 +1,3 @@
-import { calculateProjectedPrizes } from './prode-progress'
-
 type PrizeSettingsRpcClient = {
   rpc: (fn: 'get_public_prize_settings') => PromiseLike<{
     data: PrizeSettingsRow[] | PrizeSettingsRow | null
@@ -23,6 +21,12 @@ export type ResolvedPrizes = {
   source: 'manual' | 'estimated'
 }
 
+const OFFICIAL_FALLBACK_PRIZES = {
+  first: 600000,
+  second: 150000,
+  third: 50000,
+} as const
+
 function normalizePrizeSettings(data: PrizeSettingsRow[] | PrizeSettingsRow | null) {
   if (Array.isArray(data)) return data[0] ?? null
   return data ?? null
@@ -35,6 +39,8 @@ export async function getPublicPrizeSettings(supabase: PrizeSettingsRpcClient) {
 }
 
 export function resolvePrizes(confirmedPlayers: number, settings: PrizeSettingsRow | null): ResolvedPrizes {
+  void confirmedPlayers
+
   if (settings) {
     return {
       first: settings.first_prize,
@@ -45,12 +51,11 @@ export function resolvePrizes(confirmedPlayers: number, settings: PrizeSettingsR
     }
   }
 
-  const projected = calculateProjectedPrizes(confirmedPlayers)
   return {
-    first: projected.first,
-    second: projected.second,
-    third: projected.third,
-    multiplier: projected.multiplier,
+    first: OFFICIAL_FALLBACK_PRIZES.first,
+    second: OFFICIAL_FALLBACK_PRIZES.second,
+    third: OFFICIAL_FALLBACK_PRIZES.third,
+    multiplier: null,
     source: 'estimated',
   }
 }

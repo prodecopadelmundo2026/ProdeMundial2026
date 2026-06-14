@@ -5,7 +5,6 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import type { RankingEntry } from '@/types'
 import { formatRank, hasPrizeTie, rankMedal } from '@/lib/ranking-display'
-import { formatPrizePool } from '@/lib/prode-progress'
 
 function initials(name: string): string {
   return name.trim()[0]?.toUpperCase() ?? '?'
@@ -378,10 +377,9 @@ export function RankingClient({
             Antes de los primeros resultados oficiales, esta tabla funciona como listado de participantes y avance de carga.
           </div>
           {summary && (
-            <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
               {[
                 ['Confirmados', summary.confirmedPlayers],
-                ['Pozo actual', summary.prizePoolArs > 0 ? formatPrizePool(summary.confirmedPlayers) : '$0'],
                 ['Prodes completos', summary.completedProdes],
                 ['Con carga pendiente', summary.pendingProdes],
               ].map(([label, value]) => (
