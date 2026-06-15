@@ -15,6 +15,7 @@ type Values = SpecialBetsValues
 
 type Props = {
   initialValues: Values
+  initialRowExists: boolean
   readOnly?: boolean
 }
 
@@ -22,7 +23,7 @@ function onlyLetters(value: string) {
   return value.replace(/[^a-zA-ZÀ-ÿ\s]/g, '')
 }
 
-export function SpecialsTab({ initialValues, readOnly = false }: Props) {
+export function SpecialsTab({ initialValues, initialRowExists, readOnly = false }: Props) {
   const [values, setValues] = useState<Values>(initialValues)
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -37,7 +38,7 @@ export function SpecialsTab({ initialValues, readOnly = false }: Props) {
   }).format(new Date(PRODE_SUBMISSION_CUTOFF_AT))
 
   async function persist(next: Values) {
-    if (readOnly) return
+    if (readOnly && !initialRowExists) return
     try {
       await saveSpecialBets(next)
       setSaveError(null)
@@ -69,7 +70,7 @@ export function SpecialsTab({ initialValues, readOnly = false }: Props) {
   }, [readOnly])
 
   function handleChange(key: Key, raw: string) {
-    if (readOnly) return
+    if (readOnly && (!initialRowExists || Boolean(initialValues[key]))) return
     const cleaned = onlyLetters(raw)
     const next = { ...values, [key]: cleaned }
     setValues(next)
@@ -95,7 +96,9 @@ export function SpecialsTab({ initialValues, readOnly = false }: Props) {
       </div>
 
       <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-[14px]">
-        {AWARDS.map(({ key, label, sub, pts, color, inputLabel }) => (
+        {AWARDS.map(({ key, label, sub, pts, color, inputLabel }) => {
+          const inputLocked = readOnly && (!initialRowExists || Boolean(initialValues[key]))
+          return (
           <article
             key={key}
             className="relative overflow-hidden rounded-[18px] flex flex-col gap-[18px] transition-[transform,border-color] duration-200"
@@ -139,7 +142,7 @@ export function SpecialsTab({ initialValues, readOnly = false }: Props) {
                 id={`sp-${key}`}
                 type="text"
                 value={values[key]}
-                disabled={readOnly}
+                disabled={inputLocked}
                 onChange={(e) => handleChange(key, e.target.value)}
                 placeholder="Nombre del jugador"
                 maxLength={40}
@@ -150,7 +153,7 @@ export function SpecialsTab({ initialValues, readOnly = false }: Props) {
                   padding: '14px 16px',
                 }}
                 onFocus={(e) => {
-                  if (readOnly) return
+                  if (inputLocked) return
                   e.target.style.borderColor = color
                   e.target.style.background = '#0d0d0d'
                   e.target.style.boxShadow = '0 0 0 4px rgba(255,255,255,0.04)'
@@ -168,7 +171,8 @@ export function SpecialsTab({ initialValues, readOnly = false }: Props) {
               )}
             </div>
           </article>
-        ))}
+          )
+        })}
       </div>
 
       <div
@@ -177,7 +181,9 @@ export function SpecialsTab({ initialValues, readOnly = false }: Props) {
       >
         <span className="text-[13px]" style={{ color: '#8A8A8A' }}>
           {readOnly ? (
-            'La carga del Prode ya cerro. Podes consultar tus apuestas, pero ya no editarlas.'
+            initialRowExists
+              ? 'La carga del Prode ya cerro. Solo podes completar campos faltantes, no modificar apuestas ya cargadas.'
+              : 'La carga del Prode ya cerro. No se pueden cargar apuestas especiales nuevas.'
           ) : (
             <>
               Podes editarlas hasta el{' '}

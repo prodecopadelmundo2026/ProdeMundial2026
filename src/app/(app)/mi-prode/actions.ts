@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { assertProdeOpen } from '@/lib/prode-lock'
+import { assertProdeOpen, getProdeLockState } from '@/lib/prode-lock'
 
 type PredictionInput = {
   matchId: string
@@ -36,6 +36,8 @@ export type SpecialBetsValues = {
   bota: string
   guante: string
 }
+
+const CLOSED_COMPLETION_MESSAGE = 'El prode ya está cerrado. Solo podés completar datos faltantes, no modificar pronósticos ya cargados.'
 
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message
@@ -93,7 +95,7 @@ export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockou
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
-  await assertProdeOpen(supabase)
+  const prodeLock = await getProdeLockState(supabase)
 
   const payload = predictions.map((prediction) => {
     assertValidVirtualMatchId(prediction.matchId)
@@ -108,6 +110,50 @@ export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockou
       updated_at: new Date().toISOString(),
     }
   })
+
+  if (prodeLock.locked) {
+    const { data: existingRows, error: existingError } = await supabase
+      .from('virtual_knockout_predictions')
+      .select('virtual_match_id, home_score, away_score, tiebreaker_team')
+      .eq('user_id', user.id)
+      .in('virtual_match_id', payload.map((prediction) => prediction.virtual_match_id))
+
+    if (existingError) throw new Error(existingError.message)
+
+    const existingByMatch = new Map((existingRows ?? []).map((row) => [row.virtual_match_id, row]))
+    let updatedCount = 0
+
+    for (const prediction of payload) {
+      const existing = existingByMatch.get(prediction.virtual_match_id)
+      if (!existing) throw new Error(CLOSED_COMPLETION_MESSAGE)
+      if (existing.home_score !== prediction.home_score || existing.away_score !== prediction.away_score) {
+        throw new Error(CLOSED_COMPLETION_MESSAGE)
+      }
+
+      const nextTiebreaker = cleanTiebreakerTeam(prediction.tiebreaker_team)
+      if (existing.tiebreaker_team) {
+        if (existing.tiebreaker_team !== nextTiebreaker) throw new Error(CLOSED_COMPLETION_MESSAGE)
+        continue
+      }
+      if (!nextTiebreaker) continue
+      if (existing.home_score !== existing.away_score) throw new Error(CLOSED_COMPLETION_MESSAGE)
+
+      const { count, error } = await supabase
+        .from('virtual_knockout_predictions')
+        .update({ tiebreaker_team: nextTiebreaker, updated_at: new Date().toISOString() }, { count: 'exact' })
+        .eq('user_id', user.id)
+        .eq('virtual_match_id', prediction.virtual_match_id)
+
+      if (error) throw new Error(error.message)
+      if ((count ?? 0) !== 1) throw new Error(CLOSED_COMPLETION_MESSAGE)
+      updatedCount += 1
+    }
+
+    revalidatePath('/mi-prode')
+    revalidatePath('/ranking')
+    revalidatePath(`/ranking/${user.id}`)
+    return updatedCount
+  }
 
   console.info('[mi-prode.saveVirtualKnockoutPredictions] payload', {
     userId: user.id,
@@ -142,7 +188,7 @@ export async function saveRealPredictions(predictions: PredictionInput[]) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
-  await assertProdeOpen(supabase)
+  const prodeLock = await getProdeLockState(supabase)
 
   const matchIds = [...new Set(predictions.map((prediction) => {
     assertUuid(prediction.matchId)
@@ -150,6 +196,25 @@ export async function saveRealPredictions(predictions: PredictionInput[]) {
     assertValidScore(prediction.awayScore)
     return prediction.matchId
   }))]
+
+  if (prodeLock.locked) {
+    const { data, error } = await supabase.rpc('save_predictions', {
+      p_predictions: predictions.map((prediction) => ({
+        match_id: prediction.matchId,
+        home_score: prediction.homeScore,
+        away_score: prediction.awayScore,
+        tiebreaker_team: prediction.tiebreakerTeam ?? null,
+      })),
+    })
+
+    if (error) throw new Error(error.message)
+    revalidatePath('/')
+    revalidatePath('/fixture')
+    revalidatePath('/mi-prode')
+    revalidatePath('/ranking')
+    revalidatePath(`/ranking/${user.id}`)
+    return data ?? predictions.length
+  }
 
   const { data: matches, error: matchesError } = await supabase
     .from('matches')
@@ -331,7 +396,7 @@ export async function saveFullProde(input: FullProdeInput) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
-  await assertProdeOpen(supabase)
+  const prodeLock = await getProdeLockState(supabase)
 
   const realPredictions = input.realPredictions.map((prediction) => {
     assertUuid(prediction.matchId)
@@ -349,6 +414,25 @@ export async function saveFullProde(input: FullProdeInput) {
   const deleteVirtualMatchIds = [...new Set(input.deleteVirtualMatchIds ?? [])]
   for (const matchId of deleteRealMatchIds) assertUuid(matchId)
   for (const matchId of deleteVirtualMatchIds) assertValidVirtualMatchId(matchId)
+
+  if (prodeLock.locked) {
+    if (deleteRealMatchIds.length || deleteVirtualMatchIds.length) {
+      throw new Error(CLOSED_COMPLETION_MESSAGE)
+    }
+
+    const [real, virtual] = await Promise.all([
+      realPredictions.length ? saveRealPredictions(realPredictions) : Promise.resolve(0),
+      virtualPredictions.length ? saveVirtualKnockoutPredictions(virtualPredictions) : Promise.resolve(0),
+    ])
+
+    return {
+      real,
+      virtual,
+      tiebreakers: 0,
+      deletedReal: 0,
+      deletedVirtual: 0,
+    }
+  }
 
   const realPayload = realPredictions.map((prediction) => ({
     user_id: user.id,
@@ -475,7 +559,7 @@ export async function saveSpecialBets(values: SpecialBetsValues) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
-  await assertProdeOpen(supabase)
+  const prodeLock = await getProdeLockState(supabase)
 
   const payload = {
     user_id: user.id,
@@ -483,6 +567,30 @@ export async function saveSpecialBets(values: SpecialBetsValues) {
     bota: cleanName(values.bota),
     guante: cleanName(values.guante),
     updated_at: new Date().toISOString(),
+  }
+
+  if (prodeLock.locked) {
+    const closedPayload = {
+      user_id: user.id,
+      balon: payload.balon || null,
+      bota: payload.bota || null,
+      guante: payload.guante || null,
+      updated_at: payload.updated_at,
+    }
+
+    const { count, error } = await supabase
+      .from('special_bets')
+      .update(closedPayload, { count: 'exact' })
+      .eq('user_id', user.id)
+
+    if (error) throw new Error(error.message)
+    if ((count ?? 0) !== 1) throw new Error(CLOSED_COMPLETION_MESSAGE)
+    revalidatePath('/mi-prode')
+    revalidatePath('/ranking')
+    revalidatePath(`/ranking/${user.id}`)
+    revalidatePath('/ranking/[userId]', 'page')
+    revalidatePath('/')
+    return
   }
 
   const { error } = await supabase

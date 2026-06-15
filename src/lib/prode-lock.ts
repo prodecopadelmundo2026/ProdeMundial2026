@@ -50,6 +50,6 @@ export async function getProdeLockState(supabase: SupabaseLike): Promise<ProdeLo
 export async function assertProdeOpen(supabase: SupabaseLike) {
   const state = await getProdeLockState(supabase)
   if (state.locked) {
-    throw new Error('La carga del Prode ya cerro. Podes consultar tus pronosticos, pero ya no editarlos.')
+    throw new Error('El prode ya está cerrado. Solo podés completar datos faltantes, no modificar pronósticos ya cargados.')
   }
 }

@@ -61,6 +61,7 @@ interface Props {
   isAdmin?: boolean
   groupTiebreakerMap?: Record<string, string>
   readOnly?: boolean
+  allowLockedTiebreakerCompletion?: boolean
   clearSignal?: { version: number; stages: string[] }
   openRandomModal?: number
   onKnockoutPredChange?: (matchId: string, home: string, away: string) => void
@@ -159,6 +160,7 @@ function BracketMatchCard({
   initialAway,
   tiebreaker,
   disabled,
+  allowLockedTiebreakerCompletion,
   onValuesChange,
   onTiebreakerChange,
 }: {
@@ -169,6 +171,7 @@ function BracketMatchCard({
   initialAway: string
   tiebreaker?: string
   disabled?: boolean
+  allowLockedTiebreakerCompletion?: boolean
   onValuesChange: (home: string, away: string) => void
   onTiebreakerChange: (team: string | null) => void
 }) {
@@ -210,6 +213,17 @@ function BracketMatchCard({
   const kickoffStr = formatMatchKickoffArgentina(match.scheduled_at)
   const hasPrediction = home !== '' && away !== ''
   const isDrawPred = hasPrediction && Number(home) === Number(away)
+  const canCompleteLockedTiebreaker = Boolean(
+    allowLockedTiebreakerCompletion &&
+    disabled &&
+    match.stage !== 'group' &&
+    hasPrediction &&
+    isDrawPred &&
+    !tiebreaker &&
+    !homePH &&
+    !awayPH
+  )
+  const canEditTiebreaker = isOpen || canCompleteLockedTiebreaker
 
   return (
     <article
@@ -431,7 +445,7 @@ function BracketMatchCard({
       )}
 
       {/* Tiebreaker: knockout draw → pick who advances */}
-      {isOpen && match.stage !== 'group' && hasPrediction && !homePH && !awayPH && isDrawPred && (
+      {canEditTiebreaker && match.stage !== 'group' && hasPrediction && !homePH && !awayPH && isDrawPred && (
         <div
           className="mt-3 rounded-[10px] px-3 py-3"
           style={{ background: '#0A0A0A', border: '1px solid rgba(255,107,0,0.35)' }}
@@ -487,6 +501,7 @@ export function BracketView({
   isAdmin = false,
   groupTiebreakerMap = {},
   readOnly = false,
+  allowLockedTiebreakerCompletion = false,
   clearSignal,
   openRandomModal,
   onKnockoutPredChange,
@@ -1256,6 +1271,7 @@ export function BracketView({
                 initialAway={localInputs[match.id]?.away ?? ''}
                 tiebreaker={tiebreakerMap[match.id]}
                 disabled={!canEditBracket}
+                allowLockedTiebreakerCompletion={allowLockedTiebreakerCompletion}
                 onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
                 onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
               />
@@ -1282,6 +1298,7 @@ export function BracketView({
                 initialAway={localInputs[match.id]?.away ?? ''}
                 tiebreaker={tiebreakerMap[match.id]}
                 disabled={!canEditBracket}
+                allowLockedTiebreakerCompletion={allowLockedTiebreakerCompletion}
                 onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
                 onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
               />

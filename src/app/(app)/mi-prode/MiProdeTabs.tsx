@@ -76,6 +76,7 @@ interface Props {
   isAdmin: boolean
   prodeLocked: boolean
   initialSpecialBets: SpecialBetsValues
+  initialSpecialBetsExists: boolean
 }
 
 export function MiProdeTabs({
@@ -86,6 +87,7 @@ export function MiProdeTabs({
   isAdmin,
   prodeLocked,
   initialSpecialBets,
+  initialSpecialBetsExists,
 }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabId>('grupos')
@@ -250,8 +252,6 @@ export function MiProdeTabs({
   }
 
   function handleSaveFullProde() {
-    if (prodeLocked) return
-
     const partialLabels: string[] = []
     const realPredictions: Array<{ matchId: string; homeScore: number; awayScore: number; tiebreakerTeam?: string | null }> = []
     const virtualPredictions: Array<{ matchId: string; homeScore: number; awayScore: number; tiebreakerTeam?: string | null }> = []
@@ -346,7 +346,7 @@ export function MiProdeTabs({
   }
 
   function handleKnockoutTiebreakerChange(matchId: string, team: string | null) {
-    if (prodeLocked) return
+    if (prodeLocked && (!team || tiebreakerMap[matchId])) return
     setLocalKnockoutTiebreakers((prev) => {
       if (!team) {
         const { [matchId]: _, ...rest } = prev
@@ -914,14 +914,14 @@ export function MiProdeTabs({
         />
       )}
 
-      {!prodeLocked && (
+      {(!prodeLocked || knockoutHasUnsavedChanges) && (
         <div
           className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
           style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
         >
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <p className="font-extrabold text-white text-[13px] leading-snug">Guardar Mi Prode</p>
+            <p className="font-extrabold text-white text-[13px] leading-snug">{prodeLocked ? 'Completar pendientes' : 'Guardar Mi Prode'}</p>
               <span
                 className="rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em]"
                 style={{ background: saveOverview.bg, color: saveOverview.color, border: `1px solid ${saveOverview.border}` }}
@@ -930,7 +930,7 @@ export function MiProdeTabs({
               </span>
             </div>
             <p className="text-[12px] mt-0.5 text-muted">
-              {saveOverview.detail}
+              {prodeLocked ? 'El Prode esta cerrado: solo se guardan datos faltantes permitidos.' : saveOverview.detail}
             </p>
           </div>
           <button
@@ -941,7 +941,7 @@ export function MiProdeTabs({
             style={{ background: '#FF6B00', color: '#0A0A0A' }}
           >
             {globalSaveState === 'saving' && <span className="action-spinner" aria-hidden="true" />}
-            {globalSaveState === 'saving' ? 'Guardando...' : 'Guardar Mi Prode'}
+            {globalSaveState === 'saving' ? 'Guardando...' : prodeLocked ? 'Guardar pendiente' : 'Guardar Mi Prode'}
           </button>
         </div>
       )}
@@ -969,6 +969,7 @@ export function MiProdeTabs({
           isAdmin={isAdmin}
           groupTiebreakerMap={tiebreakers}
           readOnly={prodeLocked}
+          allowLockedTiebreakerCompletion={prodeLocked}
           clearSignal={bracketClearSignal}
           openRandomModal={bracketModalSignal}
           onKnockoutPredChange={handleKnockoutPredChange}
@@ -988,10 +989,10 @@ export function MiProdeTabs({
         />
       </div>
       <div className={activeTab === 'especiales' ? 'page-fade' : undefined} style={{ display: activeTab === 'especiales' ? undefined : 'none' }}>
-        <SpecialsTab initialValues={initialSpecialBets} readOnly={prodeLocked} />
+        <SpecialsTab initialValues={initialSpecialBets} initialRowExists={initialSpecialBetsExists} readOnly={prodeLocked} />
       </div>
 
-      {!prodeLocked && knockoutHasUnsavedChanges && (activeTab === 'eliminatoria' || activeTab === 'llave') && (
+      {knockoutHasUnsavedChanges && (activeTab === 'eliminatoria' || activeTab === 'llave') && (
         <div
           className="fixed inset-x-0 z-[80] flex justify-center px-4 min-[720px]:hidden"
           style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', pointerEvents: 'none' }}
@@ -999,7 +1000,7 @@ export function MiProdeTabs({
           <button
             type="button"
             onClick={handleSaveFullProde}
-            disabled={prodeLocked || globalSaveState === 'saving'}
+            disabled={globalSaveState === 'saving'}
             className="inline-flex min-h-[48px] w-full max-w-[420px] items-center justify-center gap-2 rounded-full px-5 text-[13px] font-extrabold uppercase shadow-2xl transition-transform active:scale-[0.98] disabled:opacity-60"
             style={{
               background: '#FF6B00',

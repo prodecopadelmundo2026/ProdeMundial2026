@@ -252,7 +252,7 @@ export default async function MiProdePage() {
               className="w-fit max-w-full rounded-[14px] px-4 py-2 text-[12px] font-bold leading-snug min-[900px]:ml-4 min-[900px]:max-w-[620px]"
               style={{ background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.22)', color: '#FFB15C' }}
             >
-              La carga del Prode ya cerro. Podes consultar tus pronosticos, pero ya no editarlos.
+              La carga del Prode ya cerro. Solo podes completar datos faltantes, no modificar pronosticos ya cargados.
               {prodeLock.override === 'locked'
                 ? ' Bloqueo manual admin activo.'
                 : prodeLock.automaticLocked
@@ -269,6 +269,7 @@ export default async function MiProdePage() {
           tiebreakerMap={tiebreakerMap}
           isAdmin={Boolean(profile?.is_admin)}
           prodeLocked={prodeLock.locked}
+          initialSpecialBetsExists={Boolean(specialBets)}
           initialSpecialBets={{
             balon: specialBets?.balon ?? '',
             bota: specialBets?.bota ?? '',
