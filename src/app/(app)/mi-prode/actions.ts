@@ -118,6 +118,13 @@ export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockou
     }
   })
 
+  console.info('[mi-prode.saveVirtualKnockoutPredictions] received payload', payload.map((prediction) => ({
+    virtual_match_id: prediction.virtual_match_id,
+    home_score: prediction.home_score,
+    away_score: prediction.away_score,
+    tiebreaker_team: prediction.tiebreaker_team,
+  })))
+
   if (prodeLock.locked) {
     const [
       existingResponse,

@@ -199,7 +199,7 @@ export function MiProdeTabs({
       const next = { ...prev }
       for (const match of projectedKnockoutMatches) {
         if (dirtyKnockoutMatchIds.has(match.id)) continue
-        if (tiebreakerMap[match.id]) next[match.id] = tiebreakerMap[match.id]
+        if (predMap[match.id] && tiebreakerMap[match.id]) next[match.id] = tiebreakerMap[match.id]
         else delete next[match.id]
       }
       return next
@@ -330,6 +330,15 @@ export function MiProdeTabs({
       return
     }
 
+    if (virtualPredictions.length) {
+      console.info('[mi-prode.submit.virtual-payload]', virtualPredictions.map((prediction) => ({
+        virtual_match_id: prediction.matchId,
+        home_score: prediction.homeScore,
+        away_score: prediction.awayScore,
+        tiebreaker_team: prediction.tiebreakerTeam ?? null,
+      })))
+    }
+
     setGlobalSaveState('saving')
     setGlobalSaveError(null)
     startTransition(async () => {
@@ -374,7 +383,11 @@ export function MiProdeTabs({
   }
 
   function handleKnockoutTiebreakerChange(matchId: string, team: string | null) {
-    if (prodeLocked && (!team || tiebreakerMap[matchId])) return
+    if (prodeLocked) {
+      const hasSavedPrediction = Boolean(predMap[matchId])
+      const hasSavedTiebreaker = hasSavedPrediction && Boolean(tiebreakerMap[matchId])
+      if (hasSavedTiebreaker || (hasSavedPrediction && !team)) return
+    }
     setLocalKnockoutTiebreakers((prev) => {
       if (!team) {
         const { [matchId]: _, ...rest } = prev
@@ -523,8 +536,13 @@ export function MiProdeTabs({
   })()
 
   const effectiveKnockoutTiebreakers = useMemo(
-    () => ({ ...tiebreakerMap, ...localKnockoutTiebreakers }),
-    [tiebreakerMap, localKnockoutTiebreakers],
+    () => ({
+      ...Object.fromEntries(
+        Object.entries(tiebreakerMap).filter(([matchId]) => Boolean(predMap[matchId]))
+      ),
+      ...localKnockoutTiebreakers,
+    }),
+    [tiebreakerMap, localKnockoutTiebreakers, predMap],
   )
 
   function toggleDeleteSelection(option: DeleteOption) {
