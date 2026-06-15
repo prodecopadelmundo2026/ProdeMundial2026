@@ -30,8 +30,22 @@ Reglas esperadas:
 
 - Solo admins pueden modificar resultados oficiales.
 - La carga de resultados modifica partidos/resultados oficiales, no predicciones de usuarios.
-- Al cargar o cambiar un resultado oficial, debe dispararse o quedar disponible el recalculo de puntos.
+- Al cargar o cambiar un resultado oficial finalizado, debe dispararse o quedar disponible el recalculo de puntos.
 - Los errores deben mostrarse con detalle suficiente en logs o UI de preview/desarrollo.
+
+## Correccion De Resultados Oficiales
+
+Los administradores deben poder corregir errores humanos de carga sin tocar datos manualmente en Supabase.
+
+Reglas:
+
+- Los partidos `upcoming` deben tener `home_score = null` y `away_score = null`.
+- Si un admin carga por error un partido como `live` o `finished`, puede vaciar los goles, seleccionar `upcoming` y guardar.
+- Si existe un flujo viejo de "Borrar resultado", debe persistir `home_score = null`, `away_score = null` y `status = 'upcoming'`; no alcanza con limpiar inputs visualmente.
+- Los partidos `live` pueden guardar goles validos como marcador parcial, pero no calculan puntos.
+- Los partidos `finished` requieren ambos goles y son los unicos que disparan calculo de puntos.
+- Nunca usar `updated_at` sobre `matches`: esa columna no existe.
+- No convertir goles vacios en `0`: input vacio significa `null`; el texto `"0"` significa numero 0.
 
 ## Herramientas Admin
 

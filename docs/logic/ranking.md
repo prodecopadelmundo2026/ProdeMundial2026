@@ -51,9 +51,17 @@ El perfil no debe permitir modificar predicciones ni resultados.
 
 Cuando se carga o modifica un resultado oficial:
 
-- Se recalculan puntos de predicciones relacionadas.
+- Se recalculan puntos de predicciones relacionadas solo si el partido queda `finished` con ambos goles.
+- Si el partido queda `upcoming` o `live`, no debe sumar puntos; un parcial en vivo no es resultado final.
 - Se actualiza el ranking global.
 - No se deben tocar predicciones originales del usuario.
 - No se deben crear ni borrar participantes.
+
+## Correccion De Resultados Oficiales
+
+- El admin puede corregir un partido cargado por error como `live` y devolverlo a `upcoming`.
+- Borrar un resultado oficial debe persistir goles `null` y `status = 'upcoming'`.
+- Los goles vacios son `null`, no 0.
+- No usar `updated_at` sobre `matches`, porque esa columna no existe.
 
 Pendiente: documentar la funcion o trigger exacto responsable del recalculo cuando quede estabilizado.

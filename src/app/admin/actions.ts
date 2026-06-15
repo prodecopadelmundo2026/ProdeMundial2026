@@ -65,12 +65,20 @@ export async function requireAdmin() {
 
 export async function setMatchResult(
   matchId: string,
-  homeScore: number,
-  awayScore: number,
+  homeScore: number | null,
+  awayScore: number | null,
   status: 'upcoming' | 'live' | 'finished'
 ) {
-  if (!Number.isInteger(homeScore) || homeScore < 0 || homeScore > 99) throw new Error('Goles inválidos')
-  if (!Number.isInteger(awayScore) || awayScore < 0 || awayScore > 99) throw new Error('Goles inválidos')
+  if (homeScore != null && (!Number.isInteger(homeScore) || homeScore < 0 || homeScore > 99)) throw new Error('Goles inválidos')
+  if (awayScore != null && (!Number.isInteger(awayScore) || awayScore < 0 || awayScore > 99)) throw new Error('Goles inválidos')
+
+  if (status === 'finished' && (homeScore == null || awayScore == null)) {
+    throw new Error('Los partidos finalizados requieren ambos goles')
+  }
+
+  if (status === 'live' && (homeScore == null || awayScore == null)) {
+    throw new Error('Los partidos en vivo requieren ambos goles')
+  }
 
   const supabase = await createClient()
   await requireAdmin()
@@ -436,7 +444,7 @@ function buildResolvableGroupUpdates(groupMatches: Match[]) {
 }
 
 function randomKnockoutScore() {
-  let home = randomGroupScore()
+  const home = randomGroupScore()
   let away = randomGroupScore()
   if (home === away) away = (away + 1) % 5
   return { home_score: home, away_score: away }

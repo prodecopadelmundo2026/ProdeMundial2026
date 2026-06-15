@@ -59,6 +59,14 @@ En modo `pre_world_cup` no se deben mostrar exactas, parciales, incorrectas ni "
 
 Los invitados (`status = 'trial'`) se muestran separados y no participan por premios.
 
+## Correccion de resultados oficiales
+
+- Solo se considera resultado oficial valido un partido `status = 'finished'` con `home_score` y `away_score` no nulos.
+- Un partido `upcoming` debe tener goles `NULL`; si el admin borra un resultado cargado por error, debe quedar `status = 'upcoming'`, `home_score = NULL`, `away_score = NULL`.
+- Un partido `live` puede tener marcador parcial, pero no debe iniciar el ranking competitivo ni calcular puntos.
+- No usar `updated_at` sobre `public.matches`; esa columna no existe.
+- No convertir inputs vacios en 0: vacio es `NULL`, `"0"` es 0.
+
 ## Pozo acumulado
 
 El pozo actual se calcula como:

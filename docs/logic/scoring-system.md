@@ -17,7 +17,7 @@ Los valores numericos deben documentarse junto a la funcion real de calculo cuan
 
 ## Triggers Automaticos
 
-Cuando se carga un resultado oficial, el sistema deberia recalcular los puntos de las predicciones afectadas.
+Cuando se carga un resultado oficial finalizado, el sistema deberia recalcular los puntos de las predicciones afectadas.
 
 Responsabilidades esperadas:
 
@@ -25,6 +25,7 @@ Responsabilidades esperadas:
 - Calcular puntos segun resultado oficial.
 - Guardar puntos en `predictions.points` o estructura equivalente.
 - Revalidar vistas dependientes.
+- Si el partido queda `upcoming` o `live`, limpiar o mantener `predictions.points = null`; no calcular puntos.
 
 ## Cuando Recalcula
 
@@ -40,6 +41,16 @@ No debe recalcular por:
 - Borrado de pronosticos propios.
 - Cambios en whitelist.
 - Navegacion entre pantallas.
+- Partidos `upcoming` o `live`, aunque tengan goles parciales cargados.
+
+## Correccion De Resultados Oficiales
+
+- Un partido `upcoming` debe permitir `home_score = null` y `away_score = null`.
+- Si un resultado fue cargado por error, el admin puede borrar ambos goles y volver el partido a `upcoming`.
+- Un marcador parcial `live` no es resultado oficial final y no debe sumar puntos.
+- Un partido `finished` exige ambos goles y recien ahi calcula puntos.
+- No usar `updated_at` en `matches`, porque esa columna no existe.
+- No convertir strings vacios en cero: `""` es `null`, `"0"` es 0.
 
 ## Relacion Resultados Oficiales Y Predicciones
 

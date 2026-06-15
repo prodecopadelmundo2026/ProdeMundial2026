@@ -33,14 +33,27 @@ export function AdminMatchForm({
   const scoresButNotFinished = bothScoresSet && status !== 'finished'
   const isDisabled = Boolean(disabledReason)
 
+  function parseOptionalScore(value: string) {
+    if (value.trim() === '') return null
+    const score = Number(value)
+    if (!Number.isInteger(score) || score < 0 || score > 99) {
+      throw new Error('Goles inválidos')
+    }
+    return score
+  }
+
   function handleScoreChange(field: 'home' | 'away', val: string) {
     if (field === 'home') setHome(val)
     else setAway(val)
     setOk(false)
-    // Auto-select "Finalizado" when both scores are entered and status is still upcoming
-    const otherVal = field === 'home' ? away : home
-    if (val !== '' && otherVal !== '' && status === 'upcoming') {
-      setStatus('finished')
+  }
+
+  function handleStatusChange(nextStatus: Match['status']) {
+    setStatus(nextStatus)
+    setOk(false)
+    if (nextStatus === 'upcoming') {
+      setHome('')
+      setAway('')
     }
   }
 
@@ -49,14 +62,30 @@ export function AdminMatchForm({
     setError(null)
     setOk(false)
 
-    if (home === '' || away === '') {
-      setError('Ingresá ambos goles')
+    let parsedHome: number | null
+    let parsedAway: number | null
+
+    try {
+      parsedHome = parseOptionalScore(home)
+      parsedAway = parseOptionalScore(away)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Goles inválidos')
+      return
+    }
+
+    if (status === 'finished' && (parsedHome == null || parsedAway == null)) {
+      setError('Ingresá ambos goles para finalizar el partido')
+      return
+    }
+
+    if (status === 'live' && (parsedHome == null || parsedAway == null)) {
+      setError('Ingresá ambos goles para marcar el partido en vivo')
       return
     }
 
     startTransition(async () => {
       try {
-        await setMatchResult(match.id, Number(home), Number(away), status)
+        await setMatchResult(match.id, parsedHome, parsedAway, status)
         setOk(true)
         router.refresh()
       } catch (err) {
@@ -155,7 +184,7 @@ export function AdminMatchForm({
           <select
             value={status}
             disabled={isDisabled || isPending}
-            onChange={(e) => { setStatus(e.target.value as Match['status']); setOk(false) }}
+            onChange={(e) => handleStatusChange(e.target.value as Match['status'])}
             style={{
               background: status === 'finished' ? 'rgba(168,240,216,0.08)' : status === 'live' ? 'rgba(255,59,59,0.1)' : '#131313',
               border: scoresButNotFinished

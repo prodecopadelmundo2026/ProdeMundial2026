@@ -29,6 +29,15 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Correccion De Resultados Oficiales
+
+- Los partidos `upcoming` deben guardar goles como `null`.
+- Si un admin carga por error un partido como `live` o `finished`, puede vaciar los goles, seleccionar `upcoming` y guardar.
+- Si existe un flujo viejo de "Borrar resultado", debe persistir `home_score = null`, `away_score = null` y `status = 'upcoming'`.
+- Solo los partidos `finished` disparan calculo de puntos.
+- Nunca usar `updated_at` sobre `matches` porque esa columna no existe.
+- No convertir goles vacios en 0: `""` es `null` y `"0"` es 0.
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
