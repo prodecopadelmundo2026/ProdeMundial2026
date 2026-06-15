@@ -241,7 +241,7 @@ export function MiProdeTabs({
   }
 
   function handleGroupPredChange(matchId: string, home: string, away: string) {
-    if (prodeLocked) return
+    if (prodeLocked && predMap[matchId]) return
     setLocalGroupPreds((prev) => ({ ...prev, [matchId]: { home, away } }))
     setGlobalSaveState('dirty')
     setGlobalSaveError(null)
@@ -338,7 +338,7 @@ export function MiProdeTabs({
   }
 
   function handleKnockoutPredChange(matchId: string, home: string, away: string) {
-    if (prodeLocked) return
+    if (prodeLocked && predMap[matchId]) return
     setLocalKnockoutPreds((prev) => ({ ...prev, [matchId]: { home, away } }))
     setGlobalSaveState('dirty')
     setKnockoutHasUnsavedChanges(true)
@@ -914,7 +914,7 @@ export function MiProdeTabs({
         />
       )}
 
-      {(!prodeLocked || knockoutHasUnsavedChanges) && (
+      {(!prodeLocked || globalSaveState !== 'idle' || knockoutHasUnsavedChanges) && (
         <div
           className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-5 py-4"
           style={{ background: '#101010', border: '1px solid rgba(255,255,255,0.08)' }}
@@ -957,6 +957,7 @@ export function MiProdeTabs({
           tiebreakers={tiebreakers}
           onTiebreaker={handleTiebreaker}
           readOnly={prodeLocked}
+          allowLockedMissingPredictionCompletion={prodeLocked}
         />
 
       </div>
@@ -970,6 +971,7 @@ export function MiProdeTabs({
           groupTiebreakerMap={tiebreakers}
           readOnly={prodeLocked}
           allowLockedTiebreakerCompletion={prodeLocked}
+          allowLockedMissingPredictionCompletion={prodeLocked}
           clearSignal={bracketClearSignal}
           openRandomModal={bracketModalSignal}
           onKnockoutPredChange={handleKnockoutPredChange}

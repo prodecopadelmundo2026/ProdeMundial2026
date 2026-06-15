@@ -104,16 +104,31 @@ type Props = {
   onSaveStateChange?: (state: 'idle' | 'dirty' | 'saving' | 'saved' | 'error') => void
   readOnly?: boolean
   showPrediction?: boolean
+  allowLockedMissingPredictionCompletion?: boolean
 }
 
-export function MatchCard({ match, prediction, noAutosave, initialHome, initialAway, onValuesChange, onSaveStateChange, readOnly, showPrediction = true }: Props) {
+export function MatchCard({
+  match,
+  prediction,
+  noAutosave,
+  initialHome,
+  initialAway,
+  onValuesChange,
+  onSaveStateChange,
+  readOnly,
+  showPrediction = true,
+  allowLockedMissingPredictionCompletion = false,
+}: Props) {
   const now = new Date()
   const lockedAt = new Date(match.locked_at)
-  const isOpen = match.status === 'upcoming' && now < lockedAt && !readOnly
+  const isEditableOpen = match.status === 'upcoming' && now < lockedAt && !readOnly
+  const canCompleteLockedMissingPrediction =
+    Boolean(allowLockedMissingPredictionCompletion && readOnly && !prediction && match.status === 'upcoming')
   const hasRealScore = (match.status === 'finished' || match.status === 'live')
     && match.home_score != null && match.away_score != null
   const hasFinalScore = match.status === 'finished' && match.home_score != null && match.away_score != null
-  const isInputLocked = !isOpen
+  const canEditScore = isEditableOpen || canCompleteLockedMissingPrediction
+  const isInputLocked = !canEditScore
 
   const [home, setHome] = useState(initialHome ?? prediction?.home_score?.toString() ?? '')
   const [away, setAway] = useState(initialAway ?? prediction?.away_score?.toString() ?? '')
@@ -182,7 +197,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
   }
 
   function handleChange(field: 'home' | 'away', val: string) {
-    if (!isOpen) return
+    if (!canEditScore) return
     const nextValue = normalizeScoreInput(val)
     if (field === 'home') setHome(nextValue)
     else setAway(nextValue)
@@ -235,7 +250,7 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
       {/* Strip izquierdo */}
       <span
         className="absolute left-0 top-0 bottom-0 w-1 rounded-l-[18px]"
-        style={{ background: isOpen ? '#FF6B00' : '#3a3a3a' }}
+        style={{ background: canEditScore ? '#FF6B00' : '#3a3a3a' }}
       />
 
       {/* Top row */}
@@ -356,9 +371,9 @@ export function MatchCard({ match, prediction, noAutosave, initialHome, initialA
           )}
 
           {/* Pronóstico editable */}
-          {!readOnly && (
+          {(!readOnly || canEditScore) && (
             <>
-              {isOpen && (
+              {canEditScore && (
                 <div className="mb-2 flex justify-end">
                   <button
                     type="button"

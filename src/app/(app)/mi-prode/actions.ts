@@ -121,11 +121,28 @@ export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockou
     if (existingError) throw new Error(existingError.message)
 
     const existingByMatch = new Map((existingRows ?? []).map((row) => [row.virtual_match_id, row]))
-    let updatedCount = 0
+    let savedCount = 0
 
     for (const prediction of payload) {
       const existing = existingByMatch.get(prediction.virtual_match_id)
-      if (!existing) throw new Error(CLOSED_COMPLETION_MESSAGE)
+      if (!existing) {
+        const { data: virtualIsOpen, error: virtualIsOpenError } = await supabase.rpc(
+          'virtual_knockout_prediction_is_open',
+          { p_virtual_match_id: prediction.virtual_match_id },
+        )
+        if (virtualIsOpenError) throw new Error(virtualIsOpenError.message)
+        if (!virtualIsOpen) throw new Error(CLOSED_COMPLETION_MESSAGE)
+
+        const { count, error } = await supabase
+          .from('virtual_knockout_predictions')
+          .insert(prediction, { count: 'exact' })
+
+        if (error) throw new Error(error.message)
+        if ((count ?? 0) !== 1) throw new Error(CLOSED_COMPLETION_MESSAGE)
+        savedCount += 1
+        continue
+      }
+
       if (existing.home_score !== prediction.home_score || existing.away_score !== prediction.away_score) {
         throw new Error(CLOSED_COMPLETION_MESSAGE)
       }
@@ -146,13 +163,13 @@ export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockou
 
       if (error) throw new Error(error.message)
       if ((count ?? 0) !== 1) throw new Error(CLOSED_COMPLETION_MESSAGE)
-      updatedCount += 1
+      savedCount += 1
     }
 
     revalidatePath('/mi-prode')
     revalidatePath('/ranking')
     revalidatePath(`/ranking/${user.id}`)
-    return updatedCount
+    return savedCount
   }
 
   console.info('[mi-prode.saveVirtualKnockoutPredictions] payload', {
@@ -576,6 +593,28 @@ export async function saveSpecialBets(values: SpecialBetsValues) {
       bota: payload.bota || null,
       guante: payload.guante || null,
       updated_at: payload.updated_at,
+    }
+
+    const { data: existing, error: existingError } = await supabase
+      .from('special_bets')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (existingError) throw new Error(existingError.message)
+
+    if (!existing) {
+      const { error } = await supabase
+        .from('special_bets')
+        .insert(closedPayload)
+
+      if (error) throw new Error(error.message)
+      revalidatePath('/mi-prode')
+      revalidatePath('/ranking')
+      revalidatePath(`/ranking/${user.id}`)
+      revalidatePath('/ranking/[userId]', 'page')
+      revalidatePath('/')
+      return
     }
 
     const { count, error } = await supabase

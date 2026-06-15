@@ -62,6 +62,7 @@ interface Props {
   groupTiebreakerMap?: Record<string, string>
   readOnly?: boolean
   allowLockedTiebreakerCompletion?: boolean
+  allowLockedMissingPredictionCompletion?: boolean
   clearSignal?: { version: number; stages: string[] }
   openRandomModal?: number
   onKnockoutPredChange?: (matchId: string, home: string, away: string) => void
@@ -161,6 +162,7 @@ function BracketMatchCard({
   tiebreaker,
   disabled,
   allowLockedTiebreakerCompletion,
+  allowLockedMissingPredictionCompletion,
   onValuesChange,
   onTiebreakerChange,
 }: {
@@ -172,12 +174,13 @@ function BracketMatchCard({
   tiebreaker?: string
   disabled?: boolean
   allowLockedTiebreakerCompletion?: boolean
+  allowLockedMissingPredictionCompletion?: boolean
   onValuesChange: (home: string, away: string) => void
   onTiebreakerChange: (team: string | null) => void
 }) {
   const now = new Date()
   const lockedAt = new Date(match.locked_at)
-  const isOpen = match.status === 'upcoming' && now < lockedAt && !disabled
+  const isEditableOpen = match.status === 'upcoming' && now < lockedAt && !disabled
   const isLive = match.status === 'live'
   const isFinished = match.status === 'finished'
   const hasRealScore = (isLive || isFinished) && match.home_score != null && match.away_score != null
@@ -193,7 +196,7 @@ function BracketMatchCard({
   }, [initialHome, initialAway, match.id])
 
   function handleChange(field: 'home' | 'away', val: string) {
-    if (!isOpen) return
+    if (!canEditScore) return
     const nextValue = normalizeScoreInput(val)
     const h = field === 'home' ? nextValue : home
     const a = field === 'away' ? nextValue : away
@@ -213,6 +216,16 @@ function BracketMatchCard({
   const kickoffStr = formatMatchKickoffArgentina(match.scheduled_at)
   const hasPrediction = home !== '' && away !== ''
   const isDrawPred = hasPrediction && Number(home) === Number(away)
+  const canCompleteLockedMissingScore = Boolean(
+    allowLockedMissingPredictionCompletion &&
+    disabled &&
+    match.status === 'upcoming' &&
+    initialHome === '' &&
+    initialAway === '' &&
+    !homePH &&
+    !awayPH
+  )
+  const canEditScore = isEditableOpen || canCompleteLockedMissingScore
   const canCompleteLockedTiebreaker = Boolean(
     allowLockedTiebreakerCompletion &&
     disabled &&
@@ -223,7 +236,7 @@ function BracketMatchCard({
     !homePH &&
     !awayPH
   )
-  const canEditTiebreaker = isOpen || canCompleteLockedTiebreaker
+  const canEditTiebreaker = isEditableOpen || canCompleteLockedTiebreaker || canCompleteLockedMissingScore
 
   return (
     <article
@@ -244,7 +257,7 @@ function BracketMatchCard({
       {/* Left strip */}
       <span
         className="absolute left-0 top-0 bottom-0 w-1 rounded-l-[18px]"
-        style={{ background: isOpen ? '#FF6B00' : '#3a3a3a' }}
+        style={{ background: canEditScore || canEditTiebreaker ? '#FF6B00' : '#3a3a3a' }}
       />
 
       {/* Top row */}
@@ -356,7 +369,7 @@ function BracketMatchCard({
       ) : (
         /* Score inputs — partido abierto */
         <>
-        {isOpen && (
+        {canEditScore && (
           <div className="mb-2 flex justify-end">
             <button
               type="button"
@@ -374,7 +387,7 @@ function BracketMatchCard({
           style={{
             gridTemplateColumns: '1fr auto 1fr',
             gap: '8px',
-            background: isOpen ? '#0A0A0A' : '#0d0d0d',
+            background: canEditScore ? '#0A0A0A' : '#0d0d0d',
             border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: '12px',
             padding: '5px',
@@ -387,14 +400,14 @@ function BracketMatchCard({
             pattern="[0-9]*"
             maxLength={2}
             value={home}
-            disabled={!isOpen}
+            disabled={!canEditScore}
             onChange={(e) => handleChange('home', e.target.value)}
             placeholder="–"
             aria-label={`Goles ${homeTeam}`}
             className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
-            style={isOpen ? undefined : { cursor: 'not-allowed' }}
+            style={canEditScore ? undefined : { cursor: 'not-allowed' }}
             onFocus={(e) => {
-              if (isOpen) {
+              if (canEditScore) {
                 keepCardComfortablyVisible(cardRef.current)
                 e.target.style.background = 'rgba(255,107,0,0.12)'
                 e.target.style.boxShadow = 'inset 0 0 0 2px #FF6B00'
@@ -417,14 +430,14 @@ function BracketMatchCard({
             pattern="[0-9]*"
             maxLength={2}
             value={away}
-            disabled={!isOpen}
+            disabled={!canEditScore}
             onChange={(e) => handleChange('away', e.target.value)}
             placeholder="–"
             aria-label={`Goles ${awayTeam}`}
             className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
-            style={isOpen ? undefined : { cursor: 'not-allowed' }}
+            style={canEditScore ? undefined : { cursor: 'not-allowed' }}
             onFocus={(e) => {
-              if (isOpen) {
+              if (canEditScore) {
                 keepCardComfortablyVisible(cardRef.current)
                 e.target.style.background = 'rgba(255,107,0,0.12)'
                 e.target.style.boxShadow = 'inset 0 0 0 2px #FF6B00'
@@ -502,6 +515,7 @@ export function BracketView({
   groupTiebreakerMap = {},
   readOnly = false,
   allowLockedTiebreakerCompletion = false,
+  allowLockedMissingPredictionCompletion = false,
   clearSignal,
   openRandomModal,
   onKnockoutPredChange,
@@ -1272,6 +1286,7 @@ export function BracketView({
                 tiebreaker={tiebreakerMap[match.id]}
                 disabled={!canEditBracket}
                 allowLockedTiebreakerCompletion={allowLockedTiebreakerCompletion}
+                allowLockedMissingPredictionCompletion={allowLockedMissingPredictionCompletion}
                 onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
                 onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
               />
@@ -1299,6 +1314,7 @@ export function BracketView({
                 tiebreaker={tiebreakerMap[match.id]}
                 disabled={!canEditBracket}
                 allowLockedTiebreakerCompletion={allowLockedTiebreakerCompletion}
+                allowLockedMissingPredictionCompletion={allowLockedMissingPredictionCompletion}
                 onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
                 onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
               />

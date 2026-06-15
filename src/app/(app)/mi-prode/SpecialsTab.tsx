@@ -25,6 +25,8 @@ function onlyLetters(value: string) {
 
 export function SpecialsTab({ initialValues, initialRowExists, readOnly = false }: Props) {
   const [values, setValues] = useState<Values>(initialValues)
+  const [lockedValues, setLockedValues] = useState<Values>(initialValues)
+  const [rowExists, setRowExists] = useState(initialRowExists)
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -38,9 +40,12 @@ export function SpecialsTab({ initialValues, initialRowExists, readOnly = false 
   }).format(new Date(PRODE_SUBMISSION_CUTOFF_AT))
 
   async function persist(next: Values) {
-    if (readOnly && !initialRowExists) return
     try {
       await saveSpecialBets(next)
+      if (readOnly) {
+        setLockedValues(next)
+        setRowExists(true)
+      }
       setSaveError(null)
       setSaved(true)
       setTimeout(() => setSaved(false), 1800)
@@ -70,7 +75,7 @@ export function SpecialsTab({ initialValues, initialRowExists, readOnly = false 
   }, [readOnly])
 
   function handleChange(key: Key, raw: string) {
-    if (readOnly && (!initialRowExists || Boolean(initialValues[key]))) return
+    if (readOnly && Boolean(lockedValues[key])) return
     const cleaned = onlyLetters(raw)
     const next = { ...values, [key]: cleaned }
     setValues(next)
@@ -97,7 +102,7 @@ export function SpecialsTab({ initialValues, initialRowExists, readOnly = false 
 
       <div className="grid grid-cols-1 min-[780px]:grid-cols-3 gap-[14px]">
         {AWARDS.map(({ key, label, sub, pts, color, inputLabel }) => {
-          const inputLocked = readOnly && (!initialRowExists || Boolean(initialValues[key]))
+          const inputLocked = readOnly && Boolean(lockedValues[key])
           return (
           <article
             key={key}
@@ -181,9 +186,9 @@ export function SpecialsTab({ initialValues, initialRowExists, readOnly = false 
       >
         <span className="text-[13px]" style={{ color: '#8A8A8A' }}>
           {readOnly ? (
-            initialRowExists
+            rowExists
               ? 'La carga del Prode ya cerro. Solo podes completar campos faltantes, no modificar apuestas ya cargadas.'
-              : 'La carga del Prode ya cerro. No se pueden cargar apuestas especiales nuevas.'
+              : 'La carga del Prode ya cerro. Podes completar tus apuestas especiales faltantes.'
           ) : (
             <>
               Podes editarlas hasta el{' '}

@@ -547,9 +547,20 @@ interface Props {
   tiebreakers: Record<string, string>
   onTiebreaker: (key: string, team: string | null) => void
   readOnly?: boolean
+  allowLockedMissingPredictionCompletion?: boolean
 }
 
-export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPredChange, onMatchSaveStateChange, tiebreakers, onTiebreaker, readOnly = false }: Props) {
+export function GroupBatchEditor({
+  grouped,
+  predMap,
+  localGroupPreds,
+  onGroupPredChange,
+  onMatchSaveStateChange,
+  tiebreakers,
+  onTiebreaker,
+  readOnly = false,
+  allowLockedMissingPredictionCompletion = false,
+}: Props) {
   const tabs = sortTabs(Object.keys(grouped))
   const [activeGroup, setActiveGroup] = useState(tabs[0] ?? '')
   const matchesTopRef = useRef<HTMLDivElement>(null)
@@ -748,6 +759,8 @@ export function GroupBatchEditor({ grouped, predMap, localGroupPreds, onGroupPre
                 onValuesChange={(home, away) => onGroupPredChange(match.id, home, away)}
                 onSaveStateChange={(state) => onMatchSaveStateChange?.(match.id, state)}
                 readOnly={readOnly}
+                noAutosave={readOnly}
+                allowLockedMissingPredictionCompletion={allowLockedMissingPredictionCompletion}
               />
             ))}
           </div>
