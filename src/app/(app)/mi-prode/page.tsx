@@ -214,13 +214,15 @@ export default async function MiProdePage() {
 
   const tiebreakerMap = Object.fromEntries(
     [
+      ...predictionTiebreakers
+        .filter((p) => p.tiebreaker_key.startsWith('Grupo ') || p.tiebreaker_key.startsWith('3rd-'))
+        .map((p) => [p.tiebreaker_key, p.team] as const),
       ...userPredictions
         .filter((p) => p.tiebreaker_team)
         .map((p) => [p.match_id, p.tiebreaker_team!] as const),
       ...virtualKnockoutPredictions
         .filter((p) => p.tiebreaker_team)
         .map((p) => [p.virtual_match_id, p.tiebreaker_team!] as const),
-      ...predictionTiebreakers.map((p) => [p.tiebreaker_key, p.team] as const),
     ]
   )
 
