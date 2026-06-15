@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { assertProdeOpen, getProdeLockState } from '@/lib/prode-lock'
+import { findAffectedDownstreamVirtualPredictionIds } from '@/lib/bracket'
+import type { Match } from '@/types'
 
 type PredictionInput = {
   matchId: string
@@ -29,6 +31,11 @@ type FullProdeInput = {
   tiebreakers: TiebreakerInput[]
   deleteRealMatchIds?: string[]
   deleteVirtualMatchIds?: string[]
+}
+
+type SaveVirtualResult = {
+  saved: number
+  deletedAffected: number
 }
 
 export type SpecialBetsValues = {
@@ -91,7 +98,7 @@ function virtualMatchStage(matchId: string) {
 }
 
 export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockoutPredictionInput[]) {
-  if (!predictions.length) return 0
+  if (!predictions.length) return { saved: 0, deletedAffected: 0 }
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
@@ -112,19 +119,83 @@ export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockou
   })
 
   if (prodeLock.locked) {
-    const { data: existingRows, error: existingError } = await supabase
-      .from('virtual_knockout_predictions')
-      .select('virtual_match_id, home_score, away_score, tiebreaker_team')
-      .eq('user_id', user.id)
-      .in('virtual_match_id', payload.map((prediction) => prediction.virtual_match_id))
+    const [
+      existingResponse,
+      allVirtualResponse,
+      realPredictionsResponse,
+      matchesResponse,
+      tiebreakersResponse,
+    ] = await Promise.all([
+      supabase
+        .from('virtual_knockout_predictions')
+        .select('virtual_match_id, home_score, away_score, tiebreaker_team')
+        .eq('user_id', user.id)
+        .in('virtual_match_id', payload.map((prediction) => prediction.virtual_match_id)),
+      supabase
+        .from('virtual_knockout_predictions')
+        .select('virtual_match_id, home_score, away_score, tiebreaker_team')
+        .eq('user_id', user.id),
+      supabase
+        .from('predictions')
+        .select('match_id, home_score, away_score, tiebreaker_team')
+        .eq('user_id', user.id),
+      supabase
+        .from('matches')
+        .select('id, home_team, away_team, home_score, away_score, scheduled_at, locked_at, stage, group, status, created_at'),
+      supabase
+        .from('user_prediction_tiebreakers')
+        .select('tiebreaker_key, team')
+        .eq('user_id', user.id),
+    ])
 
-    if (existingError) throw new Error(existingError.message)
+    if (existingResponse.error) throw new Error(existingResponse.error.message)
+    if (allVirtualResponse.error) throw new Error(allVirtualResponse.error.message)
+    if (realPredictionsResponse.error) throw new Error(realPredictionsResponse.error.message)
+    if (matchesResponse.error) throw new Error(matchesResponse.error.message)
+    if (tiebreakersResponse.error) throw new Error(tiebreakersResponse.error.message)
 
-    const existingByMatch = new Map((existingRows ?? []).map((row) => [row.virtual_match_id, row]))
+    const existingRows = existingResponse.data ?? []
+    const allVirtualRows = allVirtualResponse.data ?? []
+    const realPredictionRows = realPredictionsResponse.data ?? []
+    const allMatches = (matchesResponse.data ?? []) as Match[]
+    const groupMatches = allMatches.filter((match) => match.group)
+    const knockoutMatches = allMatches.filter((match) => !match.group)
+    const beforePredMap: Record<string, { home_score: number; away_score: number }> = {}
+    const beforeTiebreakerMap: Record<string, string> = {}
+
+    for (const prediction of realPredictionRows) {
+      beforePredMap[prediction.match_id] = {
+        home_score: prediction.home_score,
+        away_score: prediction.away_score,
+      }
+      if (prediction.tiebreaker_team) beforeTiebreakerMap[prediction.match_id] = prediction.tiebreaker_team
+    }
+    for (const prediction of allVirtualRows) {
+      beforePredMap[prediction.virtual_match_id] = {
+        home_score: prediction.home_score,
+        away_score: prediction.away_score,
+      }
+      if (prediction.tiebreaker_team) beforeTiebreakerMap[prediction.virtual_match_id] = prediction.tiebreaker_team
+    }
+    for (const tiebreaker of tiebreakersResponse.data ?? []) {
+      if (tiebreaker.team) beforeTiebreakerMap[tiebreaker.tiebreaker_key] = tiebreaker.team
+    }
+
+    const afterPredMap = { ...beforePredMap }
+    const afterTiebreakerMap = { ...beforeTiebreakerMap }
+    const existingVirtualMatchIds = new Set(allVirtualRows.map((row) => row.virtual_match_id))
+    const changedMatchIds: string[] = []
+
+    const existingByMatch = new Map(existingRows.map((row) => [row.virtual_match_id, row]))
     let savedCount = 0
 
     for (const prediction of payload) {
       const existing = existingByMatch.get(prediction.virtual_match_id)
+      const nextTiebreaker = cleanTiebreakerTeam(prediction.tiebreaker_team)
+      if (prediction.home_score === prediction.away_score && !nextTiebreaker) {
+        throw new Error('Elegí quién pasa por desempate antes de guardar.')
+      }
+
       if (!existing) {
         const { data: virtualIsOpen, error: virtualIsOpenError } = await supabase.rpc(
           'virtual_knockout_prediction_is_open',
@@ -139,6 +210,12 @@ export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockou
 
         if (error) throw new Error(error.message)
         if ((count ?? 0) !== 1) throw new Error(CLOSED_COMPLETION_MESSAGE)
+        afterPredMap[prediction.virtual_match_id] = {
+          home_score: prediction.home_score,
+          away_score: prediction.away_score,
+        }
+        if (nextTiebreaker) afterTiebreakerMap[prediction.virtual_match_id] = nextTiebreaker
+        changedMatchIds.push(prediction.virtual_match_id)
         savedCount += 1
         continue
       }
@@ -147,7 +224,6 @@ export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockou
         throw new Error(CLOSED_COMPLETION_MESSAGE)
       }
 
-      const nextTiebreaker = cleanTiebreakerTeam(prediction.tiebreaker_team)
       if (existing.tiebreaker_team) {
         if (existing.tiebreaker_team !== nextTiebreaker) throw new Error(CLOSED_COMPLETION_MESSAGE)
         continue
@@ -163,13 +239,47 @@ export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockou
 
       if (error) throw new Error(error.message)
       if ((count ?? 0) !== 1) throw new Error(CLOSED_COMPLETION_MESSAGE)
+      afterTiebreakerMap[prediction.virtual_match_id] = nextTiebreaker
+      changedMatchIds.push(prediction.virtual_match_id)
       savedCount += 1
+    }
+
+    const affectedMatchIds = changedMatchIds.length
+      ? findAffectedDownstreamVirtualPredictionIds({
+          changedMatchIds,
+          existingVirtualMatchIds,
+          groupMatches,
+          knockoutMatches,
+          beforePredMap,
+          afterPredMap,
+          beforeTiebreakerMap,
+          afterTiebreakerMap,
+        })
+      : []
+
+    let deletedAffected = 0
+    if (affectedMatchIds.length) {
+      const { count, error } = await supabase
+        .from('virtual_knockout_predictions')
+        .delete({ count: 'exact' })
+        .eq('user_id', user.id)
+        .in('virtual_match_id', affectedMatchIds)
+
+      if (error) throw new Error(error.message)
+      deletedAffected = count ?? 0
     }
 
     revalidatePath('/mi-prode')
     revalidatePath('/ranking')
     revalidatePath(`/ranking/${user.id}`)
-    return savedCount
+    return { saved: savedCount, deletedAffected }
+  }
+
+  const hasDrawWithoutTiebreaker = payload.some(
+    (prediction) => prediction.home_score === prediction.away_score && !cleanTiebreakerTeam(prediction.tiebreaker_team)
+  )
+  if (hasDrawWithoutTiebreaker) {
+    throw new Error('Elegí quién pasa por desempate antes de guardar.')
   }
 
   console.info('[mi-prode.saveVirtualKnockoutPredictions] payload', {
@@ -197,7 +307,7 @@ export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockou
   revalidatePath('/mi-prode')
   revalidatePath('/ranking')
   revalidatePath(`/ranking/${user.id}`)
-  return payload.length
+  return { saved: payload.length, deletedAffected: 0 }
 }
 
 export async function saveRealPredictions(predictions: PredictionInput[]) {
@@ -439,15 +549,17 @@ export async function saveFullProde(input: FullProdeInput) {
 
     const [real, virtual] = await Promise.all([
       realPredictions.length ? saveRealPredictions(realPredictions) : Promise.resolve(0),
-      virtualPredictions.length ? saveVirtualKnockoutPredictions(virtualPredictions) : Promise.resolve(0),
+      virtualPredictions.length
+        ? saveVirtualKnockoutPredictions(virtualPredictions)
+        : Promise.resolve({ saved: 0, deletedAffected: 0 } satisfies SaveVirtualResult),
     ])
 
     return {
       real,
-      virtual,
+      virtual: virtual.saved,
       tiebreakers: 0,
       deletedReal: 0,
-      deletedVirtual: 0,
+      deletedVirtual: virtual.deletedAffected,
     }
   }
 

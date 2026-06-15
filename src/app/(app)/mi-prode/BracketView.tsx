@@ -57,6 +57,7 @@ interface Props {
   groupMatches: Match[]
   knockoutMatches: Match[]
   predMap: PredMap
+  savedPredMap?: PredMap
   initialTiebreakerMap?: Record<string, string>
   isAdmin?: boolean
   groupTiebreakerMap?: Record<string, string>
@@ -165,6 +166,7 @@ function BracketMatchCard({
   allowLockedMissingPredictionCompletion,
   onValuesChange,
   onTiebreakerChange,
+  hasSavedPrediction,
 }: {
   match: Match
   homeTeam: string
@@ -175,6 +177,7 @@ function BracketMatchCard({
   disabled?: boolean
   allowLockedTiebreakerCompletion?: boolean
   allowLockedMissingPredictionCompletion?: boolean
+  hasSavedPrediction?: boolean
   onValuesChange: (home: string, away: string) => void
   onTiebreakerChange: (team: string | null) => void
 }) {
@@ -220,8 +223,7 @@ function BracketMatchCard({
     allowLockedMissingPredictionCompletion &&
     disabled &&
     match.status === 'upcoming' &&
-    initialHome === '' &&
-    initialAway === '' &&
+    !hasSavedPrediction &&
     !homePH &&
     !awayPH
   )
@@ -510,6 +512,7 @@ export function BracketView({
   groupMatches,
   knockoutMatches,
   predMap,
+  savedPredMap = predMap,
   initialTiebreakerMap = {},
   isAdmin = false,
   groupTiebreakerMap = {},
@@ -1287,6 +1290,7 @@ export function BracketView({
                 disabled={!canEditBracket}
                 allowLockedTiebreakerCompletion={allowLockedTiebreakerCompletion}
                 allowLockedMissingPredictionCompletion={allowLockedMissingPredictionCompletion}
+                hasSavedPrediction={Boolean(savedPredMap[match.id])}
                 onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
                 onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
               />
@@ -1315,6 +1319,7 @@ export function BracketView({
                 disabled={!canEditBracket}
                 allowLockedTiebreakerCompletion={allowLockedTiebreakerCompletion}
                 allowLockedMissingPredictionCompletion={allowLockedMissingPredictionCompletion}
+                hasSavedPrediction={Boolean(savedPredMap[match.id])}
                 onValuesChange={(home, away) => handleValuesChange(match.id, home, away)}
                 onTiebreakerChange={(team) => handleTiebreaker(match.id, team)}
               />

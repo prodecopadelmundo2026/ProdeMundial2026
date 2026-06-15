@@ -4,6 +4,11 @@ import { THIRD_PLACE_SLOT_ASSIGNMENTS } from './world-cup-2026-third-place'
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type TiebreakerMap = Record<string, string>
 
+export type KnockoutTeamPair = {
+  homeTeam: string
+  awayTeam: string
+}
+
 interface TeamStats {
   name: string
   pts: number
@@ -105,6 +110,11 @@ export function isVirtualKnockoutMatch(match: Pick<Match, 'id'>) {
   return match.id.startsWith('virtual-p')
 }
 
+function virtualPNum(matchId: string) {
+  const match = matchId.match(/^virtual-p(\d+)$/)
+  return match ? Number(match[1]) : null
+}
+
 function createVirtualKnockoutMatch(pNum: number, homeTeam: string, awayTeam: string): Match {
   const scheduledAt = KNOCKOUT_MATCH_DATES[pNum] ?? '2026-06-28T22:00:00.000Z'
   return {
@@ -132,6 +142,114 @@ export function buildProjectedKnockoutMatches(knockoutMatches: Match[]): Match[]
   }
 
   return result.sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+}
+
+function extractReferencedVirtualPNums(placeholders: [string, string]) {
+  return placeholders.flatMap((placeholder) => {
+    const match = placeholder.match(/^(?:Ganador|Perdedor)\s+P(\d+)$/)
+    return match ? [Number(match[1])] : []
+  })
+}
+
+export function getDownstreamVirtualMatchIds(matchIds: string[]) {
+  const queue = matchIds
+    .map(virtualPNum)
+    .filter((pNum): pNum is number => pNum != null)
+  const visited = new Set<number>()
+  const downstream = new Set<number>()
+
+  while (queue.length) {
+    const current = queue.shift()!
+    if (visited.has(current)) continue
+    visited.add(current)
+
+    for (const [pNumString, placeholders] of Object.entries(KNOCKOUT_FIXTURES)) {
+      const pNum = Number(pNumString)
+      if (pNum === current || downstream.has(pNum)) continue
+      if (!extractReferencedVirtualPNums(placeholders).includes(current)) continue
+      downstream.add(pNum)
+      queue.push(pNum)
+    }
+  }
+
+  return [...downstream]
+    .sort((a, b) => a - b)
+    .map((pNum) => `virtual-p${pNum}`)
+}
+
+export function resolveVirtualKnockoutTeams(
+  matchId: string,
+  groupMatches: Match[],
+  knockoutMatches: Match[],
+  predMap: PredMap,
+  tiebreakerMap: TiebreakerMap = {}
+): KnockoutTeamPair | null {
+  const pNum = virtualPNum(matchId)
+  if (pNum == null) return null
+  const fixture = KNOCKOUT_FIXTURES[pNum]
+  if (!fixture) return null
+
+  const allKnockoutMatches = buildProjectedKnockoutMatches(knockoutMatches)
+  const standings = computeAllStandings(groupMatches, predMap, tiebreakerMap)
+  const pMap = buildKnockoutMap(allKnockoutMatches)
+  const bestThirdsGroups = computeBestThirdsGroups(groupMatches, predMap, tiebreakerMap)
+  const thirdSlotAssignment = assignBestThirdsToSlots(bestThirdsGroups)
+
+  return {
+    homeTeam: resolveTeamFull(fixture[0], standings, pMap, predMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment),
+    awayTeam: resolveTeamFull(fixture[1], standings, pMap, predMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment),
+  }
+}
+
+export function findAffectedDownstreamVirtualPredictionIds({
+  changedMatchIds,
+  existingVirtualMatchIds,
+  groupMatches,
+  knockoutMatches,
+  beforePredMap,
+  afterPredMap,
+  beforeTiebreakerMap,
+  afterTiebreakerMap,
+}: {
+  changedMatchIds: string[]
+  existingVirtualMatchIds: Set<string>
+  groupMatches: Match[]
+  knockoutMatches: Match[]
+  beforePredMap: PredMap
+  afterPredMap: PredMap
+  beforeTiebreakerMap: TiebreakerMap
+  afterTiebreakerMap: TiebreakerMap
+}) {
+  const affected: string[] = []
+  const workingAfterPredMap = { ...afterPredMap }
+  const workingAfterTiebreakerMap = { ...afterTiebreakerMap }
+
+  for (const matchId of getDownstreamVirtualMatchIds(changedMatchIds)) {
+    if (!existingVirtualMatchIds.has(matchId)) continue
+
+    const before = resolveVirtualKnockoutTeams(
+      matchId,
+      groupMatches,
+      knockoutMatches,
+      beforePredMap,
+      beforeTiebreakerMap
+    )
+    const after = resolveVirtualKnockoutTeams(
+      matchId,
+      groupMatches,
+      knockoutMatches,
+      workingAfterPredMap,
+      workingAfterTiebreakerMap
+    )
+    if (!before || !after) continue
+    if (before.homeTeam === after.homeTeam && before.awayTeam === after.awayTeam) continue
+
+    affected.push(matchId)
+    delete workingAfterPredMap[matchId]
+    delete workingAfterTiebreakerMap[matchId]
+  }
+
+  return affected
 }
 
 function areStatsTied(a: TeamStats, b: TeamStats) {

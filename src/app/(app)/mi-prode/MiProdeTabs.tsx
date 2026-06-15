@@ -103,6 +103,7 @@ export function MiProdeTabs({
   const [fakeError, setFakeError] = useState<string | null>(null)
   const [globalSaveState, setGlobalSaveState] = useState<SaveState>('idle')
   const [globalSaveError, setGlobalSaveError] = useState<string | null>(null)
+  const [globalSaveNotice, setGlobalSaveNotice] = useState<string | null>(null)
   const [knockoutHasUnsavedChanges, setKnockoutHasUnsavedChanges] = useState(false)
   const [bracketModalSignal, setBracketModalSignal] = useState(0)
   const [tiebreakers, setTiebreakers] = useState<Record<string, string>>(tiebreakerMap)
@@ -245,6 +246,7 @@ export function MiProdeTabs({
     setLocalGroupPreds((prev) => ({ ...prev, [matchId]: { home, away } }))
     setGlobalSaveState('dirty')
     setGlobalSaveError(null)
+    setGlobalSaveNotice(null)
   }
 
   function handleGroupSaveStateChange(matchId: string, state: SaveState) {
@@ -287,6 +289,10 @@ export function MiProdeTabs({
         awayScore,
         tiebreakerTeam: localKnockoutTiebreakers[match.id] ?? tiebreakerMap[match.id] ?? null,
       }
+      if (isVirtual && homeScore === awayScore && !prediction.tiebreakerTeam) {
+        partialLabels.push(`${label} (desempate)`)
+        return
+      }
       if (isVirtual) virtualPredictions.push(prediction)
       else realPredictions.push(prediction)
     }
@@ -328,6 +334,11 @@ export function MiProdeTabs({
           return next
         })
         setGlobalSaveState('saved')
+        setGlobalSaveNotice(
+          result.result.deletedVirtual > 0
+            ? 'Completaste una llave que puede modificar cruces posteriores. Revisá las siguientes rondas y completá los partidos pendientes.'
+            : null
+        )
         setKnockoutHasUnsavedChanges(false)
         router.refresh()
       } catch (error) {
@@ -343,6 +354,7 @@ export function MiProdeTabs({
     setGlobalSaveState('dirty')
     setKnockoutHasUnsavedChanges(true)
     setGlobalSaveError(null)
+    setGlobalSaveNotice(null)
   }
 
   function handleKnockoutTiebreakerChange(matchId: string, team: string | null) {
@@ -357,6 +369,7 @@ export function MiProdeTabs({
     setGlobalSaveState('dirty')
     setKnockoutHasUnsavedChanges(true)
     setGlobalSaveError(null)
+    setGlobalSaveNotice(null)
   }
 
   function handleTabChange(tab: TabId) {
@@ -477,7 +490,7 @@ export function MiProdeTabs({
     if (globalSaveState === 'saved' || groupStatus.allReady) {
       return {
         label: 'Guardado',
-        detail: 'Tus pronosticos cargados quedaron registrados.',
+        detail: globalSaveNotice ?? 'Tus pronosticos cargados quedaron registrados.',
         color: '#A8F0D8',
         bg: 'rgba(168,240,216,0.09)',
         border: 'rgba(168,240,216,0.2)',
@@ -966,6 +979,7 @@ export function MiProdeTabs({
           groupMatches={groupMatches}
           knockoutMatches={projectedKnockoutMatches}
           predMap={effectivePredMap}
+          savedPredMap={predMap}
           initialTiebreakerMap={effectiveKnockoutTiebreakers}
           isAdmin={isAdmin}
           groupTiebreakerMap={tiebreakers}
