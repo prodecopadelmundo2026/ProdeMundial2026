@@ -219,6 +219,14 @@ function BracketMatchCard({
   const kickoffStr = formatMatchKickoffArgentina(match.scheduled_at)
   const hasPrediction = home !== '' && away !== ''
   const isDrawPred = hasPrediction && Number(home) === Number(away)
+  const showTiebreakerWinner = Boolean(
+    match.stage !== 'group' &&
+    hasPrediction &&
+    isDrawPred &&
+    tiebreaker &&
+    !homePH &&
+    !awayPH
+  )
   const canCompleteLockedMissingScore = Boolean(
     allowLockedMissingPredictionCompletion &&
     disabled &&
@@ -489,6 +497,15 @@ function BracketMatchCard({
           </div>
         </div>
       )}
+
+      {showTiebreakerWinner && (
+        <div
+          className="mt-3 rounded-[10px] px-3 py-2 text-[11px] font-extrabold"
+          style={{ background: 'rgba(255,107,0,0.12)', border: '1px solid rgba(255,107,0,0.3)', color: '#FFB15C' }}
+        >
+          Pasa por desempate: <span className="text-white">{tiebreaker}</span>
+        </div>
+      )}
     </article>
   )
 }
@@ -589,16 +606,7 @@ export function BracketView({
   }, [predMap, knockoutMatches])
 
   useEffect(() => {
-    setTiebreakerMap((prev) => {
-      let changed = false
-      const next = { ...prev }
-      for (const [matchId, team] of Object.entries(initialTiebreakerMap)) {
-        if (next[matchId] === team) continue
-        next[matchId] = team
-        changed = true
-      }
-      return changed ? next : prev
-    })
+    setTiebreakerMap(initialTiebreakerMap)
   }, [initialTiebreakerMap])
 
   useEffect(() => {

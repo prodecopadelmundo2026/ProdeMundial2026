@@ -389,6 +389,14 @@ function resolveKnockout(
 
   // Use actual result if available
   if (match.home_score != null && match.away_score != null) {
+    if (match.home_score === match.away_score) {
+      const tb = tiebreakerMap[match.id]
+      if (tb) {
+        if (tb === homeResolved) return type === 'winner' ? homeResolved : awayResolved
+        if (tb === awayResolved) return type === 'winner' ? awayResolved : homeResolved
+      }
+      return fallback
+    }
     const homeWins = match.home_score > match.away_score
     return type === 'winner'
       ? (homeWins ? homeResolved : awayResolved)
@@ -408,10 +416,8 @@ function resolveKnockout(
   if (pred && pred.home_score === pred.away_score) {
     const tb = tiebreakerMap[match.id]
     if (tb) {
-      const homeWins = tb === homeResolved
-      return type === 'winner'
-        ? (homeWins ? homeResolved : awayResolved)
-        : (homeWins ? awayResolved : homeResolved)
+      if (tb === homeResolved) return type === 'winner' ? homeResolved : awayResolved
+      if (tb === awayResolved) return type === 'winner' ? awayResolved : homeResolved
     }
   }
 

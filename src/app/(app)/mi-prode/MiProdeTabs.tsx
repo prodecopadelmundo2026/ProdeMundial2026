@@ -68,6 +68,12 @@ function formatDeleteStages(stages: string[]) {
   return stages.map((stage) => DELETE_STAGE_LABELS[stage] ?? stage).join(', ')
 }
 
+function onlyGroupTiebreakers(map: Record<string, string>) {
+  return Object.fromEntries(
+    Object.entries(map).filter(([key]) => key.startsWith('Grupo ') || key.startsWith('3rd-'))
+  )
+}
+
 interface Props {
   groupMatches: Match[]
   knockoutMatches: Match[]
@@ -106,9 +112,10 @@ export function MiProdeTabs({
   const [globalSaveNotice, setGlobalSaveNotice] = useState<string | null>(null)
   const [knockoutHasUnsavedChanges, setKnockoutHasUnsavedChanges] = useState(false)
   const [bracketModalSignal, setBracketModalSignal] = useState(0)
-  const [tiebreakers, setTiebreakers] = useState<Record<string, string>>(tiebreakerMap)
+  const [tiebreakers, setTiebreakers] = useState<Record<string, string>>(() => onlyGroupTiebreakers(tiebreakerMap))
   const [localKnockoutPreds, setLocalKnockoutPreds] = useState<Record<string, { home: string; away: string }>>({})
   const [localKnockoutTiebreakers, setLocalKnockoutTiebreakers] = useState<Record<string, string>>({})
+  const [dirtyKnockoutMatchIds, setDirtyKnockoutMatchIds] = useState<Set<string>>(() => new Set())
   const [groupSaveStates, setGroupSaveStates] = useState<Record<string, SaveState>>(() => {
     const init: Record<string, SaveState> = {}
     for (const m of groupMatches) {
@@ -176,24 +183,28 @@ export function MiProdeTabs({
   })
 
   useEffect(() => {
-    setTiebreakers((prev) => ({ ...prev, ...tiebreakerMap }))
+    setTiebreakers((prev) => ({ ...prev, ...onlyGroupTiebreakers(tiebreakerMap) }))
     setLocalKnockoutPreds((prev) => {
       const next = { ...prev }
       for (const match of projectedKnockoutMatches) {
+        if (dirtyKnockoutMatchIds.has(match.id)) continue
         if (match.id in next) continue
         const pred = predMap[match.id]
         if (pred) next[match.id] = { home: String(pred.home_score), away: String(pred.away_score) }
+        else delete next[match.id]
       }
       return next
     })
     setLocalKnockoutTiebreakers((prev) => {
       const next = { ...prev }
       for (const match of projectedKnockoutMatches) {
+        if (dirtyKnockoutMatchIds.has(match.id)) continue
         if (tiebreakerMap[match.id]) next[match.id] = tiebreakerMap[match.id]
+        else delete next[match.id]
       }
       return next
     })
-  }, [projectedKnockoutMatches, predMap, tiebreakerMap])
+  }, [projectedKnockoutMatches, predMap, tiebreakerMap, dirtyKnockoutMatchIds])
 
   useEffect(() => {
     setLocalGroupPreds((prev) => {
@@ -283,11 +294,14 @@ export function MiProdeTabs({
         return
       }
 
+      const tiebreakerTeam = isVirtual && !hadSavedPrediction
+        ? (localKnockoutTiebreakers[match.id] ?? null)
+        : (localKnockoutTiebreakers[match.id] ?? tiebreakerMap[match.id] ?? null)
       const prediction = {
         matchId: match.id,
         homeScore,
         awayScore,
-        tiebreakerTeam: localKnockoutTiebreakers[match.id] ?? tiebreakerMap[match.id] ?? null,
+        tiebreakerTeam,
       }
       if (isVirtual && homeScore === awayScore && !prediction.tiebreakerTeam) {
         partialLabels.push(`${label} (desempate)`)
@@ -334,6 +348,7 @@ export function MiProdeTabs({
           return next
         })
         setGlobalSaveState('saved')
+        setDirtyKnockoutMatchIds(new Set())
         setGlobalSaveNotice(
           result.result.deletedVirtual > 0
             ? 'Completaste una llave que puede modificar cruces posteriores. Revisá las siguientes rondas y completá los partidos pendientes.'
@@ -351,6 +366,7 @@ export function MiProdeTabs({
   function handleKnockoutPredChange(matchId: string, home: string, away: string) {
     if (prodeLocked && predMap[matchId]) return
     setLocalKnockoutPreds((prev) => ({ ...prev, [matchId]: { home, away } }))
+    setDirtyKnockoutMatchIds((prev) => new Set(prev).add(matchId))
     setGlobalSaveState('dirty')
     setKnockoutHasUnsavedChanges(true)
     setGlobalSaveError(null)
@@ -366,6 +382,7 @@ export function MiProdeTabs({
       }
       return { ...prev, [matchId]: team }
     })
+    setDirtyKnockoutMatchIds((prev) => new Set(prev).add(matchId))
     setGlobalSaveState('dirty')
     setKnockoutHasUnsavedChanges(true)
     setGlobalSaveError(null)
@@ -1001,7 +1018,7 @@ export function MiProdeTabs({
           groupMatches={groupMatches}
           knockoutMatches={projectedKnockoutMatches}
           predMap={effectivePredMap}
-          tiebreakerMap={{ ...effectiveKnockoutTiebreakers, ...tiebreakers }}
+          tiebreakerMap={{ ...tiebreakers, ...effectiveKnockoutTiebreakers }}
         />
       </div>
       <div className={activeTab === 'especiales' ? 'page-fade' : undefined} style={{ display: activeTab === 'especiales' ? undefined : 'none' }}>

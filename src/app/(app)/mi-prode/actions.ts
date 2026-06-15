@@ -113,7 +113,7 @@ export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockou
       virtual_match_id: prediction.matchId,
       home_score: prediction.homeScore,
       away_score: prediction.awayScore,
-      tiebreaker_team: prediction.tiebreakerTeam ?? null,
+      tiebreaker_team: cleanTiebreakerTeam(prediction.tiebreakerTeam ?? null),
       updated_at: new Date().toISOString(),
     }
   })

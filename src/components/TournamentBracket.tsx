@@ -125,7 +125,7 @@ function getWinner(
   if (!tiebreaker) return null
   if (tiebreaker === homeTeam) return homeTeam
   if (tiebreaker === awayTeam) return awayTeam
-  return tiebreaker
+  return null
 }
 
 function isPlaceholderName(name: string): boolean {
@@ -199,11 +199,13 @@ function TeamRow({
   score,
   won,
   isPH,
+  tiebreakerWon,
 }: {
   name: string
   score?: number
   won: boolean
   isPH: boolean
+  tiebreakerWon?: boolean
 }) {
   const meta = !isPH ? getTeam(name) : null
   return (
@@ -237,6 +239,24 @@ function TeamRow({
       }}>
         {isPH ? shortName(name) : name}
       </span>
+      {tiebreakerWon && (
+        <span
+          title="Pasa por desempate"
+          style={{
+            flexShrink: 0,
+            borderRadius: 999,
+            background: 'rgba(255,107,0,0.16)',
+            border: '1px solid rgba(255,107,0,0.35)',
+            color: '#FFB15C',
+            fontSize: 8,
+            fontWeight: 900,
+            lineHeight: 1,
+            padding: '2px 4px',
+          }}
+        >
+          D
+        </span>
+      )}
       {/* score */}
       {score !== undefined && (
         <span style={{
@@ -261,6 +281,7 @@ function BracketCard({
   homeScore,
   awayScore,
   winner,
+  tiebreakerWinner,
   auditStatus,
 }: {
   homeTeam: string
@@ -268,6 +289,7 @@ function BracketCard({
   homeScore?: number
   awayScore?: number
   winner?: string | null
+  tiebreakerWinner?: string | null
   auditStatus?: 'correct' | 'wrong' | 'pending'
 }) {
   const isPHHome = isPlaceholderName(homeTeam)
@@ -291,9 +313,9 @@ function BracketCard({
       display: 'flex',
       flexDirection: 'column',
     }}>
-      <TeamRow name={homeTeam} score={homeScore} won={homeWon} isPH={isPHHome} />
+      <TeamRow name={homeTeam} score={homeScore} won={homeWon} isPH={isPHHome} tiebreakerWon={tiebreakerWinner === homeTeam} />
       <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', flexShrink: 0 }} />
-      <TeamRow name={awayTeam} score={awayScore} won={awayWon} isPH={isPHAway} />
+      <TeamRow name={awayTeam} score={awayScore} won={awayWon} isPH={isPHAway} tiebreakerWon={tiebreakerWinner === awayTeam} />
     </div>
   )
 }
@@ -512,9 +534,7 @@ export function TournamentBracket({
       if (!tiebreaker) return fallback
       if (tiebreaker === home) return knockout[1] === 'Ganador' ? home : away
       if (tiebreaker === away) return knockout[1] === 'Ganador' ? away : home
-      return knockout[1] === 'Ganador'
-        ? tiebreaker
-        : fallback
+      return fallback
     }
 
     const homeWins = score.home_score > score.away_score
@@ -541,6 +561,7 @@ export function TournamentBracket({
     const homeScore = pred?.home_score
     const awayScore = pred?.away_score
     const winner    = getWinner(homeTeam, awayTeam, pred, tb)
+    const tiebreakerWinner = pred && pred.home_score === pred.away_score ? normalizeTiebreakerTeam(tb) : null
 
     // Audit comparison
     let auditStatus: 'correct' | 'wrong' | 'pending' | undefined
@@ -561,7 +582,7 @@ export function TournamentBracket({
       }
     }
 
-    return { homeTeam, awayTeam, homeScore, awayScore, winner, auditStatus }
+    return { homeTeam, awayTeam, homeScore, awayScore, winner, tiebreakerWinner, auditStatus }
   }
 
   const finalData = getMatchData(FINAL_P)
@@ -589,6 +610,7 @@ export function TournamentBracket({
           homeScore={d.homeScore}
           awayScore={d.awayScore}
           winner={d.winner}
+          tiebreakerWinner={d.tiebreakerWinner}
           auditStatus={d.auditStatus}
         />
       </div>
@@ -669,6 +691,7 @@ export function TournamentBracket({
                 homeScore={finalData.homeScore}
                 awayScore={finalData.awayScore}
                 winner={finalData.winner}
+                tiebreakerWinner={finalData.tiebreakerWinner}
                 auditStatus={finalData.auditStatus}
               />
             </div>
@@ -699,6 +722,7 @@ export function TournamentBracket({
                 homeScore={thirdData.homeScore}
                 awayScore={thirdData.awayScore}
                 winner={thirdData.winner}
+                tiebreakerWinner={thirdData.tiebreakerWinner}
                 auditStatus={thirdData.auditStatus}
               />
             </div>
