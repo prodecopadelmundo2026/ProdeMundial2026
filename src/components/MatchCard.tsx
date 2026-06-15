@@ -12,6 +12,7 @@ import type { Match } from '@/types'
 type Prediction = { home_score: number; away_score: number }
 type PtsType = 'exact' | 'partial' | 'miss'
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
+const LATE_PREDICTION_MESSAGE = 'No podés cargar pronósticos de partidos que ya empezaron o finalizaron.'
 
 function focusNextScoreInput(current: HTMLInputElement) {
   const inputs = Array.from(
@@ -120,10 +121,11 @@ export function MatchCard({
   allowLockedMissingPredictionCompletion = false,
 }: Props) {
   const now = new Date()
-  const lockedAt = new Date(match.locked_at)
-  const isEditableOpen = match.status === 'upcoming' && now < lockedAt && !readOnly
+  const scheduledAt = new Date(match.scheduled_at)
+  const hasStartedOrFinished = match.status !== 'upcoming' || now >= scheduledAt
+  const isEditableOpen = !hasStartedOrFinished && !readOnly
   const canCompleteLockedMissingPrediction =
-    Boolean(allowLockedMissingPredictionCompletion && readOnly && !prediction && match.status === 'upcoming')
+    Boolean(allowLockedMissingPredictionCompletion && readOnly && !prediction && !hasStartedOrFinished)
   const hasRealScore = (match.status === 'finished' || match.status === 'live')
     && match.home_score != null && match.away_score != null
   const hasFinalScore = match.status === 'finished' && match.home_score != null && match.away_score != null
@@ -354,6 +356,11 @@ export function MatchCard({
               <PtsBadge pts={ptsBadge.pts} type={ptsBadge.type} />
             </div>
           )}
+          {hasStartedOrFinished && (
+            <p className="mt-[10px] rounded-[10px] px-3 py-2 text-[11px] font-bold" style={{ background: 'rgba(255,255,255,0.04)', color: '#9a9a9a', border: '1px solid rgba(255,255,255,0.06)' }}>
+              {LATE_PREDICTION_MESSAGE}
+            </p>
+          )}
         </>
       ) : (
         <>
@@ -463,7 +470,18 @@ export function MatchCard({
                   <SaveStateLabel state={saveState} />
                 </div>
               )}
+              {hasStartedOrFinished && (
+                <p className="mt-[10px] rounded-[10px] px-3 py-2 text-[11px] font-bold" style={{ background: 'rgba(255,255,255,0.04)', color: '#9a9a9a', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  {LATE_PREDICTION_MESSAGE}
+                </p>
+              )}
             </>
+          )}
+
+          {hasStartedOrFinished && readOnly && !canEditScore && (
+            <p className="mt-[10px] rounded-[10px] px-3 py-2 text-[11px] font-bold" style={{ background: 'rgba(255,255,255,0.04)', color: '#9a9a9a', border: '1px solid rgba(255,255,255,0.06)' }}>
+              {LATE_PREDICTION_MESSAGE}
+            </p>
           )}
 
           <div className="mt-[10px]">

@@ -74,6 +74,7 @@ const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'third_pla
 type RoundKey = typeof ROUND_ORDER[number]
 type AdminLoadState = 'idle' | 'saving' | 'saved' | 'error'
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
+const LATE_PREDICTION_MESSAGE = 'No podés cargar pronósticos de partidos que ya empezaron o finalizaron.'
 
 const ROUND_LABELS: Record<string, string> = {
   round_of_32:  'Dieciseisavos',
@@ -182,8 +183,9 @@ function BracketMatchCard({
   onTiebreakerChange: (team: string | null) => void
 }) {
   const now = new Date()
-  const lockedAt = new Date(match.locked_at)
-  const isEditableOpen = match.status === 'upcoming' && now < lockedAt && !disabled
+  const scheduledAt = new Date(match.scheduled_at)
+  const hasStartedOrFinished = match.status !== 'upcoming' || now >= scheduledAt
+  const isEditableOpen = !hasStartedOrFinished && !disabled
   const isLive = match.status === 'live'
   const isFinished = match.status === 'finished'
   const hasRealScore = (isLive || isFinished) && match.home_score != null && match.away_score != null
@@ -230,7 +232,7 @@ function BracketMatchCard({
   const canCompleteLockedMissingScore = Boolean(
     allowLockedMissingPredictionCompletion &&
     disabled &&
-    match.status === 'upcoming' &&
+    !hasStartedOrFinished &&
     !hasSavedPrediction &&
     !homePH &&
     !awayPH
@@ -506,6 +508,12 @@ function BracketMatchCard({
           Pasa por desempate: <span className="text-white">{tiebreaker}</span>
         </div>
       )}
+
+      {hasStartedOrFinished && (
+        <p className="mt-3 rounded-[10px] px-3 py-2 text-[11px] font-bold" style={{ background: 'rgba(255,255,255,0.04)', color: '#9a9a9a', border: '1px solid rgba(255,255,255,0.06)' }}>
+          {LATE_PREDICTION_MESSAGE}
+        </p>
+      )}
     </article>
   )
 }
@@ -653,7 +661,7 @@ export function BracketView({
     const now = new Date()
     return knockoutMatches
       .map((m) => {
-        if (m.status !== 'upcoming' || now >= new Date(m.locked_at)) return null
+        if (m.status !== 'upcoming' || now >= new Date(m.scheduled_at)) return null
         const inp = localInputs[m.id]
         if (!inp || inp.home === '' || inp.away === '') return null
         const h = parseScoreInput(inp.home)
@@ -778,7 +786,7 @@ export function BracketView({
     return knockoutMatches.filter((match) => {
       const key = match.stage
       if (round && key !== round) return false
-      if (match.status !== 'upcoming' || now >= new Date(match.locked_at)) return false
+      if (match.status !== 'upcoming' || now >= new Date(match.scheduled_at)) return false
       return isMatchReady(match)
     })
   }
@@ -912,7 +920,7 @@ export function BracketView({
 
   const eligibleForQuickFill = isAdmin
     ? knockoutMatches.filter(
-        (m) => m.status === 'upcoming' && now < new Date(m.locked_at) && isMatchReady(m)
+        (m) => m.status === 'upcoming' && now < new Date(m.scheduled_at) && isMatchReady(m)
       ).length
     : 0
 
@@ -923,7 +931,7 @@ export function BracketView({
       return
     }
     const targetMatches = knockoutMatches.filter(
-      (m) => m.status === 'upcoming' && now < new Date(m.locked_at) && isMatchReady(m)
+      (m) => m.status === 'upcoming' && now < new Date(m.scheduled_at) && isMatchReady(m)
     )
     if (!targetMatches.length) return
     setQuickFillState('saving')

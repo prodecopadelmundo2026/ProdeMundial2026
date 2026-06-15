@@ -278,6 +278,9 @@ export function MiProdeTabs({
       const awayBlank = rawAway === ''
       const hadSavedPrediction = Boolean(predMap[match.id])
       const isVirtual = isVirtualKnockoutMatch(match)
+      const isOpenForPrediction = match.status === 'upcoming' && new Date() < new Date(match.scheduled_at)
+
+      if (!isOpenForPrediction) return
 
       if (homeBlank && awayBlank) {
         if (hadSavedPrediction) {

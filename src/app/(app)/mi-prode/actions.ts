@@ -45,6 +45,7 @@ export type SpecialBetsValues = {
 }
 
 const CLOSED_COMPLETION_MESSAGE = 'El prode ya está cerrado. Solo podés completar datos faltantes, no modificar pronósticos ya cargados.'
+const LATE_PREDICTION_MESSAGE = 'No podés cargar pronósticos de partidos que ya empezaron o finalizaron.'
 
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message
@@ -85,6 +86,10 @@ function cleanTiebreakerKey(value: string) {
 function cleanTiebreakerTeam(value: string | null) {
   const team = String(value ?? '').trim().slice(0, 220)
   return team || null
+}
+
+function matchIsPredictionOpen(match: { status: string; scheduled_at: string }) {
+  return match.status === 'upcoming' && new Date() < new Date(match.scheduled_at)
 }
 
 function virtualMatchStage(matchId: string) {
@@ -352,14 +357,13 @@ export async function saveRealPredictions(predictions: PredictionInput[]) {
 
   const { data: matches, error: matchesError } = await supabase
     .from('matches')
-    .select('id, locked_at, status')
+    .select('id, scheduled_at, status')
     .in('id', matchIds)
 
   if (matchesError) throw new Error(matchesError.message)
-  const now = new Date()
   const openIds = new Set(
     (matches ?? [])
-      .filter((match) => match.status === 'upcoming' && now < new Date(match.locked_at))
+      .filter(matchIsPredictionOpen)
       .map((match) => match.id)
   )
 
@@ -375,7 +379,7 @@ export async function saveRealPredictions(predictions: PredictionInput[]) {
       updated_at: new Date().toISOString(),
     }))
 
-  if (!payload.length) throw new Error('No hay predicciones abiertas para guardar')
+  if (!payload.length) throw new Error(LATE_PREDICTION_MESSAGE)
 
   console.info('[mi-prode.saveRealPredictions] payload', {
     userId: user.id,
@@ -618,9 +622,14 @@ export async function saveFullProde(input: FullProdeInput) {
   }
 
   if (realPayload.length) {
-    const { error } = await supabase
-      .from('predictions')
-      .upsert(realPayload, { onConflict: 'user_id,match_id' })
+    const { error } = await supabase.rpc('save_predictions', {
+      p_predictions: realPredictions.map((prediction) => ({
+        match_id: prediction.matchId,
+        home_score: prediction.homeScore,
+        away_score: prediction.awayScore,
+        tiebreaker_team: prediction.tiebreakerTeam ?? null,
+      })),
+    })
     if (error) throw new Error(error.message)
   }
 

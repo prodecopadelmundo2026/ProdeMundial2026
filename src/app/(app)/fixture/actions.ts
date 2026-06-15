@@ -42,12 +42,16 @@ function randomFakeScore() {
 }
 
 function randomWinningScores() {
-  let homeScore = randomFakeScore()
+  const homeScore = randomFakeScore()
   let awayScore = randomFakeScore()
   if (homeScore === awayScore) {
     awayScore = (awayScore + 1) % 10
   }
   return { homeScore, awayScore }
+}
+
+function matchIsPredictionOpen(match: { status: string; scheduled_at: string }) {
+  return match.status === 'upcoming' && new Date() < new Date(match.scheduled_at)
 }
 
 async function savePredictionsRpc(
@@ -94,7 +98,7 @@ export async function upsertPrediction(
   // Validación server-side: partido existe y está abierto
   const { data: match, error: matchError } = await supabase
     .from('matches')
-    .select('locked_at, status')
+    .select('scheduled_at, status')
     .eq('id', matchId)
     .single()
 
@@ -103,8 +107,8 @@ export async function upsertPrediction(
     throw new Error(matchError.message)
   }
   if (!match) throw new Error('Partido no encontrado')
-  if (match.status !== 'upcoming' || new Date() >= new Date(match.locked_at)) {
-    throw new Error('Las predicciones para este partido ya cerraron')
+  if (!matchIsPredictionOpen(match)) {
+    throw new Error('No podés cargar pronósticos de partidos que ya empezaron o finalizaron.')
   }
 
   try {
@@ -129,7 +133,7 @@ export async function deletePrediction(matchId: string) {
 
   const { data: match, error: matchError } = await supabase
     .from('matches')
-    .select('locked_at, status')
+    .select('scheduled_at, status')
     .eq('id', matchId)
     .single()
 
@@ -138,8 +142,8 @@ export async function deletePrediction(matchId: string) {
     throw new Error(matchError.message)
   }
   if (!match) throw new Error('Partido no encontrado')
-  if (match.status !== 'upcoming' || new Date() >= new Date(match.locked_at)) {
-    throw new Error('Las predicciones para este partido ya cerraron')
+  if (!matchIsPredictionOpen(match)) {
+    throw new Error('No podés cargar pronósticos de partidos que ya empezaron o finalizaron.')
   }
 
   const { error } = await supabase
@@ -176,7 +180,7 @@ export async function upsertPredictionsBatch(
   const matchIds = predictions.map((p) => p.matchId)
   const { data: matches, error: matchesError } = await supabase
     .from('matches')
-    .select('id, locked_at, status')
+    .select('id, scheduled_at, status')
     .in('id', matchIds)
 
   if (matchesError) {
@@ -184,10 +188,9 @@ export async function upsertPredictionsBatch(
     throw new Error(matchesError.message)
   }
 
-  const now = new Date()
   const openIds = new Set(
     (matches ?? [])
-      .filter((m) => m.status === 'upcoming' && now < new Date(m.locked_at))
+      .filter(matchIsPredictionOpen)
       .map((m) => m.id)
   )
 
@@ -200,7 +203,7 @@ export async function upsertPredictionsBatch(
       tiebreakerTeam: p.tiebreakerTeam ?? null,
     }))
 
-  if (!toSave.length) throw new Error('No hay predicciones abiertas para guardar')
+  if (!toSave.length) throw new Error('No podés cargar pronósticos de partidos que ya empezaron o finalizaron.')
 
   try {
     await savePredictionsRpc(supabase, toSave)
@@ -296,10 +299,9 @@ export async function generateRandomKnockoutPredictions(matchIds: string[]) {
   const uniqueMatchIds = [...new Set(matchIds)]
   if (!uniqueMatchIds.length) return []
 
-  const now = new Date()
   const { data: matches, error: matchesError } = await supabase
     .from('matches')
-    .select('id, locked_at, status, stage')
+    .select('id, scheduled_at, status, stage')
     .in('id', uniqueMatchIds)
 
   if (matchesError) {
@@ -309,7 +311,7 @@ export async function generateRandomKnockoutPredictions(matchIds: string[]) {
 
   const allowedIds = new Set(
     (matches ?? [])
-      .filter((m) => m.stage !== 'group' && m.status === 'upcoming' && now < new Date(m.locked_at))
+      .filter((m) => m.stage !== 'group' && matchIsPredictionOpen(m))
       .map((m) => m.id)
   )
 
