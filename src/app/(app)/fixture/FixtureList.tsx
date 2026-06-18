@@ -172,7 +172,7 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
   )
 }
 
-export function FixtureList({ matches }: { matches: Match[] }) {
+export function FixtureList({ matches, allMatches = matches }: { matches: Match[]; allMatches?: Match[] }) {
   const [filter, setFilter] = useState<Filter>('all')
 
   const groups = useMemo(() => {
@@ -191,23 +191,24 @@ export function FixtureList({ matches }: { matches: Match[] }) {
 
   const days = useMemo(() => {
     const map: Record<string, Match[]> = {}
+    const order: string[] = []
     for (const m of filtered) {
       const day = formatMatchDayKeyArgentina(m.scheduled_at)
-      if (!map[day]) map[day] = []
+      if (!map[day]) {
+        map[day] = []
+        order.push(day)
+      }
       map[day].push(m)
     }
-    return Object.entries(map)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([day, dayMatches]) => ({
+    return order
+      .map((day) => ({
         day,
-        matches: [...dayMatches].sort(
-          (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
-        ),
+        matches: map[day],
       }))
   }, [filtered])
 
   const officialGroupTables = useMemo<GroupTableSection[]>(() => {
-    const groupMatches = matches.filter((match) => match.stage === 'group' && match.group)
+    const groupMatches = allMatches.filter((match) => match.stage === 'group' && match.group)
     const scoreMap = buildOfficialGroupScoreMap(groupMatches)
     const visibleGroups = filter === 'all' || filter === 'eliminatoria'
       ? groups
@@ -224,7 +225,7 @@ export function FixtureList({ matches }: { matches: Match[] }) {
         tone: 'official',
       }
     })
-  }, [filter, groups, matches])
+  }, [allMatches, filter, groups])
 
   if (!matches.length) {
     return (
