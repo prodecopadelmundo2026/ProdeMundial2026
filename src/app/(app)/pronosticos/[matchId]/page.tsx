@@ -17,6 +17,14 @@ import { ResultUsersTable } from './ResultUsersTable'
 
 export const dynamic = 'force-dynamic'
 
+type MatchPointsBreakdownRow = {
+  user_id: string
+  name: string
+  home_score: number
+  away_score: number
+  points: number
+}
+
 function PredictionBar({ label, value, total, color }: { label: string; value: number; total: number; color: string }) {
   const width = percent(value, total)
 
@@ -44,6 +52,91 @@ function StatCard({ label, value }: { label: string; value: string }) {
   )
 }
 
+function playersLabel(count: number) {
+  return `${count} ${count === 1 ? 'jugador' : 'jugadores'}`
+}
+
+function PointsRows({
+  rows,
+  exact,
+  empty,
+}: {
+  rows: MatchPointsBreakdownRow[]
+  exact?: boolean
+  empty: string
+}) {
+  if (rows.length === 0) {
+    return <p className="rounded-[14px] bg-[#0A0A0A] px-4 py-3 text-[13px] font-semibold text-muted">{empty}</p>
+  }
+
+  return (
+    <div className="grid gap-2">
+      {rows.map((row) => (
+        <div
+          key={row.user_id}
+          className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] bg-[#0A0A0A] px-4 py-3"
+          style={{ border: '1px solid rgba(255,255,255,0.06)' }}
+        >
+          <span className="text-[14px] font-extrabold text-white">{row.name}</span>
+          <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
+            {exact ? 'Resultado exacto' : `Apostó ${row.home_score}-${row.away_score}`}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function PointsGroup({
+  title,
+  rows,
+  empty,
+  exact = false,
+  collapsible = false,
+}: {
+  title: string
+  rows: MatchPointsBreakdownRow[]
+  empty: string
+  exact?: boolean
+  collapsible?: boolean
+}) {
+  const header = (
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <p className="font-display text-[28px] uppercase leading-none text-white">{title}</p>
+        <p className="mt-1 text-[12px] font-bold text-muted">{playersLabel(rows.length)}</p>
+      </div>
+      {collapsible && (
+        <span className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted group-open:hidden">
+          Ver
+        </span>
+      )}
+    </div>
+  )
+
+  if (collapsible) {
+    return (
+      <details className="group rounded-[18px] bg-[#111] p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+        <summary className="cursor-pointer list-none">
+          {header}
+        </summary>
+        <div className="mt-4">
+          <PointsRows rows={rows} exact={exact} empty={empty} />
+        </div>
+      </details>
+    )
+  }
+
+  return (
+    <div className="rounded-[18px] bg-[#111] p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+      {header}
+      <div className="mt-4">
+        <PointsRows rows={rows} exact={exact} empty={empty} />
+      </div>
+    </div>
+  )
+}
+
 export default async function PronosticoDetallePage({
   params,
 }: {
@@ -53,10 +146,17 @@ export default async function PronosticoDetallePage({
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [{ data: matchData }, { data: insightsRows }, { data: distributionRows }, { data: currentUserPrediction }] = await Promise.all([
+  const [
+    { data: matchData },
+    { data: insightsRows },
+    { data: distributionRows },
+    { data: pointsBreakdownRows },
+    { data: currentUserPrediction },
+  ] = await Promise.all([
     supabase.from('matches').select('*').eq('id', matchId).maybeSingle(),
     supabase.rpc('get_match_prediction_insights', { p_match_id: matchId }),
     supabase.rpc('get_match_prediction_result_distribution', { p_match_id: matchId }),
+    supabase.rpc('get_match_points_breakdown', { p_match_id: matchId }),
     user
       ? supabase
           .from('predictions')
@@ -87,6 +187,17 @@ export default async function PronosticoDetallePage({
       }
     : null
   const isScored = match.status === 'live' || match.status === 'finished'
+  const hasOfficialResult = match.status === 'finished' && match.home_score != null && match.away_score != null
+  const pointsBreakdown = ((pointsBreakdownRows ?? []) as MatchPointsBreakdownRow[]).map((row) => ({
+    user_id: row.user_id,
+    name: row.name,
+    home_score: Number(row.home_score),
+    away_score: Number(row.away_score),
+    points: Number(row.points),
+  }))
+  const exactPointsRows = pointsBreakdown.filter((row) => row.points === 3)
+  const partialPointsRows = pointsBreakdown.filter((row) => row.points === 1)
+  const zeroPointsRows = pointsBreakdown.filter((row) => row.points === 0)
 
   return (
     <div style={{ padding: '34px 20px 80px' }}>
@@ -218,6 +329,46 @@ export default async function PronosticoDetallePage({
             <p className="mt-3 text-[14px] font-semibold text-muted">
               Todavía no hay pronósticos cargados para este partido.
             </p>
+          </section>
+        )}
+
+        {hasOfficialResult && (
+          <section
+            id="puntos-partido"
+            className="mt-5 rounded-[24px] bg-panel p-5"
+            style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange">
+                  Transparencia
+                </p>
+                <h2 className="mt-2 font-display text-[32px] uppercase leading-none">Puntos de este partido</h2>
+              </div>
+              <p className="text-[12px] font-semibold text-muted">
+                Resultado oficial: {match.home_score}-{match.away_score}
+              </p>
+            </div>
+
+            <div className="grid gap-4 min-[920px]:grid-cols-3">
+              <PointsGroup
+                title="+3"
+                rows={exactPointsRows}
+                exact
+                empty="Nadie sumo 3 puntos en este partido."
+              />
+              <PointsGroup
+                title="+1"
+                rows={partialPointsRows}
+                empty="Nadie sumo 1 punto en este partido."
+              />
+              <PointsGroup
+                title="0"
+                rows={zeroPointsRows}
+                empty="No hay jugadores sin puntos para este partido."
+                collapsible
+              />
+            </div>
           </section>
         )}
       </div>

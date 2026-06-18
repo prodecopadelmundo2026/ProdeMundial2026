@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useMemo } from 'react'
 import clsx from 'clsx'
 import type { Match } from '@/types'
@@ -121,12 +122,22 @@ function MatchRow({ match }: { match: Match }) {
       </div>
 
       {/* Right: status */}
-      <div className="shrink-0 w-[52px] text-right">
+      <div className="shrink-0 w-[78px] text-right">
         {isLive && (
           <span className="text-[10px] font-extrabold tracking-[0.06em] text-[#FF3B3B]">EN VIVO</span>
         )}
         {isFinished && (
-          <span className="text-[10px] font-bold text-muted">Final</span>
+          <div>
+            <span className="text-[10px] font-bold text-muted">Final</span>
+            <Link
+              href={`/pronosticos/${match.id}#puntos-partido`}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+              className="mt-1 inline-flex rounded-full bg-orange px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.06em] text-bg transition-colors hover:bg-white"
+            >
+              Ver puntos
+            </Link>
+          </div>
         )}
         {match.stage === 'group' && match.group && (
           <a
