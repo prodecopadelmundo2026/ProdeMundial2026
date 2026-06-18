@@ -70,11 +70,11 @@ function PointsRows({
   }
 
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-1.5">
       {rows.map((row) => (
         <div
           key={row.user_id}
-          className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] bg-[#0A0A0A] px-4 py-3"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] bg-[#0A0A0A] px-3 py-2.5"
           style={{ border: '1px solid rgba(255,255,255,0.06)' }}
         >
           <span className="text-[14px] font-extrabold text-white">{row.name}</span>
@@ -92,48 +92,73 @@ function PointsGroup({
   rows,
   empty,
   exact = false,
-  collapsible = false,
 }: {
   title: string
   rows: MatchPointsBreakdownRow[]
   empty: string
   exact?: boolean
-  collapsible?: boolean
 }) {
-  const header = (
-    <div className="flex items-center justify-between gap-3">
+  return (
+    <div className="rounded-[16px] bg-[#111] p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
       <div>
-        <p className="font-display text-[28px] uppercase leading-none text-white">{title}</p>
+        <p className="font-display text-[26px] uppercase leading-none text-white">{title}</p>
         <p className="mt-1 text-[12px] font-bold text-muted">{playersLabel(rows.length)}</p>
       </div>
-      {collapsible && (
-        <span className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted group-open:hidden">
-          Ver
-        </span>
-      )}
-    </div>
-  )
-
-  if (collapsible) {
-    return (
-      <details className="group rounded-[18px] bg-[#111] p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-        <summary className="cursor-pointer list-none">
-          {header}
-        </summary>
-        <div className="mt-4">
-          <PointsRows rows={rows} exact={exact} empty={empty} />
-        </div>
-      </details>
-    )
-  }
-
-  return (
-    <div className="rounded-[18px] bg-[#111] p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-      {header}
-      <div className="mt-4">
+      <div className="mt-3">
         <PointsRows rows={rows} exact={exact} empty={empty} />
       </div>
     </div>
+  )
+}
+
+function MatchPointsSection({
+  match,
+  exactPointsRows,
+  partialPointsRows,
+  zeroPointsRows,
+}: {
+  match: Match
+  exactPointsRows: MatchPointsBreakdownRow[]
+  partialPointsRows: MatchPointsBreakdownRow[]
+  zeroPointsRows: MatchPointsBreakdownRow[]
+}) {
+  return (
+    <section
+      id="puntos-partido"
+      className="mb-5 rounded-[24px] bg-panel p-4 min-[760px]:p-5"
+      style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+    >
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange">
+            Transparencia
+          </p>
+          <h2 className="mt-2 font-display text-[32px] uppercase leading-none">Puntos de este partido</h2>
+        </div>
+        <p className="text-[12px] font-semibold text-muted">
+          Resultado oficial: {match.home_score}-{match.away_score}
+        </p>
+      </div>
+
+      <div className="grid gap-4 min-[920px]:grid-cols-3">
+        <PointsGroup
+          title="+3"
+          rows={exactPointsRows}
+          exact
+          empty="Nadie sumo 3 puntos en este partido."
+        />
+        <PointsGroup
+          title="+1"
+          rows={partialPointsRows}
+          empty="Nadie sumo 1 punto en este partido."
+        />
+        <PointsGroup
+          title="0"
+          rows={zeroPointsRows}
+          empty="No hay jugadores sin puntos para este partido."
+        />
+      </div>
+    </section>
   )
 }
 
@@ -249,63 +274,18 @@ export default async function PronosticoDetallePage({
           </div>
         </section>
 
+        {hasOfficialResult && (
+          <MatchPointsSection
+            match={match}
+            exactPointsRows={exactPointsRows}
+            partialPointsRows={partialPointsRows}
+            zeroPointsRows={zeroPointsRows}
+          />
+        )}
+
         {insights.total_count > 0 ? (
-          <div className="grid gap-5 min-[980px]:grid-cols-[0.9fr_1.1fr]">
+          <div className="grid gap-5">
             <section className="rounded-[24px] bg-panel p-5" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div className="mb-5 flex items-end justify-between gap-4">
-                <div>
-                  <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange">
-                    Tendencia
-                  </p>
-                  <h2 className="mt-2 font-display text-[32px] uppercase leading-none">Resultado</h2>
-                </div>
-                <div className="text-right">
-                  <p className="font-display text-[34px] leading-none">{insights.total_count}</p>
-                  <p className="font-mono text-[9px] font-extrabold uppercase tracking-[0.16em] text-muted">
-                    cargados
-                  </p>
-                </div>
-              </div>
-              <div className="grid gap-4">
-                <PredictionBar label={`Gana ${match.home_team}`} value={insights.home_count} total={insights.total_count} color="#A8F0D8" />
-                <PredictionBar label="Empate" value={insights.draw_count} total={insights.total_count} color="#FFE040" />
-                <PredictionBar label={`Gana ${match.away_team}`} value={insights.away_count} total={insights.total_count} color="#FF6B00" />
-              </div>
-            </section>
-
-            <section className="rounded-[24px] bg-panel p-5" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-              <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange">
-                Estadísticas completas
-              </p>
-              <div className="mt-5 grid gap-3 min-[620px]:grid-cols-2">
-                <StatCard
-                  label="Resultado más elegido"
-                  value={formatPickedResult(insights.most_picked_home_score, insights.most_picked_away_score, insights.most_picked_count)}
-                />
-                <StatCard
-                  label="Resultado menos elegido"
-                  value={formatPickedResult(insights.least_picked_home_score, insights.least_picked_away_score, insights.least_picked_count)}
-                />
-                <StatCard
-                  label="Promedio esperado"
-                  value={formatAverageScore(match.home_team, match.away_team, insights)}
-                />
-                <StatCard
-                  label="Resultados distintos"
-                  value={`${insights.distinct_results_count} ${insights.distinct_results_count === 1 ? 'combinación' : 'combinaciones'}`}
-                />
-                <StatCard
-                  label="Gol visitante"
-                  value={`${insights.away_goal_count} ${insights.away_goal_count === 1 ? 'persona puso' : 'personas pusieron'} gol de ${match.away_team}`}
-                />
-                <StatCard
-                  label="Visitante en cero"
-                  value={`${insights.clean_sheet_home_count} ${insights.clean_sheet_home_count === 1 ? 'persona' : 'personas'}`}
-                />
-              </div>
-            </section>
-
-            <section className="rounded-[24px] bg-panel p-5 min-[980px]:col-span-2" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
               <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
                 <div>
                   <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange">
@@ -322,6 +302,62 @@ export default async function PronosticoDetallePage({
                 myPrediction={myPrediction}
               />
             </section>
+
+            <div className="grid gap-5 min-[980px]:grid-cols-[0.9fr_1.1fr]">
+              <section className="rounded-[24px] bg-panel p-5" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div className="mb-5 flex items-end justify-between gap-4">
+                  <div>
+                    <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange">
+                      Tendencia
+                    </p>
+                    <h2 className="mt-2 font-display text-[32px] uppercase leading-none">Resultado</h2>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-display text-[34px] leading-none">{insights.total_count}</p>
+                    <p className="font-mono text-[9px] font-extrabold uppercase tracking-[0.16em] text-muted">
+                      cargados
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-4">
+                  <PredictionBar label={`Gana ${match.home_team}`} value={insights.home_count} total={insights.total_count} color="#A8F0D8" />
+                  <PredictionBar label="Empate" value={insights.draw_count} total={insights.total_count} color="#FFE040" />
+                  <PredictionBar label={`Gana ${match.away_team}`} value={insights.away_count} total={insights.total_count} color="#FF6B00" />
+                </div>
+              </section>
+
+              <section className="rounded-[24px] bg-panel p-5" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+                <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange">
+                  Estadísticas completas
+                </p>
+                <div className="mt-5 grid gap-3 min-[620px]:grid-cols-2">
+                  <StatCard
+                    label="Resultado más elegido"
+                    value={formatPickedResult(insights.most_picked_home_score, insights.most_picked_away_score, insights.most_picked_count)}
+                  />
+                  <StatCard
+                    label="Resultado menos elegido"
+                    value={formatPickedResult(insights.least_picked_home_score, insights.least_picked_away_score, insights.least_picked_count)}
+                  />
+                  <StatCard
+                    label="Promedio esperado"
+                    value={formatAverageScore(match.home_team, match.away_team, insights)}
+                  />
+                  <StatCard
+                    label="Resultados distintos"
+                    value={`${insights.distinct_results_count} ${insights.distinct_results_count === 1 ? 'combinación' : 'combinaciones'}`}
+                  />
+                  <StatCard
+                    label="Gol visitante"
+                    value={`${insights.away_goal_count} ${insights.away_goal_count === 1 ? 'persona puso' : 'personas pusieron'} gol de ${match.away_team}`}
+                  />
+                  <StatCard
+                    label="Visitante en cero"
+                    value={`${insights.clean_sheet_home_count} ${insights.clean_sheet_home_count === 1 ? 'persona' : 'personas'}`}
+                  />
+                </div>
+              </section>
+            </div>
           </div>
         ) : (
           <section className="rounded-[24px] bg-panel p-10 text-center" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -329,46 +365,6 @@ export default async function PronosticoDetallePage({
             <p className="mt-3 text-[14px] font-semibold text-muted">
               Todavía no hay pronósticos cargados para este partido.
             </p>
-          </section>
-        )}
-
-        {hasOfficialResult && (
-          <section
-            id="puntos-partido"
-            className="mt-5 rounded-[24px] bg-panel p-5"
-            style={{ border: '1px solid rgba(255,255,255,0.08)' }}
-          >
-            <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange">
-                  Transparencia
-                </p>
-                <h2 className="mt-2 font-display text-[32px] uppercase leading-none">Puntos de este partido</h2>
-              </div>
-              <p className="text-[12px] font-semibold text-muted">
-                Resultado oficial: {match.home_score}-{match.away_score}
-              </p>
-            </div>
-
-            <div className="grid gap-4 min-[920px]:grid-cols-3">
-              <PointsGroup
-                title="+3"
-                rows={exactPointsRows}
-                exact
-                empty="Nadie sumo 3 puntos en este partido."
-              />
-              <PointsGroup
-                title="+1"
-                rows={partialPointsRows}
-                empty="Nadie sumo 1 punto en este partido."
-              />
-              <PointsGroup
-                title="0"
-                rows={zeroPointsRows}
-                empty="No hay jugadores sin puntos para este partido."
-                collapsible
-              />
-            </div>
           </section>
         )}
       </div>
