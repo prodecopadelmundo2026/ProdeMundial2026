@@ -14,6 +14,11 @@ type UserNameRow = {
   name: string | null
 }
 
+type MyPrediction = {
+  home_score: number
+  away_score: number
+}
+
 function scoreLabel(score: SelectedScore) {
   return `${score.homeScore}-${score.awayScore}`
 }
@@ -27,10 +32,12 @@ export function ResultUsersTable({
   matchId,
   rows,
   totalCount,
+  myPrediction,
 }: {
   matchId: string
   rows: ResultDistributionRow[]
   totalCount: number
+  myPrediction: MyPrediction | null
 }) {
   const [selectedScore, setSelectedScore] = useState<SelectedScore | null>(null)
   const [names, setNames] = useState<string[]>([])
@@ -39,24 +46,20 @@ export function ResultUsersTable({
 
   const modalOpen = selectedScore !== null
 
-  useEffect(() => {
-    if (!selectedScore) return
-
-    let alive = true
+  async function openPlayers(score: SelectedScore) {
+    setSelectedScore(score)
     const supabase = createClient()
 
     setLoading(true)
     setError(null)
     setNames([])
 
-    async function loadNames() {
+    try {
       const { data, error: rpcError } = await supabase.rpc('get_match_prediction_users_by_score', {
         p_match_id: matchId,
-        p_home_score: selectedScore!.homeScore,
-        p_away_score: selectedScore!.awayScore,
+        p_home_score: score.homeScore,
+        p_away_score: score.awayScore,
       })
-
-      if (!alive) return
 
       if (rpcError) {
         setError('No se pudieron cargar los jugadores.')
@@ -64,21 +67,13 @@ export function ResultUsersTable({
       } else {
         setNames(((data ?? []) as UserNameRow[]).map((row) => normalizeName(row.name)))
       }
-
+    } catch {
+      setError('No se pudieron cargar los jugadores.')
+      setNames([])
+    } finally {
       setLoading(false)
     }
-
-    loadNames().catch(() => {
-        if (!alive) return
-        setError('No se pudieron cargar los jugadores.')
-        setNames([])
-        setLoading(false)
-    })
-
-    return () => {
-      alive = false
-    }
-  }, [matchId, selectedScore])
+  }
 
   useEffect(() => {
     if (!modalOpen) return
@@ -112,37 +107,51 @@ export function ResultUsersTable({
           <span className="text-right">Porcentaje</span>
           <span className="text-right max-[700px]:hidden">Jugadores</span>
         </div>
-        {rows.map((row) => (
-          <div
-            key={`${row.home_score}-${row.away_score}`}
-            className="grid grid-cols-[1fr_78px_78px_112px] items-center gap-3 border-b border-white/[0.06] px-4 py-3 last:border-0 max-[700px]:grid-cols-[1fr_58px_60px]"
-          >
-            <div className="min-w-0">
-              <span className="font-display text-[24px] leading-none">{row.home_score}-{row.away_score}</span>
-              <button
-                type="button"
-                onClick={() => setSelectedScore({ homeScore: row.home_score, awayScore: row.away_score })}
-                className="mt-2 block rounded-full bg-white/[0.06] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-white min-[701px]:hidden"
-                style={{ border: '1px solid rgba(255,255,255,0.1)' }}
-              >
-                Ver jugadores
-              </button>
+        {rows.map((row) => {
+          const score = { homeScore: row.home_score, awayScore: row.away_score }
+          const isMyPrediction = myPrediction?.home_score === row.home_score && myPrediction.away_score === row.away_score
+          return (
+            <div
+              key={`${row.home_score}-${row.away_score}`}
+              className="grid grid-cols-[1fr_78px_78px_112px] items-center gap-3 border-b border-white/[0.06] px-4 py-3 last:border-0 max-[700px]:grid-cols-[1fr_58px_60px]"
+            >
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-display text-[24px] leading-none">{row.home_score}-{row.away_score}</span>
+                  {isMyPrediction && (
+                    <span
+                      className="rounded-full px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.1em]"
+                      style={{ background: 'rgba(255,107,0,0.14)', border: '1px solid rgba(255,107,0,0.3)', color: '#FFB15C' }}
+                    >
+                      Mi apuesta
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openPlayers(score)}
+                  className="mt-2 block rounded-full bg-white/[0.06] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-white min-[701px]:hidden"
+                  style={{ border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  Ver jugadores
+                </button>
+              </div>
+              <span className="text-right text-[14px] font-bold tabular-nums">{row.picked_count}</span>
+              <span className="text-right text-[14px] font-bold tabular-nums text-orange">
+                {percent(row.picked_count, totalCount)}%
+              </span>
+              <span className="text-right max-[700px]:hidden">
+                <button
+                  type="button"
+                  onClick={() => openPlayers(score)}
+                  className="rounded-full bg-orange px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.08em] text-bg transition-transform hover:-translate-y-0.5"
+                >
+                  Ver jugadores
+                </button>
+              </span>
             </div>
-            <span className="text-right text-[14px] font-bold tabular-nums">{row.picked_count}</span>
-            <span className="text-right text-[14px] font-bold tabular-nums text-orange">
-              {percent(row.picked_count, totalCount)}%
-            </span>
-            <span className="text-right max-[700px]:hidden">
-              <button
-                type="button"
-                onClick={() => setSelectedScore({ homeScore: row.home_score, awayScore: row.away_score })}
-                className="rounded-full bg-orange px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.08em] text-bg transition-transform hover:-translate-y-0.5"
-              >
-                Ver jugadores
-              </button>
-            </span>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {selectedScore && (

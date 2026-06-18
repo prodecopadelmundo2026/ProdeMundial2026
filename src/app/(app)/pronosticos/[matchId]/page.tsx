@@ -51,11 +51,21 @@ export default async function PronosticoDetallePage({
 }) {
   const { matchId } = await params
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  const [{ data: matchData }, { data: insightsRows }, { data: distributionRows }] = await Promise.all([
+  const [{ data: matchData }, { data: insightsRows }, { data: distributionRows }, { data: currentUserPrediction }] = await Promise.all([
     supabase.from('matches').select('*').eq('id', matchId).maybeSingle(),
     supabase.rpc('get_match_prediction_insights', { p_match_id: matchId }),
     supabase.rpc('get_match_prediction_result_distribution', { p_match_id: matchId }),
+    user
+      ? supabase
+          .from('predictions')
+          .select('home_score, away_score')
+          .eq('match_id', matchId)
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+      : Promise.resolve({ data: null }),
   ])
 
   if (!matchData) notFound()
@@ -69,6 +79,13 @@ export default async function PronosticoDetallePage({
     away_score: Number(row.away_score),
     picked_count: Number(row.picked_count),
   }))
+  const currentUserPredictionRow = Array.isArray(currentUserPrediction) ? currentUserPrediction[0] : currentUserPrediction
+  const myPrediction = currentUserPredictionRow?.home_score != null && currentUserPredictionRow.away_score != null
+    ? {
+        home_score: Number(currentUserPredictionRow.home_score),
+        away_score: Number(currentUserPredictionRow.away_score),
+      }
+    : null
   const isScored = match.status === 'live' || match.status === 'finished'
 
   return (
@@ -187,7 +204,12 @@ export default async function PronosticoDetallePage({
                 </div>
                 <p className="text-[12px] font-semibold text-muted">Ordenado por cantidad</p>
               </div>
-              <ResultUsersTable matchId={match.id} rows={distribution} totalCount={insights.total_count} />
+              <ResultUsersTable
+                matchId={match.id}
+                rows={distribution}
+                totalCount={insights.total_count}
+                myPrediction={myPrediction}
+              />
             </section>
           </div>
         ) : (
