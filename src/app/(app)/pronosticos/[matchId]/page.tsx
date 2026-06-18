@@ -5,9 +5,9 @@ import { createClient } from '@/lib/supabase/server'
 import type { Match } from '@/types'
 import { formatMatchKickoffArgentina } from '@/lib/match-datetime'
 import {
+  emptyPredictionInsights,
   formatAverageScore,
   formatPickedResult,
-  normalizePredictionInsights,
   percent,
   statusLabel,
   type PredictionInsights,
@@ -44,6 +44,123 @@ function StatCard({ label, value }: { label: string; value: string }) {
   )
 }
 
+type RankingParticipantRow = {
+  user_id: string | null
+  name: string | null
+  participant_status: string | null
+}
+
+type PredictionRow = {
+  user_id: string
+  home_score: number | null
+  away_score: number | null
+  updated_at: string | null
+}
+
+function predictionKey(homeScore: number, awayScore: number) {
+  return `${homeScore}-${awayScore}`
+}
+
+function normalizeName(value: string | null | undefined) {
+  const trimmed = value?.trim()
+  return trimmed && trimmed.length > 0 ? trimmed : 'Participante'
+}
+
+function buildPredictionStats(
+  predictionRows: PredictionRow[],
+  participantRows: RankingParticipantRow[]
+): {
+  insights: PredictionInsights
+  distribution: ResultDistributionRow[]
+  usersByScore: Record<string, string[]>
+} {
+  const confirmedParticipants = participantRows.filter(
+    (participant) => participant.user_id && participant.participant_status === 'confirmed'
+  )
+  const validUserIds = new Set(confirmedParticipants.map((participant) => participant.user_id as string))
+  const nameByUserId = new Map(
+    confirmedParticipants.map((participant) => [participant.user_id as string, normalizeName(participant.name)])
+  )
+  const latestByUserId = new Map<string, PredictionRow>()
+
+  for (const prediction of predictionRows) {
+    if (!validUserIds.has(prediction.user_id)) continue
+    if (prediction.home_score == null || prediction.away_score == null) continue
+    if (!latestByUserId.has(prediction.user_id)) {
+      latestByUserId.set(prediction.user_id, prediction)
+    }
+  }
+
+  const validPredictions = [...latestByUserId.values()] as Array<PredictionRow & { home_score: number; away_score: number }>
+  const insights = emptyPredictionInsights()
+  const resultCounts = new Map<string, ResultDistributionRow>()
+  const usersByScore: Record<string, string[]> = {}
+
+  insights.total_count = validPredictions.length
+
+  for (const prediction of validPredictions) {
+    if (prediction.home_score > prediction.away_score) insights.home_count += 1
+    if (prediction.home_score === prediction.away_score) insights.draw_count += 1
+    if (prediction.home_score < prediction.away_score) insights.away_count += 1
+    if (prediction.away_score >= 1) insights.away_goal_count += 1
+    if (prediction.away_score === 0) insights.clean_sheet_home_count += 1
+
+    insights.avg_home_score += prediction.home_score
+    insights.avg_away_score += prediction.away_score
+
+    const key = predictionKey(prediction.home_score, prediction.away_score)
+    const current = resultCounts.get(key)
+    if (current) {
+      current.picked_count += 1
+    } else {
+      resultCounts.set(key, {
+        home_score: prediction.home_score,
+        away_score: prediction.away_score,
+        picked_count: 1,
+      })
+    }
+
+    if (!usersByScore[key]) usersByScore[key] = []
+    usersByScore[key].push(nameByUserId.get(prediction.user_id) ?? 'Participante')
+  }
+
+  if (insights.total_count > 0) {
+    insights.avg_home_score = Number((insights.avg_home_score / insights.total_count).toFixed(1))
+    insights.avg_away_score = Number((insights.avg_away_score / insights.total_count).toFixed(1))
+  }
+
+  const distribution = [...resultCounts.values()].sort((a, b) => {
+    if (b.picked_count !== a.picked_count) return b.picked_count - a.picked_count
+    if (a.home_score !== b.home_score) return a.home_score - b.home_score
+    return a.away_score - b.away_score
+  })
+
+  insights.distinct_results_count = distribution.length
+  const mostPicked = distribution[0]
+  if (mostPicked) {
+    insights.most_picked_home_score = mostPicked.home_score
+    insights.most_picked_away_score = mostPicked.away_score
+    insights.most_picked_count = mostPicked.picked_count
+  }
+
+  const leastPicked = [...distribution].sort((a, b) => {
+    if (a.picked_count !== b.picked_count) return a.picked_count - b.picked_count
+    if (a.home_score !== b.home_score) return a.home_score - b.home_score
+    return a.away_score - b.away_score
+  })[0]
+  if (leastPicked) {
+    insights.least_picked_home_score = leastPicked.home_score
+    insights.least_picked_away_score = leastPicked.away_score
+    insights.least_picked_count = leastPicked.picked_count
+  }
+
+  for (const names of Object.values(usersByScore)) {
+    names.sort((a, b) => a.localeCompare(b))
+  }
+
+  return { insights, distribution, usersByScore }
+}
+
 export default async function PronosticoDetallePage({
   params,
 }: {
@@ -52,23 +169,41 @@ export default async function PronosticoDetallePage({
   const { matchId } = await params
   const supabase = await createClient()
 
-  const [{ data: matchData }, { data: insightsRows }, { data: distributionRows }] = await Promise.all([
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const [{ data: matchData }, { data: rankingRows }, { data: predictionRows }, { data: currentUserPrediction }] = await Promise.all([
     supabase.from('matches').select('*').eq('id', matchId).maybeSingle(),
-    supabase.rpc('get_match_prediction_insights', { p_match_id: matchId }),
-    supabase.rpc('get_match_prediction_result_distribution', { p_match_id: matchId }),
+    supabase.rpc('get_public_ranking'),
+    supabase
+      .from('predictions')
+      .select('user_id, home_score, away_score, updated_at')
+      .eq('match_id', matchId)
+      .order('updated_at', { ascending: false }),
+    user
+      ? supabase
+          .from('predictions')
+          .select('home_score, away_score')
+          .eq('match_id', matchId)
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+      : Promise.resolve({ data: null }),
   ])
 
   if (!matchData) notFound()
 
   const match = matchData as Match
-  const insights = normalizePredictionInsights(
-    (Array.isArray(insightsRows) ? insightsRows[0] : null) as Partial<PredictionInsights> | null
+  const { insights, distribution, usersByScore } = buildPredictionStats(
+    (predictionRows ?? []) as PredictionRow[],
+    (rankingRows ?? []) as RankingParticipantRow[]
   )
-  const distribution = ((distributionRows ?? []) as ResultDistributionRow[]).map((row) => ({
-    home_score: Number(row.home_score),
-    away_score: Number(row.away_score),
-    picked_count: Number(row.picked_count),
-  }))
+  const currentUserPredictionRow = Array.isArray(currentUserPrediction) ? currentUserPrediction[0] : currentUserPrediction
+  const myPrediction = currentUserPredictionRow?.home_score != null && currentUserPredictionRow.away_score != null
+    ? {
+        home_score: Number(currentUserPredictionRow.home_score),
+        away_score: Number(currentUserPredictionRow.away_score),
+      }
+    : null
   const isScored = match.status === 'live' || match.status === 'finished'
 
   return (
@@ -104,10 +239,15 @@ export default async function PronosticoDetallePage({
               >
                 {match.home_team} <em className="italic text-orange">vs</em> {match.away_team}
               </h1>
-              <p className="mt-4 font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-muted">
-                {formatMatchKickoffArgentina(match.scheduled_at)} ART
-              </p>
-            </div>
+                <p className="mt-4 font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-muted">
+                  {formatMatchKickoffArgentina(match.scheduled_at)} ART
+                </p>
+                {myPrediction && (
+                  <p className="mt-3 text-[12px] font-extrabold uppercase tracking-[0.08em] text-[#FFB15C]">
+                    Tu apuesta: {myPrediction.home_score}-{myPrediction.away_score}
+                  </p>
+                )}
+              </div>
             {isScored && match.home_score != null && match.away_score != null && (
               <div className="rounded-[20px] bg-[#0A0A0A] px-5 py-4 text-center" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
                 <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.16em] text-muted">
@@ -187,7 +327,12 @@ export default async function PronosticoDetallePage({
                 </div>
                 <p className="text-[12px] font-semibold text-muted">Ordenado por cantidad</p>
               </div>
-              <ResultUsersTable matchId={match.id} rows={distribution} totalCount={insights.total_count} />
+              <ResultUsersTable
+                rows={distribution}
+                totalCount={insights.total_count}
+                myPrediction={myPrediction}
+                usersByScore={usersByScore}
+              />
             </section>
           </div>
         ) : (
