@@ -13,17 +13,10 @@ import {
   type PredictionInsights,
   type ResultDistributionRow,
 } from '@/lib/prediction-insights'
+import { MatchPointsSection, type MatchPointsBreakdownRow } from './MatchPointsSection'
 import { ResultUsersTable } from './ResultUsersTable'
 
 export const dynamic = 'force-dynamic'
-
-type MatchPointsBreakdownRow = {
-  user_id: string
-  name: string
-  home_score: number
-  away_score: number
-  points: number
-}
 
 function PredictionBar({ label, value, total, color }: { label: string; value: number; total: number; color: string }) {
   const width = percent(value, total)
@@ -49,116 +42,6 @@ function StatCard({ label, value }: { label: string; value: string }) {
       <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.16em] text-muted">{label}</p>
       <p className="mt-2 text-[15px] font-extrabold leading-snug text-white">{value}</p>
     </div>
-  )
-}
-
-function playersLabel(count: number) {
-  return `${count} ${count === 1 ? 'jugador' : 'jugadores'}`
-}
-
-function PointsRows({
-  rows,
-  exact,
-  empty,
-}: {
-  rows: MatchPointsBreakdownRow[]
-  exact?: boolean
-  empty: string
-}) {
-  if (rows.length === 0) {
-    return <p className="rounded-[14px] bg-[#0A0A0A] px-4 py-3 text-[13px] font-semibold text-muted">{empty}</p>
-  }
-
-  return (
-    <div className="grid gap-1.5">
-      {rows.map((row) => (
-        <div
-          key={row.user_id}
-          className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] bg-[#0A0A0A] px-3 py-2.5"
-          style={{ border: '1px solid rgba(255,255,255,0.06)' }}
-        >
-          <span className="text-[14px] font-extrabold text-white">{row.name}</span>
-          <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
-            {exact ? 'Resultado exacto' : `Apostó ${row.home_score}-${row.away_score}`}
-          </span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function PointsGroup({
-  title,
-  rows,
-  empty,
-  exact = false,
-}: {
-  title: string
-  rows: MatchPointsBreakdownRow[]
-  empty: string
-  exact?: boolean
-}) {
-  return (
-    <div className="rounded-[16px] bg-[#111] p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-      <div>
-        <p className="font-display text-[26px] uppercase leading-none text-white">{title}</p>
-        <p className="mt-1 text-[12px] font-bold text-muted">{playersLabel(rows.length)}</p>
-      </div>
-      <div className="mt-3">
-        <PointsRows rows={rows} exact={exact} empty={empty} />
-      </div>
-    </div>
-  )
-}
-
-function MatchPointsSection({
-  match,
-  exactPointsRows,
-  partialPointsRows,
-  zeroPointsRows,
-}: {
-  match: Match
-  exactPointsRows: MatchPointsBreakdownRow[]
-  partialPointsRows: MatchPointsBreakdownRow[]
-  zeroPointsRows: MatchPointsBreakdownRow[]
-}) {
-  return (
-    <section
-      id="puntos-partido"
-      className="mb-5 rounded-[24px] bg-panel p-4 min-[760px]:p-5"
-      style={{ border: '1px solid rgba(255,255,255,0.08)' }}
-    >
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange">
-            Transparencia
-          </p>
-          <h2 className="mt-2 font-display text-[32px] uppercase leading-none">Puntos de este partido</h2>
-        </div>
-        <p className="text-[12px] font-semibold text-muted">
-          Resultado oficial: {match.home_score}-{match.away_score}
-        </p>
-      </div>
-
-      <div className="grid gap-4 min-[920px]:grid-cols-3">
-        <PointsGroup
-          title="+3"
-          rows={exactPointsRows}
-          exact
-          empty="Nadie sumo 3 puntos en este partido."
-        />
-        <PointsGroup
-          title="+1"
-          rows={partialPointsRows}
-          empty="Nadie sumo 1 punto en este partido."
-        />
-        <PointsGroup
-          title="0"
-          rows={zeroPointsRows}
-          empty="No hay jugadores sin puntos para este partido."
-        />
-      </div>
-    </section>
   )
 }
 
@@ -280,6 +163,7 @@ export default async function PronosticoDetallePage({
             exactPointsRows={exactPointsRows}
             partialPointsRows={partialPointsRows}
             zeroPointsRows={zeroPointsRows}
+            currentUserId={user?.id ?? null}
           />
         )}
 
