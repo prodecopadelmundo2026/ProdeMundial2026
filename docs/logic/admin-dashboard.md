@@ -32,6 +32,9 @@ Reglas esperadas:
 - La carga de resultados modifica partidos/resultados oficiales, no predicciones de usuarios.
 - Al cargar o cambiar un resultado oficial finalizado, debe dispararse o quedar disponible el recalculo de puntos.
 - Los errores deben mostrarse con detalle suficiente en logs o UI de preview/desarrollo.
+- La vista inicial de resultados debe priorizar operacion diaria: primero partidos `live`; si no hay, el proximo `upcoming`; luego el resto de `upcoming` por fecha.
+- Los partidos `finished` no deben mezclarse arriba por defecto. Deben quedar disponibles desde un filtro de Finalizados, ordenados del mas reciente al mas antiguo.
+- El admin debe poder alternar filtros visibles para ver actuales/proximos, en vivo, proximos, finalizados o todos.
 
 ## Correccion De Resultados Oficiales
 

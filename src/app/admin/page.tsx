@@ -39,6 +39,12 @@ type SpecialBetProfile = {
   email: string | null
 }
 
+type AdminMatchesFilter = 'current' | 'live' | 'upcoming' | 'finished' | 'all'
+
+type AdminPageProps = {
+  searchParams: Promise<{ matches?: string }>
+}
+
 function hasOfficialScore(match: Match) {
   return match.status === 'finished' && match.home_score != null && match.away_score != null
 }
@@ -53,31 +59,55 @@ function isResolvedTeam(name: string) {
   )
 }
 
-function stageLabel(stage: Match['stage']) {
-  const labels: Record<Match['stage'], string> = {
-    group: 'Fase de grupos',
-    round_of_32: 'Dieciseisavos',
-    round_of_16: 'Octavos',
-    quarter: 'Cuartos',
-    semi: 'Semifinales',
-    third_place: '3er puesto',
-    final: 'Final',
-  }
-  return labels[stage] ?? stage
+function toTimestamp(match: Match) {
+  return new Date(match.scheduled_at).getTime()
 }
 
-function adminSectionId(key: string) {
-  const map: Record<string, string> = {
-    Clasificacion: 'admin-section-clasificacion',
-    Grupos: 'admin-section-grupos',
-    Dieciseisavos: 'admin-section-dieciseisavos',
-    Octavos: 'admin-section-octavos',
-    Cuartos: 'admin-section-cuartos',
-    Semifinales: 'admin-section-semis',
-    '3er puesto': 'admin-section-tercer-puesto',
-    Final: 'admin-section-final',
+function sortByScheduleAsc(items: Match[]) {
+  return [...items].sort((a, b) => toTimestamp(a) - toTimestamp(b))
+}
+
+function sortByScheduleDesc(items: Match[]) {
+  return [...items].sort((a, b) => toTimestamp(b) - toTimestamp(a))
+}
+
+function resolveAdminMatchesFilter(rawFilter: string | undefined): AdminMatchesFilter {
+  if (rawFilter === 'live' || rawFilter === 'upcoming' || rawFilter === 'finished' || rawFilter === 'all') {
+    return rawFilter
   }
-  return map[key] ?? `admin-section-${key.toLowerCase().replace(/\s+/g, '-')}`
+  return 'current'
+}
+
+function buildAdminMatchSections(matches: Match[], filter: AdminMatchesFilter) {
+  const liveMatches = sortByScheduleAsc(matches.filter((match) => match.status === 'live'))
+  const upcomingMatches = sortByScheduleAsc(matches.filter((match) => match.status === 'upcoming'))
+  const finishedMatches = sortByScheduleDesc(matches.filter((match) => match.status === 'finished'))
+
+  if (filter === 'live') return [{ key: 'Resultados', label: 'Partidos en vivo', matches: liveMatches }]
+  if (filter === 'upcoming') return [{ key: 'Resultados', label: 'Proximos partidos', matches: upcomingMatches }]
+  if (filter === 'finished') return [{ key: 'Resultados', label: 'Partidos finalizados', matches: finishedMatches }]
+  if (filter === 'all') {
+    return [
+      { key: 'Resultados-live', label: 'En vivo', matches: liveMatches },
+      { key: 'Resultados-upcoming', label: 'Proximos', matches: upcomingMatches },
+      { key: 'Resultados-finished', label: 'Finalizados', matches: finishedMatches },
+    ].filter((section) => section.matches.length > 0)
+  }
+
+  return [{ key: 'Resultados', label: 'Actuales / proximos', matches: [...liveMatches, ...upcomingMatches] }]
+}
+
+function adminMatchesFilterSummary(filter: AdminMatchesFilter, matches: Match[]) {
+  const liveCount = matches.filter((match) => match.status === 'live').length
+  const upcomingCount = matches.filter((match) => match.status === 'upcoming').length
+  const finishedCount = matches.filter((match) => match.status === 'finished').length
+
+  if (filter === 'live') return `${liveCount} ${liveCount === 1 ? 'partido en vivo' : 'partidos en vivo'}.`
+  if (filter === 'upcoming') return `${upcomingCount} ${upcomingCount === 1 ? 'partido proximo' : 'partidos proximos'} por fecha ascendente.`
+  if (filter === 'finished') return `${finishedCount} ${finishedCount === 1 ? 'partido finalizado' : 'partidos finalizados'} del mas reciente al mas antiguo.`
+  if (filter === 'all') return `${matches.length} partidos: vivos y proximos primero, finalizados al final.`
+  if (liveCount > 0) return `${liveCount} en vivo arriba; luego ${upcomingCount} proximos por fecha.`
+  return upcomingCount > 0 ? `Proximo partido arriba; luego ${upcomingCount - 1} proximos por fecha.` : 'No hay partidos vivos ni proximos.'
 }
 
 function sameTableLine(a: { pts: number; gd: number; gf: number }, b: { pts: number; gd: number; gf: number }) {
@@ -92,7 +122,9 @@ function formatAdminPrize(amount: number) {
   }).format(amount)
 }
 
-export default async function AdminPage() {
+export default async function AdminPage({ searchParams }: AdminPageProps) {
+  const { matches: rawMatchesFilter } = await searchParams
+  const adminMatchesFilter = resolveAdminMatchesFilter(rawMatchesFilter)
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -226,17 +258,22 @@ export default async function AdminPage() {
     return 'Este cruce todavia no puede cargarse porque falta resolver una instancia previa.'
   }
 
-  const sortBySchedule = (items: Match[]) =>
-    [...items].sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
-  const knockoutStageOrder: Match['stage'][] = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'third_place', 'final']
-  const adminMatchSections = [
-    { key: 'Grupos', label: 'Fase de grupos', matches: sortBySchedule(groupMatches) },
-    ...knockoutStageOrder.map((stage) => ({
-      key: stageLabel(stage),
-      label: stageLabel(stage),
-      matches: sortBySchedule(knockoutMatches.filter((match) => match.stage === stage)),
-    })),
-  ].filter((section) => section.matches.length > 0)
+  const adminMatchSections = buildAdminMatchSections(allMatches, adminMatchesFilter)
+  const adminMatchesSummary = adminMatchesFilterSummary(adminMatchesFilter, allMatches)
+  const adminMatchFilterOptions: Array<{ value: AdminMatchesFilter; label: string }> = [
+    { value: 'current', label: 'Actuales / proximos' },
+    { value: 'live', label: 'En vivo' },
+    { value: 'upcoming', label: 'Proximos' },
+    { value: 'finished', label: 'Finalizados' },
+    { value: 'all', label: 'Todos' },
+  ]
+  const adminMatchFilterBadge: Record<AdminMatchesFilter, string> = {
+    current: 'Vista inicial: actuales',
+    live: 'Filtro: en vivo',
+    upcoming: 'Filtro: proximos',
+    finished: 'Filtro: finalizados',
+    all: 'Filtro: todos',
+  }
   const prodeLockLabel = prodeLock.override === 'locked'
     ? 'Bloqueado'
     : prodeLock.override === 'unlocked'
@@ -247,13 +284,7 @@ export default async function AdminPage() {
     { label: 'Clasificación', href: '#admin-section-clasificacion' },
     { label: 'Premios', href: '#admin-section-premios' },
     { label: 'Especiales', href: '#admin-section-especiales' },
-    { label: 'Grupos', href: '#admin-section-grupos' },
-    { label: 'Dieciseisavos', href: '#admin-section-dieciseisavos' },
-    { label: 'Octavos', href: '#admin-section-octavos' },
-    { label: 'Cuartos', href: '#admin-section-cuartos' },
-    { label: 'Semis', href: '#admin-section-semis' },
-    { label: 'Tercer puesto', href: '#admin-section-tercer-puesto' },
-    { label: 'Final', href: '#admin-section-final' },
+    { label: 'Resultados', href: '#admin-section-resultados' },
   ]
 
   return (
@@ -538,6 +569,47 @@ export default async function AdminPage() {
           )}
         </div>
 
+        <div
+          id="admin-section-resultados"
+          className="mb-5 rounded-[16px] px-4 py-4"
+          style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)', scrollMarginTop: 20 }}
+        >
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="font-extrabold text-white text-[14px]">Resultados oficiales</p>
+              <p className="text-muted text-[12px] mt-1">{adminMatchesSummary}</p>
+            </div>
+            <span
+              className="rounded-full px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em]"
+              style={{ background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.24)', color: '#FFB15C' }}
+            >
+              {adminMatchFilterBadge[adminMatchesFilter]}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {adminMatchFilterOptions.map((option) => {
+              const active = option.value === adminMatchesFilter
+              const href = option.value === 'current'
+                ? '/admin#admin-section-resultados'
+                : `/admin?matches=${option.value}#admin-section-resultados`
+              return (
+                <Link
+                  key={option.value}
+                  href={href}
+                  className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase transition-colors duration-150"
+                  style={{
+                    background: active ? '#FF6B00' : '#141414',
+                    color: active ? '#0A0A0A' : '#cfcfcf',
+                    border: active ? '1px solid #FF6B00' : '1px solid rgba(255,255,255,0.1)',
+                  }}
+                >
+                  {option.label}
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+
         {!matches?.length ? (
           <div
             className="px-5 py-4 rounded-[16px] text-[13px]"
@@ -551,7 +623,6 @@ export default async function AdminPage() {
             {adminMatchSections.map((section) => (
               <div
                 key={section.key}
-                id={adminSectionId(section.key)}
                 style={{ scrollMarginTop: '20px' }}
               >
                 <p
@@ -561,7 +632,14 @@ export default async function AdminPage() {
                   {section.label.toUpperCase()}
                 </p>
                 <div className="space-y-2">
-                  {section.matches.map((match) => {
+                  {section.matches.length === 0 ? (
+                    <div
+                      className="rounded-[16px] px-5 py-4 text-[13px] font-bold"
+                      style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)', color: '#8A8A8A' }}
+                    >
+                      No hay partidos para este filtro.
+                    </div>
+                  ) : section.matches.map((match) => {
                     const resolvedHome = match.stage === 'group' ? match.home_team : resolveOfficialTeam(match.home_team)
                     const resolvedAway = match.stage === 'group' ? match.away_team : resolveOfficialTeam(match.away_team)
                     const homeUnresolved = match.stage !== 'group' && !isResolvedTeam(resolvedHome)
