@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { RankingClient } from './RankingClient'
-import type { RankingEntry } from '@/types'
+import type { Match, RankingEntry } from '@/types'
 import { getRankingMode, isLiveRankingMode, type RankingMode } from '@/lib/ranking-mode'
+import { formatMatchKickoffArgentina } from '@/lib/match-datetime'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,12 +25,48 @@ type PublicHomeMetrics = {
   ranking_mode?: RankingMode
 }
 
+type PodiumPredictionRow = {
+  user_id: string
+  match_id: string
+  home_score: number
+  away_score: number
+  updated_at: string | null
+  created_at: string | null
+}
+
+function predictionTimestamp(row: PodiumPredictionRow) {
+  return new Date(row.updated_at ?? row.created_at ?? 0).getTime()
+}
+
+function dedupeLatestPredictionByUser(rows: PodiumPredictionRow[]) {
+  const latestByUser = new Map<string, PodiumPredictionRow>()
+
+  for (const row of rows) {
+    const current = latestByUser.get(row.user_id)
+    if (!current || predictionTimestamp(row) > predictionTimestamp(current)) {
+      latestByUser.set(row.user_id, row)
+    }
+  }
+
+  return [...latestByUser.values()].map((prediction) => ({
+    user_id: prediction.user_id,
+    home_score: Number(prediction.home_score),
+    away_score: Number(prediction.away_score),
+  }))
+}
+
 export default async function RankingPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const [{ data, error }, { data: metricsData, error: metricsError }] = await Promise.all([
+  const [{ data, error }, { data: metricsData, error: metricsError }, { data: nextMatchRows }] = await Promise.all([
     supabase.rpc('get_public_ranking'),
     supabase.rpc('get_public_home_metrics'),
+    supabase
+      .from('matches')
+      .select('*')
+      .neq('status', 'finished')
+      .order('scheduled_at', { ascending: true })
+      .limit(1),
   ])
 
   if (error) throw error
@@ -43,6 +81,25 @@ export default async function RankingPage() {
   const metrics = Array.isArray(metricsRows) ? metricsRows[0] : metricsRows
   const rankingMode = metrics?.ranking_mode ?? getRankingMode(metrics?.finished_matches_count)
   const rankingStarted = isLiveRankingMode(rankingMode)
+  const nextMatch = ((nextMatchRows ?? []) as Match[])[0] ?? null
+  const podiumUserIds = rankingStarted
+    ? entries
+        .filter((entry) => entry.participant_status === 'confirmed' && entry.user_id && entry.rank >= 1 && entry.rank <= 3 && entry.total_points > 0)
+        .map((entry) => entry.user_id!)
+    : []
+  const podiumPredictionRows = nextMatch && podiumUserIds.length > 0
+    ? await createAdminClient()
+        .from('predictions')
+        .select('user_id, match_id, home_score, away_score, updated_at, created_at')
+        .eq('match_id', nextMatch.id)
+        .in('user_id', podiumUserIds)
+        .order('updated_at', { ascending: false })
+        .order('created_at', { ascending: false })
+    : { data: [], error: null }
+
+  if (podiumPredictionRows.error) throw podiumPredictionRows.error
+
+  const nextMatchPredictions = dedupeLatestPredictionByUser((podiumPredictionRows.data ?? []) as PodiumPredictionRow[])
 
   return (
     <div style={{ padding: 'clamp(40px,8vw,64px) 20px clamp(60px,12vw,100px)' }}>
@@ -100,6 +157,15 @@ export default async function RankingPage() {
             completedProdes: metrics?.prodes_completed_count ?? 0,
             pendingProdes: metrics?.prodes_pending_count ?? 0,
           }}
+          podiumPredictionPreview={nextMatch ? {
+            match: {
+              id: nextMatch.id,
+              home_team: nextMatch.home_team,
+              away_team: nextMatch.away_team,
+              kickoffLabel: `${formatMatchKickoffArgentina(nextMatch.scheduled_at)} ART`,
+            },
+            predictions: nextMatchPredictions,
+          } : null}
         />
       </div>
     </div>

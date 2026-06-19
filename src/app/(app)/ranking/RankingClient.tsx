@@ -1,10 +1,24 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import type { ReactNode } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import Link from 'next/link'
 import type { RankingEntry } from '@/types'
 import { formatRank, hasPrizeTie, rankMedal } from '@/lib/ranking-display'
+
+type PodiumPredictionPreview = {
+  match: {
+    id: string
+    home_team: string
+    away_team: string
+    kickoffLabel: string
+  }
+  predictions: Array<{
+    user_id: string
+    home_score: number
+    away_score: number
+  }>
+} | null
 
 function initials(name: string): string {
   return name.trim()[0]?.toUpperCase() ?? '?'
@@ -211,11 +225,81 @@ function RankRow({
   )
 }
 
+function RankingSection({
+  title,
+  description,
+  items,
+  empty,
+  officialEntries,
+  userId,
+  meRowRef,
+  rankingStarted,
+  tone = 'official',
+}: {
+  title: string
+  description: string
+  items: RankingEntry[]
+  empty: string
+  officialEntries: RankingEntry[]
+  userId?: string
+  meRowRef: RefObject<HTMLDivElement | null>
+  rankingStarted: boolean
+  tone?: 'official' | 'trial'
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-2 px-1">
+        <div>
+          <h2 className="font-display text-[22px] uppercase leading-none tracking-[-0.02em] text-white">
+            {title}
+          </h2>
+          <p className="mt-1 max-w-[620px] text-[12px] font-semibold leading-relaxed text-muted">
+            {description}
+          </p>
+        </div>
+        <span
+          className="rounded-full px-3 py-1.5 font-mono text-[10px] font-extrabold uppercase tracking-[0.1em]"
+          style={{
+            background: tone === 'trial' ? 'rgba(255,177,92,0.1)' : 'rgba(168,240,216,0.08)',
+            color: tone === 'trial' ? '#FFB15C' : '#A8F0D8',
+            border: tone === 'trial' ? '1px solid rgba(255,177,92,0.2)' : '1px solid rgba(168,240,216,0.18)',
+          }}
+        >
+          {items.length}
+        </span>
+      </div>
+
+      <div
+        className="flex flex-col gap-1.5 rounded-[24px] p-2.5"
+        style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
+      >
+        {items.length === 0 ? (
+          <div className="py-10 text-center text-muted text-[14px]">
+            {empty}
+          </div>
+        ) : (
+          items.map((entry) => (
+            <RankRow
+              key={entry.user_id ?? `pending-${entry.name}`}
+              entry={entry}
+              isMe={Boolean(entry.user_id) && entry.user_id === userId}
+              innerRef={entry.user_id && entry.user_id === userId ? meRowRef : undefined}
+              entries={officialEntries}
+              rankingStarted={rankingStarted}
+            />
+          ))
+        )}
+      </div>
+    </section>
+  )
+}
+
 export function RankingClient({
   entries,
   userId,
   rankingStarted,
   summary,
+  podiumPredictionPreview,
 }: {
   entries: RankingEntry[]
   userId?: string
@@ -226,6 +310,7 @@ export function RankingClient({
     completedProdes: number
     pendingProdes: number
   }
+  podiumPredictionPreview?: PodiumPredictionPreview
 }) {
   const [search, setSearch] = useState('')
   const [showPodium, setShowPodium] = useState(true)
@@ -252,67 +337,10 @@ export function RankingClient({
         }))
         .filter((group) => group.entries.length > 0)
     : []
-
-  function RankingSection({
-    title,
-    description,
-    items,
-    empty,
-    tone = 'official',
-  }: {
-    title: string
-    description: string
-    items: RankingEntry[]
-    empty: string
-    tone?: 'official' | 'trial'
-  }) {
-    return (
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-end justify-between gap-2 px-1">
-          <div>
-            <h2 className="font-display text-[22px] uppercase leading-none tracking-[-0.02em] text-white">
-              {title}
-            </h2>
-            <p className="mt-1 max-w-[620px] text-[12px] font-semibold leading-relaxed text-muted">
-              {description}
-            </p>
-          </div>
-          <span
-            className="rounded-full px-3 py-1.5 font-mono text-[10px] font-extrabold uppercase tracking-[0.1em]"
-            style={{
-              background: tone === 'trial' ? 'rgba(255,177,92,0.1)' : 'rgba(168,240,216,0.08)',
-              color: tone === 'trial' ? '#FFB15C' : '#A8F0D8',
-              border: tone === 'trial' ? '1px solid rgba(255,177,92,0.2)' : '1px solid rgba(168,240,216,0.18)',
-            }}
-          >
-            {items.length}
-          </span>
-        </div>
-
-        <div
-          className="flex flex-col gap-1.5 rounded-[24px] p-2.5"
-          style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
-        >
-          {items.length === 0 ? (
-            <div className="py-10 text-center text-muted text-[14px]">
-              {empty}
-            </div>
-          ) : (
-            items.map((entry) => (
-              <RankRow
-                key={entry.user_id ?? `pending-${entry.name}`}
-                entry={entry}
-                isMe={Boolean(entry.user_id) && entry.user_id === userId}
-                innerRef={entry.user_id && entry.user_id === userId ? meRowRef : undefined}
-                entries={officialEntries}
-                rankingStarted={rankingStarted}
-              />
-            ))
-          )}
-        </div>
-      </section>
-    )
-  }
+  const podiumEntries = podiumGroups.flatMap((group) => group.entries)
+  const podiumPredictionByUser = new Map(
+    (podiumPredictionPreview?.predictions ?? []).map((prediction) => [prediction.user_id, prediction])
+  )
 
   useEffect(() => {
     const me = meRowRef.current
@@ -474,6 +502,58 @@ export function RankingClient({
         </section>
       )}
 
+      {podiumPredictionPreview && podiumEntries.length > 0 && (
+        <section className="mb-6 rounded-[20px] bg-[#101010] p-4 sm:p-5" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-orange">
+                Próximo partido
+              </p>
+              <h2 className="mt-1 font-display text-[24px] uppercase leading-none tracking-[-0.02em] text-white">
+                Pronóstico del podio
+              </h2>
+              <p className="mt-2 text-[13px] font-extrabold leading-snug text-white">
+                {podiumPredictionPreview.match.home_team} vs {podiumPredictionPreview.match.away_team}
+              </p>
+              <p className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
+                {podiumPredictionPreview.match.kickoffLabel}
+              </p>
+            </div>
+            <Link
+              href={`/pronosticos/${podiumPredictionPreview.match.id}`}
+              className="rounded-full bg-orange px-4 py-2 text-[11px] font-extrabold text-bg transition-colors hover:bg-white"
+            >
+              Ver detalle
+            </Link>
+          </div>
+
+          <div className="grid gap-2">
+            {podiumEntries.map((entry) => {
+              const prediction = entry.user_id ? podiumPredictionByUser.get(entry.user_id) : null
+              return (
+                <div
+                  key={entry.user_id ?? entry.name}
+                  className="grid gap-1 rounded-[14px] bg-white/[0.035] px-3 py-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] sm:items-center"
+                  style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white" style={{ background: 'linear-gradient(135deg, #5B2D8E, #1565C0)' }}>
+                      {initials(entry.name)}
+                    </span>
+                    <span className="min-w-0 truncate text-[13px] font-extrabold text-white">{entry.name}</span>
+                  </div>
+                  <p className="min-w-0 text-[13px] font-bold leading-snug text-[#d7d7d7] sm:text-right">
+                    {prediction
+                      ? `${podiumPredictionPreview.match.home_team} ${prediction.home_score} - ${prediction.away_score} ${podiumPredictionPreview.match.away_team}`
+                      : 'Sin pronóstico cargado'}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
 
       <div className="space-y-7">
         <RankingSection
@@ -481,6 +561,10 @@ export function RankingClient({
           description={rankingStarted ? 'Competidores que participan oficialmente por premios. Las posiciones de esta tabla son las posiciones oficiales.' : 'Competidores confirmados. Antes del Mundial se ordenan por avance de carga, no por puntos.'}
           items={filteredOfficial}
           empty={search.trim() ? 'No se encontraron competidores para esa búsqueda.' : 'Todavía no hay competidores en el ranking oficial.'}
+          officialEntries={officialEntries}
+          userId={userId}
+          meRowRef={meRowRef}
+          rankingStarted={rankingStarted}
         />
 
       </div>

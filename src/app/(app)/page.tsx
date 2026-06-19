@@ -430,6 +430,9 @@ const nextMatchStats = normalizePredictionInsights(nextMatchStatsRow)
               <Link href="/fixture" className="inline-flex items-center gap-[10px] rounded-full px-[26px] py-[18px] text-[15px] font-extrabold text-white transition-colors duration-150 hover:bg-white/10" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.16)' }}>
                 Ver fixture
               </Link>
+              <Link href="/pronosticos" className="inline-flex items-center gap-[10px] rounded-full px-[26px] py-[18px] text-[15px] font-extrabold text-white transition-colors duration-150 hover:bg-white/10" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.16)' }}>
+                Ver pronósticos
+              </Link>
             </div>
           </div>
 
@@ -533,7 +536,10 @@ const nextMatchStats = normalizePredictionInsights(nextMatchStatsRow)
                     <h2 className="mt-3 font-display text-[clamp(28px,5vw,46px)] uppercase leading-[0.9] tracking-[-0.02em]">Fixture completo</h2>
                   )}
                 </div>
-                <SectionLink href="/fixture" label="Fixture" />
+                <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                  <SectionLink href="/fixture" label="Fixture" />
+                  {nextMatch && <SectionLink href={`/pronosticos/${nextMatch.id}`} label="Cómo lo pronosticaron" />}
+                </div>
               </div>
 
               <div className="rounded-[18px] bg-[#0A0A0A] p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
