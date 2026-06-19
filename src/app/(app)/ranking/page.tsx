@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { RankingClient } from './RankingClient'
-import type { RankingEntry } from '@/types'
+import type { Match, Prediction, RankingEntry } from '@/types'
 import { getRankingMode, isLiveRankingMode, type RankingMode } from '@/lib/ranking-mode'
+import { formatMatchKickoffArgentina } from '@/lib/match-datetime'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,12 +24,100 @@ type PublicHomeMetrics = {
   ranking_mode?: RankingMode
 }
 
+type PublicPredictionDetail = {
+  predictions?: Prediction[]
+}
+
+type PodiumPredictionPreview = {
+  match: {
+    id: string
+    home_team: string
+    away_team: string
+    kickoffLabel: string
+  }
+  predictions: Array<{
+    user_id: string
+    home_score: number
+    away_score: number
+  }>
+} | null
+
+function safeKickoffLabel(value: string | null | undefined) {
+  if (!value) return 'Horario a confirmar'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Horario a confirmar'
+  return `${formatMatchKickoffArgentina(value)} ART`
+}
+
+async function getPodiumPredictionPreview({
+  supabase,
+  nextMatch,
+  podiumUserIds,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>
+  nextMatch: Match | null
+  podiumUserIds: string[]
+}): Promise<PodiumPredictionPreview> {
+  if (!nextMatch || podiumUserIds.length === 0) return null
+
+  const settled = await Promise.allSettled(
+    podiumUserIds.map(async (userId) => {
+      try {
+        const { data, error } = await supabase.rpc('get_public_prediction_detail', { p_user_id: userId })
+        if (error) return { ok: false as const, error }
+
+        const predictions = ((data as PublicPredictionDetail | null)?.predictions ?? []) as Prediction[]
+        const prediction = predictions.find((item) => item.user_id === userId && item.match_id === nextMatch.id)
+
+        return {
+          ok: true as const,
+          prediction: prediction
+            ? {
+                user_id: userId,
+                home_score: Number(prediction.home_score),
+                away_score: Number(prediction.away_score),
+              }
+            : null,
+        }
+      } catch (error) {
+        return { ok: false as const, error }
+      }
+    })
+  )
+
+  const failures = settled.filter(
+    (result) => result.status === 'rejected' || (result.status === 'fulfilled' && !result.value.ok)
+  )
+  if (failures.length > 0) {
+    console.warn('[ranking] No se pudo cargar la card Pronóstico del podio', failures)
+    return null
+  }
+
+  return {
+    match: {
+      id: nextMatch.id,
+      home_team: nextMatch.home_team,
+      away_team: nextMatch.away_team,
+      kickoffLabel: safeKickoffLabel(nextMatch.scheduled_at),
+    },
+    predictions: settled
+      .map((result) => (result.status === 'fulfilled' && result.value.ok ? result.value.prediction : null))
+      .filter((prediction): prediction is NonNullable<typeof prediction> => Boolean(prediction)),
+  }
+}
+
 export default async function RankingPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const [{ data, error }, { data: metricsData, error: metricsError }] = await Promise.all([
+  const [{ data, error }, { data: metricsData, error: metricsError }, nextMatchResult] = await Promise.all([
     supabase.rpc('get_public_ranking'),
     supabase.rpc('get_public_home_metrics'),
+    supabase
+      .from('matches')
+      .select('*')
+      .neq('status', 'finished')
+      .order('scheduled_at', { ascending: true })
+      .limit(1),
   ])
 
   if (error) throw error
@@ -43,6 +132,20 @@ export default async function RankingPage() {
   const metrics = Array.isArray(metricsRows) ? metricsRows[0] : metricsRows
   const rankingMode = metrics?.ranking_mode ?? getRankingMode(metrics?.finished_matches_count)
   const rankingStarted = isLiveRankingMode(rankingMode)
+  if (nextMatchResult.error) {
+    console.warn('[ranking] No se pudo cargar el próximo partido para Pronóstico del podio', nextMatchResult.error)
+  }
+  const nextMatch = nextMatchResult.error ? null : (((nextMatchResult.data ?? []) as Match[])[0] ?? null)
+  const podiumUserIds = rankingStarted
+    ? entries
+        .filter((entry) => entry.participant_status === 'confirmed' && entry.user_id && entry.rank >= 1 && entry.rank <= 3 && entry.total_points > 0)
+        .map((entry) => entry.user_id!)
+    : []
+  const podiumPredictionPreview = await getPodiumPredictionPreview({
+    supabase,
+    nextMatch,
+    podiumUserIds,
+  })
 
   return (
     <div style={{ padding: 'clamp(40px,8vw,64px) 20px clamp(60px,12vw,100px)' }}>
@@ -100,6 +203,7 @@ export default async function RankingPage() {
             completedProdes: metrics?.prodes_completed_count ?? 0,
             pendingProdes: metrics?.prodes_pending_count ?? 0,
           }}
+          podiumPredictionPreview={podiumPredictionPreview}
         />
       </div>
     </div>

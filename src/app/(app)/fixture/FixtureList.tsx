@@ -9,6 +9,21 @@ import { formatMatchDayKeyArgentina, formatMatchDayLabelArgentina, formatMatchTi
 import { buildGroupTableRows, buildOfficialGroupScoreMap } from '@/lib/group-standings'
 import { GroupStandingsTables, type GroupTableSection } from '@/components/GroupStandingsTables'
 
+function TeamFlag({ iso2, fallback }: { iso2: string; fallback: string }) {
+  return (
+    <div
+      className="grid h-4 w-6 shrink-0 place-items-center overflow-hidden rounded-[2px]"
+      style={{ background: '#1a1a1a' }}
+    >
+      {iso2 ? (
+        <img src={flagUrl(iso2)} alt="" style={{ width: '24px', height: '16px', objectFit: 'cover' }} />
+      ) : (
+        <span className="text-[11px] leading-none">{fallback}</span>
+      )}
+    </div>
+  )
+}
+
 function MatchRow({ match }: { match: Match }) {
   const home = getTeam(match.home_team)
   const away = getTeam(match.away_team)
@@ -57,7 +72,7 @@ function MatchRow({ match }: { match: Match }) {
         style={{ background: isLive ? '#FF3B3B' : isFinished ? '#3a3a3a' : '#FF6B00' }}
       />
 
-      <span className="font-mono text-[11px] text-muted w-9 shrink-0">{time}</span>
+      <span className="w-9 shrink-0 font-mono text-[11px] text-muted">{time}</span>
 
       {stageLabel && (
         match.stage === 'group' && match.group ? (
@@ -81,22 +96,16 @@ function MatchRow({ match }: { match: Match }) {
       )}
 
       {/* Home */}
-      <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-        <span className="text-[13px] font-semibold truncate text-right">{match.home_team}</span>
-        <div
-          className="w-6 h-4 overflow-hidden rounded-[2px] shrink-0 grid place-items-center"
-          style={{ background: '#1a1a1a' }}
-        >
-          {home.iso2 ? (
-            <img src={flagUrl(home.iso2)} alt="" style={{ width: '24px', height: '16px', objectFit: 'cover' }} />
-          ) : (
-            <span className="text-[11px] leading-none">{home.flag}</span>
-          )}
-        </div>
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 min-[520px]:gap-2">
+        <span className="hidden truncate text-right text-[13px] font-semibold min-[520px]:block">{match.home_team}</span>
+        <TeamFlag iso2={home.iso2} fallback={home.flag} />
+        <span className="font-mono text-[11px] font-extrabold uppercase tracking-[0.06em] text-white min-[520px]:hidden">
+          {home.code}
+        </span>
       </div>
 
       {/* Center: real result when available, otherwise just VS */}
-      <div className="shrink-0 w-[60px] text-center">
+      <div className="w-9 shrink-0 text-center min-[520px]:w-[60px]">
         {isScored ? (
           <span className="font-display text-[15px] tracking-[-0.02em]">
             {match.home_score}-{match.away_score}
@@ -107,18 +116,12 @@ function MatchRow({ match }: { match: Match }) {
       </div>
 
       {/* Away */}
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <div
-          className="w-6 h-4 overflow-hidden rounded-[2px] shrink-0 grid place-items-center"
-          style={{ background: '#1a1a1a' }}
-        >
-          {away.iso2 ? (
-            <img src={flagUrl(away.iso2)} alt="" style={{ width: '24px', height: '16px', objectFit: 'cover' }} />
-          ) : (
-            <span className="text-[11px] leading-none">{away.flag}</span>
-          )}
-        </div>
-        <span className="text-[13px] font-semibold truncate">{match.away_team}</span>
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 min-[520px]:gap-2">
+        <span className="font-mono text-[11px] font-extrabold uppercase tracking-[0.06em] text-white min-[520px]:hidden">
+          {away.code}
+        </span>
+        <TeamFlag iso2={away.iso2} fallback={away.flag} />
+        <span className="hidden truncate text-[13px] font-semibold min-[520px]:block">{match.away_team}</span>
       </div>
 
       {/* Right: status */}
@@ -181,6 +184,11 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
       {label}
     </button>
   )
+}
+
+function mobileGroupSelectLabel(filter: Filter) {
+  if (filter === 'all' || filter === 'eliminatoria') return ''
+  return filter
 }
 
 export function FixtureList({ matches, allMatches = matches }: { matches: Match[]; allMatches?: Match[] }) {
@@ -255,7 +263,30 @@ export function FixtureList({ matches, allMatches = matches }: { matches: Match[
   return (
     <div>
       {/* Filter chips */}
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="mb-6 flex gap-2 min-[640px]:hidden">
+        <FilterChip label="Todos" active={filter === 'all'} onClick={() => setFilter('all')} />
+        <select
+          value={mobileGroupSelectLabel(filter)}
+          onChange={(event) => setFilter(event.target.value || 'all')}
+          aria-label="Elegir grupo"
+          className={clsx(
+            'rounded-full px-3.5 py-[7px] text-[11px] font-extrabold uppercase tracking-[0.07em] outline-none transition-all duration-150',
+            filter !== 'all' && filter !== 'eliminatoria' ? 'bg-orange text-bg' : 'text-muted'
+          )}
+          style={
+            filter !== 'all' && filter !== 'eliminatoria'
+              ? { boxShadow: '0 4px 14px -6px rgba(255,107,0,.6)' }
+              : { background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }
+          }
+        >
+          <option value="">Grupos</option>
+          {groups.map((g) => (
+            <option key={g} value={g}>{`Grupo ${g}`}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mb-6 hidden flex-wrap gap-2 min-[640px]:flex">
         <FilterChip label="Todos" active={filter === 'all'} onClick={() => setFilter('all')} />
         {groups.map((g) => (
           <FilterChip
