@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useState, useMemo } from 'react'
 import clsx from 'clsx'
 import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
-import { formatMatchDayKeyArgentina, formatMatchDayLabelArgentina, formatMatchTimeArgentina } from '@/lib/match-datetime'
+import { formatMatchDayKeyArgentina, formatMatchDayLabelArgentina, formatMatchKickoffArgentina, formatMatchTimeArgentina } from '@/lib/match-datetime'
 import { buildGroupTableRows, buildOfficialGroupScoreMap } from '@/lib/group-standings'
 import { GroupStandingsTables, type GroupTableSection } from '@/components/GroupStandingsTables'
 
@@ -166,6 +167,63 @@ const STAGE_LABELS: Record<string, string> = {
 }
 
 type Filter = 'all' | string
+type FixtureMatchesFilter = 'current' | 'live' | 'upcoming' | 'finished' | 'all'
+
+function resolveFixtureMatchesFilter(rawFilter: string | null): FixtureMatchesFilter {
+  if (rawFilter === 'live' || rawFilter === 'upcoming' || rawFilter === 'finished' || rawFilter === 'all') {
+    return rawFilter
+  }
+  return 'current'
+}
+
+function EmptyFixtureState({
+  fixtureFilter,
+  nextMatch,
+}: {
+  fixtureFilter: FixtureMatchesFilter
+  nextMatch: Match | null
+}) {
+  const title =
+    fixtureFilter === 'live'
+      ? 'No hay partidos en vivo ahora'
+      : fixtureFilter === 'upcoming'
+      ? 'No hay próximos partidos cargados'
+      : fixtureFilter === 'finished'
+      ? 'Todavía no hay partidos finalizados'
+      : 'El fixture se publicará próximamente'
+
+  return (
+    <div
+      className="rounded-[24px] px-5 py-12 text-center sm:px-8 sm:py-16"
+      style={{ background: '#111', border: '1px solid rgba(255,255,255,0.07)' }}
+    >
+      <p className="mb-3 font-display text-[20px] uppercase leading-tight tracking-[-0.01em] text-white sm:text-[24px]">
+        {title}
+      </p>
+      {fixtureFilter === 'live' ? (
+        nextMatch ? (
+          <div className="mx-auto max-w-[520px] space-y-2 text-[14px] font-semibold leading-relaxed text-muted">
+            <p>
+              El próximo partido es:{' '}
+              <span className="text-white">
+                {nextMatch.home_team} vs {nextMatch.away_team} · {formatMatchKickoffArgentina(nextMatch.scheduled_at)} ART
+              </span>
+            </p>
+            <p>También podés usar el filtro Próximos para ver los partidos que vienen.</p>
+          </div>
+        ) : (
+          <p className="text-[14px] font-semibold text-muted">No hay partidos en vivo ni próximos cargados.</p>
+        )
+      ) : (
+        <p className="mx-auto max-w-[460px] text-[14px] font-semibold leading-relaxed text-muted">
+          {fixtureFilter === 'all' || fixtureFilter === 'current'
+            ? 'Volvé cuando esté cargado el calendario.'
+            : 'Probá con otro filtro para seguir mirando el fixture.'}
+        </p>
+      )}
+    </div>
+  )
+}
 
 function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
@@ -192,7 +250,16 @@ function mobileGroupSelectLabel(filter: Filter) {
 }
 
 export function FixtureList({ matches, allMatches = matches }: { matches: Match[]; allMatches?: Match[] }) {
+  const searchParams = useSearchParams()
+  const fixtureFilter = resolveFixtureMatchesFilter(searchParams.get('matches'))
   const [filter, setFilter] = useState<Filter>('all')
+  const nextUpcomingMatch = useMemo(
+    () =>
+      [...allMatches]
+        .filter((match) => match.status === 'upcoming')
+        .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0] ?? null,
+    [allMatches]
+  )
 
   const groups = useMemo(() => {
     const seen = new Set<string>()
@@ -247,17 +314,7 @@ export function FixtureList({ matches, allMatches = matches }: { matches: Match[
   }, [allMatches, filter, groups])
 
   if (!matches.length) {
-    return (
-      <div
-        className="rounded-[24px] p-16 text-center"
-        style={{ background: '#111', border: '1px solid rgba(255,255,255,0.07)' }}
-      >
-        <p className="font-display text-[18px] tracking-[-0.01em] uppercase mb-2">
-          El fixture se publicará próximamente
-        </p>
-        <p className="text-muted text-[14px]">Volvé cuando arranque el torneo.</p>
-      </div>
-    )
+    return <EmptyFixtureState fixtureFilter={fixtureFilter} nextMatch={nextUpcomingMatch} />
   }
 
   return (

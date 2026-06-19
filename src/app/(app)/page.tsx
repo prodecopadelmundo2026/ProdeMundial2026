@@ -524,7 +524,7 @@ const nextMatchStats = normalizePredictionInsights(nextMatchStatsRow)
 
           <div className="grid content-start gap-5">
             <article className="rounded-[24px] bg-panel p-5 min-[760px]:p-6" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div className="mb-5 flex items-start justify-between gap-4">
+              <div className="mb-5 flex flex-col gap-4 min-[620px]:flex-row min-[620px]:items-start min-[620px]:justify-between">
                 <div>
                   <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange">Próximo partido</p>
                   {nextMatch ? (
@@ -536,7 +536,7 @@ const nextMatchStats = normalizePredictionInsights(nextMatchStatsRow)
                     <h2 className="mt-3 font-display text-[clamp(28px,5vw,46px)] uppercase leading-[0.9] tracking-[-0.02em]">Fixture completo</h2>
                   )}
                 </div>
-                <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                <div className="flex w-full max-w-[260px] shrink-0 flex-col gap-2 [&>a]:w-full [&>a]:justify-between min-[620px]:w-[220px]">
                   <SectionLink href="/fixture" label="Fixture" />
                   {nextMatch && <SectionLink href={`/pronosticos/${nextMatch.id}`} label="Cómo lo pronosticaron" />}
                 </div>
