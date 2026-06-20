@@ -25,8 +25,30 @@ function initials(name: string): string {
   return name.trim()[0]?.toUpperCase() ?? '?'
 }
 
-function teamFlag(name: string) {
-  return getTeam(name).flag
+function flagEmojiFromIso2(iso2: string) {
+  const code = iso2.trim().toUpperCase()
+  if (!/^[A-Z]{2}$/.test(code)) return null
+  return Array.from(code)
+    .map((letter) => String.fromCodePoint(0x1f1e6 + letter.charCodeAt(0) - 65))
+    .join('')
+}
+
+function teamFlagText(name: string) {
+  const team = getTeam(name)
+  return flagEmojiFromIso2(team.iso2) ?? team.flag ?? team.code
+}
+
+function TeamFlagText({ name }: { name: string }) {
+  return (
+    <span
+      aria-label={name}
+      title={name}
+      className="inline-block leading-none"
+      style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif' }}
+    >
+      {teamFlagText(name)}
+    </span>
+  )
 }
 
 function normalizeProdeStatus(entry: RankingEntry) {
@@ -549,9 +571,15 @@ export function RankingClient({
                     <span className="min-w-0 truncate text-[13px] font-extrabold text-white">{entry.name}</span>
                   </div>
                   <p className="min-w-0 text-[20px] font-extrabold leading-none text-white sm:text-right sm:text-[16px]">
-                    {prediction
-                      ? `${teamFlag(podiumPredictionPreview.match.home_team)} ${prediction.home_score} - ${prediction.away_score} ${teamFlag(podiumPredictionPreview.match.away_team)}`
-                      : 'Sin pronóstico cargado'}
+                    {prediction ? (
+                      <span className="inline-flex items-center gap-2">
+                        <TeamFlagText name={podiumPredictionPreview.match.home_team} />
+                        <span className="font-display tabular-nums">{prediction.home_score} - {prediction.away_score}</span>
+                        <TeamFlagText name={podiumPredictionPreview.match.away_team} />
+                      </span>
+                    ) : (
+                      'Sin pronóstico cargado'
+                    )}
                   </p>
                 </div>
               )
