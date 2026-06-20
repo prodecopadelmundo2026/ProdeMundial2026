@@ -960,10 +960,10 @@ function ViewNavigation({
 
 function OverviewTile({ label, value, detail }: { label: string; value: string | number; detail: string }) {
   return (
-    <div className="rounded-[16px] bg-[#141414] p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-      <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">{label}</p>
-      <p className="mt-2 font-display text-[28px] leading-none text-white">{value}</p>
-      <p className="mt-2 text-[12px] font-semibold leading-snug text-muted">{detail}</p>
+    <div className="rounded-[14px] bg-[#141414] p-3 sm:rounded-[16px] sm:p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+      <p className="truncate font-mono text-[9px] font-extrabold uppercase tracking-[0.1em] text-muted sm:text-[10px] sm:tracking-[0.14em]">{label}</p>
+      <p className="mt-1 font-display text-[22px] leading-none text-white sm:mt-2 sm:text-[28px]">{value}</p>
+      <p className="mt-2 hidden text-[12px] font-semibold leading-snug text-muted sm:block">{detail}</p>
     </div>
   )
 }
@@ -1008,23 +1008,35 @@ function ProdeOverview({
   const tomorrowKey = formatMatchDayKeyArgentina(new Date(now.getTime() + 24 * 60 * 60 * 1000))
   const futureRows = rows
     .filter((row) => row.match.status !== 'finished')
-    .sort((a, b) => new Date(a.match.scheduled_at).getTime() - new Date(b.match.scheduled_at).getTime())
+    .sort((a, b) => {
+      if (a.match.status === 'live' && b.match.status !== 'live') return -1
+      if (a.match.status !== 'live' && b.match.status === 'live') return 1
+      return new Date(a.match.scheduled_at).getTime() - new Date(b.match.scheduled_at).getTime()
+    })
   const nearFutureRows = futureRows.filter((row) => {
     const dayKey = formatMatchDayKeyArgentina(row.match.scheduled_at)
     return dayKey === todayKey || dayKey === tomorrowKey
   })
   const upcomingRows = (nearFutureRows.length >= 3 ? nearFutureRows : futureRows).slice(0, 6)
+  const scoredGroupFilters = groupKeys
+    .map((group) => ({
+      label: `Grupo ${group}`,
+      href: hrefForView(userId, `group_${group}` as ViewKey),
+      count: scoredRows.filter((row) => row.stage === 'group' && row.match.group === group).length,
+    }))
+    .filter((item) => item.count > 0)
+  const scoredKnockoutCount = scoredRows.filter((row) => row.stage !== 'group').length
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <OverviewTile label="Grupos" value={`${groupLoaded}/${groupTotal}`} detail="Entrá por grupo para ver marcadores sin una lista eterna." />
         <OverviewTile label="Eliminatorias" value={`${knockoutLoaded}/${knockoutTotal}`} detail="Cruces, avances y fases decisivas en una vista separada." />
         <OverviewTile label="Especiales" value={`${specialsLoaded}/3`} detail="Balon, bota y guante de oro." />
       </div>
 
       {false && (
-      <section className="rounded-[18px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+      <section className="rounded-[18px] bg-[#0d0d0d] px-4 py-3" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="font-extrabold text-white">Grupos</p>
@@ -1052,9 +1064,55 @@ function ProdeOverview({
       )}
 
       <section className="rounded-[18px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <p className="font-extrabold text-white">Proximos pronosticos</p>
+            <p className="mt-1 text-[12px] font-semibold leading-relaxed text-muted">
+              En vivo primero, despues el proximo partido y futuros por fecha.
+            </p>
+          </div>
+          <span className="rounded-full px-3 py-1.5 font-mono text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#D7DEE8' }}>
+            {upcomingRows.length}
+          </span>
+        </div>
+
+        {upcomingRows.length > 0 ? (
+          <div className="overflow-hidden rounded-[16px]" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div
+              className={`hidden px-4 py-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted ${showViewerPrediction ? 'min-[900px]:grid' : 'min-[720px]:grid'} ${auditTableGridClass(showViewerPrediction)}`}
+              style={{ background: '#101010', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <span>Partido</span>
+              <span className="text-center">Oficial</span>
+              <span className="text-center">{isOwnProfile ? 'Tu pronostico' : 'Su pronostico'}</span>
+              {showViewerPrediction && <span className="text-center">Mi pronostico</span>}
+              <span className="text-right">Estado</span>
+            </div>
+            {upcomingRows.map((row) => (
+              <MatchAuditCard
+                key={row.match.id}
+                row={row}
+                showScoring={false}
+                viewerPrediction={viewerPredictionByMatch.get(row.match.id)}
+                viewerRow={viewerRowByMatch.get(row.match.id)}
+                targetTiebreaker={userTiebreakerMap[row.match.id]}
+                viewerTiebreaker={viewerTiebreakerMap[row.match.id]}
+                isOwnProfile={isOwnProfile}
+                showViewerPrediction={showViewerPrediction}
+                variant="upcoming"
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-[14px] bg-[#141414] px-4 py-4 text-[13px] font-semibold text-muted" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+            Todavia no hay proximos partidos para auditar.
+          </p>
+        )}
+      </section>
+      <section className="rounded-[18px] bg-[#0d0d0d] px-4 py-3" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
         <p className="font-extrabold text-white">Resumen general</p>
         <p className="mt-1 text-[12px] font-semibold leading-relaxed text-muted">
-          Usá el selector “Elegir grupo” para entrar a un grupo específico, o la pestaña Eliminatorias para revisar cruces por fase.
+          Usa los accesos por grupo o fase para revisar el historial completo.
         </p>
       </section>
       <section className="rounded-[18px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
@@ -1062,13 +1120,37 @@ function ProdeOverview({
           <div>
             <p className="font-extrabold text-white">Partidos ya puntuados</p>
             <p className="mt-1 text-[12px] font-semibold leading-relaxed text-muted">
-              Estos son los partidos finalizados que ya impactaron en el ranking.
+              Historial de partidos finalizados que ya impactaron en el ranking.
             </p>
           </div>
           <span className="rounded-full px-3 py-1.5 font-mono text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#D7DEE8' }}>
             {scoredRows.length}
           </span>
         </div>
+
+        {(scoredGroupFilters.length > 0 || scoredKnockoutCount > 0) && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {scoredGroupFilters.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="rounded-full px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.08em] transition-colors hover:bg-[#1c1c1c]"
+                style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#d9d9d9' }}
+              >
+                {item.label} - {item.count}
+              </Link>
+            ))}
+            {scoredKnockoutCount > 0 && (
+              <Link
+                href={hrefForView(userId, 'knockout')}
+                className="rounded-full px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.08em] transition-colors hover:bg-[#1c1c1c]"
+                style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#d9d9d9' }}
+              >
+                Eliminatorias - {scoredKnockoutCount}
+              </Link>
+            )}
+          </div>
+        )}
 
         {scoredRows.length > 0 ? (
           <div className="overflow-hidden rounded-[16px]" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -1107,52 +1189,6 @@ function ProdeOverview({
         ) : (
           <p className="rounded-[14px] bg-[#141414] px-4 py-4 text-[13px] font-semibold text-muted" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
             Todavia no hay partidos finalizados para auditar.
-          </p>
-        )}
-      </section>
-      <section className="rounded-[18px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
-        <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <p className="font-extrabold text-white">Proximos partidos</p>
-            <p className="mt-1 text-[12px] font-semibold leading-relaxed text-muted">
-              Estos son los proximos partidos con el pronostico del participante y tu comparacion.
-            </p>
-          </div>
-          <span className="rounded-full px-3 py-1.5 font-mono text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#D7DEE8' }}>
-            {upcomingRows.length}
-          </span>
-        </div>
-
-        {upcomingRows.length > 0 ? (
-          <div className="overflow-hidden rounded-[16px]" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-            <div
-              className={`hidden px-4 py-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted ${showViewerPrediction ? 'min-[900px]:grid' : 'min-[720px]:grid'} ${auditTableGridClass(showViewerPrediction)}`}
-              style={{ background: '#101010', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
-            >
-              <span>Partido</span>
-              <span className="text-center">Oficial</span>
-              <span className="text-center">{isOwnProfile ? 'Tu pronostico' : 'Su pronostico'}</span>
-              {showViewerPrediction && <span className="text-center">Mi pronostico</span>}
-              <span className="text-right">Estado</span>
-            </div>
-            {upcomingRows.map((row) => (
-              <MatchAuditCard
-                key={row.match.id}
-                row={row}
-                showScoring={false}
-                viewerPrediction={viewerPredictionByMatch.get(row.match.id)}
-                viewerRow={viewerRowByMatch.get(row.match.id)}
-                targetTiebreaker={userTiebreakerMap[row.match.id]}
-                viewerTiebreaker={viewerTiebreakerMap[row.match.id]}
-                isOwnProfile={isOwnProfile}
-                showViewerPrediction={showViewerPrediction}
-                variant="upcoming"
-              />
-            ))}
-          </div>
-        ) : (
-          <p className="rounded-[14px] bg-[#141414] px-4 py-4 text-[13px] font-semibold text-muted" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
-            Todavia no hay proximos partidos para auditar.
           </p>
         )}
       </section>
@@ -1331,7 +1367,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
         </div>
 
         {rankingStarted ? (
-          <div className="grid gap-3 sm:grid-cols-5 mb-5">
+          <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-3">
             <SummaryBox
               label="Ranking"
               value={`${rankMedal(entry.rank, entry.total_points) ? `${rankMedal(entry.rank, entry.total_points)} ` : ''}${formatRank(entry, rankingEntries)}`}
@@ -1343,7 +1379,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
             <SummaryLink label="Incorrectas" value={statusCount(auditRows, 'incorrect')} href={filterHrefForView(userId, activeView, 'incorrect', activeResult, activeView === 'knockout' ? activeKnockoutStage : null)} active={activeResult === 'incorrect'} />
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-4 mb-5">
+          <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
             <SummaryBox label="Modo" value="Pre Mundial" />
             <SummaryBox label="Pronosticos" value={userTypedPredictions.length} />
             <SummaryBox label="Desempates" value={userTiebreakers.length} />
@@ -1536,9 +1572,9 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
 
 function SummaryBox({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
-    <div className="rounded-[16px] px-4 py-4" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
-      <p className="font-mono text-[10px] font-extrabold tracking-[0.16em] uppercase text-muted">{label}</p>
-      <p className="font-display text-[28px] leading-none mt-2" style={{ color }}>{value}</p>
+    <div className="rounded-[14px] px-3 py-3 sm:rounded-[16px] sm:px-4 sm:py-4" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <p className="truncate font-mono text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted sm:text-[10px] sm:tracking-[0.16em]">{label}</p>
+      <p className="mt-1 font-display text-[23px] leading-none sm:mt-2 sm:text-[28px]" style={{ color }}>{value}</p>
     </div>
   )
 }
@@ -1547,14 +1583,14 @@ function SummaryLink({ label, value, href, active }: { label: string; value: num
   return (
     <Link
       href={href}
-      className="rounded-[16px] px-4 py-4 transition-colors duration-150"
+      className="rounded-[14px] px-3 py-3 transition-colors duration-150 sm:rounded-[16px] sm:px-4 sm:py-4"
       style={{
         background: active ? 'rgba(255,107,0,0.12)' : '#141414',
         border: active ? '1px solid rgba(255,107,0,0.35)' : '1px solid rgba(255,255,255,0.08)',
       }}
     >
-      <p className="font-mono text-[10px] font-extrabold tracking-[0.16em] uppercase text-muted">{label}</p>
-      <p className="font-display text-[28px] leading-none mt-2">{value}</p>
+      <p className="truncate font-mono text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted sm:text-[10px] sm:tracking-[0.16em]">{label}</p>
+      <p className="mt-1 font-display text-[23px] leading-none sm:mt-2 sm:text-[28px]">{value}</p>
     </Link>
   )
 }
