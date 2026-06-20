@@ -5,6 +5,7 @@ import type { ReactNode, RefObject } from 'react'
 import Link from 'next/link'
 import type { RankingEntry } from '@/types'
 import { formatRank, hasPrizeTie, rankMedal } from '@/lib/ranking-display'
+import { getTeam } from '@/lib/teams'
 
 type PodiumPredictionPreview = {
   match: {
@@ -22,6 +23,10 @@ type PodiumPredictionPreview = {
 
 function initials(name: string): string {
   return name.trim()[0]?.toUpperCase() ?? '?'
+}
+
+function teamFlag(name: string) {
+  return getTeam(name).flag
 }
 
 function normalizeProdeStatus(entry: RankingEntry) {
@@ -534,18 +539,18 @@ export function RankingClient({
               return (
                 <div
                   key={entry.user_id ?? entry.name}
-                  className="grid gap-1 rounded-[14px] bg-white/[0.035] px-3 py-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] sm:items-center"
+                  className="grid gap-2 rounded-[14px] bg-white/[0.035] px-3 py-3 sm:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] sm:items-center"
                   style={{ border: '1px solid rgba(255,255,255,0.08)' }}
                 >
                   <div className="flex min-w-0 items-center gap-2">
-                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white" style={{ background: 'linear-gradient(135deg, #5B2D8E, #1565C0)' }}>
+                    <span className="hidden h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white sm:grid" style={{ background: 'linear-gradient(135deg, #5B2D8E, #1565C0)' }}>
                       {initials(entry.name)}
                     </span>
                     <span className="min-w-0 truncate text-[13px] font-extrabold text-white">{entry.name}</span>
                   </div>
-                  <p className="min-w-0 text-[13px] font-bold leading-snug text-[#d7d7d7] sm:text-right">
+                  <p className="min-w-0 text-[20px] font-extrabold leading-none text-white sm:text-right sm:text-[16px]">
                     {prediction
-                      ? `${podiumPredictionPreview.match.home_team} ${prediction.home_score} - ${prediction.away_score} ${podiumPredictionPreview.match.away_team}`
+                      ? `${teamFlag(podiumPredictionPreview.match.home_team)} ${prediction.home_score} - ${prediction.away_score} ${teamFlag(podiumPredictionPreview.match.away_team)}`
                       : 'Sin pronóstico cargado'}
                   </p>
                 </div>

@@ -413,6 +413,31 @@ function PredictionPanel({
   )
 }
 
+function CompactScorePanel({
+  label,
+  value,
+  emptyText = '-',
+  showMobileLabelAt,
+}: {
+  label: string
+  value: string | null
+  emptyText?: string
+  showMobileLabelAt: 'min-[720px]' | 'min-[900px]'
+}) {
+  const hideLabelClass = showMobileLabelAt === 'min-[900px]' ? 'min-[900px]:hidden' : 'min-[720px]:hidden'
+
+  return (
+    <div className="grid min-h-[58px] min-w-0 content-center justify-items-center rounded-[10px] bg-[#0d0d0d] px-3 py-2 text-center" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+      <span className={`mb-1 font-mono text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted ${hideLabelClass}`}>
+        {label}
+      </span>
+      <span className="font-display text-[22px] leading-none text-white tabular-nums">
+        {value ?? emptyText}
+      </span>
+    </div>
+  )
+}
+
 function MiniBadge({ label, color }: { label: string; color: string }) {
   return (
     <span
@@ -496,6 +521,7 @@ function MatchAuditCard({
   targetTiebreaker,
   viewerTiebreaker,
   isOwnProfile,
+  targetUserName,
   showViewerPrediction = !isOwnProfile,
   variant = 'full',
 }: {
@@ -506,6 +532,7 @@ function MatchAuditCard({
   targetTiebreaker?: string | null
   viewerTiebreaker?: string | null
   isOwnProfile: boolean
+  targetUserName?: string | null
   showViewerPrediction?: boolean
   variant?: 'full' | 'compact' | 'upcoming'
 }) {
@@ -514,7 +541,11 @@ function MatchAuditCard({
   const status = isGroup
     ? comparisonStatus(targetPrediction, viewerPrediction, isOwnProfile)
     : knockoutComparisonStatus(row, viewerRow, isOwnProfile)
-  const targetLabel = isOwnProfile ? 'Tu pronóstico' : 'Su pronóstico'
+  const targetLabel = isOwnProfile
+    ? 'Tu pronóstico'
+    : targetUserName?.trim()
+    ? `Pronóstico de ${targetUserName.trim()}`
+    : 'Pronóstico del usuario'
   const officialValue = row.match.status === 'finished' && row.match.home_score != null && row.match.away_score != null
     ? row.officialScore
     : null
@@ -597,6 +628,7 @@ function MatchAuditCard({
 
   if (variant === 'compact') {
     const pointColor = STATUS_LABELS[row.status].color
+    const mobileLabelBreakpoint = showViewerPrediction ? 'min-[900px]' : 'min-[720px]'
     return (
       <div className="px-4 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div
@@ -614,17 +646,11 @@ function MatchAuditCard({
             </p>
           </div>
 
-          <div className="grid h-12 min-w-0 place-items-center rounded-[10px] bg-[#0d0d0d] px-3 text-center font-display text-[22px] leading-none text-white tabular-nums" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-            {officialValue ?? '-'}
-          </div>
-          <div className="grid h-12 min-w-0 place-items-center rounded-[10px] bg-[#0d0d0d] px-3 text-center font-display text-[22px] leading-none text-white tabular-nums" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-            {formatPredictionScore(targetPrediction) ?? '-'}
-          </div>
+          <CompactScorePanel label="Resultado oficial" value={officialValue} showMobileLabelAt={mobileLabelBreakpoint} />
           {showViewerPrediction && (
-            <div className="grid h-12 min-w-0 place-items-center rounded-[10px] bg-[#0d0d0d] px-3 text-center font-display text-[22px] leading-none text-white tabular-nums" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-              {formatPredictionScore(viewerPrediction) ?? '-'}
-            </div>
+            <CompactScorePanel label="Tu pronóstico" value={formatPredictionScore(viewerPrediction)} showMobileLabelAt={mobileLabelBreakpoint} />
           )}
+          <CompactScorePanel label={targetLabel} value={formatPredictionScore(targetPrediction)} showMobileLabelAt={mobileLabelBreakpoint} />
 
           <div className="flex items-center justify-end">
             {showScoring ? (
@@ -944,6 +970,7 @@ function OverviewTile({ label, value, detail }: { label: string; value: string |
 
 function ProdeOverview({
   userId,
+  participantName,
   rows,
   specialBets,
   groupKeys,
@@ -956,6 +983,7 @@ function ProdeOverview({
   showViewerPrediction,
 }: {
   userId: string
+  participantName: string | null
   rows: MatchAuditRow[]
   specialBets: SpecialBetsRow | null
   groupKeys: string[]
@@ -1050,8 +1078,14 @@ function ProdeOverview({
             >
               <span>Partido</span>
               <span className="text-center">Oficial</span>
-              <span className="text-center">{isOwnProfile ? 'Tu pronostico' : 'Su pronostico'}</span>
-              {showViewerPrediction && <span className="text-center">Mi pronostico</span>}
+              {showViewerPrediction && <span className="text-center">Tu pronostico</span>}
+              <span className="text-center">
+                {isOwnProfile
+                  ? 'Tu pronostico'
+                  : participantName?.trim()
+                  ? `Pronostico de ${participantName.trim()}`
+                  : 'Pronostico del usuario'}
+              </span>
               <span className="text-right">Pts</span>
             </div>
             {scoredRows.map((row) => (
@@ -1064,6 +1098,7 @@ function ProdeOverview({
                 targetTiebreaker={userTiebreakerMap[row.match.id]}
                 viewerTiebreaker={viewerTiebreakerMap[row.match.id]}
                 isOwnProfile={isOwnProfile}
+                targetUserName={participantName}
                 showViewerPrediction={showViewerPrediction}
                 variant="compact"
               />
@@ -1372,6 +1407,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
         {activeView === 'all' ? (
           <ProdeOverview
             userId={userId}
+            participantName={detail.participant.name}
             rows={auditRows}
             specialBets={specialBets}
             groupKeys={groupKeys}
