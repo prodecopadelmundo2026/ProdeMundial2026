@@ -5,7 +5,7 @@ import type { ReactNode, RefObject } from 'react'
 import Link from 'next/link'
 import type { RankingEntry } from '@/types'
 import { formatRank, hasPrizeTie, rankMedal } from '@/lib/ranking-display'
-import { getTeam } from '@/lib/teams'
+import { flagUrl, getTeam } from '@/lib/teams'
 
 type PodiumPredictionPreview = {
   match: {
@@ -25,28 +25,51 @@ function initials(name: string): string {
   return name.trim()[0]?.toUpperCase() ?? '?'
 }
 
-function flagEmojiFromIso2(iso2: string) {
-  const code = iso2.trim().toUpperCase()
-  if (!/^[A-Z]{2}$/.test(code)) return null
-  return Array.from(code)
-    .map((letter) => String.fromCodePoint(0x1f1e6 + letter.charCodeAt(0) - 65))
+function clearTeamAbbreviation(name: string): string {
+  const normalized = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
+    .trim()
+
+  if (!normalized) return '?'
+
+  const words = normalized.split(/\s+/).filter(Boolean)
+  if (words.length === 1) return words[0].slice(0, 3).toUpperCase()
+
+  return words
+    .map((word) => word[0])
     .join('')
+    .slice(0, 3)
+    .toUpperCase()
 }
 
-function teamFlagText(name: string) {
+function TeamPredictionMarker({ name }: { name: string }) {
   const team = getTeam(name)
-  return flagEmojiFromIso2(team.iso2) ?? team.flag ?? team.code
-}
+  const hasFlagImage = /^[a-z]{2}$/i.test(team.iso2)
 
-function TeamFlagText({ name }: { name: string }) {
+  if (hasFlagImage) {
+    return (
+      <span
+        aria-label={name}
+        title={name}
+        className="inline-grid h-6 w-8 shrink-0 place-items-center overflow-hidden rounded-[4px] bg-black/35"
+        style={{ border: '1px solid rgba(255,255,255,0.12)' }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={flagUrl(team.iso2)} alt="" className="h-full w-full object-cover" />
+      </span>
+    )
+  }
+
   return (
     <span
       aria-label={name}
       title={name}
-      className="inline-block leading-none"
-      style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif' }}
+      className="inline-flex min-w-[34px] shrink-0 justify-center rounded-[5px] px-1.5 py-1 font-mono text-[10px] font-extrabold uppercase leading-none tracking-[0.04em]"
+      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: '#ffffff' }}
     >
-      {teamFlagText(name)}
+      {clearTeamAbbreviation(name)}
     </span>
   )
 }
@@ -573,9 +596,9 @@ export function RankingClient({
                   <p className="min-w-0 text-[20px] font-extrabold leading-none text-white sm:text-right sm:text-[16px]">
                     {prediction ? (
                       <span className="inline-flex items-center gap-2">
-                        <TeamFlagText name={podiumPredictionPreview.match.home_team} />
+                        <TeamPredictionMarker name={podiumPredictionPreview.match.home_team} />
                         <span className="font-display tabular-nums">{prediction.home_score} - {prediction.away_score}</span>
-                        <TeamFlagText name={podiumPredictionPreview.match.away_team} />
+                        <TeamPredictionMarker name={podiumPredictionPreview.match.away_team} />
                       </span>
                     ) : (
                       'Sin pronóstico cargado'
