@@ -71,7 +71,10 @@ function emptyRow(name: string): GroupTableRow {
 export function buildOfficialGroupScoreMap(matches: Match[]): GroupScoreMap {
   return Object.fromEntries(
     matches
-      .filter((match) => match.home_score != null && match.away_score != null)
+      .filter((match) => {
+        const hasCompleteScore = match.home_score != null && match.away_score != null
+        return hasCompleteScore && (match.status === 'finished' || match.status === 'live')
+      })
       .map((match) => [
         match.id,
         { home_score: match.home_score!, away_score: match.away_score! },

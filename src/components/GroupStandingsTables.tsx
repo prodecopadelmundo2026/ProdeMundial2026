@@ -60,7 +60,8 @@ function GroupTableCard({ section }: { section: GroupTableSection }) {
         </div>
       </div>
 
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_repeat(8,minmax(15px,19px))] items-center gap-x-0.5 rounded-[10px] px-1.5 py-1.5 font-mono text-[8px] font-extrabold uppercase tracking-[0.04em] text-muted sm:grid-cols-[minmax(0,1fr)_repeat(8,minmax(18px,22px))] sm:gap-x-1 sm:px-2 sm:text-[9px] sm:tracking-[0.08em]" style={{ background: '#0A0A0A' }}>
+      <div className="grid min-w-0 grid-cols-[20px_minmax(0,1fr)_repeat(8,minmax(15px,19px))] items-center gap-x-0.5 rounded-[10px] px-1.5 py-1.5 font-mono text-[8px] font-extrabold uppercase tracking-[0.04em] text-muted sm:grid-cols-[24px_minmax(0,1fr)_repeat(8,minmax(18px,22px))] sm:gap-x-1 sm:px-2 sm:text-[9px] sm:tracking-[0.08em]" style={{ background: '#0A0A0A' }}>
+        <span className="text-center">Pos</span>
         <span>Equipo</span>
         <span className="text-center">PJ</span>
         <span className="text-center">PG</span>
@@ -78,12 +79,15 @@ function GroupTableCard({ section }: { section: GroupTableSection }) {
           return (
             <div
               key={row.name}
-              className="grid min-h-[34px] min-w-0 grid-cols-[minmax(0,1fr)_repeat(8,minmax(15px,19px))] items-center gap-x-0.5 rounded-[10px] px-1.5 sm:grid-cols-[minmax(0,1fr)_repeat(8,minmax(18px,22px))] sm:gap-x-1 sm:px-2"
+              className="grid min-h-[34px] min-w-0 grid-cols-[20px_minmax(0,1fr)_repeat(8,minmax(15px,19px))] items-center gap-x-0.5 rounded-[10px] px-1.5 sm:grid-cols-[24px_minmax(0,1fr)_repeat(8,minmax(18px,22px))] sm:gap-x-1 sm:px-2"
               style={{
                 background: rankStyle.background,
                 border: rankStyle.border,
               }}
             >
+              <span className="text-center font-mono text-[10px] font-extrabold tabular-nums" style={{ color: rankStyle.color }}>
+                {index + 1}
+              </span>
               <TeamCell name={row.name} rankStyle={rankStyle} />
               <Stat value={row.played} />
               <Stat value={row.wins} />
