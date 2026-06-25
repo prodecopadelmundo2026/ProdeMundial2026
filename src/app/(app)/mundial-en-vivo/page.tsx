@@ -1,9 +1,10 @@
 import { unstable_noStore as noStore } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import type { Match } from '@/types'
-import { computeBestThirdsTable, type BestThirdStanding } from '@/lib/bracket'
+import { buildProjectedKnockoutMatches, computeBestThirdsTable, type BestThirdStanding } from '@/lib/bracket'
 import { buildGroupTableRows, buildOfficialGroupScoreMap } from '@/lib/group-standings'
 import { GroupStandingsTables, type GroupTableSection } from '@/components/GroupStandingsTables'
+import { TournamentBracket } from '@/components/TournamentBracket'
 import { flagUrl, getTeam } from '@/lib/teams'
 
 export const dynamic = 'force-dynamic'
@@ -180,6 +181,49 @@ function Metric({ label, value, tone = 'neutral' }: { label: string; value: numb
   )
 }
 
+function LiveBracketSection({
+  groupMatches,
+  knockoutMatches,
+  hasAnyGroupResult,
+}: {
+  groupMatches: Match[]
+  knockoutMatches: Match[]
+  hasAnyGroupResult: boolean
+}) {
+  return (
+    <section id="llave-real" className="min-w-0 scroll-mt-24 rounded-[20px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[14px] font-extrabold text-white">Llave real actual</p>
+          <p className="mt-1 max-w-[680px] text-[12px] font-semibold leading-relaxed text-muted">
+            Así quedarían los cruces según las posiciones actuales de los grupos.
+          </p>
+        </div>
+        <span className="rounded-full px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: 'rgba(255,177,92,0.08)', border: '1px solid rgba(255,177,92,0.22)', color: '#FFB15C' }}>
+          Provisorio
+        </span>
+      </div>
+
+      <div className="mb-4 rounded-[14px] px-4 py-3 text-[12px] font-bold leading-relaxed" style={{ background: 'rgba(255,177,92,0.08)', border: '1px solid rgba(255,177,92,0.2)', color: '#FFB15C' }}>
+        La llave es provisoria mientras haya grupos, mejores terceros o partidos de eliminatorias sin definirse.
+      </div>
+
+      {!hasAnyGroupResult ? (
+        <p className="rounded-[16px] bg-[#0A0A0A] px-4 py-8 text-center text-[13px] font-semibold leading-relaxed text-muted" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+          Todavía no hay suficientes resultados para armar la llave real.
+        </p>
+      ) : (
+        <TournamentBracket
+          mode="official"
+          groupMatches={groupMatches}
+          knockoutMatches={knockoutMatches}
+          officialGroupResolution="current"
+        />
+      )}
+    </section>
+  )
+}
+
 export default async function MundialEnVivoPage() {
   noStore()
 
@@ -202,6 +246,7 @@ export default async function MundialEnVivoPage() {
 
   const matches = ((data ?? []) as RawMatchRow[]).map(normalizeMatchRow)
   const groupMatches = matches.filter((match) => match.stage === 'group' && match.group)
+  const knockoutMatches = buildProjectedKnockoutMatches(matches.filter((match) => match.stage !== 'group'))
   const scoreMap = buildOfficialGroupScoreMap(groupMatches)
   const groupKeys = GROUP_ORDER.filter((group) => groupMatches.some((match) => match.group === group))
   const tableSections: GroupTableSection[] = groupKeys.map((group) => {
@@ -219,6 +264,7 @@ export default async function MundialEnVivoPage() {
   const countedMatches = groupMatches.filter((match) => scoreMap[match.id])
   const liveCounted = countedMatches.filter((match) => match.status === 'live').length
   const finishedCounted = countedMatches.filter((match) => match.status === 'finished').length
+  const hasAnyGroupResult = countedMatches.length > 0
 
   return (
     <div style={{ padding: 'clamp(32px,7vw,56px) 16px clamp(60px,12vw,100px)' }}>
@@ -245,14 +291,35 @@ export default async function MundialEnVivoPage() {
           Las posiciones son provisorias mientras haya partidos en vivo o desempates pendientes. Los puestos 1 y 2 clasifican directo; el 3 compite como mejor tercero; el 4 queda afuera por ahora.
         </div>
 
+        <div className="mb-5 flex flex-wrap gap-2">
+          <a href="#grupos-reales" className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase transition-colors" style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.1)' }}>
+            Ver grupos
+          </a>
+          <a href="#mejores-terceros" className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase transition-colors" style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.1)' }}>
+            Ver mejores terceros
+          </a>
+          <a href="#llave-real" className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase transition-colors" style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.1)' }}>
+            Ver llave
+          </a>
+        </div>
+
         <div className="grid gap-5">
+          <div id="grupos-reales" className="scroll-mt-24">
           <GroupStandingsTables
             title="Tablas reales de grupos"
             subtitle="Calculadas con partidos finalizados y partidos en vivo que ya tienen ambos goles cargados. Los próximos sin resultado no cuentan."
             sections={tableSections}
             controls={false}
           />
+          </div>
+          <div id="mejores-terceros" className="scroll-mt-24">
           <BestThirdsTable rows={bestThirds} />
+          </div>
+          <LiveBracketSection
+            groupMatches={groupMatches}
+            knockoutMatches={knockoutMatches}
+            hasAnyGroupResult={hasAnyGroupResult}
+          />
         </div>
       </div>
     </div>

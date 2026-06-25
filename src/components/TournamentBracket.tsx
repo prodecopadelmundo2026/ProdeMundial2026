@@ -2,6 +2,7 @@
 
 import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
+import { buildOfficialGroupScoreMap } from '@/lib/group-standings'
 import {
   computeAllStandings,
   buildKnockoutMap,
@@ -21,6 +22,7 @@ export interface TournamentBracketProps {
   knockoutMatches: Match[]
   predMap?: PredMap
   tiebreakerMap?: TbMap
+  officialGroupResolution?: 'complete' | 'current'
 }
 
 // Visual bracket order: D32 positions 0-15 (top to bottom)
@@ -62,9 +64,10 @@ function cardCenterY(pos: number, round: 'd32' | 'oct' | 'qf' | 'semi' | 'final'
   return (pos * mul + mul / 2) * UNIT
 }
 
-function buildOfficialPredMap(matches: Match[]): PredMap {
+function buildScoreMap(matches: Match[], statuses?: Array<Match['status']>): PredMap {
   const map: PredMap = {}
   for (const m of matches) {
+    if (statuses && !statuses.includes(m.status)) continue
     if (m.home_score != null && m.away_score != null) {
       map[m.id] = { home_score: m.home_score, away_score: m.away_score }
     }
@@ -81,7 +84,12 @@ function normalizeTiebreakerTeam(value?: string | null) {
   return trimmed && trimmed.length > 0 ? trimmed : null
 }
 
-function buildScopedStandings(groupMatches: Match[], scoreMap: PredMap, tiebreakerMap: TbMap) {
+function buildScopedStandings(
+  groupMatches: Match[],
+  scoreMap: PredMap,
+  tiebreakerMap: TbMap,
+  resolution: 'complete' | 'current' = 'complete'
+) {
   const byGroup: Record<string, Match[]> = {}
   for (const match of groupMatches) {
     if (!match.group) continue
@@ -89,26 +97,42 @@ function buildScopedStandings(groupMatches: Match[], scoreMap: PredMap, tiebreak
     byGroup[match.group].push(match)
   }
 
-  const completeGroupMatches = Object.values(byGroup).flatMap((matches) =>
-    matches.every((match) => hasScore(scoreMap, match)) ? matches : []
+  const scopedMatches = Object.values(byGroup).flatMap((matches) =>
+    resolution === 'current'
+      ? matches.some((match) => hasScore(scoreMap, match)) ? matches : []
+      : matches.every((match) => hasScore(scoreMap, match)) ? matches : []
   )
 
-  return computeAllStandings(completeGroupMatches, scoreMap, tiebreakerMap)
+  return computeAllStandings(scopedMatches, scoreMap, tiebreakerMap)
 }
 
-function buildThirdSlotData(groupMatches: Match[], scoreMap: PredMap, tiebreakerMap: TbMap) {
-  const canResolveThirds =
-    groupMatches.length > 0 &&
-    groupMatches.every((match) => hasScore(scoreMap, match))
+function buildThirdSlotData(
+  groupMatches: Match[],
+  scoreMap: PredMap,
+  tiebreakerMap: TbMap,
+  resolution: 'complete' | 'current' = 'complete'
+) {
+  const byGroup: Record<string, Match[]> = {}
+  for (const match of groupMatches) {
+    if (!match.group) continue
+    if (!byGroup[match.group]) byGroup[match.group] = []
+    byGroup[match.group].push(match)
+  }
 
-  if (!canResolveThirds) {
+  const scopedMatches = Object.values(byGroup).flatMap((matches) =>
+    resolution === 'current'
+      ? matches.some((match) => hasScore(scoreMap, match)) ? matches : []
+      : matches.every((match) => hasScore(scoreMap, match)) ? matches : []
+  )
+
+  if (!scopedMatches.length) {
     return { bestThirdsGroups: new Set<string>(), thirdSlotAssignment: {} as Record<string, string> }
   }
 
-  const bestThirdsGroups = computeBestThirdsGroups(groupMatches, scoreMap, tiebreakerMap)
+  const bestThirdsGroups = computeBestThirdsGroups(scopedMatches, scoreMap, tiebreakerMap)
   return {
     bestThirdsGroups,
-    thirdSlotAssignment: assignBestThirdsToSlots(bestThirdsGroups),
+    thirdSlotAssignment: bestThirdsGroups.size >= 8 ? assignBestThirdsToSlots(bestThirdsGroups) : {},
   }
 }
 
@@ -440,22 +464,25 @@ export function TournamentBracket({
   knockoutMatches,
   predMap = {},
   tiebreakerMap = {},
+  officialGroupResolution = 'complete',
 }: TournamentBracketProps) {
-  const officialGroupPredMap  = buildOfficialPredMap(groupMatches)
-  const officialKoMapRaw      = buildOfficialPredMap(knockoutMatches)
-  const officialMap           = { ...officialGroupPredMap, ...officialKoMapRaw }
+  const officialGroupPredMap  = buildOfficialGroupScoreMap(groupMatches)
+  const officialKoDisplayMap  = buildScoreMap(knockoutMatches, ['finished', 'live'])
+  const officialKoWinnerMap   = buildScoreMap(knockoutMatches, ['finished'])
+  const officialDisplayMap    = { ...officialGroupPredMap, ...officialKoDisplayMap }
+  const officialWinnerMap     = { ...officialGroupPredMap, ...officialKoWinnerMap }
 
   const pMap = buildKnockoutMap(knockoutMatches)
 
   const predictionStandings = buildScopedStandings(groupMatches, predMap, tiebreakerMap)
   const predictionThirds = buildThirdSlotData(groupMatches, predMap, tiebreakerMap)
-  const officialStandings = buildScopedStandings(groupMatches, officialGroupPredMap, {})
-  const officialThirds = buildThirdSlotData(groupMatches, officialGroupPredMap, {})
+  const officialStandings = buildScopedStandings(groupMatches, officialGroupPredMap, {}, officialGroupResolution)
+  const officialThirds = buildThirdSlotData(groupMatches, officialGroupPredMap, {}, officialGroupResolution)
 
   function getContext(source: BracketSource) {
     return source === 'official'
       ? {
-          scoreMap: officialMap,
+          scoreMap: officialWinnerMap,
           standings: officialStandings,
           bestThirdsGroups: officialThirds.bestThirdsGroups,
           thirdSlotAssignment: officialThirds.thirdSlotAssignment,
@@ -526,23 +553,26 @@ export function TournamentBracket({
     const rawHome  = match?.home_team ?? ''
     const rawAway  = match?.away_team ?? ''
     const source: BracketSource = mode === 'official' ? 'official' : 'prediction'
-    const scoreMap = source === 'official' ? officialMap : predMap
+    const displayScoreMap = source === 'official' ? officialDisplayMap : predMap
+    const winnerScoreMap = source === 'official' ? officialWinnerMap : predMap
 
     const homeTeam = rawHome ? resolveFromSource(rawHome, source) : fallbackSlotLabel(pNum, 0)
     const awayTeam = rawAway ? resolveFromSource(rawAway, source) : fallbackSlotLabel(pNum, 1)
 
-    const rawPred = match ? scoreMap[match.id] : undefined
+    const displayScore = match ? displayScoreMap[match.id] : undefined
+    const winnerScore = match ? winnerScoreMap[match.id] : undefined
     const tb   = match ? normalizeTiebreakerTeam(tiebreakerMap[match.id]) : undefined
     const teamsResolved = !isPlaceholderName(homeTeam) && !isPlaceholderName(awayTeam)
-    const pred = teamsResolved ? rawPred : undefined
+    const displayPred = teamsResolved ? displayScore : undefined
+    const winnerPred = teamsResolved ? winnerScore : undefined
 
-    const homeScore = pred?.home_score
-    const awayScore = pred?.away_score
-    const winner    = getWinner(homeTeam, awayTeam, pred, tb)
+    const homeScore = displayPred?.home_score
+    const awayScore = displayPred?.away_score
+    const winner    = getWinner(homeTeam, awayTeam, winnerPred, tb)
     // Audit comparison
     let auditStatus: 'correct' | 'wrong' | 'pending' | undefined
     if (mode === 'audit' && match) {
-      const offPred = officialKoMapRaw[match.id]
+      const offPred = officialKoWinnerMap[match.id]
       if (offPred) {
         const offHome   = rawHome ? resolveFromSource(rawHome, 'official') : ''
         const offAway   = rawAway ? resolveFromSource(rawAway, 'official') : ''
