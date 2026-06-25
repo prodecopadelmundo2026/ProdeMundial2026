@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import type { Match } from '@/types'
 import { MatchCard } from '@/components/MatchCard'
 import { getTeam, flagUrl } from '@/lib/teams'
+import { buildGroupTableRows, buildOfficialGroupScoreMap, getGroupStandingRowStyle, type GroupTableRow } from '@/lib/group-standings'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type LocalPred = { home: string; away: string }
@@ -145,9 +146,10 @@ interface StandingsTableProps {
   tiebreakers: Record<string, string>
   onTiebreaker: (key: string, team: string | null) => void
   groupKey: string
+  title?: string
 }
 
-function StandingsTable({ standings, tiebreakers, onTiebreaker, groupKey }: StandingsTableProps) {
+function StandingsTable({ standings, tiebreakers, onTiebreaker, groupKey, title = 'Tu tabla' }: StandingsTableProps) {
   if (!standings.some((t) => t.played > 0)) return null
 
   const displayStandings = applyTiebreakers(standings, tiebreakers, groupKey)
@@ -164,9 +166,9 @@ function StandingsTable({ standings, tiebreakers, onTiebreaker, groupKey }: Stan
   const tiedIndices = new Set(tieGroups.flat())
 
   return (
-    <div className="mt-6">
+    <div className="min-w-0">
       <p className="text-[11px] font-extrabold tracking-[0.18em] uppercase text-muted mb-3">
-        Tabla del grupo
+        {title}
       </p>
       <div
         className="overflow-hidden"
@@ -296,6 +298,74 @@ function StandingsTable({ standings, tiebreakers, onTiebreaker, groupKey }: Stan
           </div>
         )
       })}
+    </div>
+  )
+}
+
+function RealStandingsTable({ rows, hasOfficialResults }: { rows: GroupTableRow[]; hasOfficialResults: boolean }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] font-extrabold tracking-[0.18em] uppercase text-muted mb-3">
+        Tabla real
+      </p>
+      {!hasOfficialResults ? (
+        <div
+          className="rounded-[16px] px-4 py-5 text-[13px] font-semibold leading-relaxed text-muted"
+          style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          Todavía no hay resultados reales cargados para este grupo.
+        </div>
+      ) : (
+        <div
+          className="overflow-hidden"
+          style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}
+        >
+          <div
+            className="grid px-4 py-2 text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted"
+            style={{
+              gridTemplateColumns: '24px 1fr 36px 36px 36px',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              background: '#0a0a0a',
+            }}
+          >
+            <span>#</span>
+            <span>Equipo</span>
+            <span className="text-center">Pts</span>
+            <span className="text-center">GF</span>
+            <span className="text-center">GD</span>
+          </div>
+
+          {rows.map((team, idx) => {
+            const rowStyle = getGroupStandingRowStyle(idx)
+            return (
+              <div
+                key={team.name}
+                className="grid items-center px-4 py-[10px]"
+                style={{
+                  gridTemplateColumns: '24px 1fr 36px 36px 36px',
+                  borderBottom: idx < rows.length - 1 ? '1px solid rgba(255,255,255,0.05)' : undefined,
+                  background: rowStyle.background,
+                }}
+              >
+                <span className="text-[12px] font-extrabold" style={{ color: rowStyle.color }}>
+                  {idx + 1}
+                </span>
+                <div className="flex min-w-0 items-center gap-2 pr-2">
+                  <TeamFlag name={team.name} />
+                  <span className="truncate text-[12px] font-semibold">{team.name}</span>
+                </div>
+                <span className="text-center text-[13px] font-bold" style={{ color: idx < 2 ? '#A8F0D8' : '#fff' }}>
+                  {team.pts}
+                </span>
+                <span className="text-center text-[12px] text-muted">{team.gf}</span>
+                <span className="text-center text-[12px] text-muted">
+                  {team.gd >= 0 ? '+' : ''}{team.gd}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -592,6 +662,24 @@ export function GroupBatchEditor({
     [activeGroup, currentGroupMatches, currentGroupPreds]
   )
 
+  const officialScoreMap = useMemo(
+    () => buildOfficialGroupScoreMap(currentGroupMatches),
+    [currentGroupMatches]
+  )
+
+  const realStandings = useMemo(
+    () =>
+      activeGroup === BEST_THIRDS_VIEW
+        ? []
+        : buildGroupTableRows(currentGroupMatches, officialScoreMap, {}, activeGroup),
+    [activeGroup, currentGroupMatches, officialScoreMap]
+  )
+
+  const hasOfficialResultsForActiveGroup = useMemo(
+    () => currentGroupMatches.some((match) => Boolean(officialScoreMap[match.id])),
+    [currentGroupMatches, officialScoreMap]
+  )
+
   const bestThirds = useMemo<BestThirdTeam[]>(() => {
     return tabs
       .flatMap((tab) => {
@@ -765,13 +853,20 @@ export function GroupBatchEditor({
             ))}
           </div>
 
-          {/* Standings table */}
-          <StandingsTable
-            standings={standings}
-            tiebreakers={tiebreakers}
-            onTiebreaker={onTiebreaker}
-            groupKey={activeGroup}
-          />
+          {/* Standings comparison */}
+          <div className="mt-6 grid min-w-0 gap-5 min-[920px]:grid-cols-2">
+            <StandingsTable
+              standings={standings}
+              tiebreakers={tiebreakers}
+              onTiebreaker={onTiebreaker}
+              groupKey={activeGroup}
+              title="Tu tabla"
+            />
+            <RealStandingsTable
+              rows={realStandings}
+              hasOfficialResults={hasOfficialResultsForActiveGroup}
+            />
+          </div>
         </>
       )}
 
