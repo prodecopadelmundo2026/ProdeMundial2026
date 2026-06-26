@@ -314,6 +314,15 @@ export function BonusPollModal({ poll: initialPoll }: Props) {
               </li>
             ))}
           </ul>
+          <div className="mt-4 rounded-[12px] bg-orange/10 p-3" style={{ border: '1px solid rgba(255,107,0,.28)' }}>
+            <p className="text-[12px] font-extrabold text-orange">Importante</p>
+            <p className="mt-1 text-[12px] font-semibold leading-relaxed text-[#d7d7d7]">
+              El bonus de 16avos incluye a todos los clasificados a eliminatorias: primeros, segundos y mejores terceros.
+            </p>
+            <p className="mt-2 text-[12px] font-semibold leading-relaxed text-[#d7d7d7]">
+              <strong className="text-white">Ejemplo con mejores terceros:</strong> si pronosticaste que una selección entraba a 16avos como mejor tercero y finalmente clasifica entre los mejores terceros, también contaría para el bonus de 16avos.
+            </p>
+          </div>
         </div>
 
         <div className="mt-4 grid gap-4 min-[760px]:grid-cols-[1fr_320px]">
@@ -475,6 +484,15 @@ export function BonusPollHomeCard({ poll: initialPoll }: Props) {
                   ? 'Estamos consultando a los participantes si quieren sumar un bonus extra por acertar equipos que avanzan de fase en la llave.'
                   : 'Resultado final de la consulta sobre bonus de trayectoria.'}
               </p>
+              <div className="mt-5 rounded-[14px] bg-orange/10 p-4" style={{ border: '1px solid rgba(255,107,0,.28)' }}>
+                <p className="text-[13px] font-extrabold text-orange">Importante</p>
+                <p className="mt-1 text-[12px] font-semibold leading-relaxed text-[#d7d7d7]">
+                  El bonus de 16avos incluye a todos los clasificados a eliminatorias: primeros, segundos y mejores terceros.
+                </p>
+                <p className="mt-2 text-[12px] font-semibold leading-relaxed text-[#d7d7d7]">
+                  <strong className="text-white">Ejemplo con mejores terceros:</strong> si pronosticaste que una selección entraba a 16avos como mejor tercero y finalmente clasifica entre los mejores terceros, también contaría para el bonus de 16avos.
+                </p>
+              </div>
 
               <div className="mt-5 grid gap-3 min-[560px]:grid-cols-2">
                 <div className="rounded-[14px] bg-[#0A0A0A] p-4" style={{ border: '1px solid rgba(255,107,0,.28)' }}>

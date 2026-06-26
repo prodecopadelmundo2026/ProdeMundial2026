@@ -6,7 +6,7 @@ import { useState, useMemo } from 'react'
 import clsx from 'clsx'
 import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
-import { formatMatchDayKeyArgentina, formatMatchDayLabelArgentina, formatMatchKickoffArgentina, formatMatchTimeArgentina } from '@/lib/match-datetime'
+import { compareMatchesByProductScheduleAsc, formatMatchDayKeyArgentina, formatMatchDayLabelArgentina, formatMatchKickoffArgentina, formatMatchTimeArgentina } from '@/lib/match-datetime'
 import { buildGroupTableRows, buildOfficialGroupScoreMap } from '@/lib/group-standings'
 import { GroupStandingsTables, type GroupTableSection } from '@/components/GroupStandingsTables'
 
@@ -257,7 +257,7 @@ export function FixtureList({ matches, allMatches = matches }: { matches: Match[
     () =>
       [...allMatches]
         .filter((match) => match.status === 'upcoming')
-        .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0] ?? null,
+        .sort(compareMatchesByProductScheduleAsc)[0] ?? null,
     [allMatches]
   )
 

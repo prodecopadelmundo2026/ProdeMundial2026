@@ -20,7 +20,11 @@ import { getProdeLockState } from '@/lib/prode-lock'
 import { setProdeLockOverride, toggleMaintenanceMode } from './actions'
 import { getCurrentProfile } from '@/lib/current-profile'
 import { getMaintenanceMode } from '@/lib/maintenance'
-import { formatMatchDateTimeArgentina } from '@/lib/match-datetime'
+import {
+  compareMatchesByProductScheduleAsc,
+  compareMatchesByProductScheduleDesc,
+  formatMatchDateTimeArgentina,
+} from '@/lib/match-datetime'
 import { getPublicPrizeSettings, resolvePrizes } from '@/lib/prize-settings'
 
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
@@ -59,16 +63,12 @@ function isResolvedTeam(name: string) {
   )
 }
 
-function toTimestamp(match: Match) {
-  return new Date(match.scheduled_at).getTime()
-}
-
 function sortByScheduleAsc(items: Match[]) {
-  return [...items].sort((a, b) => toTimestamp(a) - toTimestamp(b))
+  return [...items].sort(compareMatchesByProductScheduleAsc)
 }
 
 function sortByScheduleDesc(items: Match[]) {
-  return [...items].sort((a, b) => toTimestamp(b) - toTimestamp(a))
+  return [...items].sort(compareMatchesByProductScheduleDesc)
 }
 
 function resolveAdminMatchesFilter(rawFilter: string | undefined): AdminMatchesFilter {

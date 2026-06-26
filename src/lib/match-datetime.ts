@@ -16,6 +16,29 @@ function dateParts(value: string | Date) {
   return Object.fromEntries(parts.map((part) => [part.type, part.value]))
 }
 
+type ScheduledMatch = { scheduled_at: string }
+
+export function getMatchProductOrderKey(value: string | Date) {
+  const parts = dateParts(value)
+  const month = Number(new Intl.DateTimeFormat('en-US', {
+    month: '2-digit',
+    timeZone: ARGENTINA_TIME_ZONE,
+  }).format(new Date(value)))
+  const hour = Number(parts.hour)
+  const minute = Number(parts.minute)
+  const productMinute = (hour === 0 || hour === 24) && minute === 0 ? 24 * 60 : hour * 60 + minute
+
+  return Date.UTC(Number(parts.year), month - 1, Number(parts.day)) + productMinute * 60_000
+}
+
+export function compareMatchesByProductScheduleAsc(a: ScheduledMatch, b: ScheduledMatch) {
+  return getMatchProductOrderKey(a.scheduled_at) - getMatchProductOrderKey(b.scheduled_at)
+}
+
+export function compareMatchesByProductScheduleDesc(a: ScheduledMatch, b: ScheduledMatch) {
+  return compareMatchesByProductScheduleAsc(b, a)
+}
+
 function clean(value: unknown) {
   return String(value ?? '').replace('.', '').toLowerCase()
 }
@@ -40,7 +63,8 @@ export function formatMatchDateTimeArgentina(
 
 export function formatMatchTimeArgentina(value: string | Date) {
   const parts = dateParts(value)
-  return `${pad(parts.hour)}:${pad(parts.minute)}`
+  const hour = Number(parts.hour) === 24 ? 0 : parts.hour
+  return `${pad(hour)}:${pad(parts.minute)}`
 }
 
 export function formatMatchKickoffArgentina(value: string | Date) {

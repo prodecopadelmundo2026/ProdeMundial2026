@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import type { Match } from '@/types'
 import { FixtureList } from './FixtureList'
+import { compareMatchesByProductScheduleAsc, compareMatchesByProductScheduleDesc } from '@/lib/match-datetime'
 
 type FixtureMatchesFilter = 'current' | 'live' | 'upcoming' | 'finished' | 'all'
 
@@ -9,16 +10,12 @@ type FixturePageProps = {
   searchParams: Promise<{ matches?: string }>
 }
 
-function toTimestamp(match: Match) {
-  return new Date(match.scheduled_at).getTime()
-}
-
 function sortByScheduleAsc(items: Match[]) {
-  return [...items].sort((a, b) => toTimestamp(a) - toTimestamp(b))
+  return [...items].sort(compareMatchesByProductScheduleAsc)
 }
 
 function sortByScheduleDesc(items: Match[]) {
-  return [...items].sort((a, b) => toTimestamp(b) - toTimestamp(a))
+  return [...items].sort(compareMatchesByProductScheduleDesc)
 }
 
 function resolveFixtureMatchesFilter(rawFilter: string | undefined): FixtureMatchesFilter {

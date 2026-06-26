@@ -19,7 +19,7 @@ type PodiumPredictionPreview = {
     home_score: number
     away_score: number
   }>
-} | null
+}
 
 function initials(name: string): string {
   return name.trim()[0]?.toUpperCase() ?? '?'
@@ -349,7 +349,7 @@ export function RankingClient({
   userId,
   rankingStarted,
   summary,
-  podiumPredictionPreview,
+  podiumPredictionPreviews = [],
 }: {
   entries: RankingEntry[]
   userId?: string
@@ -360,7 +360,7 @@ export function RankingClient({
     completedProdes: number
     pendingProdes: number
   }
-  podiumPredictionPreview?: PodiumPredictionPreview
+  podiumPredictionPreviews?: PodiumPredictionPreview[]
 }) {
   const [search, setSearch] = useState('')
   const [showPodium, setShowPodium] = useState(true)
@@ -388,9 +388,6 @@ export function RankingClient({
         .filter((group) => group.entries.length > 0)
     : []
   const podiumEntries = podiumGroups.flatMap((group) => group.entries)
-  const podiumPredictionByUser = new Map(
-    (podiumPredictionPreview?.predictions ?? []).map((prediction) => [prediction.user_id, prediction])
-  )
 
   useEffect(() => {
     const me = meRowRef.current
@@ -554,17 +551,20 @@ export function RankingClient({
       )}
 
 
-      {podiumPredictionPreview && podiumEntries.length > 0 && (
+      {podiumPredictionPreviews.length > 0 && podiumEntries.length > 0 && (
         <section className="mb-6 rounded-[20px] bg-[#101010] p-4 sm:p-5" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+          <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-orange">
+            {podiumPredictionPreviews.length === 1 ? 'Próximo partido' : 'Próximos partidos'}
+          </p>
+          <h2 className="mt-1 font-display text-[24px] uppercase leading-none tracking-[-0.02em] text-white">
+            Pronóstico del podio
+          </h2>
+          <div className="mt-4 grid gap-5">
+          {podiumPredictionPreviews.map((podiumPredictionPreview) => (
+          <article key={podiumPredictionPreview.match.id} className="rounded-[16px] bg-white/[0.02] p-3" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-orange">
-                Próximo partido
-              </p>
-              <h2 className="mt-1 font-display text-[24px] uppercase leading-none tracking-[-0.02em] text-white">
-                Pronóstico del podio
-              </h2>
-              <p className="mt-2 text-[13px] font-extrabold leading-snug text-white">
+              <p className="text-[13px] font-extrabold leading-snug text-white">
                 {podiumPredictionPreview.match.home_team} vs {podiumPredictionPreview.match.away_team}
               </p>
               <p className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
@@ -581,7 +581,9 @@ export function RankingClient({
 
           <div className="grid gap-2">
             {podiumEntries.map((entry) => {
-              const prediction = entry.user_id ? podiumPredictionByUser.get(entry.user_id) : null
+              const prediction = entry.user_id
+                ? podiumPredictionPreview.predictions.find((item) => item.user_id === entry.user_id)
+                : null
               return (
                 <div
                   key={entry.user_id ?? entry.name}
@@ -608,6 +610,9 @@ export function RankingClient({
                 </div>
               )
             })}
+          </div>
+          </article>
+          ))}
           </div>
         </section>
       )}
