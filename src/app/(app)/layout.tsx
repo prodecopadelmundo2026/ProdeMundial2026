@@ -4,9 +4,11 @@ import type { RankingEntry } from '@/types'
 import { NavLinks } from './NavLinks'
 import { UserMenu } from '@/components/UserMenu'
 import { ProdeStatusModal } from '@/components/ProdeStatusModal'
+import { BonusPollModal } from '@/components/BonusPoll'
 import { isSharedRank } from '@/lib/ranking-display'
 import { getCurrentProfile } from '@/lib/current-profile'
 import { calculatePredictionProgress, type ProdeCompletionStatus } from '@/lib/prode-progress'
+import { getBonusPollState } from '@/lib/bonus-poll'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,13 +18,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [profile, { data: publicRanking }, { data: metricsData }] = user
+  const [profile, { data: publicRanking }, { data: metricsData }, bonusPoll] = user
     ? await Promise.all([
         getCurrentProfile(user),
         supabase.rpc('get_public_ranking'),
         supabase.rpc('get_public_home_metrics'),
+        getBonusPollState(supabase),
       ])
-    : [{ data: null }, { data: null }, { data: null }]
+    : [null, { data: null }, { data: null }, null]
 
   const metadataName =
     typeof user?.user_metadata?.full_name === 'string'
@@ -115,6 +118,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </header>
 
       <main className="flex-1">{children}</main>
+      {bonusPoll && <BonusPollModal poll={bonusPoll} />}
       {user && entry?.participant_status && (
         <ProdeStatusModal
           userId={user.id}

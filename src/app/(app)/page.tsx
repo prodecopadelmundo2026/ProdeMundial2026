@@ -3,10 +3,12 @@ import type { CSSProperties, ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import type { Match } from '@/types'
 import { formatRank, rankMedal } from '@/lib/ranking-display'
+import { BonusPollHomeCard } from '@/components/BonusPoll'
 import {
   TOURNAMENT_TOTAL_MATCHES,
   TOURNAMENT_TOTAL_TEAMS,
 } from '@/lib/tournament-config'
+import { getBonusPollState } from '@/lib/bonus-poll'
 import { formatCurrency } from '@/lib/prode-progress'
 import { getRankingMode, isLiveRankingMode, type RankingMode } from '@/lib/ranking-mode'
 import { formatMatchKickoffArgentina } from '@/lib/match-datetime'
@@ -327,15 +329,12 @@ export default async function HomePage() {
 
   const [
     { data: metricsRows },
-    { count: myPredsCount },
     { data: upcoming },
     { data: publicRanking },
     { data: allMatches },
+    bonusPoll,
   ] = await Promise.all([
     supabase.rpc('get_public_home_metrics'),
-    user
-      ? supabase.from('predictions').select('*', { count: 'exact', head: true }).limit(1)
-      : Promise.resolve({ count: 0 }),
     supabase
       .from('matches')
       .select('*')
@@ -344,6 +343,7 @@ export default async function HomePage() {
       .limit(16),
     supabase.rpc('get_public_ranking'),
     supabase.from('matches').select('*'),
+    user ? getBonusPollState(supabase) : Promise.resolve(null),
   ])
 
   const allTournamentMatches = (allMatches ?? []) as Match[]
@@ -368,10 +368,6 @@ export default async function HomePage() {
       prode_status: entry.prode_status ?? ((entry.predictions_count ?? 0) > 0 ? 'in_progress' as const : 'empty' as const),
     }))
 
-  const hasMyPredictions = user
-    ? (typedPublicRanking.find((entry) => entry.user_id === user.id)?.predictions_count ?? 0) > 0 || (myPredsCount ?? 0) > 0
-    : false
-
   const allUpcoming = (upcoming ?? []) as Match[]
   const nextMatch = allUpcoming.find((match) => match.status !== 'finished') ?? null
   const { data: nextMatchStatsRows } = nextMatch
@@ -390,6 +386,8 @@ const nextMatchStats = normalizePredictionInsights(nextMatchStatsRow)
 
   return (
     <>
+      {bonusPoll && <BonusPollHomeCard poll={bonusPoll} />}
+
       <section
         className="relative overflow-hidden min-h-[420px] flex items-center"
         style={{ padding: 'clamp(42px, 8vw, 72px) 20px clamp(34px, 7vw, 58px)', isolation: 'isolate' }}
