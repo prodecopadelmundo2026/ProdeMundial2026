@@ -507,6 +507,7 @@ export function RankingClient({
               {podiumGroups.map(({ rank, entries: groupEntries }) => {
                 const leader = groupEntries[0]
                 const color = TOP3_COLOR[rank] ?? '#A8A8A8'
+                const podiumTieLabel = groupEntries.length > 1 ? `${groupEntries.length} empatados` : null
                 return (
                   <article key={rank} className="tap-card min-w-0 rounded-[16px] px-3 py-3" style={{ background: '#141414', border: `1px solid ${color}55` }}>
                     <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
@@ -516,8 +517,8 @@ export function RankingClient({
                         </span>
                         <p className="min-w-0 truncate font-mono text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted">
                           <span className="font-display text-[20px] leading-none normal-case tracking-normal" style={{ color }}>#{rank}</span>
-                          <span className="mx-1.5 text-muted">·</span>
-                          {groupEntries.length} empatado{groupEntries.length === 1 ? '' : 's'}
+                          {podiumTieLabel && <span className="mx-1.5 text-muted">-</span>}
+                          {podiumTieLabel}
                         </p>
                       </div>
                       <div className="shrink-0 text-right">
