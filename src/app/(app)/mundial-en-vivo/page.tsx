@@ -71,6 +71,7 @@ function thirdStatus(row: FifaBestThirdStanding, index: number) {
   }
   if (index < 7) return { label: 'Clasifica', color: '#A8F0D8', bg: 'rgba(168,240,216,0.09)', border: 'rgba(168,240,216,0.28)' }
   if (index === 7) return { label: 'Ultimo clasificado', color: '#FFE040', bg: 'rgba(255,224,64,0.1)', border: 'rgba(255,224,64,0.3)' }
+  if (row.played >= 3) return { label: 'ARAFUE', color: '#FF5C5C', bg: 'rgba(255,92,92,0.08)', border: 'rgba(255,92,92,0.26)' }
   return { label: 'Afuera por ahora', color: '#FFB15C', bg: 'rgba(255,177,92,0.08)', border: 'rgba(255,177,92,0.22)' }
 }
 
@@ -217,6 +218,13 @@ function LiveBracketSection({
           La llave es provisoria mientras haya grupos, mejores terceros o posiciones pendientes de validación.
         </div>
       )}
+
+      <div className="mb-4 flex flex-wrap gap-2 text-[10px] font-extrabold uppercase tracking-[0.08em]">
+        <span className="rounded-full px-3 py-1.5" style={{ color: '#FFE040', background: 'rgba(255,224,64,0.08)', border: '1px solid rgba(255,224,64,0.28)' }}>Dorado: 1° confirmado</span>
+        <span className="rounded-full px-3 py-1.5" style={{ color: '#CBD5E1', background: 'rgba(203,213,225,0.08)', border: '1px solid rgba(203,213,225,0.25)' }}>Plateado: 2° confirmado</span>
+        <span className="rounded-full px-3 py-1.5" style={{ color: '#D08A45', background: 'rgba(208,138,69,0.1)', border: '1px solid rgba(208,138,69,0.28)' }}>Bronce: mejor 3° confirmado</span>
+        <span className="rounded-full px-3 py-1.5" style={{ color: '#B18CFF', background: 'rgba(177,140,255,0.09)', border: '1px solid rgba(177,140,255,0.26)' }}>Violeta: provisional</span>
+      </div>
 
       {!hasAnyGroupResult ? (
         <p className="rounded-[16px] bg-[#0A0A0A] px-4 py-8 text-center text-[13px] font-semibold leading-relaxed text-muted" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>

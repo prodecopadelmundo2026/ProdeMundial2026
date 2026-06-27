@@ -16,6 +16,24 @@ export type BracketMode = 'official' | 'prode' | 'audit'
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type TbMap = Record<string, string>
 type BracketSource = 'prediction' | 'official'
+type BracketTeamStatus = 'confirmed_first' | 'confirmed_second' | 'confirmed_third' | 'provisional'
+
+function bracketTeamStatusStyle(status?: BracketTeamStatus) {
+  if (status === 'confirmed_first') {
+    return { background: 'rgba(255,224,64,0.12)', border: 'rgba(255,224,64,0.72)' }
+  }
+  if (status === 'confirmed_second') {
+    return { background: 'rgba(203,213,225,0.11)', border: 'rgba(203,213,225,0.62)' }
+  }
+  if (status === 'confirmed_third') {
+    return { background: 'rgba(208,138,69,0.12)', border: 'rgba(208,138,69,0.66)' }
+  }
+  if (status === 'provisional') {
+    return { background: 'rgba(177,140,255,0.10)', border: 'rgba(177,140,255,0.58)' }
+  }
+  return { background: 'transparent', border: 'transparent' }
+}
+
 
 export interface TournamentBracketProps {
   mode: BracketMode
@@ -239,13 +257,16 @@ function TeamRow({
   score,
   won,
   isPH,
+  status,
 }: {
   name: string
   score?: number
   won: boolean
   isPH: boolean
+  status?: BracketTeamStatus
 }) {
   const meta = !isPH ? getTeam(name) : null
+  const statusStyle = bracketTeamStatusStyle(status)
   return (
     <div style={{
       display: 'flex',
@@ -302,6 +323,8 @@ function BracketCard({
   awayScore,
   winner,
   auditStatus,
+  homeStatus,
+  awayStatus,
 }: {
   homeTeam: string
   awayTeam: string
@@ -309,6 +332,8 @@ function BracketCard({
   awayScore?: number
   winner?: string | null
   auditStatus?: 'correct' | 'wrong' | 'pending'
+  homeStatus?: BracketTeamStatus
+  awayStatus?: BracketTeamStatus
 }) {
   const isPHHome = isPlaceholderName(homeTeam)
   const isPHAway = isPlaceholderName(awayTeam)
@@ -331,9 +356,9 @@ function BracketCard({
       display: 'flex',
       flexDirection: 'column',
     }}>
-      <TeamRow name={homeTeam} score={homeScore} won={homeWon} isPH={isPHHome} />
+      <TeamRow name={homeTeam} score={homeScore} won={homeWon} isPH={isPHHome} status={homeStatus} />
       <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', flexShrink: 0 }} />
-      <TeamRow name={awayTeam} score={awayScore} won={awayWon} isPH={isPHAway} />
+      <TeamRow name={awayTeam} score={awayScore} won={awayWon} isPH={isPHAway} status={awayStatus} />
     </div>
   )
 }
@@ -490,6 +515,37 @@ export function TournamentBracket({
 
   const pMap = buildKnockoutMap(knockoutMatches)
 
+  const allOfficialGroupsComplete = groupMatches.length > 0 && groupMatches.every((match) =>
+    match.status === 'finished' && match.home_score != null && match.away_score != null
+  )
+
+  function groupIsComplete(group: string) {
+    const scoped = groupMatches.filter((match) => match.group === group)
+    return scoped.length > 0 && scoped.every((match) =>
+      match.status === 'finished' && match.home_score != null && match.away_score != null
+    )
+  }
+
+  function qualificationStatusForSlot(pNum: number, side: 0 | 1, resolvedTeam: string): BracketTeamStatus | undefined {
+    if (mode !== 'official' || pNum > 88 || isPlaceholderName(resolvedTeam)) return undefined
+
+    const slot = KNOCKOUT_FIXTURES[pNum]?.[side]
+    if (!slot) return undefined
+
+    const direct = slot.match(/^([12])°\s+Grupo\s+([A-L])$/)
+    if (direct) {
+      const group = direct[2]
+      if (!groupIsComplete(group)) return 'provisional'
+      return direct[1] === '1' ? 'confirmed_first' : 'confirmed_second'
+    }
+
+    if (/^3°\s+Grupo\s+/.test(slot)) {
+      return allOfficialGroupsComplete ? 'confirmed_third' : 'provisional'
+    }
+
+    return undefined
+  }
+
   const predictionStandings = buildScopedStandings(groupMatches, predMap, tiebreakerMap)
   const predictionThirds = buildThirdSlotData(groupMatches, predMap, tiebreakerMap)
   const officialStandings = buildScopedStandings(groupMatches, officialGroupPredMap, {}, officialGroupResolution, true)
@@ -574,6 +630,8 @@ export function TournamentBracket({
 
     const homeTeam = rawHome ? resolveFromSource(rawHome, source) : fallbackSlotLabel(pNum, 0)
     const awayTeam = rawAway ? resolveFromSource(rawAway, source) : fallbackSlotLabel(pNum, 1)
+    const homeStatus = qualificationStatusForSlot(pNum, 0, homeTeam)
+    const awayStatus = qualificationStatusForSlot(pNum, 1, awayTeam)
 
     const displayScore = match ? displayScoreMap[match.id] : undefined
     const winnerScore = match ? winnerScoreMap[match.id] : undefined
@@ -604,7 +662,7 @@ export function TournamentBracket({
       }
     }
 
-    return { homeTeam, awayTeam, homeScore, awayScore, winner, auditStatus }
+    return { homeTeam, awayTeam, homeScore, awayScore, winner, auditStatus, homeStatus, awayStatus }
   }
 
   const finalData = getMatchData(FINAL_P)
@@ -633,6 +691,8 @@ export function TournamentBracket({
           awayScore={d.awayScore}
           winner={d.winner}
           auditStatus={d.auditStatus}
+          homeStatus={d.homeStatus}
+          awayStatus={d.awayStatus}
         />
       </div>
     )
@@ -713,6 +773,8 @@ export function TournamentBracket({
                 awayScore={finalData.awayScore}
                 winner={finalData.winner}
                 auditStatus={finalData.auditStatus}
+                homeStatus={finalData.homeStatus}
+                awayStatus={finalData.awayStatus}
               />
             </div>
 
@@ -743,6 +805,8 @@ export function TournamentBracket({
                 awayScore={thirdData.awayScore}
                 winner={thirdData.winner}
                 auditStatus={thirdData.auditStatus}
+                homeStatus={thirdData.homeStatus}
+                awayStatus={thirdData.awayStatus}
               />
             </div>
 
