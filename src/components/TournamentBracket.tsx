@@ -18,6 +18,20 @@ type TbMap = Record<string, string>
 type BracketSource = 'prediction' | 'official'
 type BracketTeamStatus = 'confirmed_first' | 'confirmed_second' | 'confirmed_third' | 'provisional'
 
+function candidateDisplayName(name: string) {
+  if (!name.includes(' / ')) return name
+  const candidates = name.split(' / ').map((item) => item.trim()).filter(Boolean)
+  if (candidates.length <= 1) return name
+  return `${candidates.length} posibles`
+}
+
+function candidateFullTitle(name: string) {
+  if (!name.includes(' / ')) return undefined
+  const candidates = name.split(' / ').map((item) => item.trim()).filter(Boolean)
+  if (candidates.length <= 1) return undefined
+  return `Pueden quedar acá: ${candidates.join(', ')}`
+}
+
 function bracketTeamStatusStyle(status?: BracketTeamStatus) {
   if (status === 'confirmed_first') {
     return { background: 'rgba(255,224,64,0.24)', border: 'rgba(255,224,64,0.95)' }
@@ -265,51 +279,56 @@ function TeamRow({
   isPH: boolean
   status?: BracketTeamStatus
 }) {
-  const meta = !isPH ? getTeam(name) : null
+  const displayName = candidateDisplayName(name)
+  const fullTitle = candidateFullTitle(name)
+  const meta = !isPH && !fullTitle ? getTeam(name) : null
   const statusStyle = bracketTeamStatusStyle(status)
+
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 4,
-      padding: '0 6px',
-      height: '50%',
-      background: won ? 'rgba(255,107,0,0.18)' : statusStyle.background,
-      borderLeft: '5px solid ' + statusStyle.border,
-      boxShadow: status ? 'inset 0 0 0 1px ' + statusStyle.border : 'none',
-      minWidth: 0,
-    }}>
-      {/* flag */}
-      <div style={{ width: 16, height: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {!isPH && meta?.iso2 ? (
-          <img src={flagUrl(meta.iso2)} alt={name} style={{ width: 16, height: 11, objectFit: 'contain' }} />
-        ) : (
-          <span style={{ fontSize: 9, color: '#2e2926' }}>?</span>
-        )}
-      </div>
-      {/* name */}
-      <span style={{
-        flex: 1,
+    <div
+      title={fullTitle}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '0 6px',
+        height: '50%',
+        background: won ? 'rgba(255,107,0,0.18)' : statusStyle.background,
+        borderLeft: '5px solid ' + statusStyle.border,
+        boxShadow: status ? 'inset 0 0 0 1px ' + statusStyle.border : 'none',
         minWidth: 0,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-        fontSize: 11,
-        fontWeight: won ? 800 : 500,
-        color: isPH ? '#333' : won ? '#ffffff' : '#8a8a8a',
-      }}>
-        {isPH ? shortName(name) : name}
+      }}
+    >
+      {meta ? (
+        <span style={{ fontSize: 12, lineHeight: 1 }}>{meta.flag}</span>
+      ) : (
+        <span style={{ fontSize: 11, color: fullTitle ? '#b18cff' : '#555' }}>
+          {fullTitle ? 'ⓘ' : '?'}
+        </span>
+      )}
+
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          color: fullTitle ? '#e6d9ff' : (isPH ? '#555' : '#cfd3dc'),
+          fontSize: 10,
+          fontWeight: fullTitle ? 800 : 500,
+        }}
+      >
+        {displayName}
       </span>
-      {/* score */}
+
       {score !== undefined && (
         <span style={{
-          flexShrink: 0,
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: 800,
-          color: won ? '#FF6B00' : '#4a4a4a',
+          color: won ? '#ffb36b' : '#fff',
           minWidth: 12,
           textAlign: 'right',
-          fontVariantNumeric: 'tabular-nums',
         }}>
           {score}
         </span>
