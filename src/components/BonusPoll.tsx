@@ -350,7 +350,11 @@ export function BonusPollModal({ poll: initialPoll }: Props) {
           <div className="mt-5 rounded-[14px] bg-mint/10 p-4" style={{ border: '1px solid rgba(168,240,216,.22)' }}>
             <div className="flex items-center gap-2 text-mint">
               <CheckCircle2 size={18} aria-hidden="true" />
-              <p className="font-extrabold">Ya registramos tu voto actual, pero podés cambiarlo hasta el cierre.</p>
+              <p className="font-extrabold">
+                {poll.poll.isOpen
+                  ? 'Ya registramos tu voto actual, pero podés cambiarlo hasta el cierre.'
+                  : 'Tu voto quedó registrado. La votación ya está cerrada.'}
+              </p>
             </div>
             <p className="mt-1 text-[13px] font-semibold text-[#d7d7d7]">{poll.vote.label}</p>
           </div>
@@ -389,7 +393,7 @@ export function BonusPollModal({ poll: initialPoll }: Props) {
             onClick={() => closeModal(true)}
             className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/5 px-5 py-3 text-[13px] font-extrabold text-white transition-colors hover:bg-white/10"
           >
-            Responder más tarde
+            {poll.poll.isOpen ? 'Responder más tarde' : 'Cerrar'}
           </button>
           {poll.canVote && poll.poll.isOpen && (
             <button
@@ -477,7 +481,7 @@ export function BonusPollHomeCard({ poll: initialPoll }: Props) {
                 {poll.poll.isOpen ? 'Votación activa' : 'Votación cerrada'}
               </span>
               <h2 className="mt-4 font-display text-[clamp(34px,7vw,62px)] uppercase leading-[0.9] tracking-[-0.03em] text-white">
-                Votación activa: <em className="italic text-orange">bonus de trayectoria</em>
+                {poll.poll.isOpen ? 'Votación activa' : 'Votación cerrada'}: <em className="italic text-orange">bonus de trayectoria</em>
               </h2>
               <p className="mt-4 max-w-[580px] text-[15px] font-semibold leading-relaxed text-[#d7d7d7]">
                 {poll.poll.isOpen
@@ -496,9 +500,15 @@ export function BonusPollHomeCard({ poll: initialPoll }: Props) {
 
               <div className="mt-5 grid gap-3 min-[560px]:grid-cols-2">
                 <div className="rounded-[14px] bg-[#0A0A0A] p-4" style={{ border: '1px solid rgba(255,107,0,.28)' }}>
-                  <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.16em] text-orange">Tiempo restante</p>
-                  <p className="mt-2 font-display text-[30px] leading-none text-white"><PollCountdown closesAt={poll.poll.closesAt} /></p>
-                  <p className="mt-2 text-[12px] font-bold text-muted">Cierra el sábado a las 12:00 hs · {deadline}</p>
+                  <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.16em] text-orange">
+                    {poll.poll.isOpen ? 'Tiempo restante' : 'Votación cerrada'}
+                  </p>
+                  <p className="mt-2 font-display text-[30px] leading-none text-white">
+                    {poll.poll.isOpen ? <PollCountdown closesAt={poll.poll.closesAt} /> : 'Cerrada'}
+                  </p>
+                  <p className="mt-2 text-[12px] font-bold text-muted">
+                    {poll.poll.isOpen ? `Cierra el sábado a las 12:00 hs · ${deadline}` : 'La consulta ya finalizó.'}
+                  </p>
                 </div>
                 <div className="rounded-[14px] bg-[#0A0A0A] p-4" style={{ border: '1px solid rgba(255,255,255,0.09)' }}>
                   <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.16em] text-muted">Participación</p>
@@ -514,9 +524,11 @@ export function BonusPollHomeCard({ poll: initialPoll }: Props) {
                 <div className="mt-5 rounded-[14px] bg-mint/10 p-4" style={{ border: '1px solid rgba(168,240,216,.22)' }}>
                   <p className="flex items-center gap-2 font-extrabold text-mint">
                     <CheckCircle2 size={18} aria-hidden="true" />
-                    Tu voto actual: {poll.vote.label}
+                    {poll.poll.isOpen ? 'Tu voto actual' : 'Tu voto registrado'}: {poll.vote.label}
                   </p>
-                  <p className="mt-1 text-[13px] font-semibold text-[#d7d7d7]">Podés cambiarlo hasta el sábado a las 12:00 hs.</p>
+                  <p className="mt-1 text-[13px] font-semibold text-[#d7d7d7]">
+                    {poll.poll.isOpen ? 'Podés cambiarlo hasta el sábado a las 12:00 hs.' : 'La votación ya está cerrada.'}
+                  </p>
                 </div>
               ) : poll.poll.isOpen ? (
                 <div className="mt-5 rounded-[14px] bg-orange/10 p-4" style={{ border: '1px solid rgba(255,107,0,.28)' }}>
@@ -533,7 +545,7 @@ export function BonusPollHomeCard({ poll: initialPoll }: Props) {
                 >
                   Ver propuesta
                 </button>
-                {poll.canVote && (
+                {poll.canVote && poll.poll.isOpen && (
                   <button
                     type="button"
                     onClick={openModal}

@@ -1,5 +1,6 @@
 import type { Match } from '@/types'
 import { computeGroupStandingsDetailed } from '@/lib/bracket'
+import { computeFifaGroupStandings } from '@/lib/fifa-standings'
 
 export type GroupScoreMap = Record<string, { home_score: number; away_score: number }>
 export type GroupTiebreakerMap = Record<string, string>
@@ -86,7 +87,8 @@ export function buildGroupTableRows(
   groupMatches: Match[],
   scoreMap: GroupScoreMap,
   tiebreakerMap: GroupTiebreakerMap = {},
-  groupKey?: string
+  groupKey?: string,
+  resolution: 'historical' | 'fifa' = 'historical'
 ): GroupTableRow[] {
   const rows: Record<string, GroupTableRow> = {}
 
@@ -124,6 +126,8 @@ export function buildGroupTableRows(
 
   for (const row of Object.values(rows)) row.gd = row.gf - row.gc
 
-  const ordered = computeGroupStandingsDetailed(groupMatches, scoreMap, tiebreakerMap, groupKey)
+  const ordered = resolution === 'fifa'
+    ? computeFifaGroupStandings(groupMatches, scoreMap).standings
+    : computeGroupStandingsDetailed(groupMatches, scoreMap, tiebreakerMap, groupKey)
   return ordered.map((standing) => rows[standing.name] ?? emptyRow(standing.name))
 }

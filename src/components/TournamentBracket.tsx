@@ -10,6 +10,7 @@ import {
   assignBestThirdsToSlots,
   KNOCKOUT_FIXTURES,
 } from '@/lib/bracket'
+import { computeFifaAllStandings, computeFifaBestThirds } from '@/lib/fifa-standings'
 
 export type BracketMode = 'official' | 'prode' | 'audit'
 type PredMap = Record<string, { home_score: number; away_score: number }>
@@ -88,7 +89,8 @@ function buildScopedStandings(
   groupMatches: Match[],
   scoreMap: PredMap,
   tiebreakerMap: TbMap,
-  resolution: 'complete' | 'current' = 'complete'
+  resolution: 'complete' | 'current' = 'complete',
+  useFifaRules = false
 ) {
   const byGroup: Record<string, Match[]> = {}
   for (const match of groupMatches) {
@@ -103,14 +105,22 @@ function buildScopedStandings(
       : matches.every((match) => hasScore(scoreMap, match)) ? matches : []
   )
 
-  return computeAllStandings(scopedMatches, scoreMap, tiebreakerMap)
+  if (!useFifaRules) return computeAllStandings(scopedMatches, scoreMap, tiebreakerMap)
+  return Object.fromEntries(
+    Object.entries(computeFifaAllStandings(scopedMatches, scoreMap))
+      .map(([group, result]) => [
+        group,
+        result.status === 'RESOLVED' ? result.standings.map((team) => team.name) : [],
+      ])
+  )
 }
 
 function buildThirdSlotData(
   groupMatches: Match[],
   scoreMap: PredMap,
   tiebreakerMap: TbMap,
-  resolution: 'complete' | 'current' = 'complete'
+  resolution: 'complete' | 'current' = 'complete',
+  useFifaRules = false
 ) {
   const byGroup: Record<string, Match[]> = {}
   for (const match of groupMatches) {
@@ -129,7 +139,13 @@ function buildThirdSlotData(
     return { bestThirdsGroups: new Set<string>(), thirdSlotAssignment: {} as Record<string, string> }
   }
 
-  const bestThirdsGroups = computeBestThirdsGroups(scopedMatches, scoreMap, tiebreakerMap)
+  const fifaThirds = useFifaRules ? computeFifaBestThirds(scopedMatches, scoreMap) : null
+  if (fifaThirds?.status === 'NO_RESOLUBLE_WITH_AVAILABLE_DATA') {
+    return { bestThirdsGroups: new Set<string>(), thirdSlotAssignment: {} as Record<string, string> }
+  }
+  const bestThirdsGroups = fifaThirds
+    ? new Set(fifaThirds.standings.filter((team) => team.qualified).map((team) => team.group))
+    : computeBestThirdsGroups(scopedMatches, scoreMap, tiebreakerMap)
   return {
     bestThirdsGroups,
     thirdSlotAssignment: bestThirdsGroups.size >= 8 ? assignBestThirdsToSlots(bestThirdsGroups) : {},
@@ -476,8 +492,8 @@ export function TournamentBracket({
 
   const predictionStandings = buildScopedStandings(groupMatches, predMap, tiebreakerMap)
   const predictionThirds = buildThirdSlotData(groupMatches, predMap, tiebreakerMap)
-  const officialStandings = buildScopedStandings(groupMatches, officialGroupPredMap, {}, officialGroupResolution)
-  const officialThirds = buildThirdSlotData(groupMatches, officialGroupPredMap, {}, officialGroupResolution)
+  const officialStandings = buildScopedStandings(groupMatches, officialGroupPredMap, {}, officialGroupResolution, true)
+  const officialThirds = buildThirdSlotData(groupMatches, officialGroupPredMap, {}, officialGroupResolution, true)
 
   function getContext(source: BracketSource) {
     return source === 'official'

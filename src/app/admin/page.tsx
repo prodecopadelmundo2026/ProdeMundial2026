@@ -8,13 +8,9 @@ import { PrizeSettingsForm } from './PrizeSettingsForm'
 import {
   assignBestThirdsToSlots,
   buildKnockoutMap,
-  computeAllStandings,
-  computeBestThirdsGroups,
-  computeBestThirdsTable,
-  computeGroupStandingsDetailed,
-  getPendingGroupTiebreakers,
   resolveTeamFull,
 } from '@/lib/bracket'
+import { computeFifaAllStandings, computeFifaBestThirds, computeFifaGroupStandings } from '@/lib/fifa-standings'
 import { AdminBracketSection } from './AdminBracketSection'
 import { getProdeLockState } from '@/lib/prode-lock'
 import { setProdeLockOverride, toggleMaintenanceMode } from './actions'
@@ -175,13 +171,24 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       .map((m) => [m.id, { home_score: m.home_score!, away_score: m.away_score! }])
   )
   const groupResultsComplete = groupMatches.length > 0 && groupMatches.every(hasOfficialScore)
+  const fifaGroupResults = groupResultsComplete ? computeFifaAllStandings(groupMatches, officialScoreMap) : {}
+  const bestThirdsResult = groupResultsComplete ? computeFifaBestThirds(groupMatches, officialScoreMap) : null
   const pendingOfficialTiebreakers = groupResultsComplete
-    ? getPendingGroupTiebreakers(groupMatches, officialScoreMap)
+    ? [
+        ...Object.entries(fifaGroupResults)
+          .filter(([, result]) => result.status === 'NO_RESOLUBLE_WITH_AVAILABLE_DATA')
+          .map(([group]) => `Grupo ${group}`),
+        ...(bestThirdsResult?.status === 'NO_RESOLUBLE_WITH_AVAILABLE_DATA' ? ['Mejores terceros'] : []),
+      ]
     : []
   const groupsCanResolve = groupResultsComplete && pendingOfficialTiebreakers.length === 0
-  const bestThirdsTableForAudit = groupResultsComplete ? computeBestThirdsTable(groupMatches, officialScoreMap) : []
-  const officialStandings = groupsCanResolve ? computeAllStandings(groupMatches, officialScoreMap) : {}
-  const bestThirdsGroups = groupsCanResolve ? computeBestThirdsGroups(groupMatches, officialScoreMap) : new Set<string>()
+  const bestThirdsTableForAudit = bestThirdsResult?.standings ?? []
+  const officialStandings = groupsCanResolve
+    ? Object.fromEntries(Object.entries(fifaGroupResults).map(([group, result]) => [group, result.standings.map((team) => team.name)]))
+    : {}
+  const bestThirdsGroups = groupsCanResolve
+    ? new Set(bestThirdsTableForAudit.filter((team) => team.qualified).map((team) => team.group))
+    : new Set<string>()
   const thirdSlotAssignment = groupsCanResolve ? assignBestThirdsToSlots(bestThirdsGroups) : {}
   const knockoutMap = buildKnockoutMap(knockoutMatches)
   const bestThirdsTable = groupsCanResolve ? bestThirdsTableForAudit : []
@@ -189,19 +196,8 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const pendingOfficialTiebreakerDetails = pendingOfficialTiebreakers.map((pending) => {
     if (pending.startsWith('Grupo ')) {
       const group = pending.replace('Grupo ', '')
-      const standings = computeGroupStandingsDetailed(
-        groupMatches.filter((m) => m.group === group),
-        officialScoreMap,
-        {},
-        `Grupo ${group}`
-      )
-      for (let i = 0; i < standings.length; i++) {
-        const tied = standings.filter((team) => sameTableLine(team, standings[i]))
-        const affectsClassification = tied.length > 1 && tied.some((team) => standings.indexOf(team) <= 2)
-        if (affectsClassification) {
-          return `${pending}: empate pendiente entre ${tied.map((team) => team.name).join(', ')} (mismos puntos, diferencia y goles a favor).`
-        }
-      }
+      const tied = fifaGroupResults[group]?.unresolvedTies[0] ?? []
+      if (tied.length > 1) return `${pending}: desempate pendiente de fair play/ranking FIFA entre ${tied.join(', ')}.`
       return `${pending}: empate pendiente en posiciones de clasificacion.`
     }
 
@@ -517,12 +513,10 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {Array.from(new Set(groupMatches.map((m) => m.group).filter(Boolean))).map((group) => {
-                    const standings = computeGroupStandingsDetailed(
+                    const standings = computeFifaGroupStandings(
                       groupMatches.filter((m) => m.group === group),
-                      officialScoreMap,
-                      {},
-                      `Grupo ${group}`
-                    )
+                      officialScoreMap
+                    ).standings
                     return (
                       <div key={group} className="rounded-[12px] px-3 py-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)' }}>
                         <p className="text-[10px] font-extrabold tracking-[0.16em] uppercase mb-2" style={{ color: '#FF6B00' }}>

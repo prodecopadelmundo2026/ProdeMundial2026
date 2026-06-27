@@ -13,6 +13,7 @@ import { deletePredictionsByStages, generateRandomGroupPredictions } from '@/app
 import { parseScoreInput } from '@/lib/score-input'
 import { deleteSpecialBets, deleteVirtualKnockoutPredictionsByStages, savePredictionTiebreakers, saveFullProdeSafe, type SpecialBetsValues } from './actions'
 import { buildProjectedKnockoutMatches, isVirtualKnockoutMatch } from '@/lib/bracket'
+import { getOfficialRoundOf32State } from '@/lib/tournament-state'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
@@ -547,6 +548,10 @@ export function MiProdeTabs({
     }),
     [tiebreakerMap, localKnockoutTiebreakers, predMap],
   )
+  const roundOf32State = useMemo(
+    () => getOfficialRoundOf32State([...groupMatches, ...knockoutMatches]),
+    [groupMatches, knockoutMatches]
+  )
 
   function toggleDeleteSelection(option: DeleteOption) {
     setDeleteSelections((prev) => {
@@ -1041,6 +1046,22 @@ export function MiProdeTabs({
           predMap={effectivePredMap}
           tiebreakerMap={{ ...tiebreakers, ...effectiveKnockoutTiebreakers }}
         />
+        {roundOf32State.officialBracketReady && (
+          <div className="mt-8 border-t border-white/10 pt-7">
+            <div className="mb-4 px-1">
+              <p className="text-[14px] font-extrabold text-white">Llave oficial</p>
+              <p className="mt-1 text-[12px] font-semibold text-muted">
+                Comparala visualmente con la llave pronosticada que dejaste cargada.
+              </p>
+            </div>
+            <TournamentBracket
+              mode="official"
+              groupMatches={groupMatches}
+              knockoutMatches={projectedKnockoutMatches}
+              officialGroupResolution="complete"
+            />
+          </div>
+        )}
       </div>
       <div className={activeTab === 'especiales' ? 'page-fade' : undefined} style={{ display: activeTab === 'especiales' ? undefined : 'none' }}>
         <SpecialsTab initialValues={initialSpecialBets} initialRowExists={initialSpecialBetsExists} readOnly={prodeLocked} />

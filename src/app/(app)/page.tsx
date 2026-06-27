@@ -17,11 +17,8 @@ import {
   formatPickedResult,
   normalizePredictionInsights,
 } from '@/lib/prediction-insights'
-import {
-  computeAllStandings,
-  computeBestThirdsGroups,
-  getPendingGroupTiebreakers,
-} from '@/lib/bracket'
+import { computeFifaAllStandings, computeFifaBestThirds } from '@/lib/fifa-standings'
+import { getOfficialRoundOf32State } from '@/lib/tournament-state'
 
 export const dynamic = 'force-dynamic'
 
@@ -253,18 +250,19 @@ function countAliveTeams(matches: Match[]) {
       .map((match) => [match.id, { home_score: match.home_score!, away_score: match.away_score! }])
   )
   const groupsComplete = groupMatches.length > 0 && groupMatches.every(hasOfficialScore)
-  const groupsResolved = groupsComplete && getPendingGroupTiebreakers(groupMatches, officialScoreMap).length === 0
+  const fifaStandings = groupsComplete ? computeFifaAllStandings(groupMatches, officialScoreMap) : {}
+  const fifaThirds = groupsComplete ? computeFifaBestThirds(groupMatches, officialScoreMap) : null
+  const groupsResolved = groupsComplete &&
+    Object.values(fifaStandings).every((result) => result.status === 'RESOLVED') &&
+    fifaThirds?.status === 'RESOLVED'
 
   if (groupsResolved) {
-    const standings = computeAllStandings(groupMatches, officialScoreMap)
-    const bestThirdsGroups = computeBestThirdsGroups(groupMatches, officialScoreMap)
     const aliveTeams = new Set<string>()
 
-    for (const [group, teams] of Object.entries(standings)) {
-      for (const team of teams.slice(0, 2)) aliveTeams.add(team)
-      const third = teams[2]
-      if (third && bestThirdsGroups.has(group.replace('Grupo ', ''))) aliveTeams.add(third)
+    for (const result of Object.values(fifaStandings)) {
+      for (const team of result.standings.slice(0, 2)) aliveTeams.add(team.name)
     }
+    for (const third of fifaThirds.standings.filter((team) => team.qualified)) aliveTeams.add(third.name)
 
     if (aliveTeams.size > 0) return aliveTeams.size
   }
@@ -383,10 +381,11 @@ const nextMatchStats = normalizePredictionInsights(nextMatchStatsRow)
   const liveRankColors: Record<number, string> = { 1: '#FFE040', 2: '#D7DADF', 3: '#E8A87C' }
   const liveRankingMode = metrics.ranking_mode ?? getRankingMode(metrics.finished_matches_count)
   const liveRankingStarted = isLiveRankingMode(liveRankingMode)
+  const roundOf32State = getOfficialRoundOf32State(allTournamentMatches)
 
   return (
     <>
-      {bonusPoll && <BonusPollHomeCard poll={bonusPoll} />}
+      {bonusPoll?.poll.isOpen && <BonusPollHomeCard poll={bonusPoll} />}
 
       <section
         className="relative overflow-hidden min-h-[420px] flex items-center"
@@ -406,14 +405,16 @@ const nextMatchStats = normalizePredictionInsights(nextMatchStatsRow)
           <div>
             <div className="mb-6 inline-flex items-center gap-[10px] rounded-full px-[14px] py-2 text-[12px] font-extrabold uppercase tracking-[0.16em]" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)' }}>
               <span className="w-2 h-2 rounded-full bg-mint" style={{ animation: 'pulse-dot 1.6s infinite' }} />
-              Mundial 2026 en marcha
+              {roundOf32State.officialBracketReady ? 'Fase de grupos finalizada' : 'Mundial 2026 en marcha'}
             </div>
             <h1 className="font-display uppercase leading-[0.86] tracking-[-0.04em]" style={{ fontSize: 'clamp(54px, 12vw, 146px)' }}>
-              <span className="block text-white">El torneo</span>
-              <span className="block text-orange italic">ya empezó</span>
+              <span className="block text-white">{roundOf32State.officialBracketReady ? 'Terminó la' : 'El torneo'}</span>
+              <span className="block text-orange italic">{roundOf32State.officialBracketReady ? 'fase de grupos' : 'ya empezó'}</span>
             </h1>
             <p className="mt-6 max-w-[520px] text-[17px] font-medium leading-relaxed" style={{ color: '#d6d6d6' }}>
-              Seguí el ranking, revisá el fixture y compará los pronósticos del próximo partido.
+              {roundOf32State.officialBracketReady
+                ? 'Ya está armada la llave oficial de 16avos. Revisá el Mundial en Vivo, compará tu Prode contra la realidad y seguí el ranking actualizado.'
+                : 'Seguí el ranking, revisá el fixture y compará los pronósticos del próximo partido.'}
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link href="/mi-prode" className="group inline-flex items-center gap-[10px] rounded-full bg-orange px-[26px] py-[18px] text-[15px] font-extrabold text-bg shadow-[0_10px_28px_-10px_rgba(255,107,0,.6)] transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-10px_rgba(255,107,0,.8)]">
@@ -428,6 +429,11 @@ const nextMatchStats = normalizePredictionInsights(nextMatchStatsRow)
               <Link href="/fixture" className="inline-flex items-center gap-[10px] rounded-full px-[26px] py-[18px] text-[15px] font-extrabold text-white transition-colors duration-150 hover:bg-white/10" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.16)' }}>
                 Ver fixture
               </Link>
+              {roundOf32State.officialBracketReady && (
+                <Link href="/mundial-en-vivo" className="inline-flex items-center gap-[10px] rounded-full px-[26px] py-[18px] text-[15px] font-extrabold text-white transition-colors duration-150 hover:bg-white/10" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.16)' }}>
+                  Ver Mundial en Vivo
+                </Link>
+              )}
               <Link href="/pronosticos" className="inline-flex items-center gap-[10px] rounded-full px-[26px] py-[18px] text-[15px] font-extrabold text-white transition-colors duration-150 hover:bg-white/10" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.16)' }}>
                 Ver pronósticos
               </Link>
@@ -613,6 +619,8 @@ const nextMatchStats = normalizePredictionInsights(nextMatchStatsRow)
           </div>
         </div>
       </section>
+
+      {bonusPoll && !bonusPoll.poll.isOpen && <BonusPollHomeCard poll={bonusPoll} />}
 
       <footer className="bg-[#070707]" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: 'clamp(32px, 6vw, 50px) 20px clamp(24px, 5vw, 40px)' }}>
         <div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-[30px] min-[780px]:grid-cols-[1.4fr_1fr_1fr]">

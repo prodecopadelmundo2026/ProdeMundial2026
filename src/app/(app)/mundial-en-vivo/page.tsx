@@ -1,11 +1,14 @@
 import { unstable_noStore as noStore } from 'next/cache'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import type { Match } from '@/types'
-import { buildProjectedKnockoutMatches, computeBestThirdsTable, type BestThirdStanding } from '@/lib/bracket'
+import { buildProjectedKnockoutMatches } from '@/lib/bracket'
+import { computeFifaBestThirds, type FifaBestThirdStanding } from '@/lib/fifa-standings'
 import { buildGroupTableRows, buildOfficialGroupScoreMap } from '@/lib/group-standings'
 import { GroupStandingsTables, type GroupTableSection } from '@/components/GroupStandingsTables'
 import { TournamentBracket } from '@/components/TournamentBracket'
 import { flagUrl, getTeam } from '@/lib/teams'
+import { getOfficialRoundOf32State } from '@/lib/tournament-state'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -47,11 +50,11 @@ function normalizeMatchRow(match: RawMatchRow): Match {
   }
 }
 
-function sameBasicThirdLine(a: Pick<BestThirdStanding, 'pts' | 'gd' | 'gf'>, b: Pick<BestThirdStanding, 'pts' | 'gd' | 'gf'>) {
+function sameBasicThirdLine(a: Pick<FifaBestThirdStanding, 'pts' | 'gd' | 'gf'>, b: Pick<FifaBestThirdStanding, 'pts' | 'gd' | 'gf'>) {
   return a.pts === b.pts && a.gd === b.gd && a.gf === b.gf
 }
 
-function findTechnicalTieTeams(rows: BestThirdStanding[]) {
+function findTechnicalTieTeams(rows: FifaBestThirdStanding[]) {
   const tied = new Set<string>()
   for (let i = 0; i < rows.length; i++) {
     const peers = rows.filter((row) => sameBasicThirdLine(row, rows[i]))
@@ -62,7 +65,10 @@ function findTechnicalTieTeams(rows: BestThirdStanding[]) {
   return tied
 }
 
-function thirdStatus(index: number) {
+function thirdStatus(row: FifaBestThirdStanding, index: number) {
+  if (row.qualificationStatus === 'pending') {
+    return { label: 'Desempate pendiente', color: '#FFE040', bg: 'rgba(255,224,64,0.1)', border: 'rgba(255,224,64,0.3)' }
+  }
   if (index < 7) return { label: 'Clasifica', color: '#A8F0D8', bg: 'rgba(168,240,216,0.09)', border: 'rgba(168,240,216,0.28)' }
   if (index === 7) return { label: 'Ultimo clasificado', color: '#FFE040', bg: 'rgba(255,224,64,0.1)', border: 'rgba(255,224,64,0.3)' }
   return { label: 'Afuera por ahora', color: '#FFB15C', bg: 'rgba(255,177,92,0.08)', border: 'rgba(255,177,92,0.22)' }
@@ -85,7 +91,7 @@ function ThirdTeamCell({ name }: { name: string }) {
   )
 }
 
-function BestThirdsTable({ rows }: { rows: BestThirdStanding[] }) {
+function BestThirdsTable({ rows }: { rows: FifaBestThirdStanding[] }) {
   const tiedTeams = findTechnicalTieTeams(rows)
 
   if (rows.length === 0) {
@@ -133,7 +139,7 @@ function BestThirdsTable({ rows }: { rows: BestThirdStanding[] }) {
           </div>
           <div className="mt-2 grid gap-1.5">
             {rows.map((row, index) => {
-              const status = thirdStatus(index)
+              const status = thirdStatus(row, index)
               const hasTie = tiedTeams.has(`${row.group}-${row.name}`)
               return (
                 <div
@@ -185,28 +191,32 @@ function LiveBracketSection({
   groupMatches,
   knockoutMatches,
   hasAnyGroupResult,
+  officialBracketReady,
 }: {
   groupMatches: Match[]
   knockoutMatches: Match[]
   hasAnyGroupResult: boolean
+  officialBracketReady: boolean
 }) {
   return (
     <section id="llave-real" className="min-w-0 scroll-mt-24 rounded-[20px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[14px] font-extrabold text-white">Llave real actual</p>
+          <p className="text-[14px] font-extrabold text-white">{officialBracketReady ? 'Llave oficial de 16avos' : 'Llave real actual'}</p>
           <p className="mt-1 max-w-[680px] text-[12px] font-semibold leading-relaxed text-muted">
-            Así quedarían los cruces según las posiciones actuales de los grupos.
+            {officialBracketReady ? 'Cruces definidos desde las tablas finales y los mejores terceros.' : 'Así quedarían los cruces según las posiciones actuales de los grupos.'}
           </p>
         </div>
         <span className="rounded-full px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: 'rgba(255,177,92,0.08)', border: '1px solid rgba(255,177,92,0.22)', color: '#FFB15C' }}>
-          Provisorio
+          {officialBracketReady ? 'Oficial' : 'Provisorio'}
         </span>
       </div>
 
-      <div className="mb-4 rounded-[14px] px-4 py-3 text-[12px] font-bold leading-relaxed" style={{ background: 'rgba(255,177,92,0.08)', border: '1px solid rgba(255,177,92,0.2)', color: '#FFB15C' }}>
-        La llave es provisoria mientras haya grupos, mejores terceros o partidos de eliminatorias sin definirse.
-      </div>
+      {!officialBracketReady && (
+        <div className="mb-4 rounded-[14px] px-4 py-3 text-[12px] font-bold leading-relaxed" style={{ background: 'rgba(255,177,92,0.08)', border: '1px solid rgba(255,177,92,0.2)', color: '#FFB15C' }}>
+          La llave es provisoria mientras haya grupos, mejores terceros o posiciones pendientes de validación.
+        </div>
+      )}
 
       {!hasAnyGroupResult ? (
         <p className="rounded-[16px] bg-[#0A0A0A] px-4 py-8 text-center text-[13px] font-semibold leading-relaxed text-muted" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -245,6 +255,7 @@ export default async function MundialEnVivoPage() {
   }
 
   const matches = ((data ?? []) as RawMatchRow[]).map(normalizeMatchRow)
+  const roundOf32State = getOfficialRoundOf32State(matches)
   const groupMatches = matches.filter((match) => match.stage === 'group' && match.group)
   const knockoutMatches = buildProjectedKnockoutMatches(matches.filter((match) => match.stage !== 'group'))
   const scoreMap = buildOfficialGroupScoreMap(groupMatches)
@@ -256,11 +267,11 @@ export default async function MundialEnVivoPage() {
       title: `Grupo ${group}`,
       description: 'Tabla real',
       anchorId: `mundial-tabla-grupo-${group}`,
-      rows: buildGroupTableRows(scoped, scoreMap, {}, `Grupo ${group}`),
+      rows: buildGroupTableRows(scoped, scoreMap, {}, `Grupo ${group}`, 'fifa'),
       tone: 'official',
     }
   })
-  const bestThirds = computeBestThirdsTable(groupMatches, scoreMap)
+  const bestThirds = computeFifaBestThirds(groupMatches, scoreMap).standings
   const countedMatches = groupMatches.filter((match) => scoreMap[match.id])
   const liveCounted = countedMatches.filter((match) => match.status === 'live').length
   const finishedCounted = countedMatches.filter((match) => match.status === 'finished').length
@@ -277,7 +288,9 @@ export default async function MundialEnVivoPage() {
             Mundial <em className="italic text-orange">en vivo</em>
           </h1>
           <p className="mt-3 max-w-[640px] text-[14px] font-semibold leading-relaxed text-muted">
-            Así están quedando los grupos según los resultados cargados.
+            {roundOf32State.officialBracketReady
+              ? 'Fase de grupos finalizada: tablas, mejores terceros y llave oficial en un solo lugar.'
+              : 'Así están quedando los grupos según los resultados cargados.'}
           </p>
         </div>
 
@@ -301,6 +314,12 @@ export default async function MundialEnVivoPage() {
           <a href="#llave-real" className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase transition-colors" style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.1)' }}>
             Ver llave
           </a>
+          <Link href="/mi-prode" className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase transition-colors" style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.1)' }}>
+            Comparar con Mi Prode
+          </Link>
+          <Link href="/ranking" className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase transition-colors" style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.1)' }}>
+            Ver Ranking
+          </Link>
         </div>
 
         <div className="grid gap-5">
@@ -319,6 +338,7 @@ export default async function MundialEnVivoPage() {
             groupMatches={groupMatches}
             knockoutMatches={knockoutMatches}
             hasAnyGroupResult={hasAnyGroupResult}
+            officialBracketReady={roundOf32State.officialBracketReady}
           />
         </div>
       </div>
