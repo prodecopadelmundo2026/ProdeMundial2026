@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import type { Match } from '@/types'
 import { getTeam, flagUrl } from '@/lib/teams'
 import { buildOfficialGroupScoreMap } from '@/lib/group-standings'
@@ -17,6 +18,11 @@ type PredMap = Record<string, { home_score: number; away_score: number }>
 type TbMap = Record<string, string>
 type BracketSource = 'prediction' | 'official'
 type BracketTeamStatus = 'confirmed_first' | 'confirmed_second' | 'confirmed_third' | 'provisional'
+
+function candidateList(name: string) {
+  if (!name.includes(' / ')) return []
+  return name.split(' / ').map((item) => item.trim()).filter(Boolean)
+}
 
 function candidateDisplayName(name: string) {
   if (!name.includes(' / ')) return name
@@ -272,21 +278,24 @@ function TeamRow({
   won,
   isPH,
   status,
+  onCandidateClick,
 }: {
   name: string
   score?: number
   won: boolean
   isPH: boolean
   status?: BracketTeamStatus
+  onCandidateClick?: (candidates: string[]) => void
 }) {
+  const candidates = candidateList(name)
   const displayName = candidateDisplayName(name)
-  const fullTitle = candidateFullTitle(name)
+  const fullTitle = candidates.length > 1 ? `Pueden quedar acá: ${candidates.join(', ')}` : undefined
   const meta = !isPH ? getTeam(name) : null
   const statusStyle = bracketTeamStatusStyle(status)
 
   function openCandidateDetail() {
-    if (!fullTitle) return
-    window.alert(fullTitle)
+    if (candidates.length <= 1) return
+    onCandidateClick?.(candidates)
   }
 
   return (
@@ -364,6 +373,7 @@ function BracketCard({
   auditStatus,
   homeStatus,
   awayStatus,
+  onCandidateClick,
 }: {
   homeTeam: string
   awayTeam: string
@@ -373,6 +383,7 @@ function BracketCard({
   auditStatus?: 'correct' | 'wrong' | 'pending'
   homeStatus?: BracketTeamStatus
   awayStatus?: BracketTeamStatus
+  onCandidateClick?: (candidates: string[]) => void
 }) {
   const isPHHome = isPlaceholderName(homeTeam)
   const isPHAway = isPlaceholderName(awayTeam)
@@ -395,9 +406,9 @@ function BracketCard({
       display: 'flex',
       flexDirection: 'column',
     }}>
-      <TeamRow name={homeTeam} score={homeScore} won={homeWon} isPH={isPHHome} status={homeStatus} />
+      <TeamRow name={homeTeam} score={homeScore} won={homeWon} isPH={isPHHome} status={homeStatus} onCandidateClick={onCandidateClick} />
       <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', flexShrink: 0 }} />
-      <TeamRow name={awayTeam} score={awayScore} won={awayWon} isPH={isPHAway} status={awayStatus} />
+      <TeamRow name={awayTeam} score={awayScore} won={awayWon} isPH={isPHAway} status={awayStatus} onCandidateClick={onCandidateClick} />
     </div>
   )
 }
@@ -795,6 +806,12 @@ export function TournamentBracket({
     { label: 'Campeón', x: COL_X.champion },
   ]
 
+  const [openCandidateInfo, setOpenCandidateInfo] = useState<string[] | null>(null)
+
+  function openCandidateDetail(candidates: string[]) {
+    setOpenCandidateInfo(candidates)
+  }
+
   function renderCard(pNum: number, top: number, left: number) {
     const d = getMatchData(pNum)
     return (
@@ -808,6 +825,7 @@ export function TournamentBracket({
           auditStatus={d.auditStatus}
           homeStatus={d.homeStatus}
           awayStatus={d.awayStatus}
+        onCandidateClick={openCandidateDetail}
         />
       </div>
     )
@@ -815,6 +833,99 @@ export function TournamentBracket({
 
   return (
     <div style={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
+      {openCandidateInfo && (
+        <div
+          onClick={() => setOpenCandidateInfo(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            background: 'rgba(0,0,0,0.58)',
+            backdropFilter: 'blur(3px)',
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: 'min(360px, 100%)',
+              borderRadius: 18,
+              border: '1px solid rgba(177,140,255,0.55)',
+              background: 'linear-gradient(180deg, rgba(24,20,38,0.98), rgba(10,10,14,0.98))',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.65)',
+              padding: 18,
+              color: '#fff',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 900, letterSpacing: 0.4, textTransform: 'uppercase', color: '#e6d9ff' }}>
+                  Posibles equipos
+                </div>
+                <div style={{ fontSize: 12, color: '#aeb6c7', marginTop: 4 }}>
+                  Pueden quedar en este lugar de la llave:
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setOpenCandidateInfo(null)}
+                aria-label="Cerrar"
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 999,
+                  border: '1px solid rgba(255,255,255,0.18)',
+                  background: 'rgba(255,255,255,0.08)',
+                  color: '#fff',
+                  fontSize: 18,
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  lineHeight: '26px',
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gap: 8 }}>
+              {openCandidateInfo.map((team) => {
+                const meta = getTeam(team)
+                return (
+                  <div
+                    key={team}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '9px 10px',
+                      borderRadius: 12,
+                      background: 'rgba(255,255,255,0.07)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      fontSize: 13,
+                      fontWeight: 800,
+                    }}
+                  >
+                    {meta?.iso2 ? (
+                      <img src={flagUrl(meta.iso2)} alt={team} style={{ width: 20, height: 14, objectFit: 'contain' }} />
+                    ) : (
+                      <span style={{ color: '#b18cff' }}>ⓘ</span>
+                    )}
+                    <span>{team}</span>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div style={{ fontSize: 11, color: '#7f8796', marginTop: 14 }}>
+              Tocá fuera del cartel o la × para cerrar.
+            </div>
+          </div>
+        </div>
+      )}
       {/* Audit legend */}
       {mode === 'audit' && (
         <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -890,6 +1001,7 @@ export function TournamentBracket({
                 auditStatus={finalData.auditStatus}
                 homeStatus={finalData.homeStatus}
                 awayStatus={finalData.awayStatus}
+              onCandidateClick={openCandidateDetail}
               />
             </div>
 
@@ -922,6 +1034,7 @@ export function TournamentBracket({
                 auditStatus={thirdData.auditStatus}
                 homeStatus={thirdData.homeStatus}
                 awayStatus={thirdData.awayStatus}
+              onCandidateClick={openCandidateDetail}
               />
             </div>
 
