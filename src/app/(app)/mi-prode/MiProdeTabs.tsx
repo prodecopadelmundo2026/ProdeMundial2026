@@ -14,6 +14,7 @@ import { parseScoreInput } from '@/lib/score-input'
 import { deleteSpecialBets, deleteVirtualKnockoutPredictionsByStages, savePredictionTiebreakers, saveFullProdeSafe, type SpecialBetsValues } from './actions'
 import { buildProjectedKnockoutMatches, isVirtualKnockoutMatch } from '@/lib/bracket'
 import { getOfficialRoundOf32State } from '@/lib/tournament-state'
+import { buildRoundOf32BonusLedger, summarizeKnockoutBonus } from '@/lib/knockout-bonus'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
@@ -552,6 +553,15 @@ export function MiProdeTabs({
     () => getOfficialRoundOf32State([...groupMatches, ...knockoutMatches]),
     [groupMatches, knockoutMatches]
   )
+  const roundOf32Bonus = useMemo(
+    () => summarizeKnockoutBonus(buildRoundOf32BonusLedger({
+      userId: '',
+      matches: [...groupMatches, ...knockoutMatches],
+      predictionMap: effectivePredMap,
+      historicalTiebreakers: tiebreakers,
+    })),
+    [effectivePredMap, groupMatches, knockoutMatches, tiebreakers]
+  )
 
   function toggleDeleteSelection(option: DeleteOption) {
     setDeleteSelections((prev) => {
@@ -1036,6 +1046,24 @@ export function MiProdeTabs({
         />
       </div>
       <div className={activeTab === 'llave' ? 'page-fade' : undefined} style={{ display: activeTab === 'llave' ? undefined : 'none' }}>
+        {roundOf32State.officialBracketReady && roundOf32Bonus.awardedTeams.length > 0 && (
+          <details className="mb-6 rounded-[18px] bg-[#101010] p-4" style={{ border: '1px solid rgba(168,240,216,0.24)' }}>
+            <summary className="cursor-pointer list-none">
+              <p className="text-[14px] font-extrabold text-white">Aciertos de trayectoria a 16avos</p>
+              <p className="mt-1 text-[13px] font-semibold text-mint">
+                Acertaste {roundOf32Bonus.awardedTeams.length} de 32 equipos · +{roundOf32Bonus.points} pts
+              </p>
+            </summary>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {roundOf32Bonus.awardedTeams.map((team) => (
+                <span key={team} className="rounded-[10px] bg-mint/10 px-3 py-2 text-[12px] font-bold text-mint">✓ {team} +1</span>
+              ))}
+              {roundOf32Bonus.missedTeams.map((team) => (
+                <span key={team} className="rounded-[10px] bg-white/5 px-3 py-2 text-[12px] font-bold text-muted">× {team} 0</span>
+              ))}
+            </div>
+          </details>
+        )}
         <p className="text-[11px] font-medium mb-4 px-1" style={{ color: '#3e3a35' }}>
           Tu bracket según tus pronósticos de grupos y eliminatorias. Vista de solo lectura.
         </p>

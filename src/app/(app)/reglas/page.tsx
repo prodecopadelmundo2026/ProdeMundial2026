@@ -323,6 +323,20 @@ export default function ReglasPage() {
         </section>
 
         {/* ── Footer ── */}
+        <section style={{ marginBottom: 60 }}>
+          <h2 className="font-display uppercase" style={{ fontSize: 'clamp(24px, 3.4vw, 32px)', letterSpacing: '-0.02em', lineHeight: 1 }}>
+            Bonus de trayectoria en <em className="italic text-orange">eliminatorias</em>
+          </h2>
+          <div className="mt-5 rounded-[20px] bg-[#141414] p-6" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+            <p className="text-[14px] font-medium leading-relaxed text-[#cfcfcf]">
+              Desde 16avos se suman puntos extra por acertar que una selección llega a una instancia, aunque el cruce exacto no coincida. El bonus de 16avos incluye primeros, segundos y mejores terceros.
+            </p>
+            <p className="mt-4 text-[13px] font-extrabold text-mint">
+              16avos +1 · 8avos +2 · Cuartos +3 · Semis +4 · Final +5 · Campeón +10
+            </p>
+          </div>
+        </section>
+
         <p
           className="font-mono font-bold uppercase text-center"
           style={{ marginTop: 12, fontSize: 11, color: '#3a3a3a', letterSpacing: '0.18em' }}

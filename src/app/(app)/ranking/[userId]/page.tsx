@@ -15,6 +15,7 @@ import { GroupStandingsTables, type GroupTableSection } from '@/components/Group
 import { flagUrl, getTeam } from '@/lib/teams'
 import { buildGroupTableRows, buildOfficialGroupScoreMap } from '@/lib/group-standings'
 import { formatMatchDateTimeArgentina, formatMatchDayKeyArgentina } from '@/lib/match-datetime'
+import { buildRoundOf32BonusLedger, summarizeKnockoutBonus } from '@/lib/knockout-bonus'
 
 export const dynamic = 'force-dynamic'
 
@@ -1288,6 +1289,13 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   const viewerPredictionByMatch = new Map(viewerTypedPredictions.map((prediction) => [prediction.match_id, prediction]))
   const viewerRowByMatch = new Map(viewerAuditRows.map((row) => [row.match.id, row]))
   const userTiebreakerMap = tiebreakersByUser.get(userId) ?? {}
+  const trajectoryBonus = summarizeKnockoutBonus(buildRoundOf32BonusLedger({
+    userId,
+    matches: allMatches,
+    predictionMap,
+    historicalTiebreakers: userTiebreakerMap,
+  }))
+  const totalWithTrajectory = entry.total_points + trajectoryBonus.points
   const viewerTiebreakerMap = user ? tiebreakersByUser.get(user.id) ?? {} : {}
   const userBracketTiebreakerMap = {
     ...userTiebreakerMap,
@@ -1373,7 +1381,9 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
               value={`${rankMedal(entry.rank, entry.total_points) ? `${rankMedal(entry.rank, entry.total_points)} ` : ''}${formatRank(entry, rankingEntries)}`}
               color={RANK_COLOR[entry.rank]}
             />
-            <SummaryBox label="Puntos" value={entry.total_points} />
+            <SummaryBox label="Puntos base" value={entry.total_points} />
+            <SummaryBox label="Bonus trayectoria" value={`+${trajectoryBonus.points}`} />
+            <SummaryBox label="Total" value={totalWithTrajectory} />
             <SummaryLink label="Exactas" value={statusCount(auditRows, 'exact')} href={filterHrefForView(userId, activeView, 'exact', activeResult, activeView === 'knockout' ? activeKnockoutStage : null)} active={activeResult === 'exact'} />
             <SummaryLink label="Parciales" value={statusCount(auditRows, 'partial')} href={filterHrefForView(userId, activeView, 'partial', activeResult, activeView === 'knockout' ? activeKnockoutStage : null)} active={activeResult === 'partial'} />
             <SummaryLink label="Incorrectas" value={statusCount(auditRows, 'incorrect')} href={filterHrefForView(userId, activeView, 'incorrect', activeResult, activeView === 'knockout' ? activeKnockoutStage : null)} active={activeResult === 'incorrect'} />

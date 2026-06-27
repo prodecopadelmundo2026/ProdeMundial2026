@@ -247,6 +247,11 @@ function RankRow({
               >
                 {entry.total_points}
               </span>
+              {(entry.trajectory_bonus ?? 0) > 0 && (
+                <span className="font-mono text-[10px] font-extrabold text-mint">
+                  {entry.base_points} base · +{entry.trajectory_bonus} trayectoria
+                </span>
+              )}
               <span
                 className="ml-1 font-mono text-[9px] font-bold uppercase tracking-[0.12em] sm:ml-1.5 sm:text-[10px] sm:tracking-[0.16em]"
                 style={{ color: '#8A8A8A' }}

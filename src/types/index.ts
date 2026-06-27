@@ -41,6 +41,8 @@ export type RankingEntry = {
   name: string
   avatar_url: string | null
   total_points: number
+  base_points?: number
+  trajectory_bonus?: number
   exact_predictions: number
   correct_result_predictions: number
   incorrect_predictions?: number

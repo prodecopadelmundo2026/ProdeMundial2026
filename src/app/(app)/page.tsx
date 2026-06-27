@@ -413,7 +413,7 @@ const nextMatchStats = normalizePredictionInsights(nextMatchStatsRow)
             </h1>
             <p className="mt-6 max-w-[520px] text-[17px] font-medium leading-relaxed" style={{ color: '#d6d6d6' }}>
               {roundOf32State.officialBracketReady
-                ? 'Ya está armada la llave oficial de 16avos. Revisá el Mundial en Vivo, compará tu Prode contra la realidad y seguí el ranking actualizado.'
+                ? 'Ya está armada la llave oficial de 16avos. Revisá el Mundial en Vivo, compará tu Prode contra la realidad y seguí el ranking actualizado. También se aplicó el bonus de trayectoria de 16avos aprobado por votación.'
                 : 'Seguí el ranking, revisá el fixture y compará los pronósticos del próximo partido.'}
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
