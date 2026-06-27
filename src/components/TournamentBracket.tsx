@@ -281,12 +281,27 @@ function TeamRow({
 }) {
   const displayName = candidateDisplayName(name)
   const fullTitle = candidateFullTitle(name)
-  const meta = !isPH && !fullTitle ? getTeam(name) : null
+  const meta = !isPH ? getTeam(name) : null
   const statusStyle = bracketTeamStatusStyle(status)
+
+  function openCandidateDetail() {
+    if (!fullTitle) return
+    window.alert(fullTitle)
+  }
 
   return (
     <div
       title={fullTitle}
+      role={fullTitle ? 'button' : undefined}
+      tabIndex={fullTitle ? 0 : undefined}
+      onClick={openCandidateDetail}
+      onKeyDown={(event) => {
+        if (!fullTitle) return
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          openCandidateDetail()
+        }
+      }}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -297,15 +312,18 @@ function TeamRow({
         borderLeft: '5px solid ' + statusStyle.border,
         boxShadow: status ? 'inset 0 0 0 1px ' + statusStyle.border : 'none',
         minWidth: 0,
+        cursor: fullTitle ? 'pointer' : 'default',
       }}
     >
-      {meta ? (
-        <span style={{ fontSize: 12, lineHeight: 1 }}>{meta.flag}</span>
-      ) : (
-        <span style={{ fontSize: 11, color: fullTitle ? '#b18cff' : '#555' }}>
-          {fullTitle ? 'ⓘ' : '?'}
-        </span>
-      )}
+      <div style={{ width: 16, height: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {!fullTitle && !isPH && meta?.iso2 ? (
+          <img src={flagUrl(meta.iso2)} alt={name} style={{ width: 16, height: 11, objectFit: 'contain' }} />
+        ) : (
+          <span style={{ fontSize: fullTitle ? 11 : 9, color: fullTitle ? '#e6d9ff' : '#555' }}>
+            {fullTitle ? 'ⓘ' : '?'}
+          </span>
+        )}
+      </div>
 
       <span
         style={{
