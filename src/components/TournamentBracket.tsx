@@ -10,7 +10,7 @@ import {
   assignBestThirdsToSlots,
   KNOCKOUT_FIXTURES,
 } from '@/lib/bracket'
-import { computeFifaAllStandings, computeFifaBestThirds } from '@/lib/fifa-standings'
+import { computeFifaAllStandings, computeFifaGroupStandings, computeFifaBestThirds } from '@/lib/fifa-standings'
 
 export type BracketMode = 'official' | 'prode' | 'audit'
 type PredMap = Record<string, { home_score: number; away_score: number }>
@@ -20,16 +20,16 @@ type BracketTeamStatus = 'confirmed_first' | 'confirmed_second' | 'confirmed_thi
 
 function bracketTeamStatusStyle(status?: BracketTeamStatus) {
   if (status === 'confirmed_first') {
-    return { background: 'rgba(255,224,64,0.12)', border: 'rgba(255,224,64,0.72)' }
+    return { background: 'rgba(255,224,64,0.24)', border: 'rgba(255,224,64,0.95)' }
   }
   if (status === 'confirmed_second') {
-    return { background: 'rgba(203,213,225,0.11)', border: 'rgba(203,213,225,0.62)' }
+    return { background: 'rgba(203,213,225,0.22)', border: 'rgba(203,213,225,0.9)' }
   }
   if (status === 'confirmed_third') {
-    return { background: 'rgba(208,138,69,0.12)', border: 'rgba(208,138,69,0.66)' }
+    return { background: 'rgba(208,138,69,0.24)', border: 'rgba(208,138,69,0.92)' }
   }
   if (status === 'provisional') {
-    return { background: 'rgba(177,140,255,0.10)', border: 'rgba(177,140,255,0.58)' }
+    return { background: 'rgba(177,140,255,0.20)', border: 'rgba(177,140,255,0.9)' }
   }
   return { background: 'transparent', border: 'transparent' }
 }
@@ -274,7 +274,9 @@ function TeamRow({
       gap: 4,
       padding: '0 6px',
       height: '50%',
-      background: won ? 'rgba(255,107,0,0.18)' : 'transparent',
+      background: won ? 'rgba(255,107,0,0.18)' : statusStyle.background,
+      borderLeft: '5px solid ' + statusStyle.border,
+      boxShadow: status ? 'inset 0 0 0 1px ' + statusStyle.border : 'none',
       minWidth: 0,
     }}>
       {/* flag */}
@@ -519,11 +521,73 @@ export function TournamentBracket({
     match.status === 'finished' && match.home_score != null && match.away_score != null
   )
 
-  function groupIsComplete(group: string) {
+  const directSlotCache = new Map<string, { candidates: string[] }>()
+
+  function directSlotCandidateInfo(group: string, position: 0 | 1) {
+    const cacheKey = `${group}-${position}`
+    const cached = directSlotCache.get(cacheKey)
+    if (cached) return cached
+
     const scoped = groupMatches.filter((match) => match.group === group)
-    return scoped.length > 0 && scoped.every((match) =>
-      match.status === 'finished' && match.home_score != null && match.away_score != null
-    )
+
+    if (scoped.length === 0) {
+      const result = { candidates: [] }
+      directSlotCache.set(cacheKey, result)
+      return result
+    }
+
+    const current = computeFifaGroupStandings(scoped, officialGroupPredMap)
+    const pending = scoped.filter((match) => !officialGroupPredMap[match.id])
+
+    if (pending.length === 0) {
+      const name = current.standings[position]?.name
+      const result = { candidates: name ? [name] : [] }
+      directSlotCache.set(cacheKey, result)
+      return result
+    }
+
+    // Con 1 o 2 partidos pendientes por grupo simulamos marcadores posibles.
+    // Si hubiera más, dejamos el slot como provisorio con la tabla actual.
+    if (pending.length > 2) {
+      const name = current.standings[position]?.name
+      const result = { candidates: name ? [name] : [] }
+      directSlotCache.set(cacheKey, result)
+      return result
+    }
+
+    const candidates = new Set<string>()
+    const scoreOptions: Array<{ home_score: number; away_score: number }> = []
+
+    for (let home_score = 0; home_score <= 12; home_score++) {
+      for (let away_score = 0; away_score <= 12; away_score++) {
+        scoreOptions.push({ home_score, away_score })
+      }
+    }
+
+    const testMap = { ...officialGroupPredMap }
+
+    function visit(index: number) {
+      if (index >= pending.length) {
+        const projected = computeFifaGroupStandings(scoped, testMap)
+        const name = projected.standings[position]?.name
+        if (name) candidates.add(name)
+        return
+      }
+
+      const match = pending[index]
+      for (const score of scoreOptions) {
+        testMap[match.id] = score
+        visit(index + 1)
+      }
+
+      delete testMap[match.id]
+    }
+
+    visit(0)
+
+    const result = { candidates: [...candidates].sort((a, b) => a.localeCompare(b)) }
+    directSlotCache.set(cacheKey, result)
+    return result
   }
 
   function qualificationStatusForSlot(pNum: number, side: 0 | 1, resolvedTeam: string): BracketTeamStatus | undefined {
@@ -534,9 +598,15 @@ export function TournamentBracket({
 
     const direct = slot.match(/^([12])°\s+Grupo\s+([A-L])$/)
     if (direct) {
+      const position = Number(direct[1]) - 1 as 0 | 1
       const group = direct[2]
-      if (!groupIsComplete(group)) return 'provisional'
-      return direct[1] === '1' ? 'confirmed_first' : 'confirmed_second'
+      const info = directSlotCandidateInfo(group, position)
+
+      if (info.candidates.length === 1 && info.candidates[0] === resolvedTeam) {
+        return position === 0 ? 'confirmed_first' : 'confirmed_second'
+      }
+
+      return 'provisional'
     }
 
     if (/^3°\s+Grupo\s+/.test(slot)) {
@@ -577,7 +647,15 @@ export function TournamentBracket({
     const direct = normalized.match(/^(\d)°\s+Grupo\s+([A-L])$/)
     if (direct) {
       const pos = Number(direct[1]) - 1
-      return context.standings[direct[2]]?.[pos] ?? normalized
+      const group = direct[2]
+
+      if (source === 'official' && (pos === 0 || pos === 1)) {
+        const info = directSlotCandidateInfo(group, pos as 0 | 1)
+        if (info.candidates.length === 1) return info.candidates[0]
+        if (info.candidates.length > 1) return info.candidates.join(' / ')
+      }
+
+      return context.standings[group]?.[pos] ?? normalized
     }
 
     const third = normalized.match(/^3°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
