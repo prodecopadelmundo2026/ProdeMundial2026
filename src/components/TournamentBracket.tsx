@@ -760,6 +760,10 @@ export function TournamentBracket({
     const away = resolveFromSource(fixture[1], source, depth + 1)
     const score = context.scoreMap[match.id]
     if (!score) return fallback
+    if (source === 'official' && match.status === 'finished' && match.qualified_team) {
+      if (match.qualified_team === home) return knockout[1] === 'Ganador' ? home : away
+      if (match.qualified_team === away) return knockout[1] === 'Ganador' ? away : home
+    }
 
     if (score.home_score === score.away_score) {
       if (source === 'official') return fallback
@@ -798,7 +802,9 @@ export function TournamentBracket({
 
     const homeScore = displayPred?.home_score
     const awayScore = displayPred?.away_score
-    const winner    = getWinner(homeTeam, awayTeam, winnerPred, tb)
+    const winner = source === 'official' && match?.status === 'finished' && match.qualified_team
+      ? match.qualified_team
+      : getWinner(homeTeam, awayTeam, winnerPred, tb)
     // Audit comparison
     let auditStatus: 'correct' | 'wrong' | 'pending' | undefined
     if (mode === 'audit' && match) {
@@ -807,7 +813,11 @@ export function TournamentBracket({
         const offHome   = rawHome ? resolveFromSource(rawHome, 'official') : ''
         const offAway   = rawAway ? resolveFromSource(rawAway, 'official') : ''
         const offTeamsResolved = !isPlaceholderName(offHome) && !isPlaceholderName(offAway)
-        const offWinner = offTeamsResolved ? getWinner(offHome, offAway, offPred) : null
+        const offWinner = offTeamsResolved
+          ? match.status === 'finished' && match.qualified_team
+            ? match.qualified_team
+            : getWinner(offHome, offAway, offPred)
+          : null
         if (offWinner && winner) {
           auditStatus = offWinner === winner ? 'correct' : 'wrong'
         } else {

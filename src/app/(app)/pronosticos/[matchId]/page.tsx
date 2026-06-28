@@ -157,11 +157,16 @@ export default async function PronosticoDetallePage({
             {isScored && match.home_score != null && match.away_score != null && (
               <div className="rounded-[20px] bg-[#0A0A0A] px-5 py-4 text-center" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
                 <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.16em] text-muted">
-                  Resultado oficial
+                  {match.status === 'live' ? 'Marcador parcial · 90 min' : 'Resultado · 90 min'}
                 </p>
                 <p className="mt-2 font-display text-[48px] leading-none">
                   {match.home_score}-{match.away_score}
                 </p>
+                {match.status === 'finished' && match.qualified_team && (
+                  <p className="mt-2 text-[11px] font-extrabold uppercase text-mint">
+                    Clasifica {match.qualified_team}
+                  </p>
+                )}
               </div>
             )}
           </div>

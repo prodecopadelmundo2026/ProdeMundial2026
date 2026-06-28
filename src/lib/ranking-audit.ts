@@ -6,6 +6,7 @@ import {
   computeBestThirdsGroups,
   KNOCKOUT_FIXTURES,
 } from '@/lib/bracket'
+import { getQualifiedTeamPointsForStage } from '@/lib/knockout-bonus'
 
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
 type TiebreakerMap = Record<string, string>
@@ -24,6 +25,8 @@ export type MatchAuditRow = {
   officialScore: string
   status: AuditStatus
   points: number | null
+  resultPoints: number | null
+  qualifiedPoints: number
   crossMatches: boolean | null
   hasOfficialTeams: boolean
 }
@@ -130,6 +133,10 @@ function resolveSlot(
   const fallback = `${knockout[1]} P${pNum}`
 
   if (!score) return fallback
+  if (mode === 'official' && match.status === 'finished' && match.qualified_team) {
+    if (knockout[1] === 'Ganador') return match.qualified_team
+    return match.qualified_team === home ? away : home
+  }
   if (score.home_score === score.away_score) {
     if (mode === 'official') return fallback
     const tiebreaker = tiebreakerMap[match.id]
@@ -217,19 +224,35 @@ export function buildMatchAuditRows(
         !isUnresolvedTeam(predictedTeams.away) &&
         predictedTeams.home === officialTeams.home &&
         predictedTeams.away === officialTeams.away
-    const rawPoints = prediction ? scorePoints(prediction, match) : null
-    const points = !prediction || !hasOfficialResult
+    const resultPoints = !prediction || !hasOfficialResult
       ? null
       : match.stage === 'group' || crossMatches
-      ? rawPoints
+      ? scorePoints(prediction, match)
       : 0
+    const predictedQualifiedTeam = prediction
+      ? prediction.home_score > prediction.away_score
+        ? predictedTeams.home
+        : prediction.away_score > prediction.home_score
+        ? predictedTeams.away
+        : tiebreakerMap[match.id] ?? prediction.tiebreaker_team ?? null
+      : null
+    const qualifiedPoints =
+      prediction &&
+      hasOfficialResult &&
+      match.stage !== 'group' &&
+      crossMatches &&
+      match.qualified_team &&
+      predictedQualifiedTeam === match.qualified_team
+        ? getQualifiedTeamPointsForStage(match.stage)
+        : 0
+    const points = resultPoints == null ? null : resultPoints + qualifiedPoints
     const status: AuditStatus = !prediction
       ? 'missing'
       : !hasOfficialResult
       ? 'pending'
-      : points === 3
+      : resultPoints === 3
       ? 'exact'
-      : points === 1
+      : resultPoints === 1
       ? 'partial'
       : 'incorrect'
 
@@ -245,6 +268,8 @@ export function buildMatchAuditRows(
       officialScore: formatScore(match.home_score, match.away_score),
       status,
       points,
+      resultPoints,
+      qualifiedPoints,
       crossMatches: match.stage === 'group' || !prediction || !hasOfficialTeams ? null : crossMatches,
       hasOfficialTeams,
     }

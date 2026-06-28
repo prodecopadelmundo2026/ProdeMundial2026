@@ -45,6 +45,15 @@ export const KNOCKOUT_BONUS_POINTS: Record<KnockoutBonusRound, number> = {
   champion: 10,
 }
 
+export function getQualifiedTeamPointsForStage(stage: Match['stage']) {
+  if (stage === 'round_of_32') return KNOCKOUT_BONUS_POINTS.round_of_16
+  if (stage === 'round_of_16') return KNOCKOUT_BONUS_POINTS.quarterfinal
+  if (stage === 'quarter') return KNOCKOUT_BONUS_POINTS.semifinal
+  if (stage === 'semi') return KNOCKOUT_BONUS_POINTS.final
+  if (stage === 'final') return KNOCKOUT_BONUS_POINTS.champion
+  return 0
+}
+
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
 type TiebreakerMap = Record<string, string>
 

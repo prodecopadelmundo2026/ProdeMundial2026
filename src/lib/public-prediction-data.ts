@@ -11,6 +11,9 @@ import {
   getHistoricalPredictedRoundOf32Teams,
   summarizeKnockoutBonus,
 } from '@/lib/knockout-bonus'
+import { buildMatchAuditRows } from '@/lib/ranking-audit'
+import { getTournamentVisibleMatches } from '@/lib/tournament-state'
+import type { Prediction } from '@/types'
 
 type ScoreRow = {
   user_id?: string
@@ -163,7 +166,7 @@ const loadTrajectoryRows = unstable_cache(
       virtualPredictions,
     }
   },
-  ['public-round-of-32-trajectory-rows'],
+  ['public-round-of-32-trajectory-rows-v2'],
   { revalidate: 60 }
 )
 
@@ -259,9 +262,11 @@ export async function getVirtualMatchTrajectoryInsights(
 
 export async function addConfirmedTrajectoryToRanking<T extends RankingWithTrajectoryEntry>(
   entries: T[],
-  matches: Match[]
+  matches: Match[],
+  options: { includeKnockoutScoring?: boolean } = {}
 ): Promise<T[]> {
   const rows = await loadTrajectoryRows()
+  const visibleMatches = getTournamentVisibleMatches(matches)
   const predictionsByUser = new Map<string, Required<ScoreRow>[]>()
   for (const prediction of rows.predictions) {
     const bucket = predictionsByUser.get(prediction.user_id) ?? []
@@ -276,9 +281,9 @@ export async function addConfirmedTrajectoryToRanking<T extends RankingWithTraje
   }
 
   const enriched = entries.map((entry) => {
-    const basePoints = Number(entry.base_points ?? entry.total_points ?? 0)
+    const currentBasePoints = Number(entry.base_points ?? entry.total_points ?? 0)
     if (!entry.user_id) {
-      return { ...entry, base_points: basePoints, trajectory_bonus: 0, total_points: basePoints }
+      return { ...entry, base_points: currentBasePoints, trajectory_bonus: 0, total_points: currentBasePoints }
     }
     const predictionMap = Object.fromEntries(
       (predictionsByUser.get(entry.user_id) ?? []).map((prediction) => [
@@ -289,9 +294,41 @@ export async function addConfirmedTrajectoryToRanking<T extends RankingWithTraje
     const historicalTiebreakers = Object.fromEntries(
       (tiebreakersByUser.get(entry.user_id) ?? []).map((row) => [row.tiebreaker_key, row.team])
     )
+    const auditPredictions: Prediction[] = [
+      ...(predictionsByUser.get(entry.user_id) ?? []).map((prediction) => ({
+        id: `${entry.user_id}-${prediction.match_id}`,
+        user_id: entry.user_id!,
+        match_id: prediction.match_id,
+        home_score: prediction.home_score,
+        away_score: prediction.away_score,
+        points: null,
+        tiebreaker_team: null,
+        created_at: '',
+        updated_at: '',
+      })),
+      ...rows.virtualPredictions
+      .filter((prediction) => prediction.user_id === entry.user_id)
+      .map((prediction) => ({
+        id: `${prediction.user_id}-${prediction.virtual_match_id}`,
+        user_id: prediction.user_id,
+        match_id: prediction.virtual_match_id,
+        home_score: prediction.home_score,
+        away_score: prediction.away_score,
+        points: null,
+        tiebreaker_team: prediction.tiebreaker_team,
+        created_at: '',
+        updated_at: '',
+      })),
+    ]
+    const knockoutRows = options.includeKnockoutScoring === false
+      ? []
+      : buildMatchAuditRows(visibleMatches, auditPredictions, historicalTiebreakers)
+          .filter((row) => row.stage !== 'group' && row.points != null)
+    const knockoutPoints = knockoutRows.reduce((total, row) => total + (row.points ?? 0), 0)
+    const basePoints = currentBasePoints + knockoutPoints
     const bonus = summarizeKnockoutBonus(buildRoundOf32BonusLedger({
       userId: entry.user_id,
-      matches,
+      matches: visibleMatches,
       predictionMap,
       historicalTiebreakers,
     })).points
@@ -300,6 +337,9 @@ export async function addConfirmedTrajectoryToRanking<T extends RankingWithTraje
       base_points: basePoints,
       trajectory_bonus: bonus,
       total_points: basePoints + bonus,
+      exact_predictions: entry.exact_predictions + knockoutRows.filter((row) => row.status === 'exact').length,
+      correct_result_predictions: entry.correct_result_predictions + knockoutRows.filter((row) => row.status === 'partial').length,
+      incorrect_predictions: (entry.incorrect_predictions ?? 0) + knockoutRows.filter((row) => row.status === 'incorrect').length,
     }
   })
 

@@ -89,6 +89,9 @@ export function VirtualTrajectoryInsights({
       <div className="mt-3 grid gap-3">
         <div className="rounded-[12px] px-3 py-3" style={{ background: 'rgba(255,107,0,0.09)', border: '1px solid rgba(255,107,0,0.28)' }}>
           <p className="text-[13px] font-extrabold text-white">{exactTitle}</p>
+          {data.exactCrossing.length === 1 && data.exactCrossing[0].prediction && (
+            <PredictionLine participant={data.exactCrossing[0]} homeTeam={homeTeam} awayTeam={awayTeam} />
+          )}
           <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-orange">
             {data.exactCrossing.length ? '+2 trayectoria por ambos clasificados' : 'Cruce exacto'}
           </p>

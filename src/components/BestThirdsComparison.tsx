@@ -110,7 +110,7 @@ export function BestThirdsComparison({
         </p>
         {official?.some((team) => team.officialOrderOverride) && (
           <p className="mt-2 rounded-[10px] px-3 py-2 text-[11px] font-bold text-[#FFE040]" style={{ background: 'rgba(255,224,64,0.07)', border: '1px solid rgba(255,224,64,0.18)' }}>
-            Ghana y Ecuador siguen empatados en estadísticas. El orden oficial mostrado fue resuelto por criterio externo/manual.
+            La tabla muestra el orden oficial definitivo de los mejores terceros.
           </p>
         )}
       </div>

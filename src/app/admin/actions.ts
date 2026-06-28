@@ -67,7 +67,11 @@ export async function setMatchResult(
   matchId: string,
   homeScore: number | null,
   awayScore: number | null,
-  status: 'upcoming' | 'live' | 'finished'
+  status: 'upcoming' | 'live' | 'finished',
+  decidedBy: Match['decided_by'] = 'regular_time',
+  qualifiedTeam: string | null = null,
+  resolvedHome?: string,
+  resolvedAway?: string
 ) {
   if (homeScore != null && (!Number.isInteger(homeScore) || homeScore < 0 || homeScore > 99)) throw new Error('Goles inválidos')
   if (awayScore != null && (!Number.isInteger(awayScore) || awayScore < 0 || awayScore > 99)) throw new Error('Goles inválidos')
@@ -88,6 +92,10 @@ export async function setMatchResult(
     p_home_score: homeScore,
     p_away_score: awayScore,
     p_status: status,
+    p_decided_by: decidedBy,
+    p_qualified_team: qualifiedTeam,
+    p_home_team: resolvedHome,
+    p_away_team: resolvedAway,
   })
 
   if (error) throw new Error(error.message)

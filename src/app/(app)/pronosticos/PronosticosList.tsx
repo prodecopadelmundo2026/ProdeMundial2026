@@ -122,7 +122,7 @@ function MatchPredictionCard({ match }: { match: PredictionMatchCardData }) {
           </h2>
           <p className="mt-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
             {isScored && match.home_score != null && match.away_score != null
-              ? `${match.home_score}-${match.away_score} oficial`
+              ? `${match.home_score}-${match.away_score} · 90 min${match.status === 'live' ? ' parcial' : ''}`
               : `${match.kickoff_label} ART`}
           </p>
         </div>

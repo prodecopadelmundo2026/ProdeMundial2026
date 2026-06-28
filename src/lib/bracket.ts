@@ -153,7 +153,16 @@ function createVirtualKnockoutMatch(pNum: number, homeTeam: string, awayTeam: st
 }
 
 export function buildProjectedKnockoutMatches(knockoutMatches: Match[]): Match[] {
-  const result = [...knockoutMatches]
+  const result = knockoutMatches.map((match) => {
+    const pNum = knockoutPNum(match)
+    if (pNum == null) return match
+    return {
+      ...match,
+      id: `virtual-p${pNum}`,
+      database_id: match.database_id ?? match.id,
+      bracket_slot: match.bracket_slot ?? pNum,
+    }
+  })
   const existing = buildKnockoutMap(knockoutMatches)
 
   for (const [pNumString, [homeTeam, awayTeam]] of Object.entries(KNOCKOUT_FIXTURES)) {
@@ -410,6 +419,10 @@ function resolveKnockout(
 
   // Use actual result if available
   if (match.home_score != null && match.away_score != null) {
+    if (match.status === 'finished' && match.qualified_team) {
+      if (match.qualified_team === homeResolved) return type === 'winner' ? homeResolved : awayResolved
+      if (match.qualified_team === awayResolved) return type === 'winner' ? awayResolved : homeResolved
+    }
     if (match.home_score === match.away_score) {
       const tb = tiebreakerMap[match.id]
       if (tb) {

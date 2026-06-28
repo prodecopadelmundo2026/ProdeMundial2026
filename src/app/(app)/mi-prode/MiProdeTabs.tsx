@@ -15,7 +15,7 @@ import { deleteSpecialBets, deleteVirtualKnockoutPredictionsByStages, savePredic
 import { buildProjectedKnockoutMatches, computeBestThirdsTable, isVirtualKnockoutMatch } from '@/lib/bracket'
 import { computeFifaBestThirds } from '@/lib/fifa-standings'
 import { getOfficialRoundOf32State, buildFinishedGroupScoreMap } from '@/lib/tournament-state'
-import { buildRoundOf32BonusLedger, summarizeKnockoutBonus } from '@/lib/knockout-bonus'
+import { buildRoundOf32BonusLedger, buildRoundOf32CrossingAudit, summarizeKnockoutBonus } from '@/lib/knockout-bonus'
 import { BestThirdsComparison, type BestThirdRow } from '@/components/BestThirdsComparison'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
@@ -564,6 +564,14 @@ export function MiProdeTabs({
       predictionMap: effectivePredMap,
       historicalTiebreakers: tiebreakers,
     })),
+    [effectivePredMap, groupMatches, knockoutMatches, tiebreakers]
+  )
+  const roundOf32ExactCrossings = useMemo(
+    () => new Set(buildRoundOf32CrossingAudit({
+      matches: [...groupMatches, ...knockoutMatches],
+      predictionMap: effectivePredMap,
+      historicalTiebreakers: tiebreakers,
+    }).filter((crossing) => crossing.correct).map((crossing) => crossing.pNum)),
     [effectivePredMap, groupMatches, knockoutMatches, tiebreakers]
   )
   const predictedBestThirds = useMemo<BestThirdRow[]>(
@@ -1120,6 +1128,7 @@ export function MiProdeTabs({
           predMap={effectivePredMap}
           tiebreakerMap={{ ...tiebreakers, ...effectiveKnockoutTiebreakers }}
           roundOf32AwardedTeams={new Set(roundOf32Bonus.awardedTeams)}
+          roundOf32ExactCrossings={roundOf32ExactCrossings}
         />
         {roundOf32State.officialBracketReady && (
           <div className="mt-8 border-t border-white/10 pt-7">

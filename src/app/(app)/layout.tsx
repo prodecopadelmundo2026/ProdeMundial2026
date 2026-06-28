@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import type { RankingEntry } from '@/types'
+import type { Match, RankingEntry } from '@/types'
 import { NavLinks } from './NavLinks'
 import { UserMenu } from '@/components/UserMenu'
 import { ProdeStatusModal } from '@/components/ProdeStatusModal'
@@ -9,6 +9,7 @@ import { isSharedRank } from '@/lib/ranking-display'
 import { getCurrentProfile } from '@/lib/current-profile'
 import { calculatePredictionProgress, type ProdeCompletionStatus } from '@/lib/prode-progress'
 import { getBonusPollState } from '@/lib/bonus-poll'
+import { addConfirmedTrajectoryToRanking } from '@/lib/public-prediction-data'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,14 +19,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [profile, { data: publicRanking }, { data: metricsData }, bonusPoll] = user
+  const [profile, { data: publicRanking }, { data: metricsData }, bonusPoll, { data: matches }] = user
     ? await Promise.all([
         getCurrentProfile(user),
         supabase.rpc('get_public_ranking'),
         supabase.rpc('get_public_home_metrics'),
         getBonusPollState(supabase),
+        supabase.from('matches').select('*'),
       ])
-    : [null, { data: null }, { data: null }, null]
+    : [null, { data: null }, { data: null }, null, { data: null }]
 
   const metadataName =
     typeof user?.user_metadata?.full_name === 'string'
@@ -35,7 +37,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       : null
   const emailName = user?.email?.split('@')[0] ?? null
   const userName = profile?.name?.trim() || metadataName?.trim() || emailName || 'Usuario'
-  const auditedEntries = user ? (publicRanking ?? []) as RankingEntry[] : []
+  const auditedEntries = user
+    ? await addConfirmedTrajectoryToRanking(
+        (publicRanking ?? []) as RankingEntry[],
+        (matches ?? []) as Match[]
+      )
+    : []
   const entry = user ? auditedEntries.find((rankingEntry) => rankingEntry.user_id === user.id) ?? null : null
   const metricsRows = metricsData as Array<{
     competitors_count?: number

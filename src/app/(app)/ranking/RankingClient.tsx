@@ -171,7 +171,7 @@ function RankRow({
     <RankingRowWrapper userId={entry.user_id}>
       <div
         ref={innerRef}
-        className="tap-card grid grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-3 transition-colors duration-150 sm:grid-cols-[92px_minmax(0,1fr)_auto] sm:gap-[14px] sm:px-[14px]"
+        className="tap-card grid grid-cols-[64px_minmax(0,1fr)] items-center gap-x-2 gap-y-2 rounded-[14px] px-3 py-3 transition-colors duration-150 sm:grid-cols-[92px_minmax(0,1fr)_auto] sm:gap-[14px] sm:px-[14px]"
         style={{
           background: isMe ? 'rgba(255,107,0,0.1)' : 'transparent',
           border: isMe ? '1px solid rgba(255,107,0,0.28)' : '1px solid transparent',
@@ -238,26 +238,23 @@ function RankRow({
       </div>
 
       {/* Puntos */}
-        <div className="text-right shrink-0">
+        <div className="col-start-2 flex min-w-0 flex-col items-start sm:col-start-auto sm:items-end sm:text-right">
           {rankingStarted ? (
             <>
-              <span
-                className="font-display text-[21px] leading-none tabular-nums sm:text-[22px]"
-                style={{ color: entry.total_points === 0 ? '#8A8A8A' : undefined }}
-              >
-                {entry.total_points}
+              <span className="whitespace-nowrap">
+                <span
+                  className="font-display text-[23px] leading-none tabular-nums sm:text-[22px]"
+                  style={{ color: entry.total_points === 0 ? '#8A8A8A' : undefined }}
+                >
+                  {entry.total_points}
+                </span>
+                <span className="ml-1 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted">pts</span>
               </span>
               {(entry.trajectory_bonus ?? 0) > 0 && (
-                <span className="font-mono text-[10px] font-extrabold text-mint">
+                <span className="mt-1 whitespace-nowrap font-mono text-[9px] font-extrabold text-mint sm:text-[10px]">
                   {entry.base_points} base · +{entry.trajectory_bonus} trayectoria
                 </span>
               )}
-              <span
-                className="ml-1 font-mono text-[9px] font-bold uppercase tracking-[0.12em] sm:ml-1.5 sm:text-[10px] sm:tracking-[0.16em]"
-                style={{ color: '#8A8A8A' }}
-              >
-                pts
-              </span>
             </>
           ) : (
             <div className="w-[86px] sm:w-[110px]">

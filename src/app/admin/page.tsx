@@ -684,7 +684,12 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                       </div>
                       {/* Form */}
                       <div className="px-5 py-3">
-                        <AdminMatchForm match={match} disabledReason={disabledReason} />
+                        <AdminMatchForm
+                          match={match}
+                          disabledReason={disabledReason}
+                          resolvedHome={resolvedHome}
+                          resolvedAway={resolvedAway}
+                        />
                       </div>
                     </div>
                     )

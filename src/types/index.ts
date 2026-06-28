@@ -1,5 +1,6 @@
 export type MatchStage = 'group' | 'round_of_32' | 'round_of_16' | 'quarter' | 'semi' | 'third_place' | 'final'
 export type MatchStatus = 'upcoming' | 'live' | 'finished'
+export type MatchDecidedBy = 'regular_time' | 'extra_time_or_penalties'
 
 export type Match = {
   id: string
@@ -12,6 +13,10 @@ export type Match = {
   stage: MatchStage
   group: string | null
   status: MatchStatus
+  bracket_slot?: number | null
+  decided_by?: MatchDecidedBy | null
+  qualified_team?: string | null
+  database_id?: string
   created_at: string
 }
 

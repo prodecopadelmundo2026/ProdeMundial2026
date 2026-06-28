@@ -586,6 +586,8 @@ function MatchAuditCard({
     const officialPreview = row.match.status === 'live' && row.match.home_score != null && row.match.away_score != null
       ? row.officialScore
       : 'Pendiente'
+    const targetCrossMatches = isGroup || row.crossMatches === true
+    const viewerCrossMatches = isGroup || viewerRow?.crossMatches === true
 
     return (
       <div className="px-4 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -607,17 +609,42 @@ function MatchAuditCard({
             <p className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-muted">
               {row.stage === 'group' && row.match.group ? `Grupo ${row.match.group}` : STAGE_LABELS[row.stage]} · {formatMatchDateTimeArgentina(row.match.scheduled_at, { includeYear: true, separator: ' - ' })}
             </p>
+            {!isGroup && !targetCrossMatches && targetPrediction && (
+              <p className="mt-2 text-[11px] font-semibold leading-snug text-muted">
+                En este slot había pronosticado {row.predictedHome} vs {row.predictedAway} {formatPredictionScore(targetPrediction)}.
+              </p>
+            )}
           </div>
 
           <div className="grid h-12 min-w-0 place-items-center rounded-[10px] bg-[#0d0d0d] px-3 text-center font-display text-[18px] leading-none text-white tabular-nums" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
             {officialPreview}
           </div>
-          <div className="grid h-12 min-w-0 place-items-center rounded-[10px] bg-[#0d0d0d] px-3 text-center font-display text-[22px] leading-none text-white tabular-nums" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-            {formatPredictionScore(targetPrediction) ?? '-'}
+          <div
+            className="grid min-h-12 min-w-0 place-items-center rounded-[10px] px-3 py-2 text-center"
+            style={{
+              background: targetCrossMatches ? 'rgba(255,176,0,0.08)' : 'rgba(255,92,92,0.05)',
+              border: targetCrossMatches ? '1px solid rgba(255,176,0,0.4)' : '1px solid rgba(255,92,92,0.22)',
+            }}
+          >
+            {targetCrossMatches ? (
+              <div>
+                <p className="font-display text-[22px] leading-none text-white tabular-nums">{formatPredictionScore(targetPrediction) ?? '-'}</p>
+                {targetWinner && <p className="mt-1 text-[9px] font-extrabold uppercase text-orange">Clasifica {targetWinner}</p>}
+              </div>
+            ) : (
+              <p className="text-[10px] font-extrabold leading-snug text-[#FF8A8A]">No acertó este cruce exacto</p>
+            )}
           </div>
           {showViewerPrediction && (
-            <div className="grid h-12 min-w-0 place-items-center rounded-[10px] bg-[#0d0d0d] px-3 text-center font-display text-[22px] leading-none text-white tabular-nums" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-              {formatPredictionScore(viewerPrediction) ?? '-'}
+            <div className="grid min-h-12 min-w-0 place-items-center rounded-[10px] bg-[#0d0d0d] px-3 py-2 text-center" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+              {viewerCrossMatches ? (
+                <div>
+                  <p className="font-display text-[22px] leading-none text-white tabular-nums">{formatPredictionScore(viewerPrediction) ?? '-'}</p>
+                  {viewerWinner && <p className="mt-1 text-[9px] font-extrabold uppercase text-orange">Clasifica {viewerWinner}</p>}
+                </div>
+              ) : (
+                <p className="text-[10px] font-extrabold leading-snug text-[#FF8A8A]">Cruce distinto</p>
+              )}
             </div>
           )}
 
@@ -805,10 +832,15 @@ function MatchAuditCard({
             </span>
           ))}
           {showScoring && row.points != null ? (
-            <p className="ml-auto font-display text-[22px] leading-none tabular-nums">
-              {row.points ?? 0}
-              <span className="font-mono text-[10px] font-bold tracking-[0.14em] uppercase ml-1 text-muted">pts</span>
-            </p>
+            <div className="ml-auto text-right">
+              <p className="font-display text-[22px] leading-none tabular-nums">
+                {row.points ?? 0}
+                <span className="ml-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted">pts</span>
+              </p>
+              <p className="mt-1 font-mono text-[9px] font-bold uppercase text-muted">
+                {row.resultPoints ?? 0} resultado · {row.qualifiedPoints} clasificado
+              </p>
+            </div>
           ) : (
             <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">Previa</span>
           )}
@@ -986,6 +1018,7 @@ function ProdeOverview({
   viewerTiebreakerMap,
   isOwnProfile,
   showViewerPrediction,
+  children,
 }: {
   userId: string
   participantName: string | null
@@ -999,6 +1032,7 @@ function ProdeOverview({
   viewerTiebreakerMap: Record<string, string>
   isOwnProfile: boolean
   showViewerPrediction: boolean
+  children?: React.ReactNode
 }) {
   const groupLoaded = rows.filter((row) => row.stage === 'group' && row.prediction).length
   const groupTotal = rows.filter((row) => row.stage === 'group').length
@@ -1114,6 +1148,7 @@ function ProdeOverview({
           </p>
         )}
       </section>
+      {children}
       <section className="rounded-[18px] bg-[#0d0d0d] px-4 py-3" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
         <p className="font-extrabold text-white">Resumen general</p>
         <p className="mt-1 text-[12px] font-semibold leading-relaxed text-muted">
@@ -1213,10 +1248,15 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: detailData, error: detailError } = await supabase.rpc('get_public_prediction_detail', {
-    p_user_id: userId,
-  })
+  const [
+    { data: detailData, error: detailError },
+    { data: currentMatchRows, error: currentMatchesError },
+  ] = await Promise.all([
+    supabase.rpc('get_public_prediction_detail', { p_user_id: userId }),
+    supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
+  ])
   if (detailError) throw detailError
+  if (currentMatchesError) throw currentMatchesError
 
   const detail = detailData as PublicPredictionDetail | null
   if (!detail?.participant) notFound()
@@ -1239,7 +1279,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     name: participant.name,
     avatar_url: participant.avatar_url,
   }))
-  const allMatches = (detail.matches ?? []) as Match[]
+  const allMatches = (currentMatchRows ?? detail.matches ?? []) as Match[]
   const groupMatches = allMatches.filter((match) => match.stage === 'group')
   const knockoutMatches = buildProjectedKnockoutMatches(allMatches.filter((match) => match.stage !== 'group'))
   const typedMatches = [...groupMatches, ...knockoutMatches]
@@ -1255,7 +1295,8 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
       participantRows,
       tiebreakersByUser
     ),
-    typedMatches
+    typedMatches,
+    { includeKnockoutScoring: false }
   )
   const entry = rankingEntries.find((rankingEntry) => rankingEntry.user_id === userId)
   if (!entry) notFound()
@@ -1457,7 +1498,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
           </div>
         )}
 
-        {userTiebreakers.length > 0 && (
+        {false && userTiebreakers.length > 0 && (
           <details className="group mb-4 rounded-[16px] px-4 py-3 text-[13px] font-semibold leading-relaxed" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
               <span className="flex min-w-0 items-center gap-2">
@@ -1512,7 +1553,30 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
             viewerTiebreakerMap={viewerTiebreakerMap}
             isOwnProfile={isOwnProfile}
             showViewerPrediction={Boolean(user && !isOwnProfile)}
-          />
+          >
+            <section className="min-w-0 overflow-hidden rounded-[20px]" style={{ background: '#0d0d0d', border: '1px solid rgba(255,176,0,0.2)' }}>
+              <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <div>
+                  <p className="text-[14px] font-extrabold text-white">{isOwnProfile ? 'Mi llave vs la oficial' : 'Llave del participante vs la oficial'}</p>
+                  <p className="mt-1 text-[12px] font-semibold text-muted">Dorado: cruce exacto. Verde: equipo acertado por trayectoria.</p>
+                </div>
+                <Link href={hrefForView(userId, 'bracket')} className="rounded-full px-3 py-2 text-[10px] font-extrabold uppercase text-orange" style={{ border: '1px solid rgba(255,107,0,0.3)' }}>
+                  Ver comparación completa
+                </Link>
+              </div>
+              <div className="p-4">
+                <TournamentBracket
+                  mode={rankingStarted ? 'audit' : 'prode'}
+                  groupMatches={groupMatches}
+                  knockoutMatches={knockoutMatches}
+                  predMap={predictionMap}
+                  tiebreakerMap={userBracketTiebreakerMap}
+                  roundOf32AwardedTeams={new Set(trajectoryBonus.awardedTeams)}
+                  roundOf32ExactCrossings={new Set(roundOf32Crossings.filter((crossing) => crossing.correct).map((crossing) => crossing.pNum))}
+                />
+              </div>
+            </section>
+          </ProdeOverview>
         ) : activeView === 'bracket' ? (
           <div className="grid min-w-0 gap-4">
             <section className="min-w-0 rounded-[20px] overflow-hidden" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}>
@@ -1698,6 +1762,33 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
               <EmptyState>No hay partidos para este filtro.</EmptyState>
             )}
           </div>
+        )}
+
+        {userTiebreakers.length > 0 && (
+          <details className="group mt-5 rounded-[16px] px-4 py-3 text-[13px] font-semibold leading-relaxed" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate font-extrabold text-white">Desempates guardados</span>
+                <span className="rounded-full px-2 py-1 font-mono text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)', color: '#A8F0D8' }}>
+                  {userTiebreakers.length}
+                </span>
+              </span>
+              <span className="shrink-0 text-[10px] font-extrabold uppercase text-muted">
+                <span className="group-open:hidden">Ver</span>
+                <span className="hidden group-open:inline">Ocultar</span>
+              </span>
+            </summary>
+            <div className="mt-3 grid gap-2">
+              {userTiebreakers.map((row) => (
+                <SavedTiebreakerItem
+                  key={`${row.tiebreaker_key}-${row.team}`}
+                  row={row}
+                  matches={typedMatches}
+                  predictions={typedUserPredictions}
+                />
+              ))}
+            </div>
+          </details>
         )}
       </div>
     </div>

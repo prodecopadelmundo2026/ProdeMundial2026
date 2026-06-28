@@ -209,7 +209,9 @@ function LiveBracketSection({
         <span className="rounded-full px-3 py-1.5" style={{ color: '#FFE040', background: 'rgba(255,224,64,0.08)', border: '1px solid rgba(255,224,64,0.28)' }}>Dorado: 1° confirmado</span>
         <span className="rounded-full px-3 py-1.5" style={{ color: '#CBD5E1', background: 'rgba(203,213,225,0.08)', border: '1px solid rgba(203,213,225,0.25)' }}>Plateado: 2° confirmado</span>
         <span className="rounded-full px-3 py-1.5" style={{ color: '#D08A45', background: 'rgba(208,138,69,0.1)', border: '1px solid rgba(208,138,69,0.28)' }}>Bronce: mejor 3° confirmado</span>
-        <span className="rounded-full px-3 py-1.5" style={{ color: '#B18CFF', background: 'rgba(177,140,255,0.09)', border: '1px solid rgba(177,140,255,0.26)' }}>Violeta: provisional</span>
+        {!officialBracketReady && (
+          <span className="rounded-full px-3 py-1.5" style={{ color: '#B18CFF', background: 'rgba(177,140,255,0.09)', border: '1px solid rgba(177,140,255,0.26)' }}>Violeta: posición por confirmar</span>
+        )}
       </div>
 
       {!hasAnyGroupResult ? (

@@ -8,13 +8,19 @@ import type { Match } from '@/types'
 export function AdminMatchForm({
   match,
   disabledReason,
+  resolvedHome,
+  resolvedAway,
 }: {
   match: Match
   disabledReason?: string | null
+  resolvedHome?: string
+  resolvedAway?: string
 }) {
   const [home, setHome] = useState(match.home_score?.toString() ?? '')
   const [away, setAway] = useState(match.away_score?.toString() ?? '')
   const [status, setStatus] = useState<Match['status']>(match.status)
+  const [decidedBy, setDecidedBy] = useState<NonNullable<Match['decided_by']>>(match.decided_by ?? 'regular_time')
+  const [qualifiedTeam, setQualifiedTeam] = useState(match.qualified_team ?? '')
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -24,6 +30,8 @@ export function AdminMatchForm({
     setHome(match.home_score?.toString() ?? '')
     setAway(match.away_score?.toString() ?? '')
     setStatus(match.status)
+    setDecidedBy(match.decided_by ?? 'regular_time')
+    setQualifiedTeam(match.qualified_team ?? '')
     setError(null)
     setOk(false)
   }, [match.id, match.home_score, match.away_score, match.status])
@@ -54,6 +62,8 @@ export function AdminMatchForm({
     if (nextStatus === 'upcoming') {
       setHome('')
       setAway('')
+      setDecidedBy('regular_time')
+      setQualifiedTeam('')
     }
   }
 
@@ -82,10 +92,38 @@ export function AdminMatchForm({
       setError('Ingresá ambos goles para marcar el partido en vivo')
       return
     }
+    if (match.stage !== 'group' && status === 'finished' && !qualifiedTeam) {
+      setError('Elegí qué equipo clasificó')
+      return
+    }
+    if (match.stage !== 'group' && status === 'finished' && parsedHome != null && parsedAway != null) {
+      if (decidedBy === 'regular_time' && parsedHome === parsedAway) {
+        setError('Un partido finalizado en 90 minutos no puede terminar empatado')
+        return
+      }
+      if (decidedBy === 'extra_time_or_penalties' && parsedHome !== parsedAway) {
+        setError('Si se definió en tiempo extra o penales, el marcador de los 90 debe ser empate')
+        return
+      }
+      const regularTimeWinner = parsedHome > parsedAway ? resolvedHome : resolvedAway
+      if (decidedBy === 'regular_time' && regularTimeWinner && qualifiedTeam !== regularTimeWinner) {
+        setError('El clasificado debe coincidir con el ganador de los 90 minutos')
+        return
+      }
+    }
 
     startTransition(async () => {
       try {
-        await setMatchResult(match.id, parsedHome, parsedAway, status)
+        await setMatchResult(
+          match.id,
+          parsedHome,
+          parsedAway,
+          status,
+          decidedBy,
+          qualifiedTeam || null,
+          resolvedHome ?? match.home_team,
+          resolvedAway ?? match.away_team
+        )
         setOk(true)
         router.refresh()
       } catch (err) {
@@ -106,6 +144,8 @@ export function AdminMatchForm({
         setHome('')
         setAway('')
         setStatus('upcoming')
+        setDecidedBy('regular_time')
+        setQualifiedTeam('')
         setOk(true)
         router.refresh()
       } catch (err) {
@@ -178,6 +218,32 @@ export function AdminMatchForm({
             placeholder="0"
           />
         </div>
+
+        {match.stage !== 'group' && status !== 'upcoming' && (
+          <>
+            <select
+              value={decidedBy}
+              disabled={isDisabled || isPending}
+              onChange={(event) => setDecidedBy(event.target.value as NonNullable<Match['decided_by']>)}
+              className="rounded-[10px] bg-[#131313] px-3 py-2 text-[12px] font-bold text-white outline-none"
+              style={{ border: '1px solid rgba(255,255,255,0.1)' }}
+            >
+              <option value="regular_time">{status === 'finished' ? 'Finalizado en 90 minutos' : 'Se define en 90 minutos'}</option>
+              <option value="extra_time_or_penalties">{status === 'finished' ? 'Finalizado en tiempo extra o penales' : 'Tiempo extra o penales'}</option>
+            </select>
+            <select
+              value={qualifiedTeam}
+              disabled={isDisabled || isPending}
+              onChange={(event) => setQualifiedTeam(event.target.value)}
+              className="rounded-[10px] bg-[#131313] px-3 py-2 text-[12px] font-bold text-white outline-none"
+              style={{ border: '1px solid rgba(255,255,255,0.1)' }}
+            >
+              <option value="">Clasificado…</option>
+              {resolvedHome && <option value={resolvedHome}>{resolvedHome}</option>}
+              {resolvedAway && <option value={resolvedAway}>{resolvedAway}</option>}
+            </select>
+          </>
+        )}
 
         {/* Status select */}
         <div className="relative">
@@ -258,7 +324,7 @@ export function AdminMatchForm({
       {/* Warning: scores set but status isn't finished */}
       {scoresButNotFinished && (
         <p className="text-[11px] font-bold" style={{ color: '#FFB15C' }}>
-          ⚠ Cambiá el estado a <b>Finalizado</b> para que se calculen los puntos de los usuarios.
+          Marcador de 90 minutos en curso. Los puntos se confirman recién al finalizar.
         </p>
       )}
     </form>
