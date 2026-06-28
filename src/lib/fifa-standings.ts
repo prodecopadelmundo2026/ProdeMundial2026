@@ -235,9 +235,13 @@ export function computeFifaBestThirds(
       return result
     })
   })
+  const qualificationPending = standings.some((team) => team.qualificationStatus === 'pending')
   return {
     standings,
-    status: unresolvedTies.length ? 'NO_RESOLUBLE_WITH_AVAILABLE_DATA' : 'RESOLVED',
+    // An unresolved technical tie only blocks this result when it crosses the
+    // qualification cut. Ties wholly inside or outside the top eight do not
+    // change which groups advance and therefore must not block the bracket.
+    status: qualificationPending ? 'NO_RESOLUBLE_WITH_AVAILABLE_DATA' : 'RESOLVED',
     unresolvedTies,
   }
 }

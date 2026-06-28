@@ -7,6 +7,7 @@ import {
 } from '@/lib/prediction-insights'
 import { formatMatchKickoffArgentina } from '@/lib/match-datetime'
 import { PronosticosList } from './PronosticosList'
+import { getTournamentVisibleMatches } from '@/lib/tournament-state'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,7 +40,7 @@ export default async function PronosticosPage() {
     )
   }
 
-  const matches = (data ?? []) as Match[]
+  const matches = getTournamentVisibleMatches((data ?? []) as Match[])
   const cards: PredictionMatchCardData[] = await Promise.all(
     matches.map(async (match) => ({
       id: match.id,

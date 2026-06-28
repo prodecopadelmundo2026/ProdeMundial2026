@@ -15,7 +15,7 @@ import { GroupStandingsTables, type GroupTableSection } from '@/components/Group
 import { flagUrl, getTeam } from '@/lib/teams'
 import { buildGroupTableRows, buildOfficialGroupScoreMap } from '@/lib/group-standings'
 import { formatMatchDateTimeArgentina, formatMatchDayKeyArgentina } from '@/lib/match-datetime'
-import { buildRoundOf32BonusLedger, getHistoricalPredictedRoundOf32Teams, summarizeKnockoutBonus } from '@/lib/knockout-bonus'
+import { buildRoundOf32BonusLedger, buildRoundOf32CrossingAudit, getHistoricalPredictedRoundOf32Teams, summarizeKnockoutBonus } from '@/lib/knockout-bonus'
 import { getOfficialRoundOf32State, buildFinishedGroupScoreMap } from '@/lib/tournament-state'
 import { computeFifaBestThirds } from '@/lib/fifa-standings'
 import { BestThirdsComparison, type BestThirdRow } from '@/components/BestThirdsComparison'
@@ -1299,6 +1299,11 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     historicalTiebreakers: userTiebreakerMap,
   })
   const trajectoryBonus = summarizeKnockoutBonus(trajectoryLedger)
+  const roundOf32Crossings = buildRoundOf32CrossingAudit({
+    matches: allMatches,
+    predictionMap,
+    historicalTiebreakers: userTiebreakerMap,
+  })
   const officialRoundOf32State = getOfficialRoundOf32State(allMatches)
   const predictedRoundOf32Count = getHistoricalPredictedRoundOf32Teams(
     groupMatches,
@@ -1543,6 +1548,33 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                         <span key={`miss-${team}`} className="rounded-[10px] bg-white/5 px-3 py-2 text-[12px] font-bold text-muted">× {team} 0</span>
                       ))}
                     </div>
+                    {roundOf32Crossings.length > 0 && (
+                      <div className="mt-5">
+                        <p className="mb-2 text-[12px] font-extrabold uppercase tracking-[0.1em] text-white">
+                          Cruces completos acertados: {roundOf32Crossings.filter((crossing) => crossing.correct).length} de 16
+                        </p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {roundOf32Crossings.map((crossing) => (
+                            <div
+                              key={crossing.pNum}
+                              className="rounded-[10px] px-3 py-2 text-[11px] font-bold"
+                              style={{
+                                background: crossing.correct ? 'rgba(168,240,216,0.08)' : 'rgba(255,255,255,0.035)',
+                                border: crossing.correct ? '1px solid rgba(168,240,216,0.2)' : '1px solid rgba(255,255,255,0.07)',
+                                color: crossing.correct ? '#A8F0D8' : '#9a9a9a',
+                              }}
+                            >
+                              P{crossing.pNum}: {crossing.predictedHome} vs {crossing.predictedAway}
+                              {!crossing.correct && (
+                                <span className="mt-1 block font-medium text-muted">
+                                  Oficial: {crossing.officialHome} vs {crossing.officialAway}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </>
                 ) : !officialRoundOf32State.officialBracketReady ? (
                   <p className="text-[13px] font-semibold leading-relaxed text-muted">

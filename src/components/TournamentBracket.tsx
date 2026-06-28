@@ -180,7 +180,7 @@ function buildThirdSlotData(
   }
 
   const fifaThirds = useFifaRules ? computeFifaBestThirds(scopedMatches, scoreMap) : null
-  if (fifaThirds?.status === 'NO_RESOLUBLE_WITH_AVAILABLE_DATA') {
+  if (fifaThirds?.standings.some((team) => team.qualificationStatus === 'pending')) {
     return { bestThirdsGroups: new Set<string>(), thirdSlotAssignment: {} as Record<string, string> }
   }
   const bestThirdsGroups = fifaThirds

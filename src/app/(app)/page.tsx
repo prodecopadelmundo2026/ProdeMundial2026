@@ -1,4 +1,4 @@
-﻿import Link from 'next/link'
+import Link from 'next/link'
 import type { CSSProperties, ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import type { Match } from '@/types'
@@ -18,7 +18,7 @@ import {
   normalizePredictionInsights,
 } from '@/lib/prediction-insights'
 import { computeFifaAllStandings, computeFifaBestThirds } from '@/lib/fifa-standings'
-import { getOfficialRoundOf32State } from '@/lib/tournament-state'
+import { getOfficialRoundOf32State, getTournamentVisibleMatches } from '@/lib/tournament-state'
 
 export const dynamic = 'force-dynamic'
 
@@ -367,7 +367,13 @@ export default async function HomePage() {
     }))
 
   const allUpcoming = (upcoming ?? []) as Match[]
-  const nextMatch = allUpcoming.find((match) => match.status !== 'finished') ?? null
+  const visibleTournamentMatches = getTournamentVisibleMatches(allTournamentMatches)
+  const nextMatch =
+    visibleTournamentMatches
+      .filter((match) => match.status !== 'finished')
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0]
+    ?? allUpcoming.find((match) => match.status !== 'finished')
+    ?? null
   const { data: nextMatchStatsRows } = nextMatch
   ? await supabase.rpc('get_match_prediction_insights', {
       p_match_id: nextMatch.id,

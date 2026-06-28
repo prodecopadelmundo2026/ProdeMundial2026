@@ -119,6 +119,22 @@ function virtualPNum(matchId: string) {
   return match ? Number(match[1]) : null
 }
 
+export function knockoutPNum(match: Pick<Match, 'id' | 'home_team' | 'away_team' | 'scheduled_at'>) {
+  const virtual = virtualPNum(match.id)
+  if (virtual != null) return virtual
+
+  const placeholderEntry = Object.entries(KNOCKOUT_FIXTURES).find(
+    ([, [home, away]]) => match.home_team === home && match.away_team === away
+  )
+  if (placeholderEntry) return Number(placeholderEntry[0])
+
+  const scheduledTime = new Date(match.scheduled_at).getTime()
+  const scheduleEntry = Object.entries(KNOCKOUT_MATCH_DATES).find(
+    ([, scheduledAt]) => new Date(scheduledAt).getTime() === scheduledTime
+  )
+  return scheduleEntry ? Number(scheduleEntry[0]) : null
+}
+
 function createVirtualKnockoutMatch(pNum: number, homeTeam: string, awayTeam: string): Match {
   const scheduledAt = KNOCKOUT_MATCH_DATES[pNum] ?? '2026-06-28T22:00:00.000Z'
   return {
@@ -358,12 +374,13 @@ export function computeAllStandings(
   return result
 }
 
-// Builds a map from P-number → actual Match object (matched by placeholder team names in DB)
+// Builds a P-number map for virtual rows, legacy placeholder rows, and real DB
+// knockout rows identified by the official kickoff timestamp.
 export function buildKnockoutMap(knockoutMatches: Match[]): Record<number, Match> {
   const result: Record<number, Match> = {}
-  for (const [pNumStr, [home, away]] of Object.entries(KNOCKOUT_FIXTURES)) {
-    const match = knockoutMatches.find((m) => m.home_team === home && m.away_team === away)
-    if (match) result[Number(pNumStr)] = match
+  for (const match of knockoutMatches) {
+    const pNum = knockoutPNum(match)
+    if (pNum != null) result[pNum] = match
   }
   return result
 }

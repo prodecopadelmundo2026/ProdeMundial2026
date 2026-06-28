@@ -9,6 +9,7 @@ import {
   assignBestThirdsToSlots,
   buildKnockoutMap,
   buildProjectedKnockoutMatches,
+  knockoutPNum,
   resolveTeamFull,
 } from '@/lib/bracket'
 
@@ -55,7 +56,8 @@ export function getOfficialRoundOf32State(matches: Match[]) {
 
   const bestThirds = computeFifaBestThirds(groupMatches, scoreMap)
   const qualifiedThirds = bestThirds.standings.filter((team) => team.qualified)
-  if (bestThirds.status !== 'RESOLVED' || qualifiedThirds.length !== 8) {
+  const pendingQualificationTie = bestThirds.standings.some((team) => team.qualificationStatus === 'pending')
+  if (pendingQualificationTie || qualifiedThirds.length !== 8) {
     return {
       groupStageComplete: true,
       officialBracketReady: false,
@@ -78,11 +80,6 @@ export function getOfficialRoundOf32State(matches: Match[]) {
   }
 }
 
-function parseVirtualKnockoutPNum(matchId: string): number | null {
-  const parsed = matchId.match(/^virtual-p(\d+)$/)
-  return parsed ? Number(parsed[1]) : null
-}
-
 /**
  * Devuelve el calendario completo para el fixture público: los partidos de
  * fase de grupos tal cual están en la base, más los 32 partidos de la fase
@@ -93,7 +90,7 @@ function parseVirtualKnockoutPNum(matchId: string): number | null {
  * misma resolución FIFA (incluye head-to-head y mejores terceros) que la
  * "Llave oficial" del resto de la app, para que nunca diverjan.
  */
-export function buildOfficialFixtureMatches(matches: Match[]): Match[] {
+export function getTournamentVisibleMatches(matches: Match[]): Match[] {
   const groupMatches = matches.filter((match) => match.stage === 'group')
   const databaseKnockoutMatches = matches.filter((match) => match.stage !== 'group')
   const projectedKnockoutMatches = buildProjectedKnockoutMatches(databaseKnockoutMatches)
@@ -116,7 +113,7 @@ export function buildOfficialFixtureMatches(matches: Match[]): Match[] {
   const knockoutMap = buildKnockoutMap(projectedKnockoutMatches)
 
   const resolvedKnockoutMatches = projectedKnockoutMatches.map((match) => {
-    const pNum = parseVirtualKnockoutPNum(match.id)
+    const pNum = knockoutPNum(match)
     if (pNum == null) return match
     const fixture = KNOCKOUT_FIXTURES[pNum]
     if (!fixture) return match
@@ -129,3 +126,6 @@ export function buildOfficialFixtureMatches(matches: Match[]): Match[] {
 
   return [...groupMatches, ...resolvedKnockoutMatches]
 }
+
+/** @deprecated Use getTournamentVisibleMatches so every public surface shares the same tournament view. */
+export const buildOfficialFixtureMatches = getTournamentVisibleMatches

@@ -15,6 +15,7 @@ import {
 } from '@/lib/prediction-insights'
 import { MatchPointsSection, type MatchPointsBreakdownRow } from './MatchPointsSection'
 import { ResultUsersTable } from './ResultUsersTable'
+import { getTournamentVisibleMatches } from '@/lib/tournament-state'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,13 +56,13 @@ export default async function PronosticoDetallePage({
   const { data: { user } } = await supabase.auth.getUser()
 
   const [
-    { data: matchData },
+    { data: matchRows },
     { data: insightsRows },
     { data: distributionRows },
     { data: pointsBreakdownRows },
     { data: currentUserPrediction },
   ] = await Promise.all([
-    supabase.from('matches').select('*').eq('id', matchId).maybeSingle(),
+    supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
     supabase.rpc('get_match_prediction_insights', { p_match_id: matchId }),
     supabase.rpc('get_match_prediction_result_distribution', { p_match_id: matchId }),
     supabase.rpc('get_match_points_breakdown', { p_match_id: matchId }),
@@ -76,6 +77,8 @@ export default async function PronosticoDetallePage({
       : Promise.resolve({ data: null }),
   ])
 
+  const matchData = getTournamentVisibleMatches((matchRows ?? []) as Match[])
+    .find((match) => match.id === matchId)
   if (!matchData) notFound()
 
   const match = matchData as Match

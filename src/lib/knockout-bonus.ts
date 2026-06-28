@@ -1,10 +1,20 @@
 import type { Match } from '@/types'
 import {
+  KNOCKOUT_FIXTURES,
+  assignBestThirdsToSlots,
+  buildKnockoutMap,
+  buildProjectedKnockoutMatches,
   computeAllStandings,
   computeBestThirdsGroups,
+  resolveTeamFull,
+  knockoutPNum,
 } from '@/lib/bracket'
 import { computeFifaAllStandings, computeFifaBestThirds } from '@/lib/fifa-standings'
-import { buildFinishedGroupScoreMap, getOfficialRoundOf32State } from '@/lib/tournament-state'
+import {
+  buildFinishedGroupScoreMap,
+  getOfficialRoundOf32State,
+  getTournamentVisibleMatches,
+} from '@/lib/tournament-state'
 
 export type KnockoutBonusRound =
   | 'round_of_32'
@@ -37,6 +47,15 @@ export const KNOCKOUT_BONUS_POINTS: Record<KnockoutBonusRound, number> = {
 
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
 type TiebreakerMap = Record<string, string>
+
+export type RoundOf32CrossingAudit = {
+  pNum: number
+  predictedHome: string
+  predictedAway: string
+  officialHome: string
+  officialAway: string
+  correct: boolean
+}
 
 export function getHistoricalPredictedRoundOf32Teams(
   groupMatches: Match[],
@@ -101,6 +120,73 @@ export function buildRoundOf32BonusLedger({
       reason: awarded ? 'Pronosticado y clasificado a 16avos.' : 'Pronosticado, pero no clasificó a 16avos.',
     }
   })
+}
+
+export function buildRoundOf32CrossingAudit({
+  matches,
+  predictionMap,
+  historicalTiebreakers,
+}: {
+  matches: Match[]
+  predictionMap: ScoreMap
+  historicalTiebreakers: TiebreakerMap
+}): RoundOf32CrossingAudit[] {
+  if (!getOfficialRoundOf32State(matches).officialBracketReady) return []
+
+  const groupMatches = matches.filter((match) => match.stage === 'group')
+  if (!groupMatches.length || !groupMatches.every((match) => predictionMap[match.id])) return []
+
+  const projectedKnockout = buildProjectedKnockoutMatches(
+    matches.filter((match) => match.stage !== 'group')
+  )
+  const predictedStandings = computeAllStandings(groupMatches, predictionMap, historicalTiebreakers)
+  const predictedThirdGroups = computeBestThirdsGroups(groupMatches, predictionMap, historicalTiebreakers)
+  const predictedThirdSlots = assignBestThirdsToSlots(predictedThirdGroups)
+  const knockoutMap = buildKnockoutMap(projectedKnockout)
+  const officialByPNum = new Map(
+    getTournamentVisibleMatches(matches)
+      .filter((match) => match.stage === 'round_of_32')
+      .flatMap((match) => {
+        const pNum = knockoutPNum(match)
+        return pNum == null ? [] : [[pNum, match] as const]
+      })
+  )
+
+  return Object.entries(KNOCKOUT_FIXTURES)
+    .filter(([pNum]) => Number(pNum) >= 73 && Number(pNum) <= 88)
+    .flatMap(([pNumString, fixture]) => {
+      const pNum = Number(pNumString)
+      const official = officialByPNum.get(pNum)
+      if (!official) return []
+      const predictedHome = resolveTeamFull(
+        fixture[0],
+        predictedStandings,
+        knockoutMap,
+        predictionMap,
+        historicalTiebreakers,
+        0,
+        predictedThirdGroups,
+        predictedThirdSlots
+      )
+      const predictedAway = resolveTeamFull(
+        fixture[1],
+        predictedStandings,
+        knockoutMap,
+        predictionMap,
+        historicalTiebreakers,
+        0,
+        predictedThirdGroups,
+        predictedThirdSlots
+      )
+      return [{
+        pNum,
+        predictedHome,
+        predictedAway,
+        officialHome: official.home_team,
+        officialAway: official.away_team,
+        correct: predictedHome === official.home_team && predictedAway === official.away_team,
+      }]
+    })
 }
 
 export function summarizeKnockoutBonus(items: KnockoutBonusLedgerItem[]) {
