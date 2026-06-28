@@ -1330,6 +1330,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
         gd: team.gd,
         gf: team.gf,
         qualified: team.qualified,
+        officialOrderOverride: team.officialOrderOverride,
       }))
     : null
   const ROUND_OF_32_PENDING_REASON_TEXT: Record<string, string> = {

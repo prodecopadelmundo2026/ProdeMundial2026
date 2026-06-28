@@ -9,6 +9,7 @@ export type BestThirdRow = {
   gd: number
   gf: number
   qualified: boolean
+  officialOrderOverride?: boolean
 }
 
 function formatGoalDiff(gd: number) {
@@ -107,6 +108,11 @@ export function BestThirdsComparison({
             ? `Acertaste ${hits} de 8 terceros · +${hits} pts de trayectoria.`
             : 'La tabla oficial se publica cuando termina la fase de grupos.'}
         </p>
+        {official?.some((team) => team.officialOrderOverride) && (
+          <p className="mt-2 rounded-[10px] px-3 py-2 text-[11px] font-bold text-[#FFE040]" style={{ background: 'rgba(255,224,64,0.07)', border: '1px solid rgba(255,224,64,0.18)' }}>
+            Ghana y Ecuador siguen empatados en estadísticas. El orden oficial mostrado fue resuelto por criterio externo/manual.
+          </p>
+        )}
       </div>
       <div className="grid gap-3 min-[720px]:grid-cols-2">
         <div className="min-w-0">

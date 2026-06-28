@@ -588,6 +588,7 @@ export function MiProdeTabs({
       gd: team.gd,
       gf: team.gf,
       qualified: team.qualified,
+      officialOrderOverride: team.officialOrderOverride,
     }))
   }, [groupMatches, roundOf32State.officialBracketReady])
 

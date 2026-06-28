@@ -94,6 +94,7 @@ function ThirdTeamCell({ name }: { name: string }) {
 
 function BestThirdsTable({ rows }: { rows: FifaBestThirdStanding[] }) {
   const tiedTeams = findTechnicalTieTeams(rows)
+  const hasOfficialOverride = rows.some((row) => row.officialOrderOverride)
 
   if (rows.length === 0) {
     return (
@@ -122,7 +123,9 @@ function BestThirdsTable({ rows }: { rows: FifaBestThirdStanding[] }) {
 
       {tiedTeams.size > 0 && (
         <div className="mb-4 rounded-[14px] px-4 py-3 text-[12px] font-bold leading-relaxed" style={{ background: 'rgba(255,224,64,0.08)', border: '1px solid rgba(255,224,64,0.22)', color: '#FFE040' }}>
-          Empate técnico / desempate pendiente: hay equipos igualados en puntos, diferencia de gol y goles a favor.
+          {hasOfficialOverride
+            ? 'Empate técnico resuelto por criterio oficial externo/manual. Las estadísticas permanecen empatadas; el orden oficial ubica a Ghana sobre Ecuador.'
+            : 'Empate técnico / desempate pendiente: hay equipos igualados en puntos, diferencia de gol y goles a favor.'}
         </div>
       )}
 
@@ -164,7 +167,7 @@ function BestThirdsTable({ rows }: { rows: FifaBestThirdStanding[] }) {
                     </span>
                     {hasTie && (
                       <span className="shrink-0 rounded-full px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.08em]" style={{ background: 'rgba(255,224,64,0.08)', border: '1px solid rgba(255,224,64,0.2)', color: '#FFE040' }}>
-                        Empate
+                        {row.officialOrderOverride ? 'Orden oficial' : 'Empate'}
                       </span>
                     )}
                   </div>

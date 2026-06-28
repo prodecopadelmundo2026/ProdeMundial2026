@@ -19,12 +19,30 @@ type ScoreRow = {
 
 type TiebreakerRow = { user_id: string; tiebreaker_key: string; team: string }
 type ProfileRow = { id: string; name: string }
+type VirtualPredictionRow = {
+  user_id: string
+  virtual_match_id: string
+  home_score: number
+  away_score: number
+  tiebreaker_team: string | null
+}
+
+export type VirtualTrajectoryParticipant = {
+  userId: string
+  name: string
+  prediction: {
+    homeScore: number
+    awayScore: number
+    tiebreakerTeam: string | null
+    classifiedTeam: string | null
+  } | null
+}
 
 export type VirtualMatchTrajectoryInsights = {
-  exactCrossingUsers: string[]
-  homeTeamUsers: string[]
-  awayTeamUsers: string[]
-  bothTeamsUsers: string[]
+  exactCrossing: VirtualTrajectoryParticipant[]
+  bothTeamsOtherCrossing: VirtualTrajectoryParticipant[]
+  homeTeamOnly: VirtualTrajectoryParticipant[]
+  awayTeamOnly: VirtualTrajectoryParticipant[]
 }
 
 const loadPhysicalPredictionRows = unstable_cache(
@@ -99,10 +117,28 @@ export async function getPredictionInsightsByMatch(): Promise<Record<string, Pre
 const loadTrajectoryRows = unstable_cache(
   async () => {
     const admin = createAdminClient()
-    const [predictions, tiebreakers, profiles] = await Promise.all([
+    const [predictions, tiebreakers, profiles, virtualPredictions] = await Promise.all([
       loadPhysicalPredictionRows(),
       admin.from('user_prediction_tiebreakers').select('user_id, tiebreaker_key, team'),
       admin.from('profiles').select('id, name'),
+      (async () => {
+        const rows: VirtualPredictionRow[] = []
+        const pageSize = 1000
+        for (let from = 0; ; from += pageSize) {
+          const { data, error } = await admin
+            .from('virtual_knockout_predictions')
+            .select('user_id, virtual_match_id, home_score, away_score, tiebreaker_team')
+            .range(from, from + pageSize - 1)
+          // El bloque sigue funcionando sin marcador virtual mientras el grant
+          // nuevo todavía no haya sido aplicado en un entorno existente.
+          if (error?.code === '42501') return []
+          if (error) throw error
+          const page = (data ?? []) as VirtualPredictionRow[]
+          rows.push(...page)
+          if (page.length < pageSize) break
+        }
+        return rows
+      })(),
     ])
     if (tiebreakers.error) throw tiebreakers.error
     if (profiles.error) throw profiles.error
@@ -110,6 +146,7 @@ const loadTrajectoryRows = unstable_cache(
       predictions,
       tiebreakers: (tiebreakers.data ?? []) as TiebreakerRow[],
       profiles: (profiles.data ?? []) as ProfileRow[],
+      virtualPredictions,
     }
   },
   ['public-round-of-32-trajectory-rows'],
@@ -140,10 +177,15 @@ export async function getVirtualMatchTrajectoryInsights(
     tiebreakersByUser.set(tiebreaker.user_id, bucket)
   }
 
-  const exactCrossingUsers: string[] = []
-  const homeTeamUsers: string[] = []
-  const awayTeamUsers: string[] = []
-  const bothTeamsUsers: string[] = []
+  const virtualPredictionByUser = new Map(
+    rows.virtualPredictions
+      .filter((prediction) => prediction.virtual_match_id === matchId)
+      .map((prediction) => [prediction.user_id, prediction])
+  )
+  const exactCrossing: VirtualTrajectoryParticipant[] = []
+  const bothTeamsOtherCrossing: VirtualTrajectoryParticipant[] = []
+  const homeTeamOnly: VirtualTrajectoryParticipant[] = []
+  const awayTeamOnly: VirtualTrajectoryParticipant[] = []
   for (const [userId, predictions] of predictionsByUser) {
     const predictionMap = Object.fromEntries(predictions.map((prediction) => [
       prediction.match_id,
@@ -160,22 +202,43 @@ export async function getVirtualMatchTrajectoryInsights(
     const homeHit = predictedTeams.has(official.home_team)
     const awayHit = predictedTeams.has(official.away_team)
     const userName = nameById.get(userId) ?? 'Participante'
-    if (homeHit) homeTeamUsers.push(userName)
-    if (awayHit) awayTeamUsers.push(userName)
-    if (homeHit && awayHit) bothTeamsUsers.push(userName)
     const crossing = buildRoundOf32CrossingAudit({
       matches,
       predictionMap,
       historicalTiebreakers: tiebreakerMap,
     }).find((item) => item.pNum === pNum)
-    if (crossing?.correct) exactCrossingUsers.push(userName)
+    const savedPrediction = virtualPredictionByUser.get(userId)
+    const classifiedTeam = savedPrediction
+      ? savedPrediction.home_score > savedPrediction.away_score
+        ? official.home_team
+        : savedPrediction.away_score > savedPrediction.home_score
+        ? official.away_team
+        : savedPrediction.tiebreaker_team
+      : null
+    const participant: VirtualTrajectoryParticipant = {
+      userId,
+      name: userName,
+      prediction: savedPrediction
+        ? {
+            homeScore: savedPrediction.home_score,
+            awayScore: savedPrediction.away_score,
+            tiebreakerTeam: savedPrediction.tiebreaker_team,
+            classifiedTeam,
+          }
+        : null,
+    }
+    if (crossing?.correct) exactCrossing.push(participant)
+    else if (homeHit && awayHit) bothTeamsOtherCrossing.push(participant)
+    else if (homeHit) homeTeamOnly.push(participant)
+    else if (awayHit) awayTeamOnly.push(participant)
   }
 
-  const sort = (items: string[]) => items.sort((a, b) => a.localeCompare(b, 'es'))
+  const sort = (items: VirtualTrajectoryParticipant[]) =>
+    items.sort((a, b) => a.name.localeCompare(b.name, 'es'))
   return {
-    exactCrossingUsers: sort(exactCrossingUsers),
-    homeTeamUsers: sort(homeTeamUsers),
-    awayTeamUsers: sort(awayTeamUsers),
-    bothTeamsUsers: sort(bothTeamsUsers),
+    exactCrossing: sort(exactCrossing),
+    bothTeamsOtherCrossing: sort(bothTeamsOtherCrossing),
+    homeTeamOnly: sort(homeTeamOnly),
+    awayTeamOnly: sort(awayTeamOnly),
   }
 }

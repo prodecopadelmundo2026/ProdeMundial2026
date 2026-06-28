@@ -1,4 +1,5 @@
 import type { Match } from '@/types'
+import { officialBestThirdOrder } from '@/lib/official-tournament-overrides'
 
 export type FifaScoreMap = Record<string, { home_score: number; away_score: number }>
 export type FifaTiebreakCriterion =
@@ -36,6 +37,7 @@ export type FifaBestThirdStanding = FifaStanding & {
   group: string
   qualified: boolean
   qualificationStatus: 'qualified' | 'eliminated' | 'pending'
+  officialOrderOverride: boolean
 }
 
 export type FifaBestThirdsResult = {
@@ -202,11 +204,22 @@ export function computeFifaBestThirds(
       { criterion: 'overall_goal_difference', value: (team) => team.gf - team.ga },
       { criterion: 'overall_goals_for', value: (team) => team.gf },
     ]
-  ).map((bucket) =>
-    bucket.teams.length > 1
-      ? { ...bucket, criterion: 'NO_RESOLUBLE_WITH_AVAILABLE_DATA' as const, unresolved: true }
-      : bucket
-  )
+  ).map((bucket) => {
+    if (bucket.teams.length <= 1) return bucket
+    const officialOrder = officialBestThirdOrder(bucket.teams.map((team) => team.name))
+    if (officialOrder) {
+      const orderIndex = new Map(officialOrder.map((name, index) => [name, index]))
+      return {
+        ...bucket,
+        teams: [...bucket.teams].sort(
+          (a, b) => (orderIndex.get(a.name) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(b.name) ?? Number.MAX_SAFE_INTEGER)
+        ),
+        criterion: 'manual_historical' as const,
+        unresolved: false,
+      }
+    }
+    return { ...bucket, criterion: 'NO_RESOLUBLE_WITH_AVAILABLE_DATA' as const, unresolved: true }
+  })
   const unresolvedTies = [
     ...unresolvedGroupTies,
     ...ranked.filter((bucket) => bucket.unresolved).map((bucket) => bucket.teams.map((team) => team.name)),
@@ -230,6 +243,7 @@ export function computeFifaBestThirds(
         group: thirds.find((third) => third.name === team.name)?.group ?? '',
         qualified: qualificationStatus === 'qualified',
         qualificationStatus,
+        officialOrderOverride: bucket.criterion === 'manual_historical',
       }
       position++
       return result
