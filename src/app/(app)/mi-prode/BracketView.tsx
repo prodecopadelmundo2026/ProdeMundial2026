@@ -10,7 +10,7 @@ import { StatusBadge } from '@/components/StatusBadge'
 import { formatMatchKickoffArgentina } from '@/lib/match-datetime'
 import { generateRandomKnockoutPredictions } from '@/app/(app)/fixture/actions'
 import { deleteRealPredictionsByMatchIds, deleteVirtualKnockoutPredictionsByMatchIds, saveRealPredictions, saveVirtualKnockoutPredictions } from './actions'
-import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups, assignBestThirdsToSlots, getPendingGroupTiebreakers, isVirtualKnockoutMatch } from '@/lib/bracket'
+import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups, assignBestThirdsToSlots, getPendingGroupTiebreakers, isVirtualKnockoutMatch, KNOCKOUT_FIXTURES, knockoutPNum } from '@/lib/bracket'
 import { normalizeScoreInput, parseScoreInput } from '@/lib/score-input'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
@@ -74,7 +74,7 @@ const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'third_pla
 type RoundKey = typeof ROUND_ORDER[number]
 type AdminLoadState = 'idle' | 'saving' | 'saved' | 'error'
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
-const LATE_PREDICTION_MESSAGE = 'No podés cargar pronósticos de partidos que ya empezaron o finalizaron.'
+const LATE_PREDICTION_MESSAGE = 'No podÃ©s cargar pronÃ³sticos de partidos que ya empezaron o finalizaron.'
 
 const ROUND_LABELS: Record<string, string> = {
   round_of_32:  'Dieciseisavos',
@@ -93,7 +93,7 @@ const STRIP_COLOR: Record<string, string> = {
 }
 
 function isPlaceholder(name: string) {
-  return name.includes('°') || name.startsWith('Ganador') || name.startsWith('Perdedor') || name === 'Mejor 3°'
+  return name.includes('Â°') || name.startsWith('Ganador') || name.startsWith('Perdedor') || name === 'Mejor 3Â°'
 }
 
 // P-number friendly labels for unresolved knockout placeholders
@@ -118,15 +118,15 @@ const P_NUM_INFO: Record<number, { round: string; short: string }> = {
 
 // Transforms raw DB placeholder text into a human-readable label + optional context hint
 function formatPlaceholder(raw: string): { primary: string; hint: string | null } {
-  // "1° Grupo A" / "2° Grupo B" — already legible
-  if (/^[12]°\s+Grupo\s+[A-L]$/.test(raw)) return { primary: raw, hint: null }
+  // "1Â° Grupo A" / "2Â° Grupo B" â€” already legible
+  if (/^[12]Â°\s+Grupo\s+[A-L]$/.test(raw)) return { primary: raw, hint: null }
 
-  // "3° Grupo A/B/C/D/F" — best third from a qualifying slot
-  const thirdGroups = raw.match(/^3°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
-  if (thirdGroups) return { primary: 'Mejor 3°', hint: `Grps. ${thirdGroups[1]}` }
+  // "3Â° Grupo A/B/C/D/F" â€” best third from a qualifying slot
+  const thirdGroups = raw.match(/^3Â°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
+  if (thirdGroups) return { primary: 'Mejor 3Â°', hint: `Grps. ${thirdGroups[1]}` }
 
-  // "Mejor 3°" (fallback after full resolution)
-  if (raw === 'Mejor 3°') return { primary: 'Mejor 3°', hint: null }
+  // "Mejor 3Â°" (fallback after full resolution)
+  if (raw === 'Mejor 3Â°') return { primary: 'Mejor 3Â°', hint: null }
 
   // "Ganador P73"
   const winner = raw.match(/^Ganador\s+P(\d+)$/)
@@ -147,12 +147,12 @@ function formatPlaceholder(raw: string): { primary: string; hint: string | null 
 
 // Brief description shown below the round tabs
 const ROUND_CONTEXT: Record<string, string> = {
-  round_of_32:  '32 selecciones · campeones, subcampeones + 8 mejores terceros',
+  round_of_32:  '32 selecciones Â· campeones, subcampeones + 8 mejores terceros',
   round_of_16:  'Ganadores de Dieciseisavos',
   quarter:      'Ganadores de Octavos',
   semi:         'Ganadores de Cuartos',
   third_place:  'Perdedores de Semis disputan el bronce',
-  final:        'Ganadores de Semis disputan el título',
+  final:        'Ganadores de Semis disputan el tÃ­tulo',
 }
 
 function BracketMatchCard({
@@ -344,22 +344,22 @@ function BracketMatchCard({
         </div>
       </div>
 
-      {/* Partido terminado/en vivo: Pronóstico + Resultado Final */}
+      {/* Partido terminado/en vivo: PronÃ³stico + Resultado Final */}
       {hasRealScore ? (
         <div className="flex flex-col gap-[8px]">
-          {/* Pronóstico */}
+          {/* PronÃ³stico */}
           <div>
             <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] mb-[5px]" style={{ color: '#4a4a4a' }}>
-              Pronóstico
+              PronÃ³stico
             </p>
             <div
               className="flex items-center justify-center rounded-[12px]"
               style={{ padding: '10px 8px', background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)' }}
             >
               {hasPrediction ? (
-                <span className="font-display text-[24px] text-white tabular-nums">{home} — {away}</span>
+                <span className="font-display text-[24px] text-white tabular-nums">{home} â€” {away}</span>
               ) : (
-                <span className="text-[11px] font-bold" style={{ color: '#3a3a3a' }}>Sin pronóstico</span>
+                <span className="text-[11px] font-bold" style={{ color: '#3a3a3a' }}>Sin pronÃ³stico</span>
               )}
             </div>
           </div>
@@ -373,13 +373,13 @@ function BracketMatchCard({
               style={{ padding: '10px 8px', background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,0.08)' }}
             >
               <span className="font-display text-[24px] text-white tabular-nums">
-                {match.home_score} — {match.away_score}
+                {match.home_score} â€” {match.away_score}
               </span>
             </div>
           </div>
         </div>
       ) : (
-        /* Score inputs — partido abierto */
+        /* Score inputs â€” partido abierto */
         <>
         {canEditScore && (
           <div className="mb-2 flex justify-end">
@@ -414,7 +414,7 @@ function BracketMatchCard({
             value={home}
             disabled={!canEditScore}
             onChange={(e) => handleChange('home', e.target.value)}
-            placeholder="–"
+            placeholder="â€“"
             aria-label={`Goles ${homeTeam}`}
             className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
             style={canEditScore ? undefined : { cursor: 'not-allowed' }}
@@ -435,7 +435,7 @@ function BracketMatchCard({
               e.target.style.boxShadow = 'none'
             }}
           />
-          <span className="font-display text-[18px] text-[#3a3a3a]">—</span>
+          <span className="font-display text-[18px] text-[#3a3a3a]">â€”</span>
           <input
             type="text"
             inputMode="numeric"
@@ -444,7 +444,7 @@ function BracketMatchCard({
             value={away}
             disabled={!canEditScore}
             onChange={(e) => handleChange('away', e.target.value)}
-            placeholder="–"
+            placeholder="â€“"
             aria-label={`Goles ${awayTeam}`}
             className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
             style={canEditScore ? undefined : { cursor: 'not-allowed' }}
@@ -469,14 +469,14 @@ function BracketMatchCard({
         </>
       )}
 
-      {/* Tiebreaker: knockout draw → pick who advances */}
+      {/* Tiebreaker: knockout draw â†’ pick who advances */}
       {canEditTiebreaker && match.stage !== 'group' && hasPrediction && !homePH && !awayPH && isDrawPred && (
         <div
           className="mt-3 rounded-[10px] px-3 py-3"
           style={{ background: '#0A0A0A', border: '1px solid rgba(255,107,0,0.35)' }}
         >
           <p className="text-[10px] font-extrabold tracking-[0.16em] uppercase text-orange mb-2">
-            ¿Quién pasa?
+            Â¿QuiÃ©n pasa?
           </p>
           <div className="grid grid-cols-2 gap-2">
             {[homeTeam, awayTeam].map((team) => (
@@ -572,7 +572,7 @@ export function BracketView({
     : new Set<string>()
   const thirdSlotAssignment = bestThirdsGroups.size > 0 ? assignBestThirdsToSlots(bestThirdsGroups) : {}
 
-  // Local inputs: matchId → { home, away } (starts from predMap)
+  // Local inputs: matchId â†’ { home, away } (starts from predMap)
   const [localInputs, setLocalInputs] = useState<LocalInputs>(() => {
     const init: LocalInputs = {}
     for (const m of knockoutMatches) {
@@ -683,7 +683,10 @@ export function BracketView({
         const awayBlank = input.away === ''
         return homeBlank !== awayBlank
       })
-      .map((match) => `${resolve(match.home_team)} vs ${resolve(match.away_team)}`)
+      .map((match) => {
+        const { homeTeam, awayTeam } = getResolvedTeams(match)
+        return `${homeTeam} vs ${awayTeam}`
+      })
     const matchIdsToDelete = knockoutMatches
       .filter((match) => {
         if (!predMap[match.id]) return false
@@ -769,9 +772,19 @@ export function BracketView({
     return resolveTeamFull(placeholder, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)
   }
 
+  function getPredictionSeeds(match: Match) {
+    const pNum = knockoutPNum(match)
+    const originalFixture = pNum ? KNOCKOUT_FIXTURES[pNum] : null
+    return {
+      homeSeed: originalFixture?.[0] ?? match.home_team,
+      awaySeed: originalFixture?.[1] ?? match.away_team,
+    }
+  }
+
   function getResolvedTeams(match: Match) {
-    const homeTeam = resolveTeamFull(match.home_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)
-    const awayTeam = resolveTeamFull(match.away_team, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)
+    const { homeSeed, awaySeed } = getPredictionSeeds(match)
+    const homeTeam = resolveTeamFull(homeSeed, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)
+    const awayTeam = resolveTeamFull(awaySeed, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)
     return { homeTeam, awayTeam }
   }
 
@@ -814,7 +827,7 @@ export function BracketView({
       setAdminSaveError('Sin permisos de administrador.')
       return
     }
-    const confirmed = window.confirm('Esto puede reemplazar pronosticos existentes. ¿Continuar?')
+    const confirmed = window.confirm('Esto puede reemplazar pronosticos existentes. Â¿Continuar?')
     if (!confirmed) return
     const targetMatches = rounds.length
       ? rounds.flatMap((round) => getAdminEligibleMatches(round))
@@ -853,7 +866,7 @@ export function BracketView({
       setTimeout(() => setAdminSaveState('idle'), 1800)
     } catch (error) {
       const message = formatClientError(error)
-      console.error('Error al cargar pronóstico aleatorio de eliminatorias', error)
+      console.error('Error al cargar pronÃ³stico aleatorio de eliminatorias', error)
       setAdminSaveError(message)
       setAdminSaveState('error')
     }
@@ -865,7 +878,7 @@ export function BracketView({
       setAdminSaveError('Sin permisos de administrador.')
       return
     }
-    const confirmed = window.confirm('Esto puede reemplazar apuestas especiales existentes. ¿Continuar?')
+    const confirmed = window.confirm('Esto puede reemplazar apuestas especiales existentes. Â¿Continuar?')
     if (!confirmed) return
     try {
       const next = randomSpecials()
@@ -978,7 +991,7 @@ export function BracketView({
           </span>
           <div>
             <p className="font-extrabold text-white leading-snug">Desempates pendientes en grupos</p>
-            <p className="text-[13px] mt-0.5 text-muted">Resolvé los desempates para que el bracket se arme correctamente.</p>
+            <p className="text-[13px] mt-0.5 text-muted">ResolvÃ© los desempates para que el bracket se arme correctamente.</p>
           </div>
         </div>
       )}
@@ -991,11 +1004,11 @@ export function BracketView({
         >
           <p className="text-muted">
             {quickFillState === 'confirm'
-              ? `Esto puede reemplazar pronosticos existentes en ${eligibleForQuickFill} partidos de eliminatorias. ¿Continuar?`
+              ? `Esto puede reemplazar pronosticos existentes en ${eligibleForQuickFill} partidos de eliminatorias. Â¿Continuar?`
               : quickFillState === 'saving'
               ? 'Cargando bracket completo...'
               : quickFillState === 'saved'
-              ? `¡Listo! ${eligibleForQuickFill} partidos cargados.`
+              ? `Â¡Listo! ${eligibleForQuickFill} partidos cargados.`
               : quickFillError
               ? `Error: ${quickFillError}`
               : ''}
@@ -1020,7 +1033,7 @@ export function BracketView({
           )}
           {(quickFillState === 'saved' || quickFillState === 'error') && (
             <button onClick={() => setQuickFillState('idle')} className="text-[11px] font-bold text-muted">
-              Cerrar ×
+              Cerrar Ã—
             </button>
           )}
         </div>
@@ -1033,7 +1046,7 @@ export function BracketView({
         >
           <div>
             <p className="font-extrabold text-white text-[13px] leading-snug">Autocompletar Prode (Admin)</p>
-            <p className="text-[12px] mt-0.5 text-muted">{eligibleForQuickFill} partidos disponibles · genera datos de prueba</p>
+            <p className="text-[12px] mt-0.5 text-muted">{eligibleForQuickFill} partidos disponibles Â· genera datos de prueba</p>
           </div>
           <button
             onClick={() => setQuickFillState('confirm')}
@@ -1084,7 +1097,7 @@ export function BracketView({
                 style={{ background: '#181818', color: '#8A8A8A', border: '1px solid rgba(255,255,255,0.08)' }}
                 aria-label="Cerrar"
               >
-                ×
+                Ã—
               </button>
             </div>
 
@@ -1165,15 +1178,15 @@ export function BracketView({
           className="px-5 py-3 text-sm font-bold"
           style={{ background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.25)', borderRadius: '16px', color: '#FF8585' }}
         >
-          Error al guardar. Revisá tu conexión y volvé a intentarlo.
+          Error al guardar. RevisÃ¡ tu conexiÃ³n y volvÃ© a intentarlo.
         </div>
       )}
 
-      {/* Combo row — dropdown + arrows */}
+      {/* Combo row â€” dropdown + arrows */}
       <div className="flex items-end gap-2" style={{ minWidth: 0 }}>
         <div className="flex flex-col gap-1.5 flex-1 min-w-0">
           <label className="text-[11px] font-extrabold tracking-[0.22em] uppercase text-muted">
-            Seleccioná la fase
+            SeleccionÃ¡ la fase
           </label>
           <div
             className="relative transition-[border-color,background] duration-150"
@@ -1271,7 +1284,7 @@ export function BracketView({
         </p>
       )}
 
-      {/* Mejores terceros info panel — only for round_of_32 */}
+      {/* Mejores terceros info panel â€” only for round_of_32 */}
       {activeRound === 'round_of_32' && (
         <div
           className="flex items-start gap-3 px-4 py-3 rounded-[12px]"
@@ -1283,13 +1296,13 @@ export function BracketView({
           <div>
             <p className="text-[11px] font-bold leading-snug" style={{ color: '#5a5450' }}>Mejores terceros</p>
             <p className="text-[11px] mt-0.5 leading-snug" style={{ color: '#3e3a35' }}>
-              Los 8 mejores terceros de los 12 grupos clasifican. Su posición en el bracket depende de qué grupos los producen.
+              Los 8 mejores terceros de los 12 grupos clasifican. Su posiciÃ³n en el bracket depende de quÃ© grupos los producen.
             </p>
           </div>
         </div>
       )}
 
-      {/* Main round matches — non-final rounds */}
+      {/* Main round matches â€” non-final rounds */}
       {activeRound !== 'final' && (
         <div className="grid grid-cols-1 min-[720px]:grid-cols-2 min-[1100px]:grid-cols-3 gap-4">
           {(byRound[activeRound] ?? [])
@@ -1298,8 +1311,8 @@ export function BracketView({
               <BracketMatchCard
                 key={match.id}
                 match={match}
-                homeTeam={resolve(match.home_team)}
-                awayTeam={resolve(match.away_team)}
+                homeTeam={getResolvedTeams(match).homeTeam}
+                awayTeam={getResolvedTeams(match).awayTeam}
                 initialHome={localInputs[match.id]?.home ?? ''}
                 initialAway={localInputs[match.id]?.away ?? ''}
                 tiebreaker={tiebreakerMap[match.id]}
@@ -1327,8 +1340,8 @@ export function BracketView({
               <BracketMatchCard
                 key={match.id}
                 match={match}
-                homeTeam={resolve(match.home_team)}
-                awayTeam={resolve(match.away_team)}
+                homeTeam={getResolvedTeams(match).homeTeam}
+                awayTeam={getResolvedTeams(match).awayTeam}
                 initialHome={localInputs[match.id]?.home ?? ''}
                 initialAway={localInputs[match.id]?.away ?? ''}
                 tiebreaker={tiebreakerMap[match.id]}

@@ -5,6 +5,7 @@ import {
   computeAllStandings,
   computeBestThirdsGroups,
   KNOCKOUT_FIXTURES,
+  knockoutPNum,
 } from '@/lib/bracket'
 import { getQualifiedTeamPointsForStage } from '@/lib/knockout-bonus'
 
@@ -82,8 +83,8 @@ function completeGroupMatchesForResolution(groupMatches: Match[], predMap: Score
 
 function isUnresolvedTeam(team: string) {
   return (
-    /^(\d)(?:Â°|°)\s+Grupo\s+[A-L]/.test(team) ||
-    /^3(?:Â°|°)\s+Grupo\s+[A-L]/.test(team) ||
+    /^(\d)(?:Ã‚Â°|Â°)\s+Grupo\s+[A-L]/.test(team) ||
+    /^3(?:Ã‚Â°|Â°)\s+Grupo\s+[A-L]/.test(team) ||
     team.startsWith('Ganador') ||
     team.startsWith('Perdedor') ||
     team.includes('Mejor 3')
@@ -103,20 +104,20 @@ function resolveSlot(
 ): string {
   if (depth > 8) return placeholder
 
-  const direct = placeholder.match(/^(\d)(?:Â°|°)\s+Grupo\s+([A-L])$/)
+  const direct = placeholder.match(/^(\d)(?:Ã‚Â°|Â°)\s+Grupo\s+([A-L])$/)
   if (direct) {
     const pos = Number(direct[1]) - 1
     return standings[direct[2]]?.[pos] ?? placeholder
   }
 
-  const third = placeholder.match(/^3(?:Â°|°)\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
+  const third = placeholder.match(/^3(?:Ã‚Â°|Â°)\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
   if (third) {
     const groups = third[1]
     const assigned = thirdSlotAssignment[groups]
-    if (assigned) return standings[assigned]?.[2] ?? 'Mejor 3°'
+    if (assigned) return standings[assigned]?.[2] ?? 'Mejor 3Â°'
     const candidates = groups.split('/').filter((group) => bestThirdsGroups.has(group))
-    if (candidates.length === 1) return standings[candidates[0]]?.[2] ?? 'Mejor 3°'
-    return 'Mejor 3°'
+    if (candidates.length === 1) return standings[candidates[0]]?.[2] ?? 'Mejor 3Â°'
+    return 'Mejor 3Â°'
   }
 
   const knockout = placeholder.match(/^(Ganador|Perdedor)\s+P(\d+)$/)
@@ -178,10 +179,16 @@ function buildResolvedTeams(
     : new Set<string>()
   const thirdSlotAssignment = bestThirdsGroups.size > 0 ? assignBestThirdsToSlots(bestThirdsGroups) : {}
   const pMap = buildKnockoutMap(knockoutMatches)
+  const pNum = knockoutPNum(match)
+  const originalFixture = pNum ? KNOCKOUT_FIXTURES[pNum] : null
+  const [homeSeed, awaySeed] =
+    mode === 'prediction' && originalFixture
+      ? originalFixture
+      : [match.home_team, match.away_team]
 
   return {
-    home: resolveSlot(match.home_team, standings, pMap, predMap, tiebreakerMap, bestThirdsGroups, thirdSlotAssignment, mode),
-    away: resolveSlot(match.away_team, standings, pMap, predMap, tiebreakerMap, bestThirdsGroups, thirdSlotAssignment, mode),
+    home: resolveSlot(homeSeed, standings, pMap, predMap, tiebreakerMap, bestThirdsGroups, thirdSlotAssignment, mode),
+    away: resolveSlot(awaySeed, standings, pMap, predMap, tiebreakerMap, bestThirdsGroups, thirdSlotAssignment, mode),
   }
 }
 

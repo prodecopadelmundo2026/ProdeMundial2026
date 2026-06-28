@@ -35,7 +35,7 @@ function candidateFullTitle(name: string) {
   if (!name.includes(' / ')) return undefined
   const candidates = name.split(' / ').map((item) => item.trim()).filter(Boolean)
   if (candidates.length <= 1) return undefined
-  return `Pueden quedar acá: ${candidates.join(', ')}`
+  return `Pueden quedar acÃ¡: ${candidates.join(', ')}`
 }
 
 function bracketTeamStatusStyle(status?: BracketTeamStatus) {
@@ -62,7 +62,7 @@ export interface TournamentBracketProps {
   predMap?: PredMap
   tiebreakerMap?: TbMap
   officialGroupResolution?: 'complete' | 'current'
-  /** Equipos que el usuario acertó que clasificaban a 16avos: muestran +1 en la columna D16. */
+  /** Equipos que el usuario acertÃ³ que clasificaban a 16avos: muestran +1 en la columna D16. */
   roundOf32AwardedTeams?: Set<string>
   roundOf32ExactCrossings?: Set<number>
 }
@@ -212,27 +212,27 @@ function getWinner(
 function isPlaceholderName(name: string): boolean {
   const normalized = normalizePlaceholderName(name)
   return (
-    normalized.includes('°') ||
+    normalized.includes('Â°') ||
     normalized.startsWith('Ganador') ||
     normalized.startsWith('Perdedor') ||
     normalized.startsWith('Ganador Grupo') ||
     normalized.startsWith('Segundo Grupo') ||
     normalized.startsWith('Mejor tercero') ||
-    normalized === 'Mejor 3°' ||
+    normalized === 'Mejor 3Â°' ||
     /^P\d+[HA]$/.test(normalized)
   )
 }
 
 function normalizePlaceholderName(name: string): string {
-  return name.replace(/Ã‚Â°|Â°/g, '°')
+  return name.replace(/Ãƒâ€šÃ‚Â°|Ã‚Â°/g, 'Â°')
 }
 
 function longFixtureLabel(raw: string): string {
   const normalized = normalizePlaceholderName(raw)
-  const direct = normalized.match(/^([12])°\s+Grupo\s+([A-L])$/)
+  const direct = normalized.match(/^([12])Â°\s+Grupo\s+([A-L])$/)
   if (direct) return `${direct[1] === '1' ? 'Ganador' : 'Segundo'} Grupo ${direct[2]}`
 
-  const third = normalized.match(/^3°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
+  const third = normalized.match(/^3Â°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
   if (third) return `Mejor tercero de ${third[1]}`
 
   const win = normalized.match(/^Ganador\s+P(\d+)$/)
@@ -252,13 +252,13 @@ function fallbackSlotLabel(pNum: number, side: 0 | 1): string {
 
 function shortName(raw: string): string {
   const normalized = normalizePlaceholderName(raw)
-  if (normalized === 'Mejor 3°') return 'Mejor 3°'
+  if (normalized === 'Mejor 3Â°') return 'Mejor 3Â°'
   const internal = normalized.match(/^P(\d+)([HA])$/)
   if (internal) return fallbackSlotLabel(Number(internal[1]), internal[2] === 'H' ? 0 : 1)
-  const m = normalized.match(/^([12])°\s+Grupo\s+([A-L])$/)
-  if (m) return `${m[1]}° Grp ${m[2]}`
-  const third = normalized.match(/^3°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
-  if (third) return `Mejor 3° de ${third[1]}`
+  const m = normalized.match(/^([12])Â°\s+Grupo\s+([A-L])$/)
+  if (m) return `${m[1]}Â° Grp ${m[2]}`
+  const third = normalized.match(/^3Â°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
+  if (third) return `Mejor 3Â° de ${third[1]}`
   const win = normalized.match(/^Ganador\s+P(\d+)$/)
   if (win) return `Ganador partido ${win[1]}`
   const los = normalized.match(/^Perdedor\s+P(\d+)$/)
@@ -273,7 +273,7 @@ function shortName(raw: string): string {
   return normalized.slice(0, 13)
 }
 
-// ── Compact match card ────────────────────────────────────────────────────────
+// â”€â”€ Compact match card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function TeamRow({
   name,
@@ -294,7 +294,7 @@ function TeamRow({
 }) {
   const candidates = candidateList(name)
   const displayName = candidateDisplayName(name)
-  const fullTitle = candidates.length > 1 ? `Pueden quedar acá: ${candidates.join(', ')}` : undefined
+  const fullTitle = candidates.length > 1 ? `Pueden quedar acÃ¡: ${candidates.join(', ')}` : undefined
   const meta = !isPH ? getTeam(name) : null
   const statusStyle = bracketTeamStatusStyle(status)
 
@@ -334,7 +334,7 @@ function TeamRow({
           <img src={flagUrl(meta.iso2)} alt={name} style={{ width: 16, height: 11, objectFit: 'contain' }} />
         ) : (
           <span style={{ fontSize: fullTitle ? 11 : 9, color: fullTitle ? '#e6d9ff' : '#555' }}>
-            {fullTitle ? 'ⓘ' : '?'}
+            {fullTitle ? 'â“˜' : '?'}
           </span>
         )}
       </div>
@@ -441,7 +441,7 @@ function BracketCard({
   )
 }
 
-// ── Champion card ─────────────────────────────────────────────────────────────
+// â”€â”€ Champion card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ChampionCard({ team }: { team: string | null }) {
   const isPH = !team || isPlaceholderName(team)
@@ -477,7 +477,7 @@ function ChampionCard({ team }: { team: string | null }) {
       {!isPH && meta?.iso2 ? (
         <img src={flagUrl(meta.iso2)} alt={team!} style={{ width: 28, height: 20, objectFit: 'contain' }} />
       ) : (
-        <span style={{ fontSize: 18, opacity: 0.18 }}>🏆</span>
+        <span style={{ fontSize: 18, opacity: 0.18 }}>ðŸ†</span>
       )}
       <span style={{
         fontSize: 11,
@@ -490,13 +490,13 @@ function ChampionCard({ team }: { team: string | null }) {
         whiteSpace: 'nowrap',
         lineHeight: 1.2,
       }}>
-        {isPH ? 'Campeón' : team}
+        {isPH ? 'CampeÃ³n' : team}
       </span>
     </div>
   )
 }
 
-// ── SVG connectors ────────────────────────────────────────────────────────────
+// â”€â”€ SVG connectors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function Connectors() {
   const lineProps = { stroke: 'rgba(255,255,255,0.08)', strokeWidth: 1, fill: 'none' }
@@ -518,41 +518,41 @@ function Connectors() {
       const ya = getFromCY(j * 2)
       const yb = getFromCY(j * 2 + 1)
       const ym = getMidCY(j)
-      // stub-right from ya + vertical ya→yb + stub-left back from yb + horizontal ym→next col
+      // stub-right from ya + vertical yaâ†’yb + stub-left back from yb + horizontal ymâ†’next col
       paths.push(`M${xFrom},${ya} H${xJunc} V${yb} H${xFrom}`)
       paths.push(`M${xJunc},${ym} H${xTo}`)
     }
   }
 
-  // D32 (16 cards) → Oct (8 cards): 8 pairs
+  // D32 (16 cards) â†’ Oct (8 cards): 8 pairs
   addPair(
     COL_X.d32, COL_X.oct, 8,
     (i) => cardCenterY(i, 'd32'),
     (j) => cardCenterY(j, 'oct'),
   )
 
-  // Oct (8 cards) → QF (4 cards): 4 pairs
+  // Oct (8 cards) â†’ QF (4 cards): 4 pairs
   addPair(
     COL_X.oct, COL_X.qf, 4,
     (i) => cardCenterY(i, 'oct'),
     (j) => cardCenterY(j, 'qf'),
   )
 
-  // QF (4 cards) → Semi (2 cards): 2 pairs
+  // QF (4 cards) â†’ Semi (2 cards): 2 pairs
   addPair(
     COL_X.qf, COL_X.semi, 2,
     (i) => cardCenterY(i, 'qf'),
     (j) => cardCenterY(j, 'semi'),
   )
 
-  // Semi (2 cards) → Final (1 card): 1 pair
+  // Semi (2 cards) â†’ Final (1 card): 1 pair
   addPair(
     COL_X.semi, COL_X.final, 1,
     (i) => cardCenterY(i, 'semi'),
     () => cardCenterY(0, 'final'),
   )
 
-  // Final → Champion: horizontal line
+  // Final â†’ Champion: horizontal line
   const yfin = cardCenterY(0, 'final')
   paths.push(`M${COL_X.final + CARD_W},${yfin} H${COL_X.champion}`)
 
@@ -575,7 +575,7 @@ function Connectors() {
   )
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function TournamentBracket({
   mode,
@@ -625,7 +625,7 @@ export function TournamentBracket({
     }
 
     // Con 1 o 2 partidos pendientes por grupo simulamos marcadores posibles.
-    // Si hubiera más, dejamos el slot como provisorio con la tabla actual.
+    // Si hubiera mÃ¡s, dejamos el slot como provisorio con la tabla actual.
     if (pending.length > 2) {
       const name = current.standings[position]?.name
       const result = { candidates: name ? [name] : [] }
@@ -674,7 +674,7 @@ export function TournamentBracket({
     const slot = KNOCKOUT_FIXTURES[pNum]?.[side]
     if (!slot) return undefined
 
-    const direct = slot.match(/^([12])°\s+Grupo\s+([A-L])$/)
+    const direct = slot.match(/^([12])Â°\s+Grupo\s+([A-L])$/)
     if (direct) {
       const position = Number(direct[1]) - 1 as 0 | 1
       const group = direct[2]
@@ -687,7 +687,7 @@ export function TournamentBracket({
       return 'provisional'
     }
 
-    if (/^3°\s+Grupo\s+/.test(slot)) {
+    if (/^3Â°\s+Grupo\s+/.test(slot)) {
       return allOfficialGroupsComplete ? 'confirmed_third' : 'provisional'
     }
 
@@ -722,7 +722,7 @@ export function TournamentBracket({
     const normalized = normalizePlaceholderName(placeholder)
     if (depth > 8) return normalized
 
-    const direct = normalized.match(/^(\d)°\s+Grupo\s+([A-L])$/)
+    const direct = normalized.match(/^(\d)Â°\s+Grupo\s+([A-L])$/)
     if (direct) {
       const pos = Number(direct[1]) - 1
       const group = direct[2]
@@ -736,11 +736,11 @@ export function TournamentBracket({
       return context.standings[group]?.[pos] ?? normalized
     }
 
-    const third = normalized.match(/^3°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
+    const third = normalized.match(/^3Â°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
     if (third) {
       const groups = third[1]
       const assigned = context.thirdSlotAssignment[groups]
-      const fallback = `Mejor 3° de ${groups}`
+      const fallback = `Mejor 3Â° de ${groups}`
       if (assigned) return context.standings[assigned]?.[2] ?? fallback
       const candidates = groups.split('/').filter((group) => context.bestThirdsGroups.has(group))
       if (candidates.length === 1) return context.standings[candidates[0]]?.[2] ?? fallback
@@ -782,9 +782,10 @@ export function TournamentBracket({
 
   function getMatchData(pNum: number) {
     const match    = pMap[pNum] ?? null
-    const rawHome  = match?.home_team ?? ''
-    const rawAway  = match?.away_team ?? ''
     const source: BracketSource = mode === 'official' ? 'official' : 'prediction'
+    const originalFixture = KNOCKOUT_FIXTURES[pNum]
+    const rawHome  = source === 'prediction' && originalFixture ? originalFixture[0] : (match?.home_team ?? '')
+    const rawAway  = source === 'prediction' && originalFixture ? originalFixture[1] : (match?.away_team ?? '')
     const displayScoreMap = source === 'official' ? officialDisplayMap : predMap
     const winnerScoreMap = source === 'official' ? officialWinnerMap : predMap
 
@@ -843,7 +844,7 @@ export function TournamentBracket({
     { label: 'Cuartos', x: COL_X.qf },
     { label: 'Semis', x: COL_X.semi },
     { label: 'Final', x: COL_X.final },
-    { label: 'Campeón', x: COL_X.champion },
+    { label: 'CampeÃ³n', x: COL_X.champion },
   ]
 
   const [openCandidateInfo, setOpenCandidateInfo] = useState<string[] | null>(null)
@@ -933,7 +934,7 @@ export function TournamentBracket({
                   lineHeight: '26px',
                 }}
               >
-                ×
+                Ã—
               </button>
             </div>
 
@@ -958,7 +959,7 @@ export function TournamentBracket({
                     {meta?.iso2 ? (
                       <img src={flagUrl(meta.iso2)} alt={team} style={{ width: 20, height: 14, objectFit: 'contain' }} />
                     ) : (
-                      <span style={{ color: '#b18cff' }}>ⓘ</span>
+                      <span style={{ color: '#b18cff' }}>â“˜</span>
                     )}
                     <span>{team}</span>
                   </div>
@@ -967,7 +968,7 @@ export function TournamentBracket({
             </div>
 
             <div style={{ fontSize: 11, color: '#7f8796', marginTop: 14 }}>
-              Tocá fuera del cartel o la × para cerrar.
+              TocÃ¡ fuera del cartel o la Ã— para cerrar.
             </div>
           </div>
         </div>
@@ -993,7 +994,7 @@ export function TournamentBracket({
                 style={{
                   position: 'absolute',
                   left: x,
-                  width: label === 'Campeón' ? CHAMPION_W : CARD_W,
+                  width: label === 'CampeÃ³n' ? CHAMPION_W : CARD_W,
                   top: 0,
                   height: HEADER_H,
                   display: 'flex',
@@ -1060,7 +1061,7 @@ export function TournamentBracket({
               <ChampionCard team={champion} />
             </div>
 
-            {/* 3rd Place — below main bracket */}
+            {/* 3rd Place â€” below main bracket */}
             <div style={{
               position: 'absolute',
               top: BRACKET_H + THIRD_BELOW,
@@ -1090,7 +1091,7 @@ export function TournamentBracket({
 
       {/* Mobile hint */}
       <p style={{ fontSize: 10, color: '#333', textAlign: 'center', marginTop: 8 }} className="lg:hidden">
-        ← Deslizá para ver el bracket completo →
+        â† DeslizÃ¡ para ver el bracket completo â†’
       </p>
     </div>
   )
