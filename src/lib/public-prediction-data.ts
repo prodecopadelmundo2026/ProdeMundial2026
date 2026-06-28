@@ -285,17 +285,27 @@ export async function addConfirmedTrajectoryToRanking<T extends RankingWithTraje
     if (!entry.user_id) {
       return { ...entry, base_points: currentBasePoints, trajectory_bonus: 0, total_points: currentBasePoints }
     }
-    const predictionMap = Object.fromEntries(
-      (predictionsByUser.get(entry.user_id) ?? []).map((prediction) => [
+    const userPredictions = predictionsByUser.get(entry.user_id) ?? []
+    const userVirtualPredictions = rows.virtualPredictions.filter((prediction) => prediction.user_id === entry.user_id)
+
+    const predictionMap = Object.fromEntries([
+      ...userPredictions.map((prediction) => [
         prediction.match_id,
         { home_score: prediction.home_score, away_score: prediction.away_score },
-      ])
-    )
-    const historicalTiebreakers = Object.fromEntries(
-      (tiebreakersByUser.get(entry.user_id) ?? []).map((row) => [row.tiebreaker_key, row.team])
-    )
+      ]),
+      ...userVirtualPredictions.map((prediction) => [
+        prediction.virtual_match_id,
+        { home_score: prediction.home_score, away_score: prediction.away_score },
+      ]),
+    ])
+    const historicalTiebreakers = Object.fromEntries([
+      ...(tiebreakersByUser.get(entry.user_id) ?? []).map((row) => [row.tiebreaker_key, row.team]),
+      ...userVirtualPredictions
+        .filter((prediction) => prediction.tiebreaker_team?.trim())
+        .map((prediction) => [prediction.virtual_match_id, prediction.tiebreaker_team!.trim()]),
+    ])
     const auditPredictions: Prediction[] = [
-      ...(predictionsByUser.get(entry.user_id) ?? []).map((prediction) => ({
+      ...userPredictions.map((prediction) => ({
         id: `${entry.user_id}-${prediction.match_id}`,
         user_id: entry.user_id!,
         match_id: prediction.match_id,
@@ -306,9 +316,7 @@ export async function addConfirmedTrajectoryToRanking<T extends RankingWithTraje
         created_at: '',
         updated_at: '',
       })),
-      ...rows.virtualPredictions
-      .filter((prediction) => prediction.user_id === entry.user_id)
-      .map((prediction) => ({
+      ...userVirtualPredictions.map((prediction) => ({
         id: `${prediction.user_id}-${prediction.virtual_match_id}`,
         user_id: prediction.user_id,
         match_id: prediction.virtual_match_id,
