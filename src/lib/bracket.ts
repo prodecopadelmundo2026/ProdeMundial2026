@@ -68,7 +68,7 @@ export const KNOCKOUT_FIXTURES: Record<number, [string, string]> = {
 // esa hora de la base tiene prioridad sobre esta tabla (que actúa de respaldo).
 const KNOCKOUT_MATCH_DATES: Record<number, string> = {
   73:  '2026-06-28T19:00:00.000Z',
-  74:  '2026-06-29T20:00:00.000Z',
+  74:  '2026-06-29T20:30:00.000Z',
   75:  '2026-06-30T01:00:00.000Z',
   76:  '2026-06-29T17:00:00.000Z',
   77:  '2026-06-30T21:00:00.000Z',
@@ -79,7 +79,7 @@ const KNOCKOUT_MATCH_DATES: Record<number, string> = {
   82:  '2026-07-01T20:00:00.000Z',
   83:  '2026-07-02T23:00:00.000Z',
   84:  '2026-07-02T19:00:00.000Z',
-  85:  '2026-07-03T01:00:00.000Z',
+  85:  '2026-07-03T03:00:00.000Z',
   86:  '2026-07-03T22:00:00.000Z',
   87:  '2026-07-04T01:30:00.000Z',
   88:  '2026-07-03T18:00:00.000Z',

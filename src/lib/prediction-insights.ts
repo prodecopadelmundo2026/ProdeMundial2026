@@ -36,6 +36,18 @@ export type PredictionMatchCardData = {
   stage: string
   group: string | null
   insights: PredictionInsights
+  trajectory?: import('@/lib/public-prediction-data').VirtualMatchTrajectoryInsights | null
+}
+
+export function stageLabel(stage: string, group: string | null = null) {
+  if (stage === 'group') return group ? `Grupo ${group}` : 'Fase de grupos'
+  if (stage === 'round_of_32') return 'Dieciseisavos'
+  if (stage === 'round_of_16') return 'Octavos'
+  if (stage === 'quarter') return 'Cuartos'
+  if (stage === 'semi') return 'Semifinales'
+  if (stage === 'third_place') return 'Tercer puesto'
+  if (stage === 'final') return 'Final'
+  return stage
 }
 
 export function emptyPredictionInsights(): PredictionInsights {

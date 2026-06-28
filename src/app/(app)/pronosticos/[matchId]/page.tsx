@@ -10,12 +10,15 @@ import {
   normalizePredictionInsights,
   percent,
   statusLabel,
+  stageLabel,
   type PredictionInsights,
   type ResultDistributionRow,
 } from '@/lib/prediction-insights'
 import { MatchPointsSection, type MatchPointsBreakdownRow } from './MatchPointsSection'
 import { ResultUsersTable } from './ResultUsersTable'
 import { getTournamentVisibleMatches } from '@/lib/tournament-state'
+import { getVirtualMatchTrajectoryInsights } from '@/lib/public-prediction-data'
+import { VirtualTrajectoryInsights } from '@/components/VirtualTrajectoryInsights'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,6 +55,7 @@ export default async function PronosticoDetallePage({
   params: Promise<{ matchId: string }>
 }) {
   const { matchId } = await params
+  const isVirtual = matchId.startsWith('virtual-p')
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -63,10 +67,10 @@ export default async function PronosticoDetallePage({
     { data: currentUserPrediction },
   ] = await Promise.all([
     supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
-    supabase.rpc('get_match_prediction_insights', { p_match_id: matchId }),
-    supabase.rpc('get_match_prediction_result_distribution', { p_match_id: matchId }),
-    supabase.rpc('get_match_points_breakdown', { p_match_id: matchId }),
-    user
+    isVirtual ? Promise.resolve({ data: null }) : supabase.rpc('get_match_prediction_insights', { p_match_id: matchId }),
+    isVirtual ? Promise.resolve({ data: null }) : supabase.rpc('get_match_prediction_result_distribution', { p_match_id: matchId }),
+    isVirtual ? Promise.resolve({ data: null }) : supabase.rpc('get_match_points_breakdown', { p_match_id: matchId }),
+    user && !isVirtual
       ? supabase
           .from('predictions')
           .select('home_score, away_score')
@@ -82,6 +86,9 @@ export default async function PronosticoDetallePage({
   if (!matchData) notFound()
 
   const match = matchData as Match
+  const trajectory = isVirtual
+    ? await getVirtualMatchTrajectoryInsights(getTournamentVisibleMatches((matchRows ?? []) as Match[]), matchId)
+    : null
   const insights = normalizePredictionInsights(
     (Array.isArray(insightsRows) ? insightsRows[0] : null) as Partial<PredictionInsights> | null
   )
@@ -131,7 +138,7 @@ export default async function PronosticoDetallePage({
               {statusLabel(match.status)}
             </span>
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted">
-              {match.stage === 'group' && match.group ? `Grupo ${match.group}` : match.stage}
+              {stageLabel(match.stage, match.group)}
             </span>
           </div>
 
@@ -170,7 +177,12 @@ export default async function PronosticoDetallePage({
           />
         )}
 
-        {insights.total_count > 0 ? (
+        {trajectory ? (
+          <section className="rounded-[24px] bg-panel p-5" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+            <h2 className="mb-4 font-display text-[30px] uppercase leading-none">Trayectoria a dieciseisavos</h2>
+            <VirtualTrajectoryInsights homeTeam={match.home_team} awayTeam={match.away_team} data={trajectory} />
+          </section>
+        ) : insights.total_count > 0 ? (
           <div className="grid gap-5">
             <section className="rounded-[24px] bg-panel p-5" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
               <div className="mb-4 flex flex-wrap items-end justify-between gap-3">

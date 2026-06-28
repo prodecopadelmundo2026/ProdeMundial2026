@@ -19,6 +19,8 @@ import {
 } from '@/lib/prediction-insights'
 import { computeFifaAllStandings, computeFifaBestThirds } from '@/lib/fifa-standings'
 import { getOfficialRoundOf32State, getTournamentVisibleMatches } from '@/lib/tournament-state'
+import { getVirtualMatchTrajectoryInsights } from '@/lib/public-prediction-data'
+import { VirtualTrajectoryInsights } from '@/components/VirtualTrajectoryInsights'
 
 export const dynamic = 'force-dynamic'
 
@@ -374,7 +376,7 @@ export default async function HomePage() {
       .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0]
     ?? allUpcoming.find((match) => match.status !== 'finished')
     ?? null
-  const { data: nextMatchStatsRows } = nextMatch
+  const { data: nextMatchStatsRows } = nextMatch && !nextMatch.id.startsWith('virtual-p')
   ? await supabase.rpc('get_match_prediction_insights', {
       p_match_id: nextMatch.id,
     })
@@ -383,6 +385,9 @@ export default async function HomePage() {
 const nextMatchStatsRow = Array.isArray(nextMatchStatsRows) ? nextMatchStatsRows[0] : null
 
 const nextMatchStats = normalizePredictionInsights(nextMatchStatsRow)
+const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
+  ? await getVirtualMatchTrajectoryInsights(visibleTournamentMatches, nextMatch.id)
+  : null
 
   const liveRankColors: Record<number, string> = { 1: '#FFE040', 2: '#D7DADF', 3: '#E8A87C' }
   const liveRankingMode = metrics.ranking_mode ?? getRankingMode(metrics.finished_matches_count)
@@ -554,7 +559,14 @@ const nextMatchStats = normalizePredictionInsights(nextMatchStatsRow)
 
               <div className="rounded-[18px] bg-[#0A0A0A] p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
                 <p className="font-extrabold text-white">Cómo lo pronosticaron</p>
-                {nextMatch && nextMatchStats.total_count > 0 ? (
+                {nextMatch && nextMatchTrajectory ? (
+                  <VirtualTrajectoryInsights
+                    homeTeam={nextMatch.home_team}
+                    awayTeam={nextMatch.away_team}
+                    data={nextMatchTrajectory}
+                    compact
+                  />
+                ) : nextMatch && nextMatchStats.total_count > 0 ? (
                   <div className="mt-4 grid gap-4">
                     <PredictionBar
                       label={`Gana ${nextMatch.home_team}`}

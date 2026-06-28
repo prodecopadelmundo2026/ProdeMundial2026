@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getSupabaseConfig, isSupabaseConfigured } from './src/lib/supabase/env'
 
-const PUBLIC_PATHS = ['/', '/login', '/auth/', '/ranking', '/reglas', '/premios', '/fixture', '/maintenance']
+const PUBLIC_PATHS = ['/', '/login', '/auth/', '/ranking', '/reglas', '/premios', '/fixture', '/pronosticos', '/mundial-en-vivo', '/maintenance']
 const MAINTENANCE_ALLOWED_PATHS = ['/login', '/auth/', '/maintenance']
 
 function isPublic(pathname: string) {
@@ -136,6 +136,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|json)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|json|mp3|mp4|webm|wav|ogg|woff|woff2|ttf)$).*)',
   ],
 }

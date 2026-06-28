@@ -9,8 +9,10 @@ import {
   formatPickedResult,
   percent,
   statusLabel,
+  stageLabel,
   type PredictionMatchCardData,
 } from '@/lib/prediction-insights'
+import { VirtualTrajectoryInsights } from '@/components/VirtualTrajectoryInsights'
 
 type Filter = 'all' | 'upcoming' | 'live' | 'finished'
 
@@ -103,7 +105,7 @@ function MatchPredictionCard({ match }: { match: PredictionMatchCardData }) {
               {statusLabel(match.status)}
             </span>
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
-              {match.stage === 'group' && match.group ? `Grupo ${match.group}` : match.stage}
+              {stageLabel(match.stage, match.group)}
             </span>
           </div>
           <h2 className="font-display text-[clamp(24px,4vw,38px)] uppercase leading-none tracking-[-0.02em]">
@@ -121,7 +123,11 @@ function MatchPredictionCard({ match }: { match: PredictionMatchCardData }) {
         </div>
       </div>
 
-      {match.insights.total_count > 0 ? (
+      {match.trajectory ? (
+        <div className="mt-5 rounded-[14px] bg-[#0A0A0A] p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+          <VirtualTrajectoryInsights homeTeam={match.home_team} awayTeam={match.away_team} data={match.trajectory} compact />
+        </div>
+      ) : match.insights.total_count > 0 ? (
         <div className="mt-5 grid gap-5 min-[920px]:grid-cols-[1fr_0.9fr]">
           <div className="grid gap-3">
             <MiniBar label={`Gana ${match.home_team}`} value={match.insights.home_count} total={match.insights.total_count} color="#A8F0D8" />

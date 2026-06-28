@@ -100,7 +100,9 @@ export function MiProdeTabs({
   initialSpecialBetsExists,
 }: Props) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<TabId>('grupos')
+  const [activeTab, setActiveTab] = useState<TabId>(() =>
+    getOfficialRoundOf32State([...groupMatches, ...knockoutMatches]).officialBracketReady ? 'llave' : 'grupos'
+  )
   const [bracketClearSignal, setBracketClearSignal] = useState<{ version: number; stages: string[] }>({
     version: 0,
     stages: [],
@@ -1107,7 +1109,6 @@ export function MiProdeTabs({
             </div>
           </details>
         )}
-        <BestThirdsComparison predicted={predictedBestThirds} official={officialBestThirds} />
         <p className="text-[11px] font-medium mb-4 px-1" style={{ color: '#3e3a35' }}>
           Tu bracket según tus pronósticos de grupos y eliminatorias. Vista de solo lectura.
         </p>
@@ -1135,6 +1136,9 @@ export function MiProdeTabs({
             />
           </div>
         )}
+        <div className="mt-8">
+          <BestThirdsComparison predicted={predictedBestThirds} official={officialBestThirds} />
+        </div>
       </div>
       <div className={activeTab === 'especiales' ? 'page-fade' : undefined} style={{ display: activeTab === 'especiales' ? undefined : 'none' }}>
         <SpecialsTab initialValues={initialSpecialBets} initialRowExists={initialSpecialBetsExists} readOnly={prodeLocked} />

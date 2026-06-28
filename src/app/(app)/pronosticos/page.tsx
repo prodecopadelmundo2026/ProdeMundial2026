@@ -1,23 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Match } from '@/types'
-import {
-  normalizePredictionInsights,
-  type PredictionMatchCardData,
-  type PredictionInsights,
-} from '@/lib/prediction-insights'
+import { emptyPredictionInsights, type PredictionMatchCardData } from '@/lib/prediction-insights'
 import { formatMatchKickoffArgentina } from '@/lib/match-datetime'
 import { PronosticosList } from './PronosticosList'
 import { getTournamentVisibleMatches } from '@/lib/tournament-state'
+import { getPredictionInsightsByMatch, getVirtualMatchTrajectoryInsights } from '@/lib/public-prediction-data'
 
 export const dynamic = 'force-dynamic'
-
-async function getInsightsForMatch(matchId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { data } = await supabase.rpc('get_match_prediction_insights', {
-    p_match_id: matchId,
-  })
-
-  return normalizePredictionInsights((Array.isArray(data) ? data[0] : null) as Partial<PredictionInsights> | null)
-}
 
 export default async function PronosticosPage() {
   const supabase = await createClient()
@@ -41,8 +30,14 @@ export default async function PronosticosPage() {
   }
 
   const matches = getTournamentVisibleMatches((data ?? []) as Match[])
-  const cards: PredictionMatchCardData[] = await Promise.all(
-    matches.map(async (match) => ({
+  const insightsByMatch = await getPredictionInsightsByMatch()
+  const trajectoryEntries = await Promise.all(
+    matches
+      .filter((match) => match.id.startsWith('virtual-p') && match.stage === 'round_of_32')
+      .map(async (match) => [match.id, await getVirtualMatchTrajectoryInsights(matches, match.id)] as const)
+  )
+  const trajectoryByMatch = Object.fromEntries(trajectoryEntries)
+  const cards: PredictionMatchCardData[] = matches.map((match) => ({
       id: match.id,
       home_team: match.home_team,
       away_team: match.away_team,
@@ -53,9 +48,9 @@ export default async function PronosticosPage() {
       status: match.status,
       stage: match.stage,
       group: match.group,
-      insights: await getInsightsForMatch(match.id, supabase),
+      insights: insightsByMatch[match.id] ?? emptyPredictionInsights(),
+      trajectory: trajectoryByMatch[match.id] ?? null,
     }))
-  )
 
   return (
     <div style={{ padding: '40px 20px 80px' }}>

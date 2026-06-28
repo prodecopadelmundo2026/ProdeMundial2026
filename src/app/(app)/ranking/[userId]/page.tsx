@@ -1553,6 +1553,11 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                         <p className="mb-2 text-[12px] font-extrabold uppercase tracking-[0.1em] text-white">
                           Cruces completos acertados: {roundOf32Crossings.filter((crossing) => crossing.correct).length} de 16
                         </p>
+                        {roundOf32Crossings.every((crossing) => !crossing.correct) && (
+                          <p className="mb-3 text-[12px] font-semibold text-muted">
+                            No acertó ningún cruce exacto de dieciseisavos.
+                          </p>
+                        )}
                         <div className="grid gap-2 sm:grid-cols-2">
                           {roundOf32Crossings.map((crossing) => (
                             <div

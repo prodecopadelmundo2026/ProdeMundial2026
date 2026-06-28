@@ -7,8 +7,6 @@ import {
   formatMatchKickoffArgentina,
   getMatchProductOrderKey,
 } from '@/lib/match-datetime'
-import { buildRoundOf32BonusLedger, summarizeKnockoutBonus } from '@/lib/knockout-bonus'
-import { getOfficialRoundOf32State } from '@/lib/tournament-state'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,59 +30,7 @@ type PublicHomeMetrics = {
   ranking_mode?: RankingMode
 }
 
-type PublicPredictionDetail = {
-  predictions?: Prediction[]
-  tiebreakers?: Array<{ user_id: string; tiebreaker_key: string; team: string }>
-}
-
-async function applyRoundOf32Bonuses(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  entries: PublicRankingRow[],
-  matches: Match[]
-) {
-  if (!getOfficialRoundOf32State(matches).officialBracketReady) return entries
-  const details = await Promise.all(entries.map(async (entry) => {
-    if (!entry.user_id) return { entry, bonus: 0 }
-    const { data, error } = await supabase.rpc('get_public_prediction_detail', { p_user_id: entry.user_id })
-    if (error) return { entry, bonus: 0 }
-    const detail = (data ?? {}) as PublicPredictionDetail
-    const predictionMap = Object.fromEntries(
-      (detail.predictions ?? []).map((prediction) => [
-        prediction.match_id,
-        { home_score: prediction.home_score, away_score: prediction.away_score },
-      ])
-    )
-    const tiebreakers = Object.fromEntries(
-      (detail.tiebreakers ?? [])
-        .filter((row) => row.user_id === entry.user_id && (row.tiebreaker_key.startsWith('Grupo ') || row.tiebreaker_key.startsWith('3rd-')))
-        .map((row) => [row.tiebreaker_key, row.team])
-    )
-    const bonus = summarizeKnockoutBonus(buildRoundOf32BonusLedger({
-      userId: entry.user_id,
-      matches,
-      predictionMap,
-      historicalTiebreakers: tiebreakers,
-    })).points
-    return { entry, bonus }
-  }))
-  const enriched = details.map(({ entry, bonus }) => ({
-    ...entry,
-    base_points: entry.total_points,
-    trajectory_bonus: bonus,
-    total_points: entry.total_points + bonus,
-  }))
-  for (const status of ['confirmed', 'trial'] as const) {
-    const scoped = enriched
-      .filter((entry) => entry.participant_status === status)
-      .sort((a, b) => b.total_points - a.total_points || (b.exact_predictions ?? 0) - (a.exact_predictions ?? 0))
-    scoped.forEach((entry, index) => {
-      entry.rank = index > 0 && entry.total_points === scoped[index - 1].total_points
-        ? scoped[index - 1].rank
-        : index + 1
-    })
-  }
-  return enriched
-}
+type PublicPredictionDetail = { predictions?: Prediction[] }
 
 type PodiumPredictionPreview = {
   match: {
@@ -172,7 +118,7 @@ async function getPodiumPredictionPreview({
 export default async function RankingPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const [{ data, error }, { data: metricsData, error: metricsError }, nextMatchResult, allMatchesResult] = await Promise.all([
+  const [{ data, error }, { data: metricsData, error: metricsError }, nextMatchResult] = await Promise.all([
     supabase.rpc('get_public_ranking'),
     supabase.rpc('get_public_home_metrics'),
     supabase
@@ -180,7 +126,6 @@ export default async function RankingPage() {
       .select('*')
       .neq('status', 'finished')
       .order('scheduled_at', { ascending: true }),
-    supabase.from('matches').select('*'),
   ])
 
   if (error) throw error
@@ -191,11 +136,9 @@ export default async function RankingPage() {
     participant_status: entry.participant_status,
     prode_status: entry.prode_status,
   }))
-  const entries = await applyRoundOf32Bonuses(
-    supabase,
-    baseEntries,
-    (allMatchesResult.data ?? []) as Match[]
-  )
+  // P0: el ranking general usa el RPC agregado. La auditoría de trayectoria
+  // por usuario vive en /ranking/[userId]; no hacemos un RPC por participante.
+  const entries = baseEntries
   const metricsRows = metricsData as PublicHomeMetrics[] | null
   const metrics = Array.isArray(metricsRows) ? metricsRows[0] : metricsRows
   const rankingMode = metrics?.ranking_mode ?? getRankingMode(metrics?.finished_matches_count)
