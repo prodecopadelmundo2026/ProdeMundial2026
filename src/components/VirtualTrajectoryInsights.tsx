@@ -2,7 +2,15 @@ import type {
   VirtualMatchTrajectoryInsights,
   VirtualTrajectoryParticipant,
 } from '@/lib/public-prediction-data'
-import { getTeam } from '@/lib/teams'
+import { flagUrl, getTeam } from '@/lib/teams'
+
+function TeamFlag({ team }: { team: string }) {
+  const meta = getTeam(team)
+  return meta.iso2 ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={flagUrl(meta.iso2)} alt="" className="inline-block h-[14px] w-[20px] rounded-sm object-cover align-[-2px]" />
+  ) : <span>{meta.flag}</span>
+}
 
 function compactNames(items: VirtualTrajectoryParticipant[], limit = 3) {
   if (!items.length) return 'Nadie'
@@ -47,14 +55,14 @@ function PredictionLine({
 }) {
   const prediction = participant.prediction
   if (!prediction) {
-    return <p className="mt-2 text-[11px] font-semibold text-muted">Pronóstico de resultado no disponible en esta vista.</p>
+    return <p className="mt-2 text-[11px] font-semibold text-muted">Resultado no cargado para este cruce.</p>
   }
   return (
-    <div className="mt-3 grid gap-1 text-[11px] font-semibold text-[#d7d7d7]">
-      <p>Pronóstico: {homeTeam} {prediction.homeScore} - {prediction.awayScore} {awayTeam}</p>
-      <p className="text-mint">
-        {prediction.classifiedTeam ? `Clasifica ${prediction.classifiedTeam}` : 'Clasificado no definido'}
-      </p>
+    <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] font-bold text-[#ededed]">
+      <TeamFlag team={homeTeam} />
+      <span>{homeTeam} {prediction.homeScore} - {prediction.awayScore} {awayTeam}</span>
+      <TeamFlag team={awayTeam} />
+      {prediction.classifiedTeam && <span className="text-mint">· clasifica {prediction.classifiedTeam}</span>}
     </div>
   )
 }
@@ -87,8 +95,8 @@ export function VirtualTrajectoryInsights({
         </div>
         <div className="grid gap-1.5 text-[11px] font-semibold leading-relaxed text-muted">
           <p><strong className="text-orange">Ambos, en otro cruce:</strong> {compactNames(data.bothTeamsOtherCrossing)}</p>
-          <p><strong className="text-mint">{getTeam(homeTeam).flag} Solo {homeTeam}:</strong> {compactNames(data.homeTeamOnly)}</p>
-          <p><strong className="text-mint">{getTeam(awayTeam).flag} Solo {awayTeam}:</strong> {compactNames(data.awayTeamOnly)}</p>
+          <p><strong className="text-mint"><TeamFlag team={homeTeam} /> Solo {homeTeam}:</strong> {compactNames(data.homeTeamOnly)}</p>
+          <p><strong className="text-mint"><TeamFlag team={awayTeam} /> Solo {awayTeam}:</strong> {compactNames(data.awayTeamOnly)}</p>
         </div>
       </div>
     )
@@ -124,12 +132,12 @@ export function VirtualTrajectoryInsights({
           <ParticipantChips items={data.bothTeamsOtherCrossing} points={2} />
         </section>
         <section className="rounded-[15px] bg-[#101010] p-4" style={{ border: '1px solid rgba(168,240,216,0.16)' }}>
-          <p className="text-[12px] font-extrabold text-white">{getTeam(homeTeam).flag} Solo acertaron a {homeTeam}</p>
+          <p className="text-[12px] font-extrabold text-white"><TeamFlag team={homeTeam} /> Solo acertaron a {homeTeam}</p>
           <p className="mb-3 mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-mint">+1 trayectoria</p>
           <ParticipantChips items={data.homeTeamOnly} points={1} />
         </section>
         <section className="rounded-[15px] bg-[#101010] p-4" style={{ border: '1px solid rgba(168,240,216,0.16)' }}>
-          <p className="text-[12px] font-extrabold text-white">{getTeam(awayTeam).flag} Solo acertaron a {awayTeam}</p>
+          <p className="text-[12px] font-extrabold text-white"><TeamFlag team={awayTeam} /> Solo acertaron a {awayTeam}</p>
           <p className="mb-3 mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-mint">+1 trayectoria</p>
           <ParticipantChips items={data.awayTeamOnly} points={1} />
         </section>

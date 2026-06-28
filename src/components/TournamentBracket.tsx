@@ -64,6 +64,7 @@ export interface TournamentBracketProps {
   officialGroupResolution?: 'complete' | 'current'
   /** Equipos que el usuario acertó que clasificaban a 16avos: muestran +1 en la columna D16. */
   roundOf32AwardedTeams?: Set<string>
+  roundOf32ExactCrossings?: Set<number>
 }
 
 // Visual bracket order: D32 positions 0-15 (top to bottom)
@@ -404,7 +405,7 @@ function BracketCard({
   homeScore?: number
   awayScore?: number
   winner?: string | null
-  auditStatus?: 'correct' | 'wrong' | 'pending'
+  auditStatus?: 'correct' | 'wrong' | 'pending' | 'exact-crossing'
   homeStatus?: BracketTeamStatus
   awayStatus?: BracketTeamStatus
   homeBonus?: boolean
@@ -417,6 +418,7 @@ function BracketCard({
   const awayWon  = !isPHAway && winner === awayTeam
 
   const borderColor =
+    auditStatus === 'exact-crossing' ? 'rgba(255,176,0,0.9)' :
     auditStatus === 'correct' ? 'rgba(168,240,216,0.35)' :
     auditStatus === 'wrong'   ? 'rgba(255,59,59,0.35)'   :
     'rgba(255,255,255,0.09)'
@@ -427,7 +429,7 @@ function BracketCard({
       height: CARD_H,
       border: `1px solid ${borderColor}`,
       borderRadius: 7,
-      background: '#0c0c0c',
+      background: auditStatus === 'exact-crossing' ? 'linear-gradient(135deg,rgba(255,176,0,.16),#0c0c0c 70%)' : '#0c0c0c',
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
@@ -583,6 +585,7 @@ export function TournamentBracket({
   tiebreakerMap = {},
   officialGroupResolution = 'complete',
   roundOf32AwardedTeams,
+  roundOf32ExactCrossings,
 }: TournamentBracketProps) {
   const officialGroupPredMap  = buildOfficialGroupScoreMap(groupMatches)
   const officialKoDisplayMap  = buildScoreMap(knockoutMatches, ['finished', 'live'])
@@ -841,6 +844,7 @@ export function TournamentBracket({
 
   function renderCard(pNum: number, top: number, left: number) {
     const d = getMatchData(pNum)
+    const exactCrossing = pNum >= 73 && pNum <= 88 && roundOf32ExactCrossings?.has(pNum)
     const showBonus = mode !== 'official' && pNum <= 88 && roundOf32AwardedTeams != null
     const homeBonus = showBonus && !isPlaceholderName(d.homeTeam) && roundOf32AwardedTeams!.has(d.homeTeam)
     const awayBonus = showBonus && !isPlaceholderName(d.awayTeam) && roundOf32AwardedTeams!.has(d.awayTeam)
@@ -852,7 +856,7 @@ export function TournamentBracket({
           homeScore={d.homeScore}
           awayScore={d.awayScore}
           winner={d.winner}
-          auditStatus={d.auditStatus}
+          auditStatus={exactCrossing ? 'exact-crossing' : d.auditStatus}
           homeStatus={d.homeStatus}
           awayStatus={d.awayStatus}
           homeBonus={homeBonus}

@@ -19,7 +19,7 @@ import {
 } from '@/lib/prediction-insights'
 import { computeFifaAllStandings, computeFifaBestThirds } from '@/lib/fifa-standings'
 import { getOfficialRoundOf32State, getTournamentVisibleMatches } from '@/lib/tournament-state'
-import { getVirtualMatchTrajectoryInsights } from '@/lib/public-prediction-data'
+import { addConfirmedTrajectoryToRanking, getVirtualMatchTrajectoryInsights } from '@/lib/public-prediction-data'
 import { VirtualTrajectoryInsights } from '@/components/VirtualTrajectoryInsights'
 
 export const dynamic = 'force-dynamic'
@@ -359,7 +359,10 @@ export default async function HomePage() {
     alive_teams_count: countAliveTeams(allTournamentMatches),
   }
 
-  const typedPublicRanking = (publicRanking ?? []) as RankingEntry[]
+  const typedPublicRanking = await addConfirmedTrajectoryToRanking(
+    (publicRanking ?? []) as RankingEntry[],
+    allTournamentMatches
+  )
   const typedTopRanking = typedPublicRanking
     .filter((entry) => entry.participant_status !== 'trial')
     .slice(0, 10)

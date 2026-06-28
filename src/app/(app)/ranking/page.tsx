@@ -7,6 +7,7 @@ import {
   formatMatchKickoffArgentina,
   getMatchProductOrderKey,
 } from '@/lib/match-datetime'
+import { addConfirmedTrajectoryToRanking } from '@/lib/public-prediction-data'
 
 export const dynamic = 'force-dynamic'
 
@@ -124,7 +125,6 @@ export default async function RankingPage() {
     supabase
       .from('matches')
       .select('*')
-      .neq('status', 'finished')
       .order('scheduled_at', { ascending: true }),
   ])
 
@@ -138,7 +138,10 @@ export default async function RankingPage() {
   }))
   // P0: el ranking general usa el RPC agregado. La auditoría de trayectoria
   // por usuario vive en /ranking/[userId]; no hacemos un RPC por participante.
-  const entries = baseEntries
+  const entries = await addConfirmedTrajectoryToRanking(
+    baseEntries,
+    (nextMatchResult.data ?? []) as Match[]
+  )
   const metricsRows = metricsData as PublicHomeMetrics[] | null
   const metrics = Array.isArray(metricsRows) ? metricsRows[0] : metricsRows
   const rankingMode = metrics?.ranking_mode ?? getRankingMode(metrics?.finished_matches_count)
@@ -148,7 +151,9 @@ export default async function RankingPage() {
   }
   const orderedMatches = nextMatchResult.error
     ? []
-    : ((nextMatchResult.data ?? []) as Match[]).sort(compareMatchesByProductScheduleAsc)
+    : ((nextMatchResult.data ?? []) as Match[])
+        .filter((match) => match.status !== 'finished')
+        .sort(compareMatchesByProductScheduleAsc)
   const nextSlotKey = orderedMatches[0] ? getMatchProductOrderKey(orderedMatches[0].scheduled_at) : null
   const nextMatches = nextSlotKey == null
     ? []

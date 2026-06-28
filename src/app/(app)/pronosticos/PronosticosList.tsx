@@ -13,6 +13,15 @@ import {
   type PredictionMatchCardData,
 } from '@/lib/prediction-insights'
 import { VirtualTrajectoryInsights } from '@/components/VirtualTrajectoryInsights'
+import { flagUrl, getTeam } from '@/lib/teams'
+
+function TeamFlag({ team }: { team: string }) {
+  const meta = getTeam(team)
+  return meta.iso2 ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={flagUrl(meta.iso2)} alt="" className="inline-block h-[22px] w-[30px] rounded-sm object-cover" />
+  ) : <span>{meta.flag}</span>
+}
 
 type Filter = 'all' | 'upcoming' | 'live' | 'finished'
 
@@ -108,8 +117,8 @@ function MatchPredictionCard({ match }: { match: PredictionMatchCardData }) {
               {stageLabel(match.stage, match.group)}
             </span>
           </div>
-          <h2 className="font-display text-[clamp(24px,4vw,38px)] uppercase leading-none tracking-[-0.02em]">
-            {match.home_team} <span className="text-orange">vs</span> {match.away_team}
+          <h2 className="flex flex-wrap items-center gap-2 font-display text-[clamp(24px,4vw,38px)] uppercase leading-none tracking-[-0.02em]">
+            <TeamFlag team={match.home_team} /> {match.home_team} <span className="text-orange">vs</span> <TeamFlag team={match.away_team} /> {match.away_team}
           </h2>
           <p className="mt-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
             {isScored && match.home_score != null && match.away_score != null
@@ -118,8 +127,14 @@ function MatchPredictionCard({ match }: { match: PredictionMatchCardData }) {
           </p>
         </div>
         <div className="rounded-[16px] bg-[#0A0A0A] px-4 py-3 text-right" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-          <p className="font-display text-[30px] leading-none">{match.insights.total_count}</p>
-          <p className="font-mono text-[9px] font-extrabold uppercase tracking-[0.16em] text-muted">Cargados</p>
+          <p className="font-display text-[30px] leading-none">
+            {match.trajectory ? match.trajectory.exactCrossing.length : match.insights.total_count}
+          </p>
+          <p className="font-mono text-[9px] font-extrabold uppercase tracking-[0.16em] text-muted">
+            {match.trajectory
+              ? match.trajectory.exactCrossing.length === 1 ? 'Cruce exacto' : 'Cruces exactos'
+              : 'Cargados'}
+          </p>
         </div>
       </div>
 

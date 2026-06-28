@@ -4,11 +4,13 @@ import type { Match } from '@/types'
 import { FixtureList } from './FixtureList'
 import { compareMatchesByProductScheduleAsc, compareMatchesByProductScheduleDesc } from '@/lib/match-datetime'
 import { getTournamentVisibleMatches } from '@/lib/tournament-state'
+import { TournamentBracket } from '@/components/TournamentBracket'
+import { buildProjectedKnockoutMatches } from '@/lib/bracket'
 
 type FixtureMatchesFilter = 'current' | 'live' | 'upcoming' | 'finished' | 'all'
 
 type FixturePageProps = {
-  searchParams: Promise<{ matches?: string }>
+  searchParams: Promise<{ matches?: string; view?: string }>
 }
 
 function sortByScheduleAsc(items: Match[]) {
@@ -55,7 +57,7 @@ function fixtureMatchesSummary(filter: FixtureMatchesFilter, matches: Match[]) {
 }
 
 export default async function FixturePage({ searchParams }: FixturePageProps) {
-  const { matches: rawMatchesFilter } = await searchParams
+  const { matches: rawMatchesFilter, view } = await searchParams
   const fixtureMatchesFilter = resolveFixtureMatchesFilter(rawMatchesFilter)
   const supabase = await createClient()
 
@@ -79,6 +81,9 @@ export default async function FixturePage({ searchParams }: FixturePageProps) {
   }
 
   const matches = getTournamentVisibleMatches((matchesResult.data ?? []) as Match[])
+  const showBracket = view === 'bracket'
+  const groupMatches = matches.filter((match) => match.stage === 'group')
+  const knockoutMatches = buildProjectedKnockoutMatches(matches.filter((match) => match.stage !== 'group'))
   const visibleMatches = buildFixtureMatches(matches, fixtureMatchesFilter)
   const fixtureFilterOptions: Array<{ value: FixtureMatchesFilter; label: string }> = [
     { value: 'current', label: 'Actuales / próximos' },
@@ -133,7 +138,18 @@ export default async function FixturePage({ searchParams }: FixturePageProps) {
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
-            {fixtureFilterOptions.map((option) => {
+            <Link
+              href={showBracket ? '/fixture' : '/fixture?view=bracket'}
+              className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase transition-colors duration-150"
+              style={{
+                background: showBracket ? '#FF6B00' : '#141414',
+                color: showBracket ? '#0A0A0A' : '#cfcfcf',
+                border: showBracket ? '1px solid #FF6B00' : '1px solid rgba(255,255,255,0.1)',
+              }}
+            >
+              {showBracket ? 'Ver lista' : 'Ver cuadro'}
+            </Link>
+            {!showBracket && fixtureFilterOptions.map((option) => {
               const active = option.value === fixtureMatchesFilter
               const href = option.value === 'current' ? '/fixture' : `/fixture?matches=${option.value}`
               return (
@@ -154,7 +170,22 @@ export default async function FixturePage({ searchParams }: FixturePageProps) {
           </div>
         </div>
 
-        <FixtureList key={fixtureMatchesFilter} matches={visibleMatches} allMatches={matches} />
+        {showBracket ? (
+          <section className="overflow-hidden rounded-[20px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div className="mb-4">
+              <p className="text-[14px] font-extrabold text-white">Cuadro oficial de eliminatorias</p>
+              <p className="mt-1 text-[12px] font-semibold text-muted">Deslizá horizontalmente en pantallas chicas para recorrer la llave completa.</p>
+            </div>
+            <TournamentBracket
+              mode="official"
+              groupMatches={groupMatches}
+              knockoutMatches={knockoutMatches}
+              officialGroupResolution="complete"
+            />
+          </section>
+        ) : (
+          <FixtureList key={fixtureMatchesFilter} matches={visibleMatches} allMatches={matches} />
+        )}
       </div>
     </div>
   )

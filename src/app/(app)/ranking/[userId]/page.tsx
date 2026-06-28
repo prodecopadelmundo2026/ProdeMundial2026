@@ -13,6 +13,7 @@ import { buildProjectedKnockoutMatches, computeBestThirdsTable, KNOCKOUT_FIXTURE
 import { TournamentBracket } from '@/components/TournamentBracket'
 import { GroupStandingsTables, type GroupTableSection } from '@/components/GroupStandingsTables'
 import { flagUrl, getTeam } from '@/lib/teams'
+import { addConfirmedTrajectoryToRanking } from '@/lib/public-prediction-data'
 import { buildGroupTableRows, buildOfficialGroupScoreMap } from '@/lib/group-standings'
 import { formatMatchDateTimeArgentina, formatMatchDayKeyArgentina } from '@/lib/match-datetime'
 import { buildRoundOf32BonusLedger, buildRoundOf32CrossingAudit, getHistoricalPredictedRoundOf32Teams, summarizeKnockoutBonus } from '@/lib/knockout-bonus'
@@ -1247,11 +1248,14 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     if (!tiebreakersByUser.has(row.user_id)) tiebreakersByUser.set(row.user_id, {})
     tiebreakersByUser.get(row.user_id)![row.tiebreaker_key] = row.team
   }
-  const rankingEntries = buildAuditedRankingEntries(
-    typedMatches,
-    allTypedPredictions,
-    participantRows,
-    tiebreakersByUser
+  const rankingEntries = await addConfirmedTrajectoryToRanking(
+    buildAuditedRankingEntries(
+      typedMatches,
+      allTypedPredictions,
+      participantRows,
+      tiebreakersByUser
+    ),
+    typedMatches
   )
   const entry = rankingEntries.find((rankingEntry) => rankingEntry.user_id === userId)
   if (!entry) notFound()
@@ -1339,7 +1343,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     BEST_THIRDS_PENDING: 'falta resolver el orden de los mejores terceros',
     ANNEX_C_PENDING: 'falta asignar los mejores terceros a las llaves (Anexo C)',
   }
-  const totalWithTrajectory = entry.total_points + trajectoryBonus.points
+  const totalWithTrajectory = entry.total_points
   const viewerTiebreakerMap = user ? tiebreakersByUser.get(user.id) ?? {} : {}
   const userBracketTiebreakerMap = {
     ...userTiebreakerMap,
@@ -1425,7 +1429,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
               value={`${rankMedal(entry.rank, entry.total_points) ? `${rankMedal(entry.rank, entry.total_points)} ` : ''}${formatRank(entry, rankingEntries)}`}
               color={RANK_COLOR[entry.rank]}
             />
-            <SummaryBox label="Puntos base" value={entry.total_points} />
+            <SummaryBox label="Puntos base" value={entry.base_points ?? entry.total_points - trajectoryBonus.points} />
             <SummaryBox label="Bonus trayectoria" value={`+${trajectoryBonus.points}`} />
             <SummaryBox label="Total" value={totalWithTrajectory} />
             <SummaryLink label="Exactas" value={statusCount(auditRows, 'exact')} href={filterHrefForView(userId, activeView, 'exact', activeResult, activeView === 'knockout' ? activeKnockoutStage : null)} active={activeResult === 'exact'} />
@@ -1524,6 +1528,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                   predMap={predictionMap}
                   tiebreakerMap={userBracketTiebreakerMap}
                   roundOf32AwardedTeams={new Set(trajectoryBonus.awardedTeams)}
+                  roundOf32ExactCrossings={new Set(roundOf32Crossings.filter((crossing) => crossing.correct).map((crossing) => crossing.pNum))}
                 />
               </div>
             </section>
@@ -1565,9 +1570,9 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                               key={crossing.pNum}
                               className="rounded-[10px] px-3 py-2 text-[11px] font-bold"
                               style={{
-                                background: crossing.correct ? 'rgba(168,240,216,0.08)' : 'rgba(255,255,255,0.035)',
-                                border: crossing.correct ? '1px solid rgba(168,240,216,0.2)' : '1px solid rgba(255,255,255,0.07)',
-                                color: crossing.correct ? '#A8F0D8' : '#9a9a9a',
+                                background: crossing.correct ? 'rgba(255,176,0,0.1)' : 'rgba(255,255,255,0.035)',
+                                border: crossing.correct ? '1px solid rgba(255,176,0,0.55)' : '1px solid rgba(255,255,255,0.07)',
+                                color: crossing.correct ? '#FFB000' : '#9a9a9a',
                               }}
                             >
                               P{crossing.pNum}: {crossing.predictedHome} vs {crossing.predictedAway}

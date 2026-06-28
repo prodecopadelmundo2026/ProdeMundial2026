@@ -6,8 +6,10 @@ import {
 } from '@/lib/prediction-insights'
 import type { Match } from '@/types'
 import {
+  buildRoundOf32BonusLedger,
   buildRoundOf32CrossingAudit,
   getHistoricalPredictedRoundOf32Teams,
+  summarizeKnockoutBonus,
 } from '@/lib/knockout-bonus'
 
 type ScoreRow = {
@@ -43,6 +45,18 @@ export type VirtualMatchTrajectoryInsights = {
   bothTeamsOtherCrossing: VirtualTrajectoryParticipant[]
   homeTeamOnly: VirtualTrajectoryParticipant[]
   awayTeamOnly: VirtualTrajectoryParticipant[]
+}
+
+export type RankingWithTrajectoryEntry = {
+  user_id: string | null
+  participant_status?: string
+  total_points: number
+  exact_predictions: number
+  correct_result_predictions: number
+  incorrect_predictions?: number
+  rank: number
+  base_points?: number
+  trajectory_bonus?: number
 }
 
 const loadPhysicalPredictionRows = unstable_cache(
@@ -241,4 +255,82 @@ export async function getVirtualMatchTrajectoryInsights(
     homeTeamOnly: sort(homeTeamOnly),
     awayTeamOnly: sort(awayTeamOnly),
   }
+}
+
+export async function addConfirmedTrajectoryToRanking<T extends RankingWithTrajectoryEntry>(
+  entries: T[],
+  matches: Match[]
+): Promise<T[]> {
+  const rows = await loadTrajectoryRows()
+  const predictionsByUser = new Map<string, Required<ScoreRow>[]>()
+  for (const prediction of rows.predictions) {
+    const bucket = predictionsByUser.get(prediction.user_id) ?? []
+    bucket.push(prediction)
+    predictionsByUser.set(prediction.user_id, bucket)
+  }
+  const tiebreakersByUser = new Map<string, TiebreakerRow[]>()
+  for (const tiebreaker of rows.tiebreakers) {
+    const bucket = tiebreakersByUser.get(tiebreaker.user_id) ?? []
+    bucket.push(tiebreaker)
+    tiebreakersByUser.set(tiebreaker.user_id, bucket)
+  }
+
+  const enriched = entries.map((entry) => {
+    const basePoints = Number(entry.base_points ?? entry.total_points ?? 0)
+    if (!entry.user_id) {
+      return { ...entry, base_points: basePoints, trajectory_bonus: 0, total_points: basePoints }
+    }
+    const predictionMap = Object.fromEntries(
+      (predictionsByUser.get(entry.user_id) ?? []).map((prediction) => [
+        prediction.match_id,
+        { home_score: prediction.home_score, away_score: prediction.away_score },
+      ])
+    )
+    const historicalTiebreakers = Object.fromEntries(
+      (tiebreakersByUser.get(entry.user_id) ?? []).map((row) => [row.tiebreaker_key, row.team])
+    )
+    const bonus = summarizeKnockoutBonus(buildRoundOf32BonusLedger({
+      userId: entry.user_id,
+      matches,
+      predictionMap,
+      historicalTiebreakers,
+    })).points
+    return {
+      ...entry,
+      base_points: basePoints,
+      trajectory_bonus: bonus,
+      total_points: basePoints + bonus,
+    }
+  })
+
+  const byStatus = new Map<string, typeof enriched>()
+  for (const entry of enriched) {
+    const status = entry.participant_status ?? 'confirmed'
+    const bucket = byStatus.get(status) ?? []
+    bucket.push(entry)
+    byStatus.set(status, bucket)
+  }
+  const ranked: typeof enriched = []
+  for (const bucket of byStatus.values()) {
+    bucket.sort((a, b) =>
+      b.total_points - a.total_points ||
+      b.exact_predictions - a.exact_predictions ||
+      b.correct_result_predictions - a.correct_result_predictions ||
+      (a.incorrect_predictions ?? 0) - (b.incorrect_predictions ?? 0)
+    )
+    let rank = 0
+    let previousKey = ''
+    for (const entry of bucket) {
+      const key = `${entry.total_points}:${entry.exact_predictions}:${entry.correct_result_predictions}:${entry.incorrect_predictions ?? 0}`
+      if (key !== previousKey) {
+        rank += 1
+        previousKey = key
+      }
+      ranked.push({ ...entry, rank })
+    }
+  }
+  return ranked.sort((a, b) =>
+    String(a.participant_status ?? '').localeCompare(String(b.participant_status ?? '')) ||
+    a.rank - b.rank
+  ) as T[]
 }

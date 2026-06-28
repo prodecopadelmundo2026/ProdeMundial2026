@@ -93,9 +93,6 @@ function ThirdTeamCell({ name }: { name: string }) {
 }
 
 function BestThirdsTable({ rows }: { rows: FifaBestThirdStanding[] }) {
-  const tiedTeams = findTechnicalTieTeams(rows)
-  const hasOfficialOverride = rows.some((row) => row.officialOrderOverride)
-
   if (rows.length === 0) {
     return (
       <section className="rounded-[20px] bg-[#0d0d0d] p-5" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
@@ -121,14 +118,6 @@ function BestThirdsTable({ rows }: { rows: FifaBestThirdStanding[] }) {
         </span>
       </div>
 
-      {tiedTeams.size > 0 && (
-        <div className="mb-4 rounded-[14px] px-4 py-3 text-[12px] font-bold leading-relaxed" style={{ background: 'rgba(255,224,64,0.08)', border: '1px solid rgba(255,224,64,0.22)', color: '#FFE040' }}>
-          {hasOfficialOverride
-            ? 'Empate técnico resuelto por criterio oficial externo/manual. Las estadísticas permanecen empatadas; el orden oficial ubica a Ghana sobre Ecuador.'
-            : 'Empate técnico / desempate pendiente: hay equipos igualados en puntos, diferencia de gol y goles a favor.'}
-        </div>
-      )}
-
       <div className="overflow-x-auto">
         <div className="min-w-[680px]">
           <div className="grid grid-cols-[48px_minmax(180px,1fr)_70px_repeat(4,52px)_170px] items-center gap-2 rounded-[10px] bg-[#0A0A0A] px-3 py-2 font-mono text-[9px] font-extrabold uppercase tracking-[0.1em] text-muted">
@@ -144,7 +133,6 @@ function BestThirdsTable({ rows }: { rows: FifaBestThirdStanding[] }) {
           <div className="mt-2 grid gap-1.5">
             {rows.map((row, index) => {
               const status = thirdStatus(row, index)
-              const hasTie = tiedTeams.has(`${row.group}-${row.name}`)
               return (
                 <div
                   key={`${row.group}-${row.name}`}
@@ -165,11 +153,6 @@ function BestThirdsTable({ rows }: { rows: FifaBestThirdStanding[] }) {
                     <span className="truncate rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.08em]" style={{ background: status.bg, border: `1px solid ${status.border}`, color: status.color }}>
                       {status.label}
                     </span>
-                    {hasTie && (
-                      <span className="shrink-0 rounded-full px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.08em]" style={{ background: 'rgba(255,224,64,0.08)', border: '1px solid rgba(255,224,64,0.2)', color: '#FFE040' }}>
-                        {row.officialOrderOverride ? 'Orden oficial' : 'Empate'}
-                      </span>
-                    )}
                   </div>
                 </div>
               )
@@ -311,10 +294,6 @@ export default async function MundialEnVivoPage() {
           <Metric label="Finalizados" value={finishedCounted} tone="done" />
         </div>
 
-        <div className="mb-5 rounded-[16px] px-4 py-3 text-[12px] font-bold leading-relaxed" style={{ background: 'rgba(255,177,92,0.08)', border: '1px solid rgba(255,177,92,0.2)', color: '#FFB15C' }}>
-          Las posiciones son provisorias mientras haya partidos en vivo o desempates pendientes. Los puestos 1 y 2 clasifican directo; el 3 compite como mejor tercero; el 4 queda afuera por ahora.
-        </div>
-
         <div className="mb-5 flex flex-wrap gap-2">
           <a href="#grupos-reales" className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase transition-colors" style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.1)' }}>
             Ver grupos
@@ -334,23 +313,27 @@ export default async function MundialEnVivoPage() {
         </div>
 
         <div className="grid gap-5">
-          <div id="grupos-reales" className="scroll-mt-24">
-          <GroupStandingsTables
-            title="Tablas reales de grupos"
-            subtitle="Calculadas con partidos finalizados y partidos en vivo que ya tienen ambos goles cargados. Los próximos sin resultado no cuentan."
-            sections={tableSections}
-            controls={false}
-          />
-          </div>
-          <div id="mejores-terceros" className="scroll-mt-24">
-          <BestThirdsTable rows={bestThirds} />
-          </div>
           <LiveBracketSection
             groupMatches={groupMatches}
             knockoutMatches={knockoutMatches}
             hasAnyGroupResult={hasAnyGroupResult}
             officialBracketReady={roundOf32State.officialBracketReady}
           />
+          <details id="mejores-terceros" className="scroll-mt-24 rounded-[20px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+            <summary className="cursor-pointer text-[14px] font-extrabold text-white">Ver mejores terceros</summary>
+            <div className="mt-4"><BestThirdsTable rows={bestThirds} /></div>
+          </details>
+          <details id="grupos-reales" className="scroll-mt-24 rounded-[20px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+            <summary className="cursor-pointer text-[14px] font-extrabold text-white">Ver tablas finales de grupos</summary>
+            <div className="mt-4">
+              <GroupStandingsTables
+                title="Tablas finales de grupos"
+                subtitle="Posiciones oficiales de la fase de grupos."
+                sections={tableSections}
+                controls={false}
+              />
+            </div>
+          </details>
         </div>
       </div>
     </div>
