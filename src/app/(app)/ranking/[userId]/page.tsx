@@ -9,13 +9,16 @@ import {
 } from '@/lib/ranking-audit'
 import type { Match, Prediction } from '@/types'
 import { formatRank, rankMedal } from '@/lib/ranking-display'
-import { buildProjectedKnockoutMatches, KNOCKOUT_FIXTURES } from '@/lib/bracket'
+import { buildProjectedKnockoutMatches, computeBestThirdsTable, KNOCKOUT_FIXTURES } from '@/lib/bracket'
 import { TournamentBracket } from '@/components/TournamentBracket'
 import { GroupStandingsTables, type GroupTableSection } from '@/components/GroupStandingsTables'
 import { flagUrl, getTeam } from '@/lib/teams'
 import { buildGroupTableRows, buildOfficialGroupScoreMap } from '@/lib/group-standings'
 import { formatMatchDateTimeArgentina, formatMatchDayKeyArgentina } from '@/lib/match-datetime'
-import { buildRoundOf32BonusLedger, summarizeKnockoutBonus } from '@/lib/knockout-bonus'
+import { buildRoundOf32BonusLedger, getHistoricalPredictedRoundOf32Teams, summarizeKnockoutBonus } from '@/lib/knockout-bonus'
+import { getOfficialRoundOf32State, buildFinishedGroupScoreMap } from '@/lib/tournament-state'
+import { computeFifaBestThirds } from '@/lib/fifa-standings'
+import { BestThirdsComparison, type BestThirdRow } from '@/components/BestThirdsComparison'
 
 export const dynamic = 'force-dynamic'
 
@@ -1289,12 +1292,47 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   const viewerPredictionByMatch = new Map(viewerTypedPredictions.map((prediction) => [prediction.match_id, prediction]))
   const viewerRowByMatch = new Map(viewerAuditRows.map((row) => [row.match.id, row]))
   const userTiebreakerMap = tiebreakersByUser.get(userId) ?? {}
-  const trajectoryBonus = summarizeKnockoutBonus(buildRoundOf32BonusLedger({
+  const trajectoryLedger = buildRoundOf32BonusLedger({
     userId,
     matches: allMatches,
     predictionMap,
     historicalTiebreakers: userTiebreakerMap,
+  })
+  const trajectoryBonus = summarizeKnockoutBonus(trajectoryLedger)
+  const officialRoundOf32State = getOfficialRoundOf32State(allMatches)
+  const predictedRoundOf32Count = getHistoricalPredictedRoundOf32Teams(
+    groupMatches,
+    predictionMap,
+    userTiebreakerMap
+  ).size
+  const auditPredictedBestThirds: BestThirdRow[] = computeBestThirdsTable(
+    groupMatches,
+    predictionMap,
+    userTiebreakerMap
+  ).map((team) => ({
+    name: team.name,
+    group: team.group,
+    pts: team.pts,
+    gd: team.gd,
+    gf: team.gf,
+    qualified: team.qualified,
   }))
+  const auditOfficialBestThirds: BestThirdRow[] | null = officialRoundOf32State.officialBracketReady
+    ? computeFifaBestThirds(groupMatches, buildFinishedGroupScoreMap(groupMatches)).standings.map((team) => ({
+        name: team.name,
+        group: team.group,
+        pts: team.pts,
+        gd: team.gd,
+        gf: team.gf,
+        qualified: team.qualified,
+      }))
+    : null
+  const ROUND_OF_32_PENDING_REASON_TEXT: Record<string, string> = {
+    GROUP_STAGE_INCOMPLETE: 'todavia faltan cargar resultados de la fase de grupos',
+    GROUP_TIE_PENDING: 'hay grupos empatados que requieren resolucion manual',
+    BEST_THIRDS_PENDING: 'falta resolver el orden de los mejores terceros',
+    ANNEX_C_PENDING: 'falta asignar los mejores terceros a las llaves (Anexo C)',
+  }
   const totalWithTrajectory = entry.total_points + trajectoryBonus.points
   const viewerTiebreakerMap = user ? tiebreakersByUser.get(user.id) ?? {} : {}
   const userBracketTiebreakerMap = {
@@ -1479,9 +1517,52 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                   knockoutMatches={knockoutMatches}
                   predMap={predictionMap}
                   tiebreakerMap={userBracketTiebreakerMap}
+                  roundOf32AwardedTeams={new Set(trajectoryBonus.awardedTeams)}
                 />
               </div>
             </section>
+
+            <section className="min-w-0 rounded-[20px] overflow-hidden" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <p className="font-extrabold text-white text-[14px]">Bonus de trayectoria a 16avos</p>
+                <p className="text-muted text-[12px] mt-1">
+                  +1 punto por cada equipo que {isOwnProfile ? 'pronosticaste' : 'el participante pronostico'} que clasificaba y que efectivamente paso a 16avos.
+                </p>
+              </div>
+              <div className="p-4">
+                {officialRoundOf32State.officialBracketReady && trajectoryLedger.length > 0 ? (
+                  <>
+                    <p className="mb-3 text-[13px] font-semibold text-mint">
+                      Acerto {trajectoryBonus.awardedTeams.length} de 32 equipos · +{trajectoryBonus.points} pts
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {trajectoryBonus.awardedTeams.map((team) => (
+                        <span key={`ok-${team}`} className="rounded-[10px] bg-mint/10 px-3 py-2 text-[12px] font-bold text-mint">✓ {team} +1</span>
+                      ))}
+                      {trajectoryBonus.missedTeams.map((team) => (
+                        <span key={`miss-${team}`} className="rounded-[10px] bg-white/5 px-3 py-2 text-[12px] font-bold text-muted">× {team} 0</span>
+                      ))}
+                    </div>
+                  </>
+                ) : !officialRoundOf32State.officialBracketReady ? (
+                  <p className="text-[13px] font-semibold leading-relaxed text-muted">
+                    La llave oficial de 16avos todavia no esta definida ({ROUND_OF_32_PENDING_REASON_TEXT[officialRoundOf32State.pendingReason ?? ''] ?? 'pendiente de resolucion'}). Cuando se complete, vas a ver aca, equipo por equipo, cuales acerto y cuantos puntos suma.
+                  </p>
+                ) : predictedRoundOf32Count < 32 ? (
+                  <p className="text-[13px] font-semibold leading-relaxed text-muted">
+                    {isOwnProfile ? 'No dejaste' : 'Este participante no dejo'} los 32 cruces de grupos completos, asi que todavia no suma bonus de trayectoria ({predictedRoundOf32Count}/32 equipos pronosticados).
+                  </p>
+                ) : (
+                  <p className="text-[13px] font-semibold leading-relaxed text-muted">Sin datos de trayectoria para mostrar.</p>
+                )}
+              </div>
+            </section>
+
+            <BestThirdsComparison
+              predicted={auditPredictedBestThirds}
+              official={auditOfficialBestThirds}
+              predictedLabel={isOwnProfile ? 'Tu tabla de terceros' : 'Terceros del participante'}
+            />
 
             {!isOwnProfile && user && (
               <section className="min-w-0 rounded-[20px] overflow-hidden" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}>

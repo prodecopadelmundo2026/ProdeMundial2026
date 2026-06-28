@@ -12,9 +12,11 @@ import { SpecialsBanner } from './SpecialsBanner'
 import { deletePredictionsByStages, generateRandomGroupPredictions } from '@/app/(app)/fixture/actions'
 import { parseScoreInput } from '@/lib/score-input'
 import { deleteSpecialBets, deleteVirtualKnockoutPredictionsByStages, savePredictionTiebreakers, saveFullProdeSafe, type SpecialBetsValues } from './actions'
-import { buildProjectedKnockoutMatches, isVirtualKnockoutMatch } from '@/lib/bracket'
-import { getOfficialRoundOf32State } from '@/lib/tournament-state'
+import { buildProjectedKnockoutMatches, computeBestThirdsTable, isVirtualKnockoutMatch } from '@/lib/bracket'
+import { computeFifaBestThirds } from '@/lib/fifa-standings'
+import { getOfficialRoundOf32State, buildFinishedGroupScoreMap } from '@/lib/tournament-state'
 import { buildRoundOf32BonusLedger, summarizeKnockoutBonus } from '@/lib/knockout-bonus'
+import { BestThirdsComparison, type BestThirdRow } from '@/components/BestThirdsComparison'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
@@ -562,6 +564,30 @@ export function MiProdeTabs({
     })),
     [effectivePredMap, groupMatches, knockoutMatches, tiebreakers]
   )
+  const predictedBestThirds = useMemo<BestThirdRow[]>(
+    () =>
+      computeBestThirdsTable(groupMatches, effectivePredMap, tiebreakers).map((team) => ({
+        name: team.name,
+        group: team.group,
+        pts: team.pts,
+        gd: team.gd,
+        gf: team.gf,
+        qualified: team.qualified,
+      })),
+    [groupMatches, effectivePredMap, tiebreakers]
+  )
+  const officialBestThirds = useMemo<BestThirdRow[] | null>(() => {
+    if (!roundOf32State.officialBracketReady) return null
+    const scoreMap = buildFinishedGroupScoreMap(groupMatches)
+    return computeFifaBestThirds(groupMatches, scoreMap).standings.map((team) => ({
+      name: team.name,
+      group: team.group,
+      pts: team.pts,
+      gd: team.gd,
+      gf: team.gf,
+      qualified: team.qualified,
+    }))
+  }, [groupMatches, roundOf32State.officialBracketReady])
 
   function toggleDeleteSelection(option: DeleteOption) {
     setDeleteSelections((prev) => {
@@ -1046,6 +1072,23 @@ export function MiProdeTabs({
         />
       </div>
       <div className={activeTab === 'llave' ? 'page-fade' : undefined} style={{ display: activeTab === 'llave' ? undefined : 'none' }}>
+        {!roundOf32State.officialBracketReady && (
+          <div className="mb-6 rounded-[18px] bg-[#101010] p-4" style={{ border: '1px solid rgba(255,177,92,0.24)' }}>
+            <p className="text-[14px] font-extrabold text-white">La llave oficial todavia no esta definida</p>
+            <p className="mt-1 text-[13px] font-semibold leading-relaxed text-muted">
+              {roundOf32State.pendingReason === 'GROUP_STAGE_INCOMPLETE'
+                ? 'Faltan cargar resultados de la fase de grupos.'
+                : roundOf32State.pendingReason === 'GROUP_TIE_PENDING'
+                ? 'Hay grupos empatados que requieren resolucion manual.'
+                : roundOf32State.pendingReason === 'BEST_THIRDS_PENDING'
+                ? 'Falta resolver el orden de los mejores terceros.'
+                : roundOf32State.pendingReason === 'ANNEX_C_PENDING'
+                ? 'Falta asignar los mejores terceros a las llaves (Anexo C).'
+                : 'Esta pendiente de resolucion.'}{' '}
+              Cuando termine la fase de grupos y se resuelvan los desempates vas a ver aca tu llave oficial, los equipos que acertaste y los puntos de trayectoria sumados.
+            </p>
+          </div>
+        )}
         {roundOf32State.officialBracketReady && roundOf32Bonus.awardedTeams.length > 0 && (
           <details className="mb-6 rounded-[18px] bg-[#101010] p-4" style={{ border: '1px solid rgba(168,240,216,0.24)' }}>
             <summary className="cursor-pointer list-none">
@@ -1064,6 +1107,7 @@ export function MiProdeTabs({
             </div>
           </details>
         )}
+        <BestThirdsComparison predicted={predictedBestThirds} official={officialBestThirds} />
         <p className="text-[11px] font-medium mb-4 px-1" style={{ color: '#3e3a35' }}>
           Tu bracket según tus pronósticos de grupos y eliminatorias. Vista de solo lectura.
         </p>
@@ -1073,6 +1117,7 @@ export function MiProdeTabs({
           knockoutMatches={projectedKnockoutMatches}
           predMap={effectivePredMap}
           tiebreakerMap={{ ...tiebreakers, ...effectiveKnockoutTiebreakers }}
+          roundOf32AwardedTeams={new Set(roundOf32Bonus.awardedTeams)}
         />
         {roundOf32State.officialBracketReady && (
           <div className="mt-8 border-t border-white/10 pt-7">

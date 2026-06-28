@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import type { Match } from '@/types'
 import { FixtureList } from './FixtureList'
 import { compareMatchesByProductScheduleAsc, compareMatchesByProductScheduleDesc } from '@/lib/match-datetime'
+import { buildOfficialFixtureMatches } from '@/lib/tournament-state'
 
 type FixtureMatchesFilter = 'current' | 'live' | 'upcoming' | 'finished' | 'all'
 
@@ -77,7 +78,7 @@ export default async function FixturePage({ searchParams }: FixturePageProps) {
     )
   }
 
-  const matches = (matchesResult.data ?? []) as Match[]
+  const matches = buildOfficialFixtureMatches((matchesResult.data ?? []) as Match[])
   const visibleMatches = buildFixtureMatches(matches, fixtureMatchesFilter)
   const fixtureFilterOptions: Array<{ value: FixtureMatchesFilter; label: string }> = [
     { value: 'current', label: 'Actuales / próximos' },

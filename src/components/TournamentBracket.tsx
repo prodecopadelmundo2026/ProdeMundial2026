@@ -62,6 +62,8 @@ export interface TournamentBracketProps {
   predMap?: PredMap
   tiebreakerMap?: TbMap
   officialGroupResolution?: 'complete' | 'current'
+  /** Equipos que el usuario acertó que clasificaban a 16avos: muestran +1 en la columna D16. */
+  roundOf32AwardedTeams?: Set<string>
 }
 
 // Visual bracket order: D32 positions 0-15 (top to bottom)
@@ -278,6 +280,7 @@ function TeamRow({
   won,
   isPH,
   status,
+  bonus,
   onCandidateClick,
 }: {
   name: string
@@ -285,6 +288,7 @@ function TeamRow({
   won: boolean
   isPH: boolean
   status?: BracketTeamStatus
+  bonus?: boolean
   onCandidateClick?: (candidates: string[]) => void
 }) {
   const candidates = candidateList(name)
@@ -349,6 +353,24 @@ function TeamRow({
         {displayName}
       </span>
 
+      {bonus && (
+        <span
+          title="Acertaste que clasificaba a 16avos (+1)"
+          style={{
+            flexShrink: 0,
+            fontSize: 8,
+            fontWeight: 800,
+            lineHeight: 1,
+            color: '#0A0A0A',
+            background: '#A8F0D8',
+            borderRadius: 4,
+            padding: '2px 3px',
+          }}
+        >
+          +1
+        </span>
+      )}
+
       {score !== undefined && (
         <span style={{
           fontSize: 11,
@@ -373,6 +395,8 @@ function BracketCard({
   auditStatus,
   homeStatus,
   awayStatus,
+  homeBonus,
+  awayBonus,
   onCandidateClick,
 }: {
   homeTeam: string
@@ -383,6 +407,8 @@ function BracketCard({
   auditStatus?: 'correct' | 'wrong' | 'pending'
   homeStatus?: BracketTeamStatus
   awayStatus?: BracketTeamStatus
+  homeBonus?: boolean
+  awayBonus?: boolean
   onCandidateClick?: (candidates: string[]) => void
 }) {
   const isPHHome = isPlaceholderName(homeTeam)
@@ -406,9 +432,9 @@ function BracketCard({
       display: 'flex',
       flexDirection: 'column',
     }}>
-      <TeamRow name={homeTeam} score={homeScore} won={homeWon} isPH={isPHHome} status={homeStatus} onCandidateClick={onCandidateClick} />
+      <TeamRow name={homeTeam} score={homeScore} won={homeWon} isPH={isPHHome} status={homeStatus} bonus={homeBonus} onCandidateClick={onCandidateClick} />
       <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', flexShrink: 0 }} />
-      <TeamRow name={awayTeam} score={awayScore} won={awayWon} isPH={isPHAway} status={awayStatus} onCandidateClick={onCandidateClick} />
+      <TeamRow name={awayTeam} score={awayScore} won={awayWon} isPH={isPHAway} status={awayStatus} bonus={awayBonus} onCandidateClick={onCandidateClick} />
     </div>
   )
 }
@@ -556,6 +582,7 @@ export function TournamentBracket({
   predMap = {},
   tiebreakerMap = {},
   officialGroupResolution = 'complete',
+  roundOf32AwardedTeams,
 }: TournamentBracketProps) {
   const officialGroupPredMap  = buildOfficialGroupScoreMap(groupMatches)
   const officialKoDisplayMap  = buildScoreMap(knockoutMatches, ['finished', 'live'])
@@ -814,6 +841,9 @@ export function TournamentBracket({
 
   function renderCard(pNum: number, top: number, left: number) {
     const d = getMatchData(pNum)
+    const showBonus = mode !== 'official' && pNum <= 88 && roundOf32AwardedTeams != null
+    const homeBonus = showBonus && !isPlaceholderName(d.homeTeam) && roundOf32AwardedTeams!.has(d.homeTeam)
+    const awayBonus = showBonus && !isPlaceholderName(d.awayTeam) && roundOf32AwardedTeams!.has(d.awayTeam)
     return (
       <div key={pNum} style={{ position: 'absolute', top, left }}>
         <BracketCard
@@ -825,6 +855,8 @@ export function TournamentBracket({
           auditStatus={d.auditStatus}
           homeStatus={d.homeStatus}
           awayStatus={d.awayStatus}
+          homeBonus={homeBonus}
+          awayBonus={awayBonus}
         onCandidateClick={openCandidateDetail}
         />
       </div>
