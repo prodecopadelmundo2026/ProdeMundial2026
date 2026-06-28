@@ -10,6 +10,7 @@ import {
   computeBestThirdsGroups,
   assignBestThirdsToSlots,
   KNOCKOUT_FIXTURES,
+  resolveTeamFull,
 } from '@/lib/bracket'
 import { computeFifaAllStandings, computeFifaGroupStandings, computeFifaBestThirds } from '@/lib/fifa-standings'
 
@@ -224,7 +225,10 @@ function isPlaceholderName(name: string): boolean {
 }
 
 function normalizePlaceholderName(name: string): string {
-  return name.replace(/ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°|Ãƒâ€šÃ‚Â°/g, 'Ã‚Â°')
+  return name
+    .replace(/ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°|Ãƒâ€šÃ‚Â°|Ã‚Â°|Â°|º/g, '\u00B0')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function longFixtureLabel(raw: string): string {
@@ -728,7 +732,7 @@ export function TournamentBracket({
     const normalized = normalizePlaceholderName(placeholder)
     if (depth > 8) return normalized
 
-    const direct = normalized.match(/^(\d)Ã‚Â°\s+Grupo\s+([A-L])$/)
+    const direct = normalized.match(/^(\d)\u00B0\s+Grupo\s+([A-L])$/)
     if (direct) {
       const pos = Number(direct[1]) - 1
       const group = direct[2]
@@ -795,8 +799,17 @@ export function TournamentBracket({
     const displayScoreMap = source === 'official' ? officialDisplayMap : predMap
     const winnerScoreMap = source === 'official' ? officialWinnerMap : predMap
 
-    const homeTeam = rawHome ? resolveFromSource(rawHome, source) : fallbackSlotLabel(pNum, 0)
-    const awayTeam = rawAway ? resolveFromSource(rawAway, source) : fallbackSlotLabel(pNum, 1)
+    const homeTeam = rawHome
+      ? source === 'prediction'
+        ? resolveTeamFull(rawHome, predictionStandings, pMap, predMap, tiebreakerMap, 0, predictionThirds.bestThirdsGroups, predictionThirds.thirdSlotAssignment)
+        : resolveFromSource(rawHome, source)
+      : fallbackSlotLabel(pNum, 0)
+
+    const awayTeam = rawAway
+      ? source === 'prediction'
+        ? resolveTeamFull(rawAway, predictionStandings, pMap, predMap, tiebreakerMap, 0, predictionThirds.bestThirdsGroups, predictionThirds.thirdSlotAssignment)
+        : resolveFromSource(rawAway, source)
+      : fallbackSlotLabel(pNum, 1)
     const homeStatus = qualificationStatusForSlot(pNum, 0, homeTeam)
     const awayStatus = qualificationStatusForSlot(pNum, 1, awayTeam)
 
