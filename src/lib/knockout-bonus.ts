@@ -66,6 +66,34 @@ export type RoundOf32CrossingAudit = {
   correct: boolean
 }
 
+function teamKey(team: string | null | undefined) {
+  return String(team ?? '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+function addTeamToRoundMap(
+  map: Map<KnockoutBonusRound, Set<string>>,
+  round: KnockoutBonusRound,
+  team: string | null
+) {
+  const key = teamKey(team)
+  if (!key) return
+  const bucket = map.get(round) ?? new Set<string>()
+  bucket.add(key)
+  map.set(round, bucket)
+}
+
+function hasTeamInRoundMap(
+  map: Map<KnockoutBonusRound, Set<string>>,
+  round: KnockoutBonusRound,
+  team: string | null
+) {
+  return map.get(round)?.has(teamKey(team)) ?? false
+}
+
 export function getHistoricalPredictedRoundOf32Teams(
   groupMatches: Match[],
   predictionMap: ScoreMap,
@@ -137,9 +165,8 @@ function getPredictedWinnerForVirtualMatch({
   if (prediction.away_score > prediction.home_score) return predictedAway
 
   const tiebreakerTeam = historicalTiebreakers[virtualMatchId]
-  if (tiebreakerTeam === predictedHome || tiebreakerTeam === predictedAway) {
-    return tiebreakerTeam
-  }
+  if (teamKey(tiebreakerTeam) === teamKey(predictedHome)) return predictedHome
+  if (teamKey(tiebreakerTeam) === teamKey(predictedAway)) return predictedAway
 
   return null
 }
@@ -169,10 +196,11 @@ export function buildRoundOf32BonusLedger({
 
   const predictedTeams = getHistoricalPredictedRoundOf32Teams(groupMatches, predictionMap, historicalTiebreakers)
   const actualTeams = getOfficialRoundOf32Teams(matches)
+  const actualTeamKeys = new Set([...actualTeams].map(teamKey))
 
   if (predictedTeams.size === 32 && actualTeams.size === 32) {
     for (const team of [...predictedTeams].sort()) {
-      const awarded = actualTeams.has(team)
+      const awarded = actualTeamKeys.has(teamKey(team))
       ledger.push({
         userId,
         team,
@@ -206,25 +234,15 @@ export function buildRoundOf32BonusLedger({
   }))
 
   const knockoutMap = buildKnockoutMap(predictionOnlyKnockoutMatches)
+  const predictedQualifiedByRound = new Map<KnockoutBonusRound, Set<string>>()
 
-  for (const match of getTournamentVisibleMatches(matches)) {
-    if (match.stage === 'group' || match.stage === 'third_place') continue
-    if (match.status !== 'finished') continue
+  for (const [pNumString, fixture] of Object.entries(KNOCKOUT_FIXTURES)) {
+    const pNum = Number(pNumString)
+    const projectedMatch = predictionOnlyKnockoutMatches.find((match) => knockoutPNum(match) === pNum)
+    if (!projectedMatch || projectedMatch.stage === 'third_place') continue
 
-    const actualQualifiedTeam = getActualQualifiedTeam(match)
-    if (!actualQualifiedTeam) continue
-
-    const pNum = knockoutPNum(match)
-    if (pNum == null) continue
-
-    const fixture = KNOCKOUT_FIXTURES[pNum]
-    if (!fixture) continue
-
-    const bonusRound = bonusRoundForQualifiedStage(match.stage)
+    const bonusRound = bonusRoundForQualifiedStage(projectedMatch.stage)
     if (!bonusRound) continue
-
-    const points = getQualifiedTeamPointsForStage(match.stage)
-    if (points <= 0) continue
 
     const virtualMatchId = `virtual-p${pNum}`
     const predictedHome = resolveTeamFull(
@@ -256,7 +274,26 @@ export function buildRoundOf32BonusLedger({
       historicalTiebreakers,
     })
 
-    const awarded = predictedWinner === actualQualifiedTeam
+    addTeamToRoundMap(predictedQualifiedByRound, bonusRound, predictedWinner)
+  }
+
+  for (const match of getTournamentVisibleMatches(matches)) {
+    if (match.stage === 'group' || match.stage === 'third_place') continue
+    if (match.status !== 'finished') continue
+
+    const actualQualifiedTeam = getActualQualifiedTeam(match)
+    if (!actualQualifiedTeam) continue
+
+    const pNum = knockoutPNum(match)
+    if (pNum == null) continue
+
+    const bonusRound = bonusRoundForQualifiedStage(match.stage)
+    if (!bonusRound) continue
+
+    const points = getQualifiedTeamPointsForStage(match.stage)
+    if (points <= 0) continue
+
+    const awarded = hasTeamInRoundMap(predictedQualifiedByRound, bonusRound, actualQualifiedTeam)
 
     ledger.push({
       userId,
@@ -264,14 +301,12 @@ export function buildRoundOf32BonusLedger({
       round: bonusRound,
       roundLabel: bonusRoundLabel(bonusRound),
       points: awarded ? points : 0,
-      predicted: Boolean(predictedWinner),
+      predicted: awarded,
       actual: true,
       awarded,
       reason: awarded
-        ? `Pronosticó que ${actualQualifiedTeam} avanzaba y el equipo clasificó.`
-        : predictedWinner
-          ? `Pronosticó que avanzaba ${predictedWinner}, pero clasificó ${actualQualifiedTeam}.`
-          : `No tenía un clasificado válido para el partido que ganó ${actualQualifiedTeam}.`,
+        ? `Pronosticó que ${actualQualifiedTeam} llegaba a ${bonusRoundLabel(bonusRound)} y el equipo clasificó.`
+        : `No pronosticó que ${actualQualifiedTeam} llegaba a ${bonusRoundLabel(bonusRound)}.`,
     })
   }
 
@@ -340,7 +375,7 @@ export function buildRoundOf32CrossingAudit({
         predictedAway,
         officialHome: official.home_team,
         officialAway: official.away_team,
-        correct: predictedHome === official.home_team && predictedAway === official.away_team,
+        correct: teamKey(predictedHome) === teamKey(official.home_team) && teamKey(predictedAway) === teamKey(official.away_team),
       }]
     })
 }
