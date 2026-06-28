@@ -17,7 +17,10 @@ import {
 import { MatchPointsSection, type MatchPointsBreakdownRow } from './MatchPointsSection'
 import { ResultUsersTable } from './ResultUsersTable'
 import { getTournamentVisibleMatches } from '@/lib/tournament-state'
-import { getVirtualMatchTrajectoryInsights } from '@/lib/public-prediction-data'
+import {
+  getOfficialMatchTrajectoryBonusInsights,
+  getVirtualMatchTrajectoryInsights,
+} from '@/lib/public-prediction-data'
 import { VirtualTrajectoryInsights } from '@/components/VirtualTrajectoryInsights'
 
 export const dynamic = 'force-dynamic'
@@ -81,13 +84,16 @@ export default async function PronosticoDetallePage({
       : Promise.resolve({ data: null }),
   ])
 
-  const matchData = getTournamentVisibleMatches((matchRows ?? []) as Match[])
-    .find((match) => match.id === matchId)
+  const visibleMatches = getTournamentVisibleMatches((matchRows ?? []) as Match[])
+  const matchData = visibleMatches.find((match) => match.id === matchId)
   if (!matchData) notFound()
 
   const match = matchData as Match
   const trajectory = isVirtual
-    ? await getVirtualMatchTrajectoryInsights(getTournamentVisibleMatches((matchRows ?? []) as Match[]), matchId)
+    ? await getVirtualMatchTrajectoryInsights(visibleMatches, matchId)
+    : null
+  const officialTrajectoryBonus = !isVirtual
+    ? await getOfficialMatchTrajectoryBonusInsights(visibleMatches, matchId)
     : null
   const insights = normalizePredictionInsights(
     (Array.isArray(insightsRows) ? insightsRows[0] : null) as Partial<PredictionInsights> | null
@@ -180,6 +186,69 @@ export default async function PronosticoDetallePage({
             zeroPointsRows={zeroPointsRows}
             currentUserId={user?.id ?? null}
           />
+        )}
+
+        {officialTrajectoryBonus && (
+          <section
+            className="mb-5 rounded-[24px] bg-panel p-4 min-[760px]:p-5"
+            style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange">
+                  Bonus de trayectoria
+                </p>
+                <h2 className="mt-2 font-display text-[32px] uppercase leading-none">
+                  {officialTrajectoryBonus.team} a {officialTrajectoryBonus.roundLabel}
+                </h2>
+              </div>
+              <p className="rounded-full bg-mint/10 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-mint">
+                +{officialTrajectoryBonus.points} puntos
+              </p>
+            </div>
+
+            <p className="mb-4 max-w-[860px] text-[13px] font-semibold leading-relaxed text-muted">
+              {officialTrajectoryBonus.team} clasificó a {officialTrajectoryBonus.roundLabel}. Sumaron +{officialTrajectoryBonus.points}
+              {' '}quienes habían pronosticado que {officialTrajectoryBonus.team} llegaba a esa instancia, aunque no hayan acertado este cruce exacto.
+            </p>
+
+            {officialTrajectoryBonus.participants.length > 0 ? (
+              <div className="grid gap-2 min-[760px]:grid-cols-2">
+                {officialTrajectoryBonus.participants.map((participant) => {
+                  const isCurrentUser = participant.userId === user?.id
+                  return (
+                    <div
+                      key={participant.userId}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] px-4 py-3"
+                      style={{
+                        background: isCurrentUser ? 'rgba(255,107,0,0.12)' : '#0A0A0A',
+                        border: isCurrentUser ? '1px solid rgba(255,107,0,0.42)' : '1px solid rgba(255,255,255,0.06)',
+                      }}
+                    >
+                      <span className="flex min-w-0 flex-wrap items-center gap-2 text-[14px] font-extrabold text-white">
+                        <span className="min-w-0">{participant.name}</span>
+                        {isCurrentUser && (
+                          <span
+                            className="rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.1em]"
+                            style={{ background: 'rgba(255,107,0,0.18)', border: '1px solid rgba(255,107,0,0.35)', color: '#FFB15C' }}
+                          >
+                            Vos
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-mono text-[11px] font-extrabold uppercase tracking-[0.12em] text-mint">
+                        +{participant.points}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="rounded-[14px] bg-[#0A0A0A] px-4 py-3 text-[13px] font-semibold text-muted">
+                Nadie sumó bonus de trayectoria por este clasificado.
+              </p>
+            )}
+          </section>
         )}
 
         {trajectory ? (

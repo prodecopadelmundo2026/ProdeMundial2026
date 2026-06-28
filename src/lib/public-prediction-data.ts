@@ -9,7 +9,9 @@ import {
   buildRoundOf32BonusLedger,
   buildRoundOf32CrossingAudit,
   getHistoricalPredictedRoundOf32Teams,
+  getQualifiedTeamPointsForStage,
   summarizeKnockoutBonus,
+  type KnockoutBonusRound,
 } from '@/lib/knockout-bonus'
 import { buildMatchAuditRows } from '@/lib/ranking-audit'
 import { getTournamentVisibleMatches } from '@/lib/tournament-state'
@@ -50,6 +52,20 @@ export type VirtualMatchTrajectoryInsights = {
   awayTeamOnly: VirtualTrajectoryParticipant[]
 }
 
+export type OfficialMatchTrajectoryBonusParticipant = {
+  userId: string
+  name: string
+  points: number
+}
+
+export type OfficialMatchTrajectoryBonusInsights = {
+  team: string
+  round: KnockoutBonusRound
+  roundLabel: string
+  points: number
+  participants: OfficialMatchTrajectoryBonusParticipant[]
+}
+
 export type RankingWithTrajectoryEntry = {
   user_id: string | null
   participant_status?: string
@@ -82,6 +98,41 @@ const loadPhysicalPredictionRows = unstable_cache(
   ['public-physical-prediction-rows'],
   { revalidate: 60 }
 )
+
+function teamKey(team: string | null | undefined) {
+  return String(team ?? '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+function getActualQualifiedTeam(match: Match) {
+  if (match.status !== 'finished') return null
+  if (match.qualified_team) return match.qualified_team
+  if (match.home_score == null || match.away_score == null) return null
+  if (match.home_score > match.away_score) return match.home_team
+  if (match.away_score > match.home_score) return match.away_team
+  return null
+}
+
+function bonusRoundForQualifiedStage(stage: Match['stage']): KnockoutBonusRound | null {
+  if (stage === 'round_of_32') return 'round_of_16'
+  if (stage === 'round_of_16') return 'quarterfinal'
+  if (stage === 'quarter') return 'semifinal'
+  if (stage === 'semi') return 'final'
+  if (stage === 'final') return 'champion'
+  return null
+}
+
+function bonusRoundLabel(round: KnockoutBonusRound) {
+  if (round === 'round_of_32') return '16avos'
+  if (round === 'round_of_16') return 'Octavos'
+  if (round === 'quarterfinal') return 'Cuartos'
+  if (round === 'semifinal') return 'Semis'
+  if (round === 'final') return 'Final'
+  return 'Campeón'
+}
 
 export async function getPredictionInsightsByMatch(): Promise<Record<string, PredictionInsights>> {
   const rows = await loadPhysicalPredictionRows()
@@ -166,7 +217,7 @@ const loadTrajectoryRows = unstable_cache(
       virtualPredictions,
     }
   },
-  ['public-round-of-32-trajectory-rows-v2'],
+  ['public-round-of-32-trajectory-rows-v3'],
   { revalidate: 60 }
 )
 
@@ -257,6 +308,100 @@ export async function getVirtualMatchTrajectoryInsights(
     bothTeamsOtherCrossing: sort(bothTeamsOtherCrossing),
     homeTeamOnly: sort(homeTeamOnly),
     awayTeamOnly: sort(awayTeamOnly),
+  }
+}
+
+export async function getOfficialMatchTrajectoryBonusInsights(
+  matches: Match[],
+  matchId: string
+): Promise<OfficialMatchTrajectoryBonusInsights | null> {
+  const official = matches.find((match) => match.id === matchId)
+  if (!official) return null
+  if (official.stage === 'group' || official.stage === 'third_place') return null
+  if (official.status !== 'finished') return null
+
+  const actualQualifiedTeam = getActualQualifiedTeam(official)
+  if (!actualQualifiedTeam) return null
+
+  const round = bonusRoundForQualifiedStage(official.stage)
+  if (!round) return null
+
+  const points = getQualifiedTeamPointsForStage(official.stage)
+  if (points <= 0) return null
+
+  const rows = await loadTrajectoryRows()
+  const nameById = new Map(rows.profiles.map((profile) => [profile.id, profile.name]))
+  const predictionsByUser = new Map<string, Required<ScoreRow>[]>()
+  for (const prediction of rows.predictions) {
+    const bucket = predictionsByUser.get(prediction.user_id) ?? []
+    bucket.push(prediction)
+    predictionsByUser.set(prediction.user_id, bucket)
+  }
+  const tiebreakersByUser = new Map<string, TiebreakerRow[]>()
+  for (const tiebreaker of rows.tiebreakers) {
+    const bucket = tiebreakersByUser.get(tiebreaker.user_id) ?? []
+    bucket.push(tiebreaker)
+    tiebreakersByUser.set(tiebreaker.user_id, bucket)
+  }
+
+  const userIds = new Set<string>([
+    ...predictionsByUser.keys(),
+    ...rows.virtualPredictions.map((prediction) => prediction.user_id),
+  ])
+  const participants: OfficialMatchTrajectoryBonusParticipant[] = []
+
+  for (const userId of userIds) {
+    const userPredictions = predictionsByUser.get(userId) ?? []
+    const userVirtualPredictions = rows.virtualPredictions.filter((prediction) => prediction.user_id === userId)
+
+    const predictionMap = Object.fromEntries([
+      ...userPredictions.map((prediction) => [
+        prediction.match_id,
+        { home_score: prediction.home_score, away_score: prediction.away_score },
+      ]),
+      ...userVirtualPredictions.map((prediction) => [
+        prediction.virtual_match_id,
+        { home_score: prediction.home_score, away_score: prediction.away_score },
+      ]),
+    ])
+    const historicalTiebreakers = Object.fromEntries([
+      ...(tiebreakersByUser.get(userId) ?? []).map((row) => [row.tiebreaker_key, row.team]),
+      ...userVirtualPredictions
+        .filter((prediction) => prediction.tiebreaker_team?.trim())
+        .map((prediction) => [prediction.virtual_match_id, prediction.tiebreaker_team!.trim()]),
+    ])
+
+    const ledger = buildRoundOf32BonusLedger({
+      userId,
+      matches,
+      predictionMap,
+      historicalTiebreakers,
+    })
+
+    const awarded = ledger.find((item) =>
+      item.awarded &&
+      item.round === round &&
+      item.points === points &&
+      teamKey(item.team) === teamKey(actualQualifiedTeam)
+    )
+
+    if (!awarded) continue
+
+    participants.push({
+      userId,
+      name: nameById.get(userId) ?? 'Participante',
+      points: awarded.points,
+    })
+  }
+
+  participants.sort((a, b) => a.name.localeCompare(b.name, 'es'))
+
+  return {
+    team: actualQualifiedTeam,
+    round,
+    roundLabel: bonusRoundLabel(round),
+    points,
+    participants,
   }
 }
 
