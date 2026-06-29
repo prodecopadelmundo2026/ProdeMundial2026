@@ -852,6 +852,14 @@ function MatchAuditCard({
           El cruce predicho no coincide con el cruce oficial, por eso no suma por marcador.
         </p>
       )}
+      {!isGroup && showScoring && (
+        <div className="mt-3 rounded-[12px] px-3 py-2 text-[11px] font-semibold leading-relaxed text-[#cfcfcf]" style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          {row.explanation}
+          {row.trajectoryTeams.length > 0 && (
+            <span className="ml-1 text-mint">Trayectoria: {row.trajectoryTeams.join(' y ')}.</span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

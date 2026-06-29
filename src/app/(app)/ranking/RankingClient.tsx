@@ -13,11 +13,15 @@ type PodiumPredictionPreview = {
     home_team: string
     away_team: string
     kickoffLabel: string
+    stage: import('@/types').Match['stage']
   }
   predictions: Array<{
     user_id: string
     home_score: number
     away_score: number
+    predicted_home: string
+    predicted_away: string
+    cross_matches: boolean
   }>
 }
 
@@ -600,11 +604,18 @@ export function RankingClient({
                   </div>
                   <p className="min-w-0 text-[20px] font-extrabold leading-none text-white sm:text-right sm:text-[16px]">
                     {prediction ? (
+                      <>
                       <span className="inline-flex items-center gap-2">
-                        <TeamPredictionMarker name={podiumPredictionPreview.match.home_team} />
+                        <TeamPredictionMarker name={prediction.predicted_home} />
                         <span className="font-display tabular-nums">{prediction.home_score} - {prediction.away_score}</span>
-                        <TeamPredictionMarker name={podiumPredictionPreview.match.away_team} />
+                        <TeamPredictionMarker name={prediction.predicted_away} />
                       </span>
+                      {!prediction.cross_matches && (
+                        <span className="mt-1 block text-[10px] font-bold leading-snug text-[#FFB15C] sm:text-right">
+                          En este lugar de la llave pronosticó otro cruce
+                        </span>
+                      )}
+                      </>
                     ) : (
                       'Sin pronóstico cargado'
                     )}

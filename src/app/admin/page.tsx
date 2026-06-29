@@ -371,6 +371,17 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           </p>
         </div>
 
+        <section className="mb-6 rounded-[20px] p-5" style={{ background: 'linear-gradient(135deg, rgba(255,107,0,0.12), #101010 58%)', border: '1px solid rgba(255,107,0,0.3)' }}>
+          <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-orange">Operación del torneo</p>
+          <h2 className="mt-1 font-display text-[26px] uppercase leading-none text-white">Resultados, puntos y llave oficial</h2>
+          <p className="mt-2 max-w-[650px] text-[12px] leading-relaxed text-muted">Cargá resultados oficiales, comprobá su impacto en el ranking y revisá cómo avanza la llave.</p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            <a href="#admin-section-resultados" className="rounded-[14px] bg-orange px-4 py-3 text-[12px] font-extrabold uppercase text-bg">Gestionar resultados</a>
+            <Link href="/ranking" className="rounded-[14px] px-4 py-3 text-[12px] font-extrabold uppercase text-white" style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.1)' }}>Auditar ranking</Link>
+            <a href="#admin-section-llave" className="rounded-[14px] px-4 py-3 text-[12px] font-extrabold uppercase text-white" style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.1)' }}>Ver llave oficial</a>
+          </div>
+        </section>
+
         <details
           id="admin-section-premios"
           className="group mb-5 rounded-[16px]"
@@ -702,10 +713,12 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 
         {/* Official bracket section */}
         {matches && matches.length > 0 && (
-          <AdminBracketSection
-            groupMatches={(matches as Match[]).filter((m) => m.stage === 'group')}
-            knockoutMatches={(matches as Match[]).filter((m) => m.stage !== 'group')}
-          />
+          <div id="admin-section-llave" style={{ scrollMarginTop: 20 }}>
+            <AdminBracketSection
+              groupMatches={(matches as Match[]).filter((m) => m.stage === 'group')}
+              knockoutMatches={(matches as Match[]).filter((m) => m.stage !== 'group')}
+            />
+          </div>
         )}
 
       </div>

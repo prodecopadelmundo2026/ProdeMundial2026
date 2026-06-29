@@ -85,21 +85,25 @@ const UNIT     = CARD_H + MATCH_GAP
 const COL_GAP  = 22
 const COL_STEP = CARD_W + COL_GAP   // 174
 
-const BRACKET_H   = 16 * UNIT
+const BRACKET_H   = 8 * UNIT
 const HEADER_H    = 28
 const CHAMPION_W  = 120
 const THIRD_BELOW = 24               // gap between main bracket and 3rd-place row
 
 const COL_X = {
-  d32:      0,
-  oct:      COL_STEP,
-  qf:       COL_STEP * 2,
-  semi:     COL_STEP * 3,
-  final:    COL_STEP * 4,
-  champion: COL_STEP * 5,
+  d32: 0,
+  oct: COL_STEP,
+  qf: COL_STEP * 2,
+  semi: COL_STEP * 3,
+  final: COL_STEP * 4,
+  champion: COL_STEP * 4,
+  rightSemi: COL_STEP * 5,
+  rightQf: COL_STEP * 6,
+  rightOct: COL_STEP * 7,
+  rightD32: COL_STEP * 8,
 }
 
-const TOTAL_W = COL_X.champion + CHAMPION_W  // 870 + 120 = 990
+const TOTAL_W = COL_X.rightD32 + CARD_W
 
 function cardCenterY(pos: number, round: 'd32' | 'oct' | 'qf' | 'semi' | 'final'): number {
   const mul = round === 'd32' ? 1 : round === 'oct' ? 2 : round === 'qf' ? 4 : round === 'semi' ? 8 : 8
@@ -863,7 +867,10 @@ export function TournamentBracket({
     { label: 'Cuartos', x: COL_X.qf },
     { label: 'Semis', x: COL_X.semi },
     { label: 'Final', x: COL_X.final },
-    { label: 'Campeón', x: COL_X.champion },
+    { label: 'Semis derecha', x: COL_X.rightSemi },
+    { label: 'Cuartos derecha', x: COL_X.rightQf },
+    { label: 'Octavos derecha', x: COL_X.rightOct },
+    { label: 'D16 derecha', x: COL_X.rightD32 },
   ]
 
   const [openCandidateInfo, setOpenCandidateInfo] = useState<string[] | null>(null)
@@ -1034,30 +1041,26 @@ export function TournamentBracket({
             height: BRACKET_H + HEADER_H + THIRD_BELOW + CARD_H + 20,
             marginTop: HEADER_H,
           }}>
-            <Connectors />
+            {/* Las dos mitades avanzan hacia el centro. */}
 
             {/* D32 */}
-            {D32_ORDER.map((pNum, i) =>
-              renderCard(pNum, i * UNIT, COL_X.d32)
-            )}
+            {D32_ORDER.slice(0, 8).map((pNum, i) => renderCard(pNum, i * UNIT, COL_X.d32))}
+            {D32_ORDER.slice(8).map((pNum, i) => renderCard(pNum, i * UNIT, COL_X.rightD32))}
 
             {/* Oct */}
-            {OCT_ORDER.map((pNum, j) =>
-              renderCard(pNum, cardCenterY(j, 'oct') - CARD_H / 2, COL_X.oct)
-            )}
+            {OCT_ORDER.slice(0, 4).map((pNum, i) => renderCard(pNum, (i * 2 + 1) * UNIT - CARD_H / 2, COL_X.oct))}
+            {OCT_ORDER.slice(4).map((pNum, i) => renderCard(pNum, (i * 2 + 1) * UNIT - CARD_H / 2, COL_X.rightOct))}
 
             {/* QF */}
-            {QF_ORDER.map((pNum, k) =>
-              renderCard(pNum, cardCenterY(k, 'qf') - CARD_H / 2, COL_X.qf)
-            )}
+            {QF_ORDER.slice(0, 2).map((pNum, i) => renderCard(pNum, (i * 4 + 2) * UNIT - CARD_H / 2, COL_X.qf))}
+            {QF_ORDER.slice(2).map((pNum, i) => renderCard(pNum, (i * 4 + 2) * UNIT - CARD_H / 2, COL_X.rightQf))}
 
             {/* Semi */}
-            {SEMI_ORDER.map((pNum, s) =>
-              renderCard(pNum, cardCenterY(s, 'semi') - CARD_H / 2, COL_X.semi)
-            )}
+            {renderCard(SEMI_ORDER[0], 4 * UNIT - CARD_H / 2, COL_X.semi)}
+            {renderCard(SEMI_ORDER[1], 4 * UNIT - CARD_H / 2, COL_X.rightSemi)}
 
             {/* Final */}
-            <div key={FINAL_P} style={{ position: 'absolute', top: cardCenterY(0, 'final') - CARD_H / 2, left: COL_X.final }}>
+            <div key={FINAL_P} style={{ position: 'absolute', top: 4 * UNIT - CARD_H / 2, left: COL_X.final }}>
               <BracketCard
                 homeTeam={finalData.homeTeam}
                 awayTeam={finalData.awayTeam}
@@ -1074,8 +1077,8 @@ export function TournamentBracket({
             {/* Champion */}
             <div style={{
               position: 'absolute',
-              top: cardCenterY(0, 'final') - 32,
-              left: COL_X.champion,
+              top: 4 * UNIT + CARD_H / 2 + 12,
+              left: COL_X.champion + (CARD_W - CHAMPION_W) / 2,
             }}>
               <ChampionCard team={champion} />
             </div>
@@ -1084,7 +1087,7 @@ export function TournamentBracket({
             <div style={{
               position: 'absolute',
               top: BRACKET_H + THIRD_BELOW,
-              left: COL_X.semi,
+              left: COL_X.final,
             }}>
               <div style={{ marginBottom: 4 }}>
                 <span style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#333' }}>

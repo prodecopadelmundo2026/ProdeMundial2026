@@ -34,6 +34,7 @@ export type KnockoutBonusLedgerItem = {
   actual: boolean
   awarded: boolean
   reason: string
+  sourceMatchPNum?: number
 }
 
 export const KNOCKOUT_BONUS_POINTS: Record<KnockoutBonusRound, number> = {
@@ -307,6 +308,7 @@ export function buildRoundOf32BonusLedger({
       reason: awarded
         ? `Pronosticó que ${actualQualifiedTeam} llegaba a ${bonusRoundLabel(bonusRound)} y el equipo clasificó.`
         : `No pronosticó que ${actualQualifiedTeam} llegaba a ${bonusRoundLabel(bonusRound)}.`,
+      sourceMatchPNum: pNum,
     })
   }
 

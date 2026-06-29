@@ -8,6 +8,8 @@ import {
   getMatchProductOrderKey,
 } from '@/lib/match-datetime'
 import { addConfirmedTrajectoryToRanking } from '@/lib/public-prediction-data'
+import { buildProjectedKnockoutMatches, knockoutPNum } from '@/lib/bracket'
+import { buildMatchAuditRows } from '@/lib/ranking-audit'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,11 +41,15 @@ type PodiumPredictionPreview = {
     home_team: string
     away_team: string
     kickoffLabel: string
+    stage: Match['stage']
   }
   predictions: Array<{
     user_id: string
     home_score: number
     away_score: number
+    predicted_home: string
+    predicted_away: string
+    cross_matches: boolean
   }>
 }
 
@@ -57,10 +63,12 @@ function safeKickoffLabel(value: string | null | undefined) {
 async function getPodiumPredictionPreview({
   supabase,
   nextMatches,
+  allMatches,
   podiumUserIds,
 }: {
   supabase: Awaited<ReturnType<typeof createClient>>
   nextMatches: Match[]
+  allMatches: Match[]
   podiumUserIds: string[]
 }): Promise<PodiumPredictionPreview[]> {
   if (nextMatches.length === 0 || podiumUserIds.length === 0) return []
@@ -91,24 +99,35 @@ async function getPodiumPredictionPreview({
     return []
   }
 
+  const projectedMatches = [
+    ...allMatches.filter((match) => match.stage === 'group'),
+    ...buildProjectedKnockoutMatches(allMatches.filter((match) => match.stage !== 'group')),
+  ]
+
   return nextMatches.map((nextMatch) => ({
     match: {
       id: nextMatch.id,
       home_team: nextMatch.home_team,
       away_team: nextMatch.away_team,
       kickoffLabel: safeKickoffLabel(nextMatch.scheduled_at),
+      stage: nextMatch.stage,
     },
     predictions: settled
       .map((result) => {
         if (result.status !== 'fulfilled' || !result.value.ok) return null
-        const prediction = result.value.predictions.find(
-          (item) => item.user_id === result.value.userId && item.match_id === nextMatch.id
-        )
-        return prediction
+        const pNum = knockoutPNum(nextMatch)
+        const auditMatchId = nextMatch.stage === 'group' || pNum == null ? nextMatch.id : `virtual-p${pNum}`
+        const auditRow = buildMatchAuditRows(projectedMatches, result.value.predictions)
+          .find((row) => row.match.id === auditMatchId)
+        const prediction = auditRow?.prediction
+        return prediction && auditRow
           ? {
               user_id: result.value.userId,
               home_score: Number(prediction.home_score),
               away_score: Number(prediction.away_score),
+              predicted_home: auditRow.predictedHome,
+              predicted_away: auditRow.predictedAway,
+              cross_matches: auditRow.crossMatches !== false,
             }
           : null
       })
@@ -166,6 +185,7 @@ export default async function RankingPage() {
   const podiumPredictionPreviews = await getPodiumPredictionPreview({
     supabase,
     nextMatches,
+    allMatches: (nextMatchResult.data ?? []) as Match[],
     podiumUserIds,
   })
 

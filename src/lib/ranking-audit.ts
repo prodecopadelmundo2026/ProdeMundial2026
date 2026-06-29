@@ -9,7 +9,7 @@ import {
   knockoutPNum,
   resolveTeamFull,
 } from '@/lib/bracket'
-import { getQualifiedTeamPointsForStage } from '@/lib/knockout-bonus'
+import { buildRoundOf32BonusLedger, getQualifiedTeamPointsForStage } from '@/lib/knockout-bonus'
 
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
 type TiebreakerMap = Record<string, string>
@@ -31,6 +31,10 @@ export type MatchAuditRow = {
   resultPoints: number | null
   qualifiedPoints: number
   crossMatches: boolean | null
+  crossingKind: 'exact' | 'both_teams_other_crossing' | 'one_team_other_crossing' | 'different_crossing' | 'pending'
+  trajectoryTeams: string[]
+  trajectoryPoints: number
+  explanation: string
   hasOfficialTeams: boolean
 }
 
@@ -198,12 +202,34 @@ export function buildMatchAuditRows(
     ),
     ...extraTiebreakers,
   }
+  const trajectoryLedger = buildRoundOf32BonusLedger({
+    userId: predictions[0]?.user_id ?? '',
+    matches,
+    predictionMap: predMap,
+    historicalTiebreakers: tiebreakerMap,
+  })
+  const predictedResolvedByMatch = new Map(
+    matches.map((match) => [
+      match.id,
+      buildResolvedTeams(match, matches, predMap, tiebreakerMap, 'prediction'),
+    ])
+  )
+  const predictedTeamsByStage = new Map<Match['stage'], Set<string>>()
+  for (const match of matches) {
+    if (!predictionByMatch.has(match.id)) continue
+    const resolved = predictedResolvedByMatch.get(match.id)
+    if (!resolved) continue
+    const teams = predictedTeamsByStage.get(match.stage) ?? new Set<string>()
+    if (!isUnresolvedTeam(resolved.home)) teams.add(resolved.home)
+    if (!isUnresolvedTeam(resolved.away)) teams.add(resolved.away)
+    predictedTeamsByStage.set(match.stage, teams)
+  }
 
   return matches.map((match) => {
     const prediction = predictionByMatch.get(match.id)
     const officialTeams = buildResolvedTeams(match, matches, officialScoreMap, {}, 'official')
     const predictedTeams = prediction
-      ? buildResolvedTeams(match, matches, predMap, tiebreakerMap, 'prediction')
+      ? predictedResolvedByMatch.get(match.id)!
       : { home: match.home_team, away: match.away_team }
 
     const hasOfficialResult = match.status === 'finished' && match.home_score != null && match.away_score != null
@@ -237,7 +263,7 @@ export function buildMatchAuditRows(
         : tiebreakerMap[match.id] ?? prediction.tiebreaker_team ?? null
       : null
 
-    const qualifiedPoints =
+    const slotQualifiedPoints =
       prediction &&
       hasOfficialResult &&
       match.stage !== 'group' &&
@@ -246,7 +272,49 @@ export function buildMatchAuditRows(
         ? getQualifiedTeamPointsForStage(match.stage)
         : 0
 
+    const pNum = knockoutPNum(match)
+    const trajectoryAwards = match.stage === 'group' || pNum == null
+      ? []
+      : trajectoryLedger.filter((item) => item.sourceMatchPNum === pNum && item.awarded)
+    const trajectoryTeams = [...new Set(trajectoryAwards.map((item) => item.team))]
+    const trajectoryPoints = trajectoryAwards.reduce((total, item) => total + item.points, 0)
+    // El ledger es la fuente real del bonus: premia al equipo pronosticado para
+    // esta ronda aunque haya sido ubicado en otro slot.
+    const qualifiedPoints = trajectoryPoints
     const points = resultPoints == null ? null : resultPoints + qualifiedPoints
+    const predictedRoundTeams = predictedTeamsByStage.get(match.stage) ?? new Set<string>()
+    const officialRoundTeamHits = [officialTeams.home, officialTeams.away]
+      .filter((team) => predictedRoundTeams.has(team))
+    const crossingKind = match.stage === 'group' || !hasOfficialTeams
+      ? 'pending'
+      : crossMatches
+      ? 'exact'
+      : officialRoundTeamHits.length === 2
+      ? 'both_teams_other_crossing'
+      : officialRoundTeamHits.length === 1
+      ? 'one_team_other_crossing'
+      : 'different_crossing'
+    const explanation = !prediction
+      ? 'Sin pronóstico cargado para este slot.'
+      : !hasOfficialResult
+      ? 'El resultado oficial todavía está pendiente.'
+      : match.stage === 'group'
+      ? resultPoints === 3 ? '+3 resultado exacto.' : resultPoints === 1 ? '+1 por acertar el signo.' : '0 puntos: no acertó el resultado.'
+      : [
+          crossingKind === 'exact'
+            ? 'Acertó el cruce exacto.'
+            : crossingKind === 'both_teams_other_crossing'
+            ? 'Pronosticó ambos equipos en esta ronda, pero en otro cruce.'
+            : crossingKind === 'one_team_other_crossing'
+            ? `Pronosticó a ${officialRoundTeamHits[0]} en esta ronda, pero no acertó el cruce.`
+            : 'No acertó el cruce oficial.',
+          resultPoints === 3 ? '+3 resultado exacto.' : resultPoints === 1 ? '+1 por acertar el ganador.' : '0 por marcador.',
+          qualifiedPoints > 0
+            ? `${crossMatches ? '' : 'No acertó el cruce oficial, pero '}sumó +${qualifiedPoints} de trayectoria porque ${trajectoryTeams.join(' y ')} ${trajectoryTeams.length > 1 ? 'avanzaron' : 'avanzó'}.`
+            : slotQualifiedPoints > 0
+            ? 'Acertó el clasificado en este slot, pero la trayectoria real no otorgó puntos para este partido.'
+            : 'Sin puntos por clasificado o trayectoria en esta ronda.',
+        ].join(' ')
 
     const status: AuditStatus = !prediction
       ? 'missing'
@@ -273,6 +341,10 @@ export function buildMatchAuditRows(
       resultPoints,
       qualifiedPoints,
       crossMatches: match.stage === 'group' || !prediction || !hasOfficialTeams ? null : crossMatches,
+      crossingKind,
+      trajectoryTeams,
+      trajectoryPoints,
+      explanation,
       hasOfficialTeams,
     }
   })
