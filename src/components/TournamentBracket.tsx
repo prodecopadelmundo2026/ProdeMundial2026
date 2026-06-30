@@ -14,6 +14,8 @@ import {
 } from '@/lib/bracket'
 import { computeFifaAllStandings, computeFifaGroupStandings, computeFifaBestThirds } from '@/lib/fifa-standings'
 
+const TROPHY_ICON = String.fromCodePoint(0x1F3C6)
+
 export type BracketMode = 'official' | 'prode' | 'audit'
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type TbMap = Record<string, string>
@@ -485,7 +487,7 @@ function ChampionCard({ team }: { team: string | null }) {
       {!isPH && meta?.iso2 ? (
         <img src={flagUrl(meta.iso2)} alt={team!} style={{ width: 28, height: 20, objectFit: 'contain' }} />
       ) : (
-        <span style={{ fontSize: 18, opacity: 0.18 }}>Ã°Å¸Ââ€ </span>
+        <span aria-hidden="true" style={{ fontSize: 18, opacity: 0.22 }}>{TROPHY_ICON}</span>
       )}
       <span style={{
         fontSize: 11,

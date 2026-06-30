@@ -33,7 +33,35 @@ type PublicHomeMetrics = {
   ranking_mode?: RankingMode
 }
 
-type PublicPredictionDetail = { predictions?: Prediction[] }
+type VirtualPredictionRow = {
+  id: string
+  user_id: string
+  virtual_match_id: string
+  home_score: number
+  away_score: number
+  tiebreaker_team: string | null
+  created_at: string
+  updated_at: string
+}
+
+type PublicPredictionDetail = {
+  predictions?: Prediction[]
+  virtual_predictions?: VirtualPredictionRow[]
+}
+
+function virtualPredictionToPrediction(row: VirtualPredictionRow): Prediction {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    match_id: row.virtual_match_id,
+    home_score: row.home_score,
+    away_score: row.away_score,
+    points: null,
+    tiebreaker_team: row.tiebreaker_team,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
 
 type PodiumPredictionPreview = {
   match: {
@@ -79,7 +107,11 @@ async function getPodiumPredictionPreview({
         const { data, error } = await supabase.rpc('get_public_prediction_detail', { p_user_id: userId })
         if (error) return { ok: false as const, error }
 
-        const predictions = ((data as PublicPredictionDetail | null)?.predictions ?? []) as Prediction[]
+        const detail = data as PublicPredictionDetail | null
+        const predictions = [
+          ...(detail?.predictions ?? []),
+          ...(detail?.virtual_predictions ?? []).map(virtualPredictionToPrediction),
+        ].filter((prediction) => prediction.user_id === userId)
         return {
           ok: true as const,
           userId,

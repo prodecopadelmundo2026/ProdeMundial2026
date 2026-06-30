@@ -310,7 +310,7 @@ export function buildMatchAuditRows(
             : 'No acertó el cruce oficial.',
           resultPoints === 3 ? '+3 resultado exacto.' : resultPoints === 1 ? '+1 por acertar el ganador.' : '0 por marcador.',
           qualifiedPoints > 0
-            ? `${crossMatches ? '' : 'No acertó el cruce oficial, pero '}sumó +${qualifiedPoints} de trayectoria porque ${trajectoryTeams.join(' y ')} ${trajectoryTeams.length > 1 ? 'avanzaron' : 'avanzó'}.`
+            ? `Sumó +${qualifiedPoints} de trayectoria porque ${trajectoryTeams.join(' y ')} ${trajectoryTeams.length > 1 ? 'avanzaron' : 'avanzó'}.`
             : slotQualifiedPoints > 0
             ? 'Acertó el clasificado en este slot, pero la trayectoria real no otorgó puntos para este partido.'
             : 'Sin puntos por clasificado o trayectoria en esta ronda.',

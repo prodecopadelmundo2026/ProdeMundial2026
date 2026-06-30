@@ -579,6 +579,14 @@ function MatchAuditCard({
       } as Prediction)
     : undefined
   const comparisonParts = isGroup ? [] : knockoutComparisonParts(row, viewerRow, targetTiebreaker, viewerTiebreaker, isOwnProfile)
+  const resultPointsLabel = row.resultPoints === 3
+    ? '3 resultado exacto'
+    : row.resultPoints === 1
+    ? '1 resultado parcial'
+    : '0 por marcador'
+  const trajectoryPointsLabel = row.qualifiedPoints > 0
+    ? `${row.qualifiedPoints} porque ${row.trajectoryTeams.join(' y ')} ${row.trajectoryTeams.length > 1 ? 'avanzaron' : 'avanzó'}`
+    : '0 por trayectoria'
 
   if (variant === 'upcoming') {
     const stateLabel = row.match.status === 'live' ? 'En vivo' : 'Proximo'
@@ -763,6 +771,16 @@ function MatchAuditCard({
             <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">Previa</span>
           )}
         </div>}
+        {!isGroup && showScoring && row.points != null && (
+          <div className="rounded-[14px] px-4 py-3 text-left lg:min-w-[245px] lg:text-right" style={{ background: 'rgba(255,107,0,0.08)', border: '1px solid rgba(255,107,0,0.22)' }}>
+            <p className="font-display text-[22px] uppercase leading-none text-white">
+              Sumó <span className="text-orange">{row.points} pts</span>
+            </p>
+            <p className="mt-1 text-[10px] font-extrabold leading-snug text-[#cfcfcf]">
+              {resultPointsLabel} + {trajectoryPointsLabel}
+            </p>
+          </div>
+        )}
       </div>
 
       {isGroup ? (
@@ -832,7 +850,7 @@ function MatchAuditCard({
             </span>
           ))}
           {showScoring && row.points != null ? (
-            <div className="ml-auto text-right">
+            <div className="ml-auto text-right lg:hidden">
               <p className="font-display text-[22px] leading-none tabular-nums">
                 {row.points ?? 0}
                 <span className="ml-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted">pts</span>
@@ -853,12 +871,13 @@ function MatchAuditCard({
         </p>
       )}
       {!isGroup && showScoring && (
-        <div className="mt-3 rounded-[12px] px-3 py-2 text-[11px] font-semibold leading-relaxed text-[#cfcfcf]" style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.07)' }}>
-          {row.explanation}
-          {row.trajectoryTeams.length > 0 && (
-            <span className="ml-1 text-mint">Trayectoria: {row.trajectoryTeams.join(' y ')}.</span>
-          )}
-        </div>
+        <details className="group mt-3 rounded-[12px] text-[11px] font-semibold text-[#cfcfcf]" style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <summary className="cursor-pointer list-none px-3 py-2 font-extrabold text-mint [&::-webkit-details-marker]:hidden">
+            <span className="group-open:hidden">Ver por qué sumó</span>
+            <span className="hidden group-open:inline">Ocultar explicación</span>
+          </summary>
+          <p className="px-3 pb-3 leading-relaxed">{row.explanation}</p>
+        </details>
       )}
     </div>
   )
