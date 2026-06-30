@@ -2,12 +2,11 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import {
-  buildAuditedRankingEntries,
   buildMatchAuditRows,
   type AuditStatus,
   type MatchAuditRow,
 } from '@/lib/ranking-audit'
-import type { Match, Prediction } from '@/types'
+import type { Match, Prediction, RankingEntry } from '@/types'
 import { formatRank, rankMedal } from '@/lib/ranking-display'
 import { buildProjectedKnockoutMatches, computeBestThirdsTable, KNOCKOUT_FIXTURES } from '@/lib/bracket'
 import { TournamentBracket } from '@/components/TournamentBracket'
@@ -1307,12 +1306,15 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   const [
     { data: detailData, error: detailError },
     { data: currentMatchRows, error: currentMatchesError },
+    { data: publicRankingData, error: publicRankingError },
   ] = await Promise.all([
     supabase.rpc('get_public_prediction_detail', { p_user_id: userId }),
     supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
+    supabase.rpc('get_public_ranking'),
   ])
   if (detailError) throw detailError
   if (currentMatchesError) throw currentMatchesError
+  if (publicRankingError) throw publicRankingError
 
   const detail = detailData as PublicPredictionDetail | null
   if (!detail?.participant) notFound()
@@ -1330,11 +1332,6 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   const userTiebreakers = ((detail.tiebreakers ?? []) as UserTiebreakerRow[]).filter((row) => row.user_id === userId)
   const specialBets = detail.special_bets
   const hasSpecialBets = [specialBets?.balon, specialBets?.bota, specialBets?.guante].some((value) => Boolean(value?.trim()))
-  const participantRows = (detail.participants ?? []).map((participant) => ({
-    user_id: participant.user_id,
-    name: participant.name,
-    avatar_url: participant.avatar_url,
-  }))
   const allMatches = (currentMatchRows ?? detail.matches ?? []) as Match[]
   const groupMatches = allMatches.filter((match) => match.stage === 'group')
   const knockoutMatches = buildProjectedKnockoutMatches(allMatches.filter((match) => match.stage !== 'group'))
@@ -1345,14 +1342,8 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     tiebreakersByUser.get(row.user_id)![row.tiebreaker_key] = row.team
   }
   const rankingEntries = await addConfirmedTrajectoryToRanking(
-    buildAuditedRankingEntries(
-      typedMatches,
-      allTypedPredictions,
-      participantRows,
-      tiebreakersByUser
-    ),
-    typedMatches,
-    { includeKnockoutScoring: false }
+    (publicRankingData ?? []) as RankingEntry[],
+    allMatches
   )
   const entry = rankingEntries.find((rankingEntry) => rankingEntry.user_id === userId)
   if (!entry) notFound()
