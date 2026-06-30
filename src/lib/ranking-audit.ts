@@ -249,12 +249,6 @@ export function buildMatchAuditRows(
         predictedTeams.home === officialTeams.home &&
         predictedTeams.away === officialTeams.away
 
-    const resultPoints = !prediction || !hasOfficialResult
-      ? null
-      : match.stage === 'group' || crossMatches
-      ? scorePoints(prediction, match)
-      : 0
-
     const predictedQualifiedTeam = prediction
       ? prediction.home_score > prediction.away_score
         ? predictedTeams.home
@@ -262,6 +256,20 @@ export function buildMatchAuditRows(
         ? predictedTeams.away
         : tiebreakerMap[match.id] ?? prediction.tiebreaker_team ?? null
       : null
+
+    const requiresCorrectQualifier =
+      match.stage !== 'group' &&
+      match.home_score === match.away_score
+    const qualifierMatches =
+      Boolean(match.qualified_team) &&
+      predictedQualifiedTeam === match.qualified_team
+    const resultPoints = !prediction || !hasOfficialResult
+      ? null
+      : match.stage !== 'group' && !crossMatches
+      ? 0
+      : requiresCorrectQualifier && !qualifierMatches
+      ? 0
+      : scorePoints(prediction, match)
 
     const slotQualifiedPoints =
       prediction &&
@@ -308,7 +316,13 @@ export function buildMatchAuditRows(
             : crossingKind === 'one_team_other_crossing'
             ? `Pronosticó a ${officialRoundTeamHits[0]} en esta ronda, pero no acertó el cruce.`
             : 'No acertó el cruce oficial.',
-          resultPoints === 3 ? '+3 resultado exacto.' : resultPoints === 1 ? '+1 por acertar el ganador.' : '0 por marcador.',
+          requiresCorrectQualifier && !qualifierMatches
+            ? '0 por marcador: en un empate también debía acertar el clasificado.'
+            : resultPoints === 3
+            ? '+3 resultado exacto.'
+            : resultPoints === 1
+            ? '+1 por acertar el signo.'
+            : '0 por marcador.',
           qualifiedPoints > 0
             ? `Sumó +${qualifiedPoints} de trayectoria porque ${trajectoryTeams.join(' y ')} ${trajectoryTeams.length > 1 ? 'avanzaron' : 'avanzó'}.`
             : slotQualifiedPoints > 0

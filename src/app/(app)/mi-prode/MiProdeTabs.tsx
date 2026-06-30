@@ -557,14 +557,18 @@ export function MiProdeTabs({
     () => getOfficialRoundOf32State([...groupMatches, ...knockoutMatches]),
     [groupMatches, knockoutMatches]
   )
-  const roundOf32Bonus = useMemo(
-    () => summarizeKnockoutBonus(buildRoundOf32BonusLedger({
+  const trajectoryLedger = useMemo(
+    () => buildRoundOf32BonusLedger({
       userId: '',
       matches: [...groupMatches, ...knockoutMatches],
       predictionMap: effectivePredMap,
       historicalTiebreakers: tiebreakers,
-    })),
+    }),
     [effectivePredMap, groupMatches, knockoutMatches, tiebreakers]
+  )
+  const roundOf32Bonus = useMemo(
+    () => summarizeKnockoutBonus(trajectoryLedger.filter((item) => item.round === 'round_of_32')),
+    [trajectoryLedger]
   )
   const roundOf32ExactCrossings = useMemo(
     () => new Set(buildRoundOf32CrossingAudit({
@@ -1128,6 +1132,7 @@ export function MiProdeTabs({
           predMap={effectivePredMap}
           tiebreakerMap={{ ...tiebreakers, ...effectiveKnockoutTiebreakers }}
           roundOf32AwardedTeams={new Set(roundOf32Bonus.awardedTeams)}
+          trajectoryAwards={trajectoryLedger}
           roundOf32ExactCrossings={roundOf32ExactCrossings}
         />
         {roundOf32State.officialBracketReady && (
