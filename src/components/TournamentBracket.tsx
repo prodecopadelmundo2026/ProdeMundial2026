@@ -13,6 +13,7 @@ import {
   resolveTeamFull,
 } from '@/lib/bracket'
 import { computeFifaAllStandings, computeFifaGroupStandings, computeFifaBestThirds } from '@/lib/fifa-standings'
+import type { KnockoutBonusLedgerItem, KnockoutBonusRound } from '@/lib/knockout-bonus'
 
 const TROPHY_ICON = String.fromCodePoint(0x1F3C6)
 
@@ -69,6 +70,7 @@ export interface TournamentBracketProps {
   /** Equipos que el usuario acertÃƒÂ³ que clasificaban a 16avos: muestran +1 en la columna D16. */
   roundOf32AwardedTeams?: Set<string>
   roundOf32ExactCrossings?: Set<number>
+  trajectoryAwards?: KnockoutBonusLedgerItem[]
 }
 
 // Visual bracket order: D32 positions 0-15 (top to bottom)
@@ -309,7 +311,7 @@ function TeamRow({
   won,
   isPH,
   status,
-  bonus,
+  bonuses,
   onCandidateClick,
   compact = false,
   side = 'left',
@@ -319,7 +321,7 @@ function TeamRow({
   won: boolean
   isPH: boolean
   status?: BracketTeamStatus
-  bonus?: boolean
+  bonuses?: number[]
   onCandidateClick?: (candidates: string[]) => void
   compact?: boolean
   side?: BracketSide
@@ -390,9 +392,10 @@ function TeamRow({
         {displayName}
       </span>
 
-      {bonus && (
+      {bonuses?.map((bonus) => (
         <span
-          title="Acertaste que clasificaba a 16avos (+1)"
+          key={bonus}
+          title={`Bonus real de trayectoria (+${bonus})`}
           style={{
             flexShrink: 0,
             fontSize: 8,
@@ -405,9 +408,9 @@ function TeamRow({
             order: 3,
           }}
         >
-          +1
+          +{bonus}
         </span>
-      )}
+      ))}
 
       {score !== undefined && (
         <span style={{
@@ -441,8 +444,8 @@ function BracketCard({
   auditStatus,
   homeStatus,
   awayStatus,
-  homeBonus,
-  awayBonus,
+  homeBonuses,
+  awayBonuses,
   onCandidateClick,
   width = CARD_W,
   compact = false,
@@ -456,8 +459,8 @@ function BracketCard({
   auditStatus?: 'correct' | 'wrong' | 'pending' | 'exact-crossing'
   homeStatus?: BracketTeamStatus
   awayStatus?: BracketTeamStatus
-  homeBonus?: boolean
-  awayBonus?: boolean
+  homeBonuses?: number[]
+  awayBonuses?: number[]
   onCandidateClick?: (candidates: string[]) => void
   width?: number
   compact?: boolean
@@ -485,16 +488,16 @@ function BracketCard({
       display: 'flex',
       flexDirection: 'column',
     }}>
-      <TeamRow name={homeTeam} score={homeScore} won={homeWon} isPH={isPHHome} status={homeStatus} bonus={homeBonus} onCandidateClick={onCandidateClick} compact={compact} side={side} />
+      <TeamRow name={homeTeam} score={homeScore} won={homeWon} isPH={isPHHome} status={homeStatus} bonuses={homeBonuses} onCandidateClick={onCandidateClick} compact={compact} side={side} />
       <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', flexShrink: 0 }} />
-      <TeamRow name={awayTeam} score={awayScore} won={awayWon} isPH={isPHAway} status={awayStatus} bonus={awayBonus} onCandidateClick={onCandidateClick} compact={compact} side={side} />
+      <TeamRow name={awayTeam} score={awayScore} won={awayWon} isPH={isPHAway} status={awayStatus} bonuses={awayBonuses} onCandidateClick={onCandidateClick} compact={compact} side={side} />
     </div>
   )
 }
 
 // Ã¢â€â‚¬Ã¢â€â‚¬ Champion card Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
-function ChampionCard({ team }: { team: string | null }) {
+function ChampionCard({ team, bonus }: { team: string | null; bonus?: number }) {
   const isPH = !team || isPlaceholderName(team)
   const meta = !isPH ? getTeam(team!) : null
   return (
@@ -543,6 +546,25 @@ function ChampionCard({ team }: { team: string | null }) {
       }}>
         {isPH ? 'Campeón' : team}
       </span>
+      {bonus != null && bonus > 0 && (
+        <span
+          title={`Bonus real de trayectoria (+${bonus})`}
+          style={{
+            position: 'absolute',
+            right: 6,
+            top: 6,
+            borderRadius: 4,
+            background: '#A8F0D8',
+            color: '#0A0A0A',
+            padding: '2px 3px',
+            fontSize: 8,
+            fontWeight: 900,
+            lineHeight: 1,
+          }}
+        >
+          +{bonus}
+        </span>
+      )}
     </div>
   )
 }
@@ -638,6 +660,7 @@ export function TournamentBracket({
   officialGroupResolution = 'complete',
   roundOf32AwardedTeams,
   roundOf32ExactCrossings,
+  trajectoryAwards = [],
 }: TournamentBracketProps) {
   const compact = layout === 'compact-official'
   const cardWidth = compact ? COMPACT_CARD_W : CARD_W
@@ -922,15 +945,15 @@ export function TournamentBracket({
 
   // Round header labels
   const headers = [
-    { label: 'D16', x: colX.d32 },
+    { label: '16avos', x: colX.d32 },
     { label: 'Octavos', x: colX.oct },
     { label: 'Cuartos', x: colX.qf },
     { label: 'Semis', x: colX.semi },
     { label: 'Final', x: colX.final },
-    { label: 'Semis derecha', x: colX.rightSemi },
-    { label: 'Cuartos derecha', x: colX.rightQf },
-    { label: 'Octavos derecha', x: colX.rightOct },
-    { label: 'D16 derecha', x: colX.rightD32 },
+    { label: 'Semis', x: colX.rightSemi },
+    { label: 'Cuartos', x: colX.rightQf },
+    { label: 'Octavos', x: colX.rightOct },
+    { label: '16avos', x: colX.rightD32 },
   ]
 
   const [openCandidateInfo, setOpenCandidateInfo] = useState<string[] | null>(null)
@@ -943,8 +966,26 @@ export function TournamentBracket({
     const d = getMatchData(pNum)
     const exactCrossing = pNum >= 73 && pNum <= 88 && roundOf32ExactCrossings?.has(pNum)
     const showBonus = mode !== 'official' && pNum <= 88 && roundOf32AwardedTeams != null
-    const homeBonus = showBonus && !isPlaceholderName(d.homeTeam) && roundOf32AwardedTeams!.has(d.homeTeam)
-    const awayBonus = showBonus && !isPlaceholderName(d.awayTeam) && roundOf32AwardedTeams!.has(d.awayTeam)
+    // La UI sólo ubica premios que el ledger ya otorgó. No vuelve a comparar
+    // cruce, rival, partido ni slot.
+    const displayedRound: KnockoutBonusRound | null =
+      pNum >= 73 && pNum <= 88 ? 'round_of_32' :
+      pNum >= 89 && pNum <= 96 ? 'round_of_16' :
+      pNum >= 97 && pNum <= 100 ? 'quarterfinal' :
+      pNum >= 101 && pNum <= 102 ? 'semifinal' :
+      pNum === 104 ? 'final' : null
+    const bonusesFor = (team: string) => {
+      const bonuses = trajectoryAwards
+        .filter((item) => item.awarded && item.team === team && item.round === displayedRound)
+        .map((item) => item.points)
+      if (
+        bonuses.length === 0 &&
+        showBonus &&
+        !isPlaceholderName(team) &&
+        roundOf32AwardedTeams!.has(team)
+      ) bonuses.push(1)
+      return [...new Set(bonuses)]
+    }
     return (
       <div key={pNum} style={{ position: 'absolute', top, left }}>
         <BracketCard
@@ -956,8 +997,8 @@ export function TournamentBracket({
           auditStatus={exactCrossing ? 'exact-crossing' : d.auditStatus}
           homeStatus={d.homeStatus}
           awayStatus={d.awayStatus}
-          homeBonus={homeBonus}
-          awayBonus={awayBonus}
+          homeBonuses={bonusesFor(d.homeTeam)}
+          awayBonuses={bonusesFor(d.awayTeam)}
           onCandidateClick={openCandidateDetail}
           width={cardWidth}
           compact={compact}
@@ -966,6 +1007,13 @@ export function TournamentBracket({
       </div>
     )
   }
+  const championBonus = champion
+    ? trajectoryAwards.find((item) =>
+        item.awarded &&
+        item.team === champion &&
+        item.round === 'champion'
+      )?.points
+    : undefined
 
   return (
     <div style={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
@@ -1101,7 +1149,7 @@ export function TournamentBracket({
           {/* Bracket body */}
           <div style={{
             position: 'relative',
-            height: BRACKET_H + HEADER_H + THIRD_BELOW + CARD_H + 20,
+            height: compact ? BRACKET_H + HEADER_H + 20 : BRACKET_H + HEADER_H + THIRD_BELOW + CARD_H + 20,
             marginTop: HEADER_H,
           }}>
             {/* Las dos mitades avanzan hacia el centro. */}
@@ -1146,13 +1194,13 @@ export function TournamentBracket({
               top: 4 * UNIT + CARD_H / 2 + 12,
               left: colX.champion + (cardWidth - CHAMPION_W) / 2,
             }}>
-              <ChampionCard team={champion} />
+              <ChampionCard team={champion} bonus={championBonus} />
             </div>
 
             {/* 3rd Place Ã¢â‚¬â€ below main bracket */}
             <div style={{
               position: 'absolute',
-              top: BRACKET_H + THIRD_BELOW,
+              top: compact ? 4 * UNIT - CARD_H / 2 - 94 : BRACKET_H + THIRD_BELOW,
               left: colX.final,
             }}>
               <div style={{ marginBottom: 4 }}>

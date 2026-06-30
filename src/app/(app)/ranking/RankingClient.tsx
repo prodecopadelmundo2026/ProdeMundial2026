@@ -25,6 +25,8 @@ type PodiumPredictionPreview = {
   }>
 }
 
+const SCORING_NOTICE_STORAGE_KEY = 'ranking-knockout-scoring-notice-v1'
+
 function initials(name: string): string {
   return name.trim()[0]?.toUpperCase() ?? '?'
 }
@@ -254,9 +256,10 @@ function RankRow({
                 </span>
                 <span className="ml-1 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted">pts</span>
               </span>
-              {(entry.trajectory_bonus ?? 0) > 0 && (
+              {((entry.knockout_points ?? 0) > 0 || (entry.trajectory_bonus ?? 0) > 0) && (
                 <span className="mt-1 whitespace-nowrap font-mono text-[9px] font-extrabold text-mint sm:text-[10px]">
-                  {entry.base_points} base · +{entry.trajectory_bonus} trayectoria
+                  {entry.group_points ?? entry.base_points ?? 0} fase de grupos ·{' '}
+                  {entry.knockout_points ?? 0} eliminatorias · +{entry.trajectory_bonus} bonus eliminatorias
                 </span>
               )}
             </>
@@ -370,6 +373,7 @@ export function RankingClient({
 }) {
   const [search, setSearch] = useState('')
   const [showPodium, setShowPodium] = useState(true)
+  const [showScoringNotice, setShowScoringNotice] = useState(false)
   const meRowRef = useRef<HTMLDivElement | null>(null)
   const stickyRef = useRef<HTMLElement | null>(null)
   const sortForCurrentMode = (items: RankingEntry[]) => rankingStarted
@@ -396,6 +400,10 @@ export function RankingClient({
   const podiumEntries = podiumGroups.flatMap((group) => group.entries)
 
   useEffect(() => {
+    setShowScoringNotice(window.localStorage.getItem(SCORING_NOTICE_STORAGE_KEY) !== 'dismissed')
+  }, [])
+
+  useEffect(() => {
     const me = meRowRef.current
     const sticky = stickyRef.current
     if (!me || !sticky) return
@@ -417,6 +425,44 @@ export function RankingClient({
 
   return (
     <>
+      {rankingStarted && showScoringNotice && (
+        <aside
+          className="mb-5 rounded-[16px] px-4 py-3 sm:px-5 sm:py-4"
+          style={{
+            background: 'linear-gradient(135deg, rgba(255,107,0,0.11), rgba(255,177,92,0.045))',
+            border: '1px solid rgba(255,107,0,0.25)',
+          }}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-orange">
+                Aviso importante
+              </p>
+              <p className="mt-1 text-[12px] font-semibold leading-relaxed text-[#d5d5d5] sm:text-[13px]">
+                Corregimos el ranking de eliminatorias. Algunos bonus por avance se estaban contando dos veces.
+                No cambiamos ninguna regla ni quitamos aciertos válidos: ajustamos la suma para que cada bonus
+                cuente una sola vez, como corresponde. Por eso algunos puntajes pueden bajar algunos puntos.
+              </p>
+              <p className="mt-2 font-mono text-[10px] font-extrabold uppercase tracking-[0.08em] text-mint sm:text-[11px]">
+                Total = fase de grupos + eliminatorias + bonus eliminatorias
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Cerrar aviso del ranking"
+              onClick={() => {
+                window.localStorage.setItem(SCORING_NOTICE_STORAGE_KEY, 'dismissed')
+                setShowScoringNotice(false)
+              }}
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[16px] font-bold text-muted transition-colors hover:text-white"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+            >
+              ×
+            </button>
+          </div>
+        </aside>
+      )}
+
       {/* Search row */}
       <div className="flex gap-2 mb-5 flex-wrap">
         <div

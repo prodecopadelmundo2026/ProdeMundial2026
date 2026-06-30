@@ -1083,7 +1083,9 @@ function ProdeOverview({
     const dayKey = formatMatchDayKeyArgentina(row.match.scheduled_at)
     return dayKey === todayKey || dayKey === tomorrowKey
   })
-  const upcomingRows = (nearFutureRows.length >= 3 ? nearFutureRows : futureRows).slice(0, 6)
+  const futureKnockoutRows = futureRows.filter((row) => row.stage !== 'group')
+  const upcomingPool = futureKnockoutRows.length > 0 ? futureKnockoutRows : (nearFutureRows.length >= 3 ? nearFutureRows : futureRows)
+  const upcomingRows = upcomingPool.slice(0, 6)
   const scoredGroupFilters = groupKeys
     .map((group) => ({
       label: `Grupo ${group}`,
@@ -1092,6 +1094,13 @@ function ProdeOverview({
     }))
     .filter((item) => item.count > 0)
   const scoredKnockoutCount = scoredRows.filter((row) => row.stage !== 'group').length
+  const currentKnockoutStage =
+    KNOCKOUT_STAGE_ORDER.find((stage) => rows.some((row) => row.stage === stage && row.match.status !== 'finished')) ??
+    [...KNOCKOUT_STAGE_ORDER].reverse().find((stage) => rows.some((row) => row.stage === stage && row.match.status === 'finished'))
+  const currentStageScoredRows = currentKnockoutStage
+    ? scoredRows.filter((row) => row.stage === currentKnockoutStage)
+    : []
+  const visibleScoredRows = currentStageScoredRows.length > 0 ? currentStageScoredRows : scoredRows.filter((row) => row.stage !== 'group')
 
   return (
     <div className="space-y-5">
@@ -1175,7 +1184,16 @@ function ProdeOverview({
           </p>
         )}
       </section>
-      {children}
+      {children && (
+        <Link
+          href={hrefForView(userId, 'bracket')}
+          className="flex items-center justify-between rounded-[16px] bg-[#0d0d0d] px-4 py-3 text-[12px] font-extrabold text-white"
+          style={{ border: '1px solid rgba(255,107,0,0.2)' }}
+        >
+          <span>Comparación visual de la llave</span>
+          <span className="text-orange">Abrir llave →</span>
+        </Link>
+      )}
       <section className="rounded-[18px] bg-[#0d0d0d] px-4 py-3" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
         <p className="font-extrabold text-white">Resumen general</p>
         <p className="mt-1 text-[12px] font-semibold leading-relaxed text-muted">
@@ -1185,28 +1203,20 @@ function ProdeOverview({
       <section className="rounded-[18px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
         <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
           <div>
-            <p className="font-extrabold text-white">Partidos ya puntuados</p>
+            <p className="font-extrabold text-white">
+              {currentKnockoutStage ? `Fase actual: ${STAGE_LABELS[currentKnockoutStage]}` : 'Partidos de eliminatorias'}
+            </p>
             <p className="mt-1 text-[12px] font-semibold leading-relaxed text-muted">
               Historial de partidos finalizados que ya impactaron en el ranking.
             </p>
           </div>
           <span className="rounded-full px-3 py-1.5 font-mono text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#D7DEE8' }}>
-            {scoredRows.length}
+            {visibleScoredRows.length}
           </span>
         </div>
 
         {(scoredGroupFilters.length > 0 || scoredKnockoutCount > 0) && (
-          <div className="mb-3 flex flex-wrap gap-2">
-            {scoredGroupFilters.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-full px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.08em] transition-colors hover:bg-[#1c1c1c]"
-                style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#d9d9d9' }}
-              >
-                {item.label} - {item.count}
-              </Link>
-            ))}
+          <div className="mb-3 grid gap-2">
             {scoredKnockoutCount > 0 && (
               <Link
                 href={hrefForView(userId, 'knockout')}
@@ -1216,10 +1226,29 @@ function ProdeOverview({
                 Eliminatorias - {scoredKnockoutCount}
               </Link>
             )}
+            {scoredGroupFilters.length > 0 && (
+              <details className="group rounded-[14px] bg-[#101010] p-3" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+                <summary className="cursor-pointer list-none text-[11px] font-extrabold uppercase tracking-[0.08em] text-muted">
+                  Historial de fase de grupos
+                </summary>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {scoredGroupFilters.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="rounded-full px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.08em]"
+                      style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#d9d9d9' }}
+                    >
+                      {item.label} - {item.count}
+                    </Link>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
         )}
 
-        {scoredRows.length > 0 ? (
+        {visibleScoredRows.length > 0 ? (
           <div className="overflow-hidden rounded-[16px]" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
             <div
               className={`hidden px-4 py-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted ${showViewerPrediction ? 'min-[900px]:grid' : 'min-[720px]:grid'} ${auditTableGridClass(showViewerPrediction)}`}
@@ -1237,7 +1266,7 @@ function ProdeOverview({
               </span>
               <span className="text-right">Pts</span>
             </div>
-            {scoredRows.map((row) => (
+            {visibleScoredRows.map((row) => (
               <MatchAuditCard
                 key={row.match.id}
                 row={row}
@@ -1371,6 +1400,9 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     historicalTiebreakers: userTiebreakerMap,
   })
   const trajectoryBonus = summarizeKnockoutBonus(trajectoryLedger)
+  const roundOf32TrajectoryBonus = summarizeKnockoutBonus(
+    trajectoryLedger.filter((item) => item.round === 'round_of_32')
+  )
   const roundOf32Crossings = buildRoundOf32CrossingAudit({
     matches: allMatches,
     predictionMap,
@@ -1497,8 +1529,9 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
               value={`${rankMedal(entry.rank, entry.total_points) ? `${rankMedal(entry.rank, entry.total_points)} ` : ''}${formatRank(entry, rankingEntries)}`}
               color={RANK_COLOR[entry.rank]}
             />
-            <SummaryBox label="Puntos base" value={entry.base_points ?? entry.total_points - trajectoryBonus.points} />
-            <SummaryBox label="Bonus trayectoria" value={`+${trajectoryBonus.points}`} />
+            <SummaryBox label="Fase de grupos" value={entry.group_points ?? entry.base_points ?? 0} />
+            <SummaryBox label="Eliminatorias" value={entry.knockout_points ?? 0} />
+            <SummaryBox label="Bonus eliminatorias" value={`+${trajectoryBonus.points}`} />
             <SummaryBox label="Total" value={totalWithTrajectory} />
             <SummaryLink label="Exactas" value={statusCount(auditRows, 'exact')} href={filterHrefForView(userId, activeView, 'exact', activeResult, activeView === 'knockout' ? activeKnockoutStage : null)} active={activeResult === 'exact'} />
             <SummaryLink label="Parciales" value={statusCount(auditRows, 'partial')} href={filterHrefForView(userId, activeView, 'partial', activeResult, activeView === 'knockout' ? activeKnockoutStage : null)} active={activeResult === 'partial'} />
@@ -1598,7 +1631,8 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                   knockoutMatches={knockoutMatches}
                   predMap={predictionMap}
                   tiebreakerMap={userBracketTiebreakerMap}
-                  roundOf32AwardedTeams={new Set(trajectoryBonus.awardedTeams)}
+                  roundOf32AwardedTeams={new Set(roundOf32TrajectoryBonus.awardedTeams)}
+                  trajectoryAwards={trajectoryLedger}
                   roundOf32ExactCrossings={new Set(roundOf32Crossings.filter((crossing) => crossing.correct).map((crossing) => crossing.pNum))}
                 />
               </div>
@@ -1618,7 +1652,8 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                   knockoutMatches={knockoutMatches}
                   predMap={predictionMap}
                   tiebreakerMap={userBracketTiebreakerMap}
-                  roundOf32AwardedTeams={new Set(trajectoryBonus.awardedTeams)}
+                  roundOf32AwardedTeams={new Set(roundOf32TrajectoryBonus.awardedTeams)}
+                  trajectoryAwards={trajectoryLedger}
                   roundOf32ExactCrossings={new Set(roundOf32Crossings.filter((crossing) => crossing.correct).map((crossing) => crossing.pNum))}
                 />
               </div>
@@ -1635,13 +1670,13 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                 {officialRoundOf32State.officialBracketReady && trajectoryLedger.length > 0 ? (
                   <>
                     <p className="mb-3 text-[13px] font-semibold text-mint">
-                      Acerto {trajectoryBonus.awardedTeams.length} de 32 equipos · +{trajectoryBonus.points} pts
+                      Acerto {roundOf32TrajectoryBonus.awardedTeams.length} de 32 equipos · +{roundOf32TrajectoryBonus.points} pts
                     </p>
                     <div className="grid gap-2 sm:grid-cols-2">
-                      {trajectoryBonus.awardedTeams.map((team) => (
+                      {roundOf32TrajectoryBonus.awardedTeams.map((team) => (
                         <span key={`ok-${team}`} className="rounded-[10px] bg-mint/10 px-3 py-2 text-[12px] font-bold text-mint">✓ {team} +1</span>
                       ))}
-                      {trajectoryBonus.missedTeams.map((team) => (
+                      {roundOf32TrajectoryBonus.missedTeams.map((team) => (
                         <span key={`miss-${team}`} className="rounded-[10px] bg-white/5 px-3 py-2 text-[12px] font-bold text-muted">× {team} 0</span>
                       ))}
                     </div>

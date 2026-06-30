@@ -163,14 +163,16 @@ function BestThirdsTable({ rows }: { rows: FifaBestThirdStanding[] }) {
   )
 }
 
-function Metric({ label, value, tone = 'neutral' }: { label: string; value: number | string; tone?: 'neutral' | 'live' | 'done' }) {
-  const color = tone === 'live' ? '#FF6B6B' : tone === 'done' ? '#A8F0D8' : '#FFB15C'
-  return (
-    <div className="rounded-[16px] bg-[#141414] px-4 py-3" style={{ border: `1px solid ${color}2e` }}>
-      <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">{label}</p>
-      <p className="mt-1 font-display text-[30px] leading-none tabular-nums" style={{ color }}>{value}</p>
-    </div>
-  )
+function formatNextMatchDate(value: string) {
+  return new Intl.DateTimeFormat('es-AR', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(value)).replace(',', ' ·') + ' ART'
 }
 
 function LiveBracketSection({
@@ -190,12 +192,14 @@ function LiveBracketSection({
         <div>
           <p className="text-[14px] font-extrabold text-white">{officialBracketReady ? 'Llave oficial del Mundial' : 'Llave real actual'}</p>
           <p className="mt-1 max-w-[680px] text-[12px] font-semibold leading-relaxed text-muted">
-            {officialBracketReady ? 'Cruces definidos desde las tablas finales y los mejores terceros.' : 'Así quedarían los cruces según las posiciones actuales de los grupos.'}
+            {officialBracketReady ? 'Cruces definidos desde la fase de grupos y los mejores terceros.' : 'Así quedarían los cruces según las posiciones actuales de los grupos.'}
           </p>
         </div>
-        <span className="rounded-full px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: 'rgba(255,177,92,0.08)', border: '1px solid rgba(255,177,92,0.22)', color: '#FFB15C' }}>
-          {officialBracketReady ? 'Oficial' : 'Provisorio'}
-        </span>
+        {!officialBracketReady && (
+          <span className="rounded-full px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: 'rgba(255,177,92,0.08)', border: '1px solid rgba(255,177,92,0.22)', color: '#FFB15C' }}>
+            Provisorio
+          </span>
+        )}
       </div>
 
       {!officialBracketReady && (
@@ -269,8 +273,12 @@ export default async function MundialEnVivoPage() {
   })
   const bestThirds = computeFifaBestThirds(groupMatches, scoreMap).standings
   const countedMatches = groupMatches.filter((match) => scoreMap[match.id])
-  const liveCounted = countedMatches.filter((match) => match.status === 'live').length
-  const finishedCounted = countedMatches.filter((match) => match.status === 'finished').length
+  const liveCounted = matches.filter((match) => match.status === 'live').length
+  const finishedCounted = matches.filter((match) => match.status === 'finished').length
+  const pendingCount = matches.filter((match) => match.status !== 'finished' && match.status !== 'live').length
+  const nextMatch = [...knockoutMatches, ...groupMatches]
+    .filter((match) => match.status !== 'finished' && match.status !== 'live')
+    .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0]
   const hasAnyGroupResult = countedMatches.length > 0
 
   return (
@@ -290,10 +298,17 @@ export default async function MundialEnVivoPage() {
           </p>
         </div>
 
-        <div className="mb-5 grid gap-3 sm:grid-cols-3">
-          <Metric label="Partidos computados" value={countedMatches.length} />
-          <Metric label="En vivo" value={liveCounted} tone="live" />
-          <Metric label="Finalizados" value={finishedCounted} tone="done" />
+        <div className="mb-5 flex flex-col gap-2 rounded-[16px] bg-[#141414] px-4 py-3 min-[760px]:flex-row min-[760px]:items-center min-[760px]:justify-between" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+          <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.1em] text-white">
+            <span className="text-mint">{finishedCounted} jugados</span>
+            {' · '}<span style={{ color: liveCounted > 0 ? '#FF6B6B' : '#9ca3af' }}>{liveCounted} en vivo</span>
+            {' · '}<span className="text-muted">{pendingCount} pendientes</span>
+          </p>
+          <p className="text-[12px] font-semibold text-muted">
+            {nextMatch
+              ? <>Próximo: <span className="font-extrabold text-white">{nextMatch.home_team} vs {nextMatch.away_team}</span> · {formatNextMatchDate(nextMatch.scheduled_at)}</>
+              : 'No quedan partidos pendientes.'}
+          </p>
         </div>
 
         <div className="mb-5 flex flex-wrap gap-2">

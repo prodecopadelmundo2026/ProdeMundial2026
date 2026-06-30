@@ -75,6 +75,8 @@ export type RankingWithTrajectoryEntry = {
   incorrect_predictions?: number
   rank: number
   base_points?: number
+  group_points?: number
+  knockout_points?: number
   trajectory_bonus?: number
 }
 
@@ -428,7 +430,14 @@ export async function addConfirmedTrajectoryToRanking<T extends RankingWithTraje
   const enriched = entries.map((entry) => {
     const currentBasePoints = Number(entry.base_points ?? entry.total_points ?? 0)
     if (!entry.user_id) {
-      return { ...entry, base_points: currentBasePoints, trajectory_bonus: 0, total_points: currentBasePoints }
+      return {
+        ...entry,
+        base_points: currentBasePoints,
+        group_points: currentBasePoints,
+        knockout_points: 0,
+        trajectory_bonus: 0,
+        total_points: currentBasePoints,
+      }
     }
     const userPredictions = predictionsByUser.get(entry.user_id) ?? []
     const userVirtualPredictions = rows.virtualPredictions.filter((prediction) => prediction.user_id === entry.user_id)
@@ -477,7 +486,9 @@ export async function addConfirmedTrajectoryToRanking<T extends RankingWithTraje
       ? []
       : buildMatchAuditRows(visibleMatches, auditPredictions, historicalTiebreakers)
           .filter((row) => row.stage !== 'group' && row.points != null)
-    const knockoutPoints = knockoutRows.reduce((total, row) => total + (row.points ?? 0), 0)
+    // El bonus de trayectoria se suma abajo desde el ledger. Acá sólo entra el
+    // puntaje de marcador para evitar contabilizar el avance dos veces.
+    const knockoutPoints = knockoutRows.reduce((total, row) => total + (row.resultPoints ?? 0), 0)
     const basePoints = currentBasePoints + knockoutPoints
     const bonus = summarizeKnockoutBonus(buildRoundOf32BonusLedger({
       userId: entry.user_id,
@@ -488,6 +499,8 @@ export async function addConfirmedTrajectoryToRanking<T extends RankingWithTraje
     return {
       ...entry,
       base_points: basePoints,
+      group_points: currentBasePoints,
+      knockout_points: knockoutPoints,
       trajectory_bonus: bonus,
       total_points: basePoints + bonus,
       exact_predictions: entry.exact_predictions + knockoutRows.filter((row) => row.status === 'exact').length,
