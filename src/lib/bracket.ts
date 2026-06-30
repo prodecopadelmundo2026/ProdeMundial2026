@@ -416,6 +416,21 @@ function resolveKnockout(
 
   const homeResolved = resolveTeamFull(fixture[0], standings, pMap, predMap, tiebreakerMap, depth + 1, bestThirdsGroups, thirdSlotAssignment)
   const awayResolved = resolveTeamFull(fixture[1], standings, pMap, predMap, tiebreakerMap, depth + 1, bestThirdsGroups, thirdSlotAssignment)
+  const projectedScore = predMap[match.id]
+
+  // Personal brackets follow the saved projection before considering reality.
+  if (projectedScore) {
+    if (projectedScore.home_score === projectedScore.away_score) {
+      const projectedTiebreaker = tiebreakerMap[match.id]
+      if (projectedTiebreaker === homeResolved) return type === 'winner' ? homeResolved : awayResolved
+      if (projectedTiebreaker === awayResolved) return type === 'winner' ? awayResolved : homeResolved
+      return fallback
+    }
+    const projectedHomeWins = projectedScore.home_score > projectedScore.away_score
+    return type === 'winner'
+      ? (projectedHomeWins ? homeResolved : awayResolved)
+      : (projectedHomeWins ? awayResolved : homeResolved)
+  }
 
   // Use actual result if available
   if (match.home_score != null && match.away_score != null) {

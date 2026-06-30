@@ -74,7 +74,7 @@ const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'third_pla
 type RoundKey = typeof ROUND_ORDER[number]
 type AdminLoadState = 'idle' | 'saving' | 'saved' | 'error'
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
-const LATE_PREDICTION_MESSAGE = 'No podÃ©s cargar pronÃ³sticos de partidos que ya empezaron o finalizaron.'
+const LATE_PREDICTION_MESSAGE = 'No podés cargar pronósticos de partidos que ya empezaron o finalizaron.'
 
 const ROUND_LABELS: Record<string, string> = {
   round_of_32:  'Dieciseisavos',
@@ -93,7 +93,7 @@ const STRIP_COLOR: Record<string, string> = {
 }
 
 function isPlaceholder(name: string) {
-  return name.includes('Â°') || name.startsWith('Ganador') || name.startsWith('Perdedor') || name === 'Mejor 3Â°'
+  return name.includes('°') || name.includes('Â') || name.startsWith('Ganador') || name.startsWith('Perdedor') || name === 'Mejor 3°'
 }
 
 // P-number friendly labels for unresolved knockout placeholders
@@ -118,15 +118,15 @@ const P_NUM_INFO: Record<number, { round: string; short: string }> = {
 
 // Transforms raw DB placeholder text into a human-readable label + optional context hint
 function formatPlaceholder(raw: string): { primary: string; hint: string | null } {
-  // "1Â° Grupo A" / "2Â° Grupo B" â€” already legible
-  if (/^[12]Â°\s+Grupo\s+[A-L]$/.test(raw)) return { primary: raw, hint: null }
+  // Direct group-position slots are already legible.
+  if (/^[12]°\s+Grupo\s+[A-L]$/.test(raw)) return { primary: raw, hint: null }
 
-  // "3Â° Grupo A/B/C/D/F" â€” best third from a qualifying slot
-  const thirdGroups = raw.match(/^3Â°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
-  if (thirdGroups) return { primary: 'Mejor 3Â°', hint: `Grps. ${thirdGroups[1]}` }
+  // Best-third slot from one of the eligible groups.
+  const thirdGroups = raw.match(/^3°\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
+  if (thirdGroups) return { primary: 'Mejor 3°', hint: `Grps. ${thirdGroups[1]}` }
 
-  // "Mejor 3Â°" (fallback after full resolution)
-  if (raw === 'Mejor 3Â°') return { primary: 'Mejor 3Â°', hint: null }
+  // Best-third fallback after full resolution.
+  if (raw === 'Mejor 3°') return { primary: 'Mejor 3°', hint: null }
 
   // "Ganador P73"
   const winner = raw.match(/^Ganador\s+P(\d+)$/)
@@ -147,12 +147,12 @@ function formatPlaceholder(raw: string): { primary: string; hint: string | null 
 
 // Brief description shown below the round tabs
 const ROUND_CONTEXT: Record<string, string> = {
-  round_of_32:  '32 selecciones Â· campeones, subcampeones + 8 mejores terceros',
+  round_of_32:  '32 selecciones - campeones, subcampeones + 8 mejores terceros',
   round_of_16:  'Ganadores de Dieciseisavos',
   quarter:      'Ganadores de Octavos',
   semi:         'Ganadores de Cuartos',
   third_place:  'Perdedores de Semis disputan el bronce',
-  final:        'Ganadores de Semis disputan el tÃ­tulo',
+  final:        'Ganadores de Semis disputan el título',
 }
 
 function BracketMatchCard({
@@ -344,42 +344,44 @@ function BracketMatchCard({
         </div>
       </div>
 
-      {/* Partido terminado/en vivo: PronÃ³stico + Resultado Final */}
+      {/* Finished/live match: prediction plus official score. */}
       {hasRealScore ? (
         <div className="flex flex-col gap-[8px]">
-          {/* PronÃ³stico */}
+          {/* Prediction */}
           <div>
             <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] mb-[5px]" style={{ color: '#4a4a4a' }}>
-              PronÃ³stico
+              Pronóstico
             </p>
             <div
               className="flex items-center justify-center rounded-[12px]"
               style={{ padding: '10px 8px', background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)' }}
             >
               {hasPrediction ? (
-                <span className="font-display text-[24px] text-white tabular-nums">{home} â€” {away}</span>
+                <span className="inline-flex items-center gap-2 font-display text-[24px] text-white tabular-nums">
+                  <span>{home}</span><span aria-hidden="true">-</span><span>{away}</span>
+                </span>
               ) : (
-                <span className="text-[11px] font-bold" style={{ color: '#3a3a3a' }}>Sin pronÃ³stico</span>
+                <span className="text-[11px] font-bold" style={{ color: '#3a3a3a' }}>Sin pronóstico</span>
               )}
             </div>
           </div>
           {/* Resultado final */}
           <div>
             <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] mb-[5px]" style={{ color: '#9a9a9a' }}>
-              Resultado final
+              {isFinished ? 'Resultado final' : 'Resultado en vivo'}
             </p>
             <div
               className="flex items-center justify-center rounded-[12px]"
               style={{ padding: '10px 8px', background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,0.08)' }}
             >
-              <span className="font-display text-[24px] text-white tabular-nums">
-                {match.home_score} â€” {match.away_score}
+              <span className="inline-flex items-center gap-2 font-display text-[24px] text-white tabular-nums">
+                <span>{match.home_score}</span><span aria-hidden="true">-</span><span>{match.away_score}</span>
               </span>
             </div>
           </div>
         </div>
       ) : (
-        /* Score inputs â€” partido abierto */
+        /* Score inputs for an open match. */
         <>
         {canEditScore && (
           <div className="mb-2 flex justify-end">
@@ -414,7 +416,7 @@ function BracketMatchCard({
             value={home}
             disabled={!canEditScore}
             onChange={(e) => handleChange('home', e.target.value)}
-            placeholder="â€“"
+            placeholder="-"
             aria-label={`Goles ${homeTeam}`}
             className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
             style={canEditScore ? undefined : { cursor: 'not-allowed' }}
@@ -435,7 +437,7 @@ function BracketMatchCard({
               e.target.style.boxShadow = 'none'
             }}
           />
-          <span className="font-display text-[18px] text-[#3a3a3a]">â€”</span>
+          <span className="font-display text-[18px] text-[#3a3a3a]">-</span>
           <input
             type="text"
             inputMode="numeric"
@@ -444,7 +446,7 @@ function BracketMatchCard({
             value={away}
             disabled={!canEditScore}
             onChange={(e) => handleChange('away', e.target.value)}
-            placeholder="â€“"
+            placeholder="-"
             aria-label={`Goles ${awayTeam}`}
             className="score w-full h-[40px] text-center bg-transparent border-none text-white outline-none rounded-[8px] transition-all duration-150 font-display text-[24px] tracking-[-0.03em]"
             style={canEditScore ? undefined : { cursor: 'not-allowed' }}
@@ -469,14 +471,14 @@ function BracketMatchCard({
         </>
       )}
 
-      {/* Tiebreaker: knockout draw â†’ pick who advances */}
+      {/* Tiebreaker for a drawn knockout prediction. */}
       {canEditTiebreaker && match.stage !== 'group' && hasPrediction && !homePH && !awayPH && isDrawPred && (
         <div
           className="mt-3 rounded-[10px] px-3 py-3"
           style={{ background: '#0A0A0A', border: '1px solid rgba(255,107,0,0.35)' }}
         >
           <p className="text-[10px] font-extrabold tracking-[0.16em] uppercase text-orange mb-2">
-            Â¿QuiÃ©n pasa?
+            ¿Quién pasa?
           </p>
           <div className="grid grid-cols-2 gap-2">
             {[homeTeam, awayTeam].map((team) => (
@@ -572,7 +574,7 @@ export function BracketView({
     : new Set<string>()
   const thirdSlotAssignment = bestThirdsGroups.size > 0 ? assignBestThirdsToSlots(bestThirdsGroups) : {}
 
-  // Local inputs: matchId â†’ { home, away } (starts from predMap)
+  // Local inputs keyed by matchId, initialized from predMap.
   const [localInputs, setLocalInputs] = useState<LocalInputs>(() => {
     const init: LocalInputs = {}
     for (const m of knockoutMatches) {
@@ -827,7 +829,7 @@ export function BracketView({
       setAdminSaveError('Sin permisos de administrador.')
       return
     }
-    const confirmed = window.confirm('Esto puede reemplazar pronosticos existentes. Â¿Continuar?')
+    const confirmed = window.confirm('Esto puede reemplazar pronósticos existentes. ¿Continuar?')
     if (!confirmed) return
     const targetMatches = rounds.length
       ? rounds.flatMap((round) => getAdminEligibleMatches(round))
@@ -866,7 +868,7 @@ export function BracketView({
       setTimeout(() => setAdminSaveState('idle'), 1800)
     } catch (error) {
       const message = formatClientError(error)
-      console.error('Error al cargar pronÃ³stico aleatorio de eliminatorias', error)
+      console.error('Error al cargar pronóstico aleatorio de eliminatorias', error)
       setAdminSaveError(message)
       setAdminSaveState('error')
     }
@@ -878,7 +880,7 @@ export function BracketView({
       setAdminSaveError('Sin permisos de administrador.')
       return
     }
-    const confirmed = window.confirm('Esto puede reemplazar apuestas especiales existentes. Â¿Continuar?')
+    const confirmed = window.confirm('Esto puede reemplazar apuestas especiales existentes. ¿Continuar?')
     if (!confirmed) return
     try {
       const next = randomSpecials()
@@ -991,7 +993,7 @@ export function BracketView({
           </span>
           <div>
             <p className="font-extrabold text-white leading-snug">Desempates pendientes en grupos</p>
-            <p className="text-[13px] mt-0.5 text-muted">ResolvÃ© los desempates para que el bracket se arme correctamente.</p>
+            <p className="text-[13px] mt-0.5 text-muted">Resolvé los desempates para que el bracket se arme correctamente.</p>
           </div>
         </div>
       )}
@@ -1004,11 +1006,11 @@ export function BracketView({
         >
           <p className="text-muted">
             {quickFillState === 'confirm'
-              ? `Esto puede reemplazar pronosticos existentes en ${eligibleForQuickFill} partidos de eliminatorias. Â¿Continuar?`
+              ? `Esto puede reemplazar pronósticos existentes en ${eligibleForQuickFill} partidos de eliminatorias. ¿Continuar?`
               : quickFillState === 'saving'
               ? 'Cargando bracket completo...'
               : quickFillState === 'saved'
-              ? `Â¡Listo! ${eligibleForQuickFill} partidos cargados.`
+              ? `¡Listo! ${eligibleForQuickFill} partidos cargados.`
               : quickFillError
               ? `Error: ${quickFillError}`
               : ''}
@@ -1033,7 +1035,7 @@ export function BracketView({
           )}
           {(quickFillState === 'saved' || quickFillState === 'error') && (
             <button onClick={() => setQuickFillState('idle')} className="text-[11px] font-bold text-muted">
-              Cerrar Ã—
+              Cerrar
             </button>
           )}
         </div>
@@ -1046,7 +1048,7 @@ export function BracketView({
         >
           <div>
             <p className="font-extrabold text-white text-[13px] leading-snug">Autocompletar Prode (Admin)</p>
-            <p className="text-[12px] mt-0.5 text-muted">{eligibleForQuickFill} partidos disponibles Â· genera datos de prueba</p>
+            <p className="text-[12px] mt-0.5 text-muted">{eligibleForQuickFill} partidos disponibles - genera datos de prueba</p>
           </div>
           <button
             onClick={() => setQuickFillState('confirm')}
@@ -1097,7 +1099,7 @@ export function BracketView({
                 style={{ background: '#181818', color: '#8A8A8A', border: '1px solid rgba(255,255,255,0.08)' }}
                 aria-label="Cerrar"
               >
-                Ã—
+                Cerrar
               </button>
             </div>
 
@@ -1178,15 +1180,15 @@ export function BracketView({
           className="px-5 py-3 text-sm font-bold"
           style={{ background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.25)', borderRadius: '16px', color: '#FF8585' }}
         >
-          Error al guardar. RevisÃ¡ tu conexiÃ³n y volvÃ© a intentarlo.
+          Error al guardar. Revisá tu conexión y volvé a intentarlo.
         </div>
       )}
 
-      {/* Combo row â€” dropdown + arrows */}
+      {/* Round selector and navigation controls. */}
       <div className="flex items-end gap-2" style={{ minWidth: 0 }}>
         <div className="flex flex-col gap-1.5 flex-1 min-w-0">
           <label className="text-[11px] font-extrabold tracking-[0.22em] uppercase text-muted">
-            SeleccionÃ¡ la fase
+            Seleccioná la fase
           </label>
           <div
             className="relative transition-[border-color,background] duration-150"
@@ -1284,7 +1286,7 @@ export function BracketView({
         </p>
       )}
 
-      {/* Mejores terceros info panel â€” only for round_of_32 */}
+      {/* Best-thirds info panel for round of 32. */}
       {activeRound === 'round_of_32' && (
         <div
           className="flex items-start gap-3 px-4 py-3 rounded-[12px]"
@@ -1296,13 +1298,13 @@ export function BracketView({
           <div>
             <p className="text-[11px] font-bold leading-snug" style={{ color: '#5a5450' }}>Mejores terceros</p>
             <p className="text-[11px] mt-0.5 leading-snug" style={{ color: '#3e3a35' }}>
-              Los 8 mejores terceros de los 12 grupos clasifican. Su posiciÃ³n en el bracket depende de quÃ© grupos los producen.
+              Los 8 mejores terceros de los 12 grupos clasifican. Su posición en el bracket depende de qué grupos los producen.
             </p>
           </div>
         </div>
       )}
 
-      {/* Main round matches â€” non-final rounds */}
+      {/* Main round matches excluding the final. */}
       {activeRound !== 'final' && (
         <div className="grid grid-cols-1 min-[720px]:grid-cols-2 min-[1100px]:grid-cols-3 gap-4">
           {(byRound[activeRound] ?? [])
