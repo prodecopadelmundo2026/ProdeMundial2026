@@ -1,5 +1,4 @@
 import { unstable_noStore as noStore } from 'next/cache'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import type { Match } from '@/types'
 import { buildProjectedKnockoutMatches } from '@/lib/bracket'
@@ -189,7 +188,7 @@ function LiveBracketSection({
     <section id="llave-real" className="min-w-0 scroll-mt-24 rounded-[20px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[14px] font-extrabold text-white">{officialBracketReady ? 'Llave oficial de 16avos' : 'Llave real actual'}</p>
+          <p className="text-[14px] font-extrabold text-white">{officialBracketReady ? 'Llave oficial del Mundial' : 'Llave real actual'}</p>
           <p className="mt-1 max-w-[680px] text-[12px] font-semibold leading-relaxed text-muted">
             {officialBracketReady ? 'Cruces definidos desde las tablas finales y los mejores terceros.' : 'Así quedarían los cruces según las posiciones actuales de los grupos.'}
           </p>
@@ -206,9 +205,9 @@ function LiveBracketSection({
       )}
 
       <div className="mb-4 flex flex-wrap gap-2 text-[10px] font-extrabold uppercase tracking-[0.08em]">
-        <span className="rounded-full px-3 py-1.5" style={{ color: '#FFE040', background: 'rgba(255,224,64,0.08)', border: '1px solid rgba(255,224,64,0.28)' }}>Dorado: 1° confirmado</span>
-        <span className="rounded-full px-3 py-1.5" style={{ color: '#CBD5E1', background: 'rgba(203,213,225,0.08)', border: '1px solid rgba(203,213,225,0.25)' }}>Plateado: 2° confirmado</span>
-        <span className="rounded-full px-3 py-1.5" style={{ color: '#D08A45', background: 'rgba(208,138,69,0.1)', border: '1px solid rgba(208,138,69,0.28)' }}>Bronce: mejor 3° confirmado</span>
+        <span className="rounded-full px-3 py-1.5" style={{ color: '#FFE040', background: 'rgba(255,224,64,0.08)', border: '1px solid rgba(255,224,64,0.28)' }}>Dorado: 1° de grupo</span>
+        <span className="rounded-full px-3 py-1.5" style={{ color: '#CBD5E1', background: 'rgba(203,213,225,0.08)', border: '1px solid rgba(203,213,225,0.25)' }}>Plateado: 2° de grupo</span>
+        <span className="rounded-full px-3 py-1.5" style={{ color: '#D08A45', background: 'rgba(208,138,69,0.1)', border: '1px solid rgba(208,138,69,0.28)' }}>Bronce: mejor 3°</span>
         {!officialBracketReady && (
           <span className="rounded-full px-3 py-1.5" style={{ color: '#B18CFF', background: 'rgba(177,140,255,0.09)', border: '1px solid rgba(177,140,255,0.26)' }}>Violeta: posición por confirmar</span>
         )}
@@ -221,6 +220,7 @@ function LiveBracketSection({
       ) : (
         <TournamentBracket
           mode="official"
+          layout="compact-official"
           groupMatches={groupMatches}
           knockoutMatches={knockoutMatches}
           officialGroupResolution="current"
@@ -303,15 +303,6 @@ export default async function MundialEnVivoPage() {
           <a href="#mejores-terceros" className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase transition-colors" style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.1)' }}>
             Ver mejores terceros
           </a>
-          <a href="#llave-real" className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase transition-colors" style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.1)' }}>
-            Ver llave
-          </a>
-          <Link href="/mi-prode" className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase transition-colors" style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.1)' }}>
-            Comparar con Mi Prode
-          </Link>
-          <Link href="/ranking" className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase transition-colors" style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.1)' }}>
-            Ver Ranking
-          </Link>
         </div>
 
         <div className="grid gap-5">
