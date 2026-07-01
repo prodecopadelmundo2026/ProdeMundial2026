@@ -57,48 +57,60 @@ export default async function PronosticoDetallePage({
 }: {
   params: Promise<{ matchId: string }>
 }) {
-  const { matchId } = await params
-  const isVirtual = matchId.startsWith('virtual-p')
+  const { matchId: routeMatchId } = await params
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [{ data: { user } }, { data: matchRows }] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
+  ])
+
+  const visibleMatches = getTournamentVisibleMatches((matchRows ?? []) as Match[])
+  const matchData = visibleMatches.find(
+    (match) => match.id === routeMatchId || match.database_id === routeMatchId
+  )
+  if (!matchData) notFound()
+
+  const visibleMatchId = matchData.id
+  const databaseMatchId = matchData.database_id ?? matchData.id
+  const isVirtualMatch = visibleMatchId.startsWith('virtual-p')
 
   const [
-    { data: matchRows },
     { data: insightsRows },
     { data: distributionRows },
     { data: pointsBreakdownRows },
     { data: currentUserPrediction },
   ] = await Promise.all([
-    supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
-    isVirtual ? Promise.resolve({ data: null }) : supabase.rpc('get_match_prediction_insights', { p_match_id: matchId }),
-    isVirtual ? Promise.resolve({ data: null }) : supabase.rpc('get_match_prediction_result_distribution', { p_match_id: matchId }),
-    isVirtual ? Promise.resolve({ data: null }) : supabase.rpc('get_match_points_breakdown', { p_match_id: matchId }),
-    user && !isVirtual
-      ? supabase
+    isVirtualMatch ? Promise.resolve({ data: null }) : supabase.rpc('get_match_prediction_insights', { p_match_id: databaseMatchId }),
+    isVirtualMatch ? Promise.resolve({ data: null }) : supabase.rpc('get_match_prediction_result_distribution', { p_match_id: databaseMatchId }),
+    isVirtualMatch ? Promise.resolve({ data: null }) : supabase.rpc('get_match_points_breakdown', { p_match_id: databaseMatchId }),
+    user
+      ? isVirtualMatch
+        ? supabase
+            .from('virtual_knockout_predictions')
+            .select('home_score, away_score')
+            .eq('virtual_match_id', visibleMatchId)
+            .eq('user_id', user.id)
+            .order('updated_at', { ascending: false })
+            .limit(1)
+        : supabase
           .from('predictions')
           .select('home_score, away_score')
-          .eq('match_id', matchId)
+          .eq('match_id', databaseMatchId)
           .eq('user_id', user.id)
           .order('updated_at', { ascending: false })
           .limit(1)
       : Promise.resolve({ data: null }),
   ])
 
-  const visibleMatches = getTournamentVisibleMatches((matchRows ?? []) as Match[])
   // Los partidos eliminatorios visibles usan `virtual-pXX` como id estable de
   // llave, pero conservan el UUID real en `database_id`. Los links públicos
   // existentes usan el UUID porque es el identificador que esperan los RPC.
-  const matchData = visibleMatches.find(
-    (match) => match.id === matchId || match.database_id === matchId
-  )
-  if (!matchData) notFound()
-
   const match = matchData as Match
-  const trajectory = isVirtual
-    ? await getVirtualMatchTrajectoryInsights(visibleMatches, matchId)
+  const trajectory = isVirtualMatch
+    ? await getVirtualMatchTrajectoryInsights(visibleMatches, visibleMatchId)
     : null
-  const officialTrajectoryBonus = !isVirtual
-    ? await getOfficialMatchTrajectoryBonusInsights(visibleMatches, matchId)
+  const officialTrajectoryBonus = !isVirtualMatch
+    ? await getOfficialMatchTrajectoryBonusInsights(visibleMatches, databaseMatchId)
     : null
   const insights = normalizePredictionInsights(
     (Array.isArray(insightsRows) ? insightsRows[0] : null) as Partial<PredictionInsights> | null

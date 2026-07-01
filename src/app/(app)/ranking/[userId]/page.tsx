@@ -1444,6 +1444,24 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
     ...viewerTiebreakerMap,
     ...predictionTiebreakerMap(viewerTypedPredictions),
   }
+  const viewerTrajectoryLedger = user
+    ? buildRoundOf32BonusLedger({
+        userId: user.id,
+        matches: allMatches,
+        predictionMap: viewerPredictionMap,
+        historicalTiebreakers: viewerBracketTiebreakerMap,
+      })
+    : []
+  const viewerRoundOf32TrajectoryBonus = summarizeKnockoutBonus(
+    viewerTrajectoryLedger.filter((item) => item.round === 'round_of_32')
+  )
+  const viewerRoundOf32Crossings = user
+    ? buildRoundOf32CrossingAudit({
+        matches: allMatches,
+        predictionMap: viewerPredictionMap,
+        historicalTiebreakers: viewerBracketTiebreakerMap,
+      })
+    : []
   const visibleRows = auditRows.filter((row) => {
     if (activeView === 'all' || activeView === 'bracket' || activeView === 'specials') return false
     if (activeView === 'knockout' && row.stage === 'group') return false
@@ -1625,6 +1643,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                   roundOf32AwardedTeams={new Set(roundOf32TrajectoryBonus.awardedTeams)}
                   trajectoryAwards={trajectoryLedger}
                   roundOf32ExactCrossings={new Set(roundOf32Crossings.filter((crossing) => crossing.correct).map((crossing) => crossing.pNum))}
+                  auditRows={auditRows}
                 />
               </div>
             </section>
@@ -1646,6 +1665,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                   roundOf32AwardedTeams={new Set(roundOf32TrajectoryBonus.awardedTeams)}
                   trajectoryAwards={trajectoryLedger}
                   roundOf32ExactCrossings={new Set(roundOf32Crossings.filter((crossing) => crossing.correct).map((crossing) => crossing.pNum))}
+                  auditRows={auditRows}
                 />
               </div>
             </section>
@@ -1732,11 +1752,15 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                 </div>
                 <div className="min-w-0 p-4">
                   <TournamentBracket
-                    mode="prode"
+                    mode={rankingStarted ? 'audit' : 'prode'}
                     groupMatches={groupMatches}
                     knockoutMatches={knockoutMatches}
                     predMap={viewerPredictionMap}
                     tiebreakerMap={viewerBracketTiebreakerMap}
+                    roundOf32AwardedTeams={new Set(viewerRoundOf32TrajectoryBonus.awardedTeams)}
+                    trajectoryAwards={viewerTrajectoryLedger}
+                    roundOf32ExactCrossings={new Set(viewerRoundOf32Crossings.filter((crossing) => crossing.correct).map((crossing) => crossing.pNum))}
+                    auditRows={viewerAuditRows}
                   />
                 </div>
               </section>

@@ -201,11 +201,17 @@ function BracketMatchCard({
   const isLive = match.status === 'live'
   const isFinished = match.status === 'finished'
   const hasRealScore = (isLive || isFinished) && match.home_score != null && match.away_score != null
+  const resolvedOfficialHome = auditRow?.hasOfficialTeams ? auditRow.officialHome : officialHomeTeam
+  const resolvedOfficialAway = auditRow?.hasOfficialTeams ? auditRow.officialAway : officialAwayTeam
+  const hasOfficialCross = Boolean(
+    resolvedOfficialHome &&
+    resolvedOfficialAway &&
+    !isPlaceholder(resolvedOfficialHome) &&
+    !isPlaceholder(resolvedOfficialAway)
+  )
   const officialCrossDiffers = Boolean(
-    hasRealScore &&
-    officialHomeTeam &&
-    officialAwayTeam &&
-    (officialHomeTeam !== homeTeam || officialAwayTeam !== awayTeam)
+    hasOfficialCross &&
+    (resolvedOfficialHome !== homeTeam || resolvedOfficialAway !== awayTeam)
   )
   const exactCrossing = auditRow?.crossMatches === true
   const resultPoints = auditRow?.resultPoints ?? 0
@@ -407,7 +413,7 @@ function BracketMatchCard({
               <div className="text-center">
                 {officialCrossDiffers && (
                   <p className="mb-1 text-[11px] font-extrabold text-white">
-                    {officialHomeTeam} vs {officialAwayTeam}
+                    {resolvedOfficialHome} vs {resolvedOfficialAway}
                   </p>
                 )}
                 <span className="inline-flex items-center gap-2 font-display text-[24px] text-white tabular-nums">
@@ -537,6 +543,25 @@ function BracketMatchCard({
           />
         </div>
         </>
+      )}
+
+      {!isFinished && hasOfficialCross && (
+        <div
+          className="mt-3 rounded-[10px] px-3 py-2.5"
+          style={{
+            background: exactCrossing ? 'rgba(255,176,0,0.08)' : 'rgba(255,255,255,0.035)',
+            border: exactCrossing ? '1px solid rgba(255,176,0,0.36)' : '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ color: exactCrossing ? '#FFD54A' : '#9A9A9A' }}>
+              {exactCrossing ? 'Cruce exacto' : 'Cruce distinto'}
+            </span>
+            <span className="text-[10px] font-bold text-white">
+              Oficial: {resolvedOfficialHome} vs {resolvedOfficialAway}
+            </span>
+          </div>
+        </div>
       )}
 
       {/* Tiebreaker for a drawn knockout prediction. */}
