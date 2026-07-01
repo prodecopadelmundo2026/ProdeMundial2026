@@ -52,6 +52,14 @@ export type VirtualMatchTrajectoryInsights = {
   awayTeamOnly: VirtualTrajectoryParticipant[]
 }
 
+export type VirtualMatchResultPointsParticipant = {
+  user_id: string
+  name: string
+  home_score: number
+  away_score: number
+  points: number
+}
+
 export type OfficialMatchTrajectoryBonusParticipant = {
   userId: string
   name: string
@@ -311,6 +319,70 @@ export async function getVirtualMatchTrajectoryInsights(
     homeTeamOnly: sort(homeTeamOnly),
     awayTeamOnly: sort(awayTeamOnly),
   }
+}
+
+export async function getVirtualMatchResultPointsBreakdown(
+  matches: Match[],
+  matchId: string
+): Promise<VirtualMatchResultPointsParticipant[]> {
+  const official = matches.find((match) => match.id === matchId)
+  if (!official || official.stage === 'group' || official.status !== 'finished') return []
+
+  const rows = await loadTrajectoryRows()
+  const nameById = new Map(rows.profiles.map((profile) => [profile.id, profile.name]))
+  const targetPredictions = rows.virtualPredictions.filter(
+    (prediction) => prediction.virtual_match_id === matchId
+  )
+
+  return targetPredictions.flatMap((targetPrediction) => {
+    const userId = targetPrediction.user_id
+    const physicalPredictions = rows.predictions.filter((prediction) => prediction.user_id === userId)
+    const virtualPredictions = rows.virtualPredictions.filter((prediction) => prediction.user_id === userId)
+    const predictions: Prediction[] = [
+      ...physicalPredictions.map((prediction) => ({
+        id: `physical-${prediction.match_id}-${userId}`,
+        user_id: userId,
+        match_id: prediction.match_id,
+        home_score: prediction.home_score,
+        away_score: prediction.away_score,
+        points: null,
+        tiebreaker_team: null,
+        created_at: '',
+        updated_at: '',
+      })),
+      ...virtualPredictions.map((prediction) => ({
+        id: `virtual-${prediction.virtual_match_id}-${userId}`,
+        user_id: userId,
+        match_id: prediction.virtual_match_id,
+        home_score: prediction.home_score,
+        away_score: prediction.away_score,
+        points: null,
+        tiebreaker_team: prediction.tiebreaker_team,
+        created_at: '',
+        updated_at: '',
+      })),
+    ]
+    const tiebreakers = Object.fromEntries([
+      ...rows.tiebreakers
+        .filter((row) => row.user_id === userId)
+        .map((row) => [row.tiebreaker_key, row.team]),
+      ...virtualPredictions
+        .filter((prediction) => prediction.tiebreaker_team?.trim())
+        .map((prediction) => [prediction.virtual_match_id, prediction.tiebreaker_team!.trim()]),
+    ])
+    const auditRow = buildMatchAuditRows(matches, predictions, tiebreakers)
+      .find((row) => row.match.id === matchId)
+
+    if (!auditRow || auditRow.crossMatches !== true || auditRow.resultPoints == null) return []
+
+    return [{
+      user_id: userId,
+      name: nameById.get(userId) ?? 'Participante',
+      home_score: targetPrediction.home_score,
+      away_score: targetPrediction.away_score,
+      points: auditRow.resultPoints,
+    }]
+  }).sort((a, b) => a.name.localeCompare(b.name, 'es'))
 }
 
 export async function getOfficialMatchTrajectoryBonusInsights(

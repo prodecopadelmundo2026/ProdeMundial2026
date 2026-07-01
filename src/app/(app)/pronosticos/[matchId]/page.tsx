@@ -19,6 +19,7 @@ import { ResultUsersTable } from './ResultUsersTable'
 import { getTournamentVisibleMatches } from '@/lib/tournament-state'
 import {
   getOfficialMatchTrajectoryBonusInsights,
+  getVirtualMatchResultPointsBreakdown,
   getVirtualMatchTrajectoryInsights,
 } from '@/lib/public-prediction-data'
 import { VirtualTrajectoryInsights } from '@/components/VirtualTrajectoryInsights'
@@ -112,6 +113,9 @@ export default async function PronosticoDetallePage({
   const officialTrajectoryBonus = !isVirtualMatch
     ? await getOfficialMatchTrajectoryBonusInsights(visibleMatches, databaseMatchId)
     : null
+  const virtualPointsBreakdown = isVirtualMatch
+    ? await getVirtualMatchResultPointsBreakdown(visibleMatches, visibleMatchId)
+    : null
   const insights = normalizePredictionInsights(
     (Array.isArray(insightsRows) ? insightsRows[0] : null) as Partial<PredictionInsights> | null
   )
@@ -129,7 +133,8 @@ export default async function PronosticoDetallePage({
     : null
   const isScored = match.status === 'live' || match.status === 'finished'
   const hasOfficialResult = match.status === 'finished' && match.home_score != null && match.away_score != null
-  const pointsBreakdown = ((pointsBreakdownRows ?? []) as MatchPointsBreakdownRow[]).map((row) => ({
+  const pointsBreakdownSource = virtualPointsBreakdown ?? ((pointsBreakdownRows ?? []) as MatchPointsBreakdownRow[])
+  const pointsBreakdown = pointsBreakdownSource.map((row) => ({
     user_id: row.user_id,
     name: row.name,
     home_score: Number(row.home_score),

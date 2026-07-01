@@ -63,6 +63,7 @@ function StaticTile({ label, value, color }: { label: string; value: string | nu
 
 function MatchAuditItem({ row }: { row: MatchAuditRow }) {
   const resultColor = row.status === 'exact' ? '#A8F0D8' : row.status === 'partial' ? '#FFB15C' : row.status === 'incorrect' ? '#FF6B6B' : '#8A8A8A'
+  const displayedPoints = row.stage === 'group' ? (row.points ?? 0) : (row.resultPoints ?? 0)
   const statusLabel: Record<AuditStatus, string> = {
     exact: 'Exacto',
     partial: 'Parcial',
@@ -96,13 +97,16 @@ function MatchAuditItem({ row }: { row: MatchAuditRow }) {
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <p className="max-w-[620px] text-[11px] font-semibold leading-relaxed text-muted">{row.explanation}</p>
         <p className="font-display text-[24px] leading-none" style={{ color: resultColor }}>
-          {row.points ?? 0}<span className="ml-1 font-mono text-[9px] font-bold uppercase text-muted">pts</span>
+          {displayedPoints}<span className="ml-1 font-mono text-[9px] font-bold uppercase text-muted">pts</span>
         </p>
       </div>
       {row.stage !== 'group' && (
-        <p className="mt-2 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-muted">
-          Resultado: +{row.resultPoints ?? 0} · Trayectoria: +{row.qualifiedPoints}
-        </p>
+        <div className="mt-2 text-[9px] font-bold text-muted">
+          <p className="font-mono uppercase tracking-[0.08em]">Resultado: +{row.resultPoints ?? 0}</p>
+          {row.qualifiedPoints > 0 && (
+            <p className="mt-1">Bonus trayectoria: +{row.qualifiedPoints} · ver Bonus eliminatorias</p>
+          )}
+        </div>
       )}
     </article>
   )
@@ -210,7 +214,10 @@ export function RankingAuditModals({
                   {STAGE_ORDER.map((stage) => {
                     const stageRows = filteredRows.filter((row) => row.stage === stage)
                     if (stageRows.length === 0) return null
-                    const stagePoints = stageRows.reduce((total, row) => total + (row.points ?? 0), 0)
+                    const stagePoints = stageRows.reduce(
+                      (total, row) => total + (row.stage === 'group' ? (row.points ?? 0) : (row.resultPoints ?? 0)),
+                      0
+                    )
                     return (
                       <details key={stage} className="group rounded-[16px] bg-white/[0.025] p-3" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
                         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
