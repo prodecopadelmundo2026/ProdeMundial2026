@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import type { Match } from '@/types'
@@ -72,7 +72,7 @@ export interface TournamentBracketProps {
   predMap?: PredMap
   tiebreakerMap?: TbMap
   officialGroupResolution?: 'complete' | 'current'
-  /** Equipos que el usuario acertÃƒÂ³ que clasificaban a 16avos: muestran +1 en la columna D16. */
+  /** Equipos que el usuario acertó que clasificaban a 16avos: muestran +1 en la columna D16. */
   roundOf32AwardedTeams?: Set<string>
   roundOf32ExactCrossings?: Set<number>
   trajectoryAwards?: KnockoutBonusLedgerItem[]
@@ -258,7 +258,7 @@ function isPlaceholderName(name: string): boolean {
 
 function normalizePlaceholderName(name: string): string {
   return name
-    .replace(/ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°|Ãƒâ€šÃ‚Â°|Ã‚Â°|Â°|º/g, '\u00B0')
+    .replace(/\u00C3\u0192\u00C6\u2019\u00C3\u00A2\u00E2\u201A\u00AC\u00C5\u00A1\u00C3\u0192\u00E2\u20AC\u0161\u00C3\u201A\u00C2\u00B0|\u00C3\u0192\u00E2\u20AC\u0161\u00C3\u201A\u00C2\u00B0|\u00C3\u201A\u00C2\u00B0|\u00C2\u00B0|\u00B0|\u00BA/g, '\u00B0')
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -292,7 +292,7 @@ function shortName(raw: string): string {
   const internal = normalized.match(/^P(\d+)([HA])$/)
   if (internal) return fallbackSlotLabel(Number(internal[1]), internal[2] === 'H' ? 0 : 1)
   const m = normalized.match(/^([12])\u00B0\s+Grupo\s+([A-L])$/)
-  if (m) return `${m[1]}Ã‚Â° Grp ${m[2]}`
+  if (m) return `${m[1]}° Grp ${m[2]}`
   const third = normalized.match(/^3\u00B0\s+Grupo\s+([A-L](?:\/[A-L])*)$/)
   if (third) return `Mejor 3\u00B0 de ${third[1]}`
   const win = normalized.match(/^Ganador\s+P(\d+)$/)
@@ -309,7 +309,7 @@ function shortName(raw: string): string {
   return normalized.slice(0, 13)
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Compact match card Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// Compact match card
 
 function TeamRow({
   name,
@@ -501,7 +501,7 @@ function BracketCard({
   )
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Champion card Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// Champion card
 
 function ChampionCard({ team, bonus }: { team: string | null; bonus?: number }) {
   const isPH = !team || isPlaceholderName(team)
@@ -575,7 +575,7 @@ function ChampionCard({ team, bonus }: { team: string | null; bonus?: number }) 
   )
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ SVG connectors Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// SVG connectors
 
 function Connectors() {
   const lineProps = { stroke: 'rgba(255,255,255,0.08)', strokeWidth: 1, fill: 'none' }
@@ -597,41 +597,41 @@ function Connectors() {
       const ya = getFromCY(j * 2)
       const yb = getFromCY(j * 2 + 1)
       const ym = getMidCY(j)
-      // stub-right from ya + vertical yaÃ¢â€ â€™yb + stub-left back from yb + horizontal ymÃ¢â€ â€™next col
+      // stub-right from ya + vertical ya->yb + stub-left back from yb + horizontal ym->next col
       paths.push(`M${xFrom},${ya} H${xJunc} V${yb} H${xFrom}`)
       paths.push(`M${xJunc},${ym} H${xTo}`)
     }
   }
 
-  // D32 (16 cards) Ã¢â€ â€™ Oct (8 cards): 8 pairs
+  // D32 (16 cards) -> Oct (8 cards): 8 pairs
   addPair(
     COL_X.d32, COL_X.oct, 8,
     (i) => cardCenterY(i, 'd32'),
     (j) => cardCenterY(j, 'oct'),
   )
 
-  // Oct (8 cards) Ã¢â€ â€™ QF (4 cards): 4 pairs
+  // Oct (8 cards) -> QF (4 cards): 4 pairs
   addPair(
     COL_X.oct, COL_X.qf, 4,
     (i) => cardCenterY(i, 'oct'),
     (j) => cardCenterY(j, 'qf'),
   )
 
-  // QF (4 cards) Ã¢â€ â€™ Semi (2 cards): 2 pairs
+  // QF (4 cards) -> Semi (2 cards): 2 pairs
   addPair(
     COL_X.qf, COL_X.semi, 2,
     (i) => cardCenterY(i, 'qf'),
     (j) => cardCenterY(j, 'semi'),
   )
 
-  // Semi (2 cards) Ã¢â€ â€™ Final (1 card): 1 pair
+  // Semi (2 cards) -> Final (1 card): 1 pair
   addPair(
     COL_X.semi, COL_X.final, 1,
     (i) => cardCenterY(i, 'semi'),
     () => cardCenterY(0, 'final'),
   )
 
-  // Final Ã¢â€ â€™ Champion: horizontal line
+  // Final -> Champion: horizontal line
   const yfin = cardCenterY(0, 'final')
   paths.push(`M${COL_X.final + CARD_W},${yfin} H${COL_X.champion}`)
 
@@ -654,7 +654,7 @@ function Connectors() {
   )
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Main component Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// Main component
 
 export function TournamentBracket({
   mode,
@@ -723,7 +723,7 @@ export function TournamentBracket({
     }
 
     // Con 1 o 2 partidos pendientes por grupo simulamos marcadores posibles.
-    // Si hubiera mÃƒÂ¡s, dejamos el slot como provisorio con la tabla actual.
+    // Si hubiera más, dejamos el slot como provisorio con la tabla actual.
     if (pending.length > 2) {
       const name = current.standings[position]?.name
       const result = { candidates: name ? [name] : [] }
@@ -1098,7 +1098,7 @@ export function TournamentBracket({
                   lineHeight: '26px',
                 }}
               >
-                Ãƒâ€”
+                ×
               </button>
             </div>
 
@@ -1132,7 +1132,7 @@ export function TournamentBracket({
             </div>
 
             <div style={{ fontSize: 11, color: '#7f8796', marginTop: 14 }}>
-              TocÃƒÂ¡ fuera del cartel o la Ãƒâ€” para cerrar.
+              Tocá fuera del cartel o la × para cerrar.
             </div>
           </div>
         </div>
@@ -1224,7 +1224,7 @@ export function TournamentBracket({
               <ChampionCard team={champion} bonus={championBonus} />
             </div>
 
-            {/* 3rd Place Ã¢â‚¬â€ below main bracket */}
+            {/* 3rd Place below main bracket */}
             <div style={{
               position: 'absolute',
               top: compact ? 4 * UNIT - CARD_H / 2 - 94 : BRACKET_H + THIRD_BELOW,
@@ -1256,8 +1256,8 @@ export function TournamentBracket({
       </div>
 
       {/* Mobile hint */}
-      <p style={{ fontSize: 10, color: '#333', textAlign: 'center', marginTop: 8 }} className="lg:hidden">
-        Ã¢â€ Â DeslizÃƒÂ¡ para ver el bracket completo Ã¢â€ â€™
+      <p style={{ fontSize: 10, color: '#555', textAlign: 'center', marginTop: 8 }} className="lg:hidden">
+        Deslizá para ver el bracket completo
       </p>
     </div>
   )

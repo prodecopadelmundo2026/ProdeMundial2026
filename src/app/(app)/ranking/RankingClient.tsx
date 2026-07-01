@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect } from 'react'
 import type { ReactNode, RefObject } from 'react'
@@ -234,7 +234,7 @@ function RankRow({
               </span>
             )}
           </div>
-          <div className="truncate font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted sm:tracking-[0.16em]">
+          <div className="line-clamp-2 font-mono text-[9px] font-bold uppercase leading-[1.45] tracking-[0.1em] text-muted sm:line-clamp-1 sm:text-[10px] sm:tracking-[0.16em]">
             {rankingStarted
               ? hasPredictions
                 ? `${statusText} · ${entry.exact_predictions ?? 0} exactas · ${entry.correct_result_predictions ?? 0} parciales · ${entry.incorrect_predictions ?? 0} incorrectas`
@@ -245,7 +245,7 @@ function RankRow({
       </div>
 
       {/* Puntos */}
-        <div className="col-start-2 flex min-w-0 flex-col items-start sm:col-start-auto sm:items-end sm:text-right">
+        <div className="col-span-2 col-start-1 flex min-w-0 flex-col items-start pl-[72px] sm:col-span-1 sm:col-start-auto sm:items-end sm:pl-0 sm:text-right">
           {rankingStarted ? (
             <>
               <span className="whitespace-nowrap">
@@ -258,7 +258,7 @@ function RankRow({
                 <span className="ml-1 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted">pts</span>
               </span>
               {((entry.knockout_points ?? 0) > 0 || (entry.trajectory_bonus ?? 0) > 0) && (
-                <span className="mt-1 whitespace-nowrap font-mono text-[9px] font-extrabold text-mint sm:text-[10px]">
+                <span className="mt-1 max-w-full font-mono text-[9px] font-extrabold leading-[1.45] text-mint sm:whitespace-nowrap sm:text-[10px]">
                   {entry.group_points ?? entry.base_points ?? 0} fase de grupos ·{' '}
                   {entry.knockout_points ?? 0} eliminatorias · +{entry.trajectory_bonus} bonus eliminatorias
                 </span>
@@ -691,7 +691,7 @@ export function RankingClient({
 
       </div>
 
-      {/* Sticky bottom â€” fila del usuario cuando scrollea hacia arriba */}
+      {/* Sticky bottom — fila del usuario cuando scrollea hacia arriba */}
       {meEntry && userId && (
         <aside
           ref={stickyRef as React.RefObject<HTMLElement>}

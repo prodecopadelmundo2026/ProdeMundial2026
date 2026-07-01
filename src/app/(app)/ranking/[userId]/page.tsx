@@ -1670,15 +1670,15 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
             </section>
 
             <details className="group min-w-0 overflow-hidden rounded-[20px]" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}>
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 [&::-webkit-details-marker]:hidden" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                <div>
+              <summary className="flex cursor-pointer list-none items-start justify-between gap-3 px-4 py-4 sm:items-center sm:gap-4 sm:px-5 [&::-webkit-details-marker]:hidden" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <div className="min-w-0">
                   <p className="font-extrabold text-white text-[14px]">
                     16avos: acertó {roundOf32TrajectoryBonus.awardedTeams.length} de 32 equipos · +{roundOf32TrajectoryBonus.points} pts
                   </p>
                   <p className="mt-1 text-[12px] font-semibold text-muted">Bonus de trayectoria del participante.</p>
                 </div>
-                <span className="shrink-0 text-[10px] font-extrabold uppercase text-mint group-open:hidden">Ver detalle</span>
-                <span className="hidden shrink-0 text-[10px] font-extrabold uppercase text-muted group-open:inline">Ocultar</span>
+                <span className="shrink-0 pt-0.5 text-[9px] font-extrabold uppercase text-mint group-open:hidden sm:text-[10px]">Ver detalle</span>
+                <span className="hidden shrink-0 pt-0.5 text-[9px] font-extrabold uppercase text-muted group-open:inline sm:text-[10px]">Ocultar</span>
               </summary>
               <div className="p-4">
                 {officialRoundOf32State.officialBracketReady && trajectoryLedger.length > 0 ? (

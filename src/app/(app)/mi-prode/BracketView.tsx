@@ -255,6 +255,7 @@ function BracketMatchCard({
 
   const stageLabel = ROUND_LABELS[match.stage] ?? match.stage
   const kickoffStr = formatMatchKickoffArgentina(match.scheduled_at)
+  const matchNumber = knockoutPNum(match)
   const hasPrediction = home !== '' && away !== ''
   const isDrawPred = hasPrediction && Number(home) === Number(away)
   const showTiebreakerWinner = Boolean(
@@ -309,15 +310,17 @@ function BracketMatchCard({
       />
 
       {/* Top row */}
-      <div className="flex items-center justify-between mb-3 text-[11px]">
-        <div className="flex items-center gap-[8px] text-muted font-bold tracking-[0.04em] uppercase text-[10px]">
+      <div className="mb-3 flex items-start justify-between gap-2 text-[11px]">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-bold uppercase tracking-[0.04em] text-muted">
           <span
             className="text-white text-[9px] px-1.5 py-0.5 rounded-[5px]"
             style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}
           >
             {stageLabel}
           </span>
-          <span className="font-mono">{kickoffStr}</span>
+          <span className="font-mono">
+            {matchNumber ? `P-${matchNumber} · ` : ''}{kickoffStr}
+          </span>
         </div>
         <StatusBadge match={match} />
       </div>
@@ -545,20 +548,25 @@ function BracketMatchCard({
         </>
       )}
 
-      {!isFinished && hasOfficialCross && (
+      {auditRow && match.stage !== 'group' && (
         <div
           className="mt-3 rounded-[10px] px-3 py-2.5"
           style={{
-            background: exactCrossing ? 'rgba(255,176,0,0.08)' : 'rgba(255,255,255,0.035)',
-            border: exactCrossing ? '1px solid rgba(255,176,0,0.36)' : '1px solid rgba(255,255,255,0.08)',
+            background: hasOfficialCross && exactCrossing ? 'rgba(255,176,0,0.08)' : 'rgba(255,255,255,0.035)',
+            border: hasOfficialCross && exactCrossing ? '1px solid rgba(255,176,0,0.36)' : '1px solid rgba(255,255,255,0.08)',
           }}
         >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ color: exactCrossing ? '#FFD54A' : '#9A9A9A' }}>
-              {exactCrossing ? 'Cruce exacto' : 'Cruce distinto'}
+          <div className="grid gap-1.5 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center sm:gap-3">
+            <span
+              className="text-[10px] font-extrabold uppercase tracking-[0.12em]"
+              style={{ color: hasOfficialCross && exactCrossing ? '#FFD54A' : '#9A9A9A' }}
+            >
+              {hasOfficialCross ? (exactCrossing ? 'Cruce exacto' : 'Cruce distinto') : 'Cruce oficial pendiente'}
             </span>
-            <span className="text-[10px] font-bold text-white">
-              Oficial: {resolvedOfficialHome} vs {resolvedOfficialAway}
+            <span className="text-[10px] font-bold leading-snug text-white sm:text-right">
+              {hasOfficialCross
+                ? `Oficial: ${resolvedOfficialHome} vs ${resolvedOfficialAway}`
+                : 'Oficial: pendiente'}
             </span>
           </div>
         </div>
