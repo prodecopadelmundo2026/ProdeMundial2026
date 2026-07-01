@@ -19,6 +19,7 @@ import { buildRoundOf32BonusLedger, buildRoundOf32CrossingAudit, getHistoricalPr
 import { getOfficialRoundOf32State, buildFinishedGroupScoreMap } from '@/lib/tournament-state'
 import { computeFifaBestThirds } from '@/lib/fifa-standings'
 import { BestThirdsComparison, type BestThirdRow } from '@/components/BestThirdsComparison'
+import { RankingAuditModals } from './RankingAuditModals'
 
 export const dynamic = 'force-dynamic'
 
@@ -1533,18 +1534,16 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
 
         {rankingStarted ? (
           <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-3">
-            <SummaryBox
-              label="Ranking"
-              value={`${rankMedal(entry.rank, entry.total_points) ? `${rankMedal(entry.rank, entry.total_points)} ` : ''}${formatRank(entry, rankingEntries)}`}
-              color={RANK_COLOR[entry.rank]}
+            <RankingAuditModals
+              rows={auditRows}
+              trajectoryAwards={trajectoryLedger}
+              groupPoints={entry.group_points ?? entry.base_points ?? 0}
+              knockoutPoints={entry.knockout_points ?? 0}
+              trajectoryPoints={trajectoryBonus.points}
+              ranking={`${rankMedal(entry.rank, entry.total_points) ? `${rankMedal(entry.rank, entry.total_points)} ` : ''}${formatRank(entry, rankingEntries)}`}
+              rankingColor={RANK_COLOR[entry.rank]}
+              totalPoints={totalWithTrajectory}
             />
-            <SummaryBox label="Fase de grupos" value={entry.group_points ?? entry.base_points ?? 0} />
-            <SummaryBox label="Eliminatorias" value={entry.knockout_points ?? 0} />
-            <SummaryBox label="Bonus eliminatorias" value={`+${trajectoryBonus.points}`} />
-            <SummaryBox label="Total" value={totalWithTrajectory} />
-            <SummaryLink label="Exactas" value={statusCount(auditRows, 'exact')} href={filterHrefForView(userId, activeView, 'exact', activeResult, activeView === 'knockout' ? activeKnockoutStage : null)} active={activeResult === 'exact'} />
-            <SummaryLink label="Parciales" value={statusCount(auditRows, 'partial')} href={filterHrefForView(userId, activeView, 'partial', activeResult, activeView === 'knockout' ? activeKnockoutStage : null)} active={activeResult === 'partial'} />
-            <SummaryLink label="Incorrectas" value={statusCount(auditRows, 'incorrect')} href={filterHrefForView(userId, activeView, 'incorrect', activeResult, activeView === 'knockout' ? activeKnockoutStage : null)} active={activeResult === 'incorrect'} />
           </div>
         ) : (
           <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
@@ -1670,13 +1669,17 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
               </div>
             </section>
 
-            <section className="min-w-0 rounded-[20px] overflow-hidden" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}>
-              <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                <p className="font-extrabold text-white text-[14px]">Bonus de trayectoria a 16avos</p>
-                <p className="text-muted text-[12px] mt-1">
-                  +1 punto por cada equipo que {isOwnProfile ? 'pronosticaste' : 'el participante pronostico'} que clasificaba y que efectivamente paso a 16avos.
-                </p>
-              </div>
+            <details className="group min-w-0 overflow-hidden rounded-[20px]" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 [&::-webkit-details-marker]:hidden" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <div>
+                  <p className="font-extrabold text-white text-[14px]">
+                    16avos: acertó {roundOf32TrajectoryBonus.awardedTeams.length} de 32 equipos · +{roundOf32TrajectoryBonus.points} pts
+                  </p>
+                  <p className="mt-1 text-[12px] font-semibold text-muted">Bonus de trayectoria del participante.</p>
+                </div>
+                <span className="shrink-0 text-[10px] font-extrabold uppercase text-mint group-open:hidden">Ver detalle</span>
+                <span className="hidden shrink-0 text-[10px] font-extrabold uppercase text-muted group-open:inline">Ocultar</span>
+              </summary>
               <div className="p-4">
                 {officialRoundOf32State.officialBracketReady && trajectoryLedger.length > 0 ? (
                   <>
@@ -1736,7 +1739,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                   <p className="text-[13px] font-semibold leading-relaxed text-muted">Sin datos de trayectoria para mostrar.</p>
                 )}
               </div>
-            </section>
+            </details>
 
             <BestThirdsComparison
               predicted={auditPredictedBestThirds}
