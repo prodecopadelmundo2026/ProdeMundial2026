@@ -14,6 +14,7 @@ import {
 } from '@/lib/bracket'
 import { computeFifaAllStandings, computeFifaGroupStandings, computeFifaBestThirds } from '@/lib/fifa-standings'
 import type { KnockoutBonusLedgerItem, KnockoutBonusRound } from '@/lib/knockout-bonus'
+import type { MatchAuditRow } from '@/lib/ranking-audit'
 
 const TROPHY_ICON = String.fromCodePoint(0x1F3C6)
 
@@ -75,6 +76,7 @@ export interface TournamentBracketProps {
   roundOf32AwardedTeams?: Set<string>
   roundOf32ExactCrossings?: Set<number>
   trajectoryAwards?: KnockoutBonusLedgerItem[]
+  auditRows?: MatchAuditRow[]
 }
 
 // Visual bracket order: D32 positions 0-15 (top to bottom)
@@ -665,6 +667,7 @@ export function TournamentBracket({
   roundOf32AwardedTeams,
   roundOf32ExactCrossings,
   trajectoryAwards = [],
+  auditRows = [],
 }: TournamentBracketProps) {
   const compact = layout === 'compact-official'
   const cardWidth = compact ? COMPACT_CARD_W : CARD_W
@@ -980,8 +983,11 @@ export function TournamentBracket({
 
   function renderCard(pNum: number, top: number, left: number, side: BracketSide) {
     const d = getMatchData(pNum)
+    const match = pMap[pNum]
+    const auditRow = match ? auditRows.find((row) => row.match.id === match.id) : undefined
     const exactCrossing =
       d.exactCrossing ||
+      auditRow?.crossMatches === true ||
       (pNum >= 73 && pNum <= 88 && roundOf32ExactCrossings?.has(pNum))
     const showBonus = mode !== 'official' && pNum <= 88 && roundOf32AwardedTeams != null
     // La UI sólo ubica premios que el ledger ya otorgó. No vuelve a comparar
@@ -1003,7 +1009,8 @@ export function TournamentBracket({
         !isPlaceholderName(team) &&
         roundOf32AwardedTeams!.has(team)
       ) total = 1
-      if (exactCrossing && sameTeam(team, d.winner)) total += d.resultPoints
+      const resultPoints = auditRow?.resultPoints ?? d.resultPoints
+      if (exactCrossing && sameTeam(team, d.winner)) total += resultPoints
       return total > 0 ? [total] : []
     }
     return (

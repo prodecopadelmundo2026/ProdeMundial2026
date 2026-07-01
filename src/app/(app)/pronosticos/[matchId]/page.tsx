@@ -85,7 +85,12 @@ export default async function PronosticoDetallePage({
   ])
 
   const visibleMatches = getTournamentVisibleMatches((matchRows ?? []) as Match[])
-  const matchData = visibleMatches.find((match) => match.id === matchId)
+  // Los partidos eliminatorios visibles usan `virtual-pXX` como id estable de
+  // llave, pero conservan el UUID real en `database_id`. Los links públicos
+  // existentes usan el UUID porque es el identificador que esperan los RPC.
+  const matchData = visibleMatches.find(
+    (match) => match.id === matchId || match.database_id === matchId
+  )
   if (!matchData) notFound()
 
   const match = matchData as Match

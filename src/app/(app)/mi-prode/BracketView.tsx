@@ -13,6 +13,7 @@ import { deleteRealPredictionsByMatchIds, deleteVirtualKnockoutPredictionsByMatc
 import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups, assignBestThirdsToSlots, getPendingGroupTiebreakers, isVirtualKnockoutMatch, KNOCKOUT_FIXTURES, knockoutPNum } from '@/lib/bracket'
 import { normalizeScoreInput, parseScoreInput } from '@/lib/score-input'
 import type { KnockoutBonusLedgerItem, KnockoutBonusRound } from '@/lib/knockout-bonus'
+import type { MatchAuditRow } from '@/lib/ranking-audit'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type LocalInputs = Record<string, { home: string; away: string }>
@@ -70,6 +71,7 @@ interface Props {
   onKnockoutPredChange?: (matchId: string, home: string, away: string) => void
   onKnockoutTiebreakerChange?: (matchId: string, team: string | null) => void
   trajectoryAwards?: KnockoutBonusLedgerItem[]
+  auditRows?: MatchAuditRow[]
 }
 
 const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'third_place', 'final'] as const
@@ -164,6 +166,7 @@ function BracketMatchCard({
   officialHomeTeam,
   officialAwayTeam,
   trajectoryPoints = 0,
+  auditRow,
   initialHome,
   initialAway,
   tiebreaker,
@@ -180,6 +183,7 @@ function BracketMatchCard({
   officialHomeTeam?: string
   officialAwayTeam?: string
   trajectoryPoints?: number
+  auditRow?: MatchAuditRow
   initialHome: string
   initialAway: string
   tiebreaker?: string
@@ -203,6 +207,18 @@ function BracketMatchCard({
     officialAwayTeam &&
     (officialHomeTeam !== homeTeam || officialAwayTeam !== awayTeam)
   )
+  const exactCrossing = auditRow?.crossMatches === true
+  const resultPoints = auditRow?.resultPoints ?? 0
+  const totalPoints = trajectoryPoints + resultPoints
+  const resultLabel =
+    resultPoints === 3 ? 'Resultado exacto' :
+    resultPoints === 1 ? 'Resultado parcial' :
+    'Sin puntos por resultado'
+  const pointsColor =
+    totalPoints >= trajectoryPoints + 3 ? '#FFD54A' :
+    totalPoints >= 3 ? '#FF9A3D' :
+    totalPoints > 0 ? '#A8F0D8' :
+    '#8A8A8A'
 
   const [home, setHome] = useState(initialHome)
   const [away, setAway] = useState(initialAway)
@@ -267,7 +283,7 @@ function BracketMatchCard({
   return (
     <article
       ref={cardRef}
-      className="relative bg-panel overflow-hidden transition-all duration-200 hover:-translate-y-[3px]"
+      className="relative flex h-full flex-col bg-panel overflow-hidden transition-all duration-200 hover:-translate-y-[3px]"
       style={{
         border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: '18px',
@@ -404,12 +420,33 @@ function BracketMatchCard({
                 El cruce pronosticado fue {homeTeam} vs {awayTeam}. Los puntos de resultado solo aplican si coincide con el cruce oficial.
               </p>
             )}
-            {trajectoryPoints > 0 && (
-              <p className="mt-2 text-[10px] font-extrabold text-mint">
-                +{trajectoryPoints} pts por trayectoria
-              </p>
-            )}
           </div>
+          {isFinished && (
+            <div
+              className="mt-1 rounded-[12px] px-3 py-3"
+              style={{
+                background: exactCrossing && resultPoints === 3 ? 'rgba(255,213,74,0.08)' : 'rgba(255,255,255,0.035)',
+                border: `1px solid ${exactCrossing && resultPoints === 3 ? 'rgba(255,213,74,0.38)' : 'rgba(255,255,255,0.07)'}`,
+                boxShadow: exactCrossing && resultPoints === 3 ? '0 0 18px rgba(255,176,0,0.08)' : 'none',
+              }}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ color: exactCrossing ? '#FFD54A' : '#8A8A8A' }}>
+                  {exactCrossing ? 'Cruce exacto' : 'Cruce distinto'}
+                </span>
+                <span className="text-right">
+                  <span className="block font-mono text-[8px] font-extrabold uppercase tracking-[0.12em] text-muted">Total</span>
+                  <span className="font-display text-[26px] leading-none tabular-nums" style={{ color: pointsColor }}>
+                    {totalPoints > 0 ? '+' : ''}{totalPoints}<span className="ml-1 font-mono text-[9px] font-extrabold uppercase">pts</span>
+                  </span>
+                </span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold text-muted">
+                <span>+{trajectoryPoints} trayectoria</span>
+                <span>+{resultPoints} {resultLabel.toLowerCase()}</span>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         /* Score inputs for an open match. */
@@ -543,8 +580,10 @@ function BracketMatchCard({
       )}
 
       {hasStartedOrFinished && (
-        <p className="mt-3 rounded-[10px] px-3 py-2 text-[11px] font-bold" style={{ background: 'rgba(255,255,255,0.04)', color: '#9a9a9a', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <p className="mt-auto pt-3">
+          <span className="block rounded-[10px] px-3 py-2 text-[11px] font-bold" style={{ background: 'rgba(255,255,255,0.04)', color: '#9a9a9a', border: '1px solid rgba(255,255,255,0.06)' }}>
           {LATE_PREDICTION_MESSAGE}
+          </span>
         </p>
       )}
     </article>
@@ -582,6 +621,7 @@ export function BracketView({
   onKnockoutPredChange,
   onKnockoutTiebreakerChange,
   trajectoryAwards = [],
+  auditRows = [],
 }: Props) {
   const router = useRouter()
   const groupBuckets = groupMatches.reduce<Record<string, Match[]>>((acc, match) => {
@@ -1365,6 +1405,7 @@ export function BracketView({
                 officialHomeTeam={match.home_team}
                 officialAwayTeam={match.away_team}
                 trajectoryPoints={trajectoryPointsForMatch(match)}
+                auditRow={auditRows.find((row) => row.match.id === match.id)}
                 initialHome={localInputs[match.id]?.home ?? ''}
                 initialAway={localInputs[match.id]?.away ?? ''}
                 tiebreaker={tiebreakerMap[match.id]}
@@ -1397,6 +1438,7 @@ export function BracketView({
                 officialHomeTeam={match.home_team}
                 officialAwayTeam={match.away_team}
                 trajectoryPoints={trajectoryPointsForMatch(match)}
+                auditRow={auditRows.find((row) => row.match.id === match.id)}
                 initialHome={localInputs[match.id]?.home ?? ''}
                 initialAway={localInputs[match.id]?.away ?? ''}
                 tiebreaker={tiebreakerMap[match.id]}

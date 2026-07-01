@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Save, Trash2, Shuffle } from 'lucide-react'
-import type { Match } from '@/types'
+import type { Match, Prediction } from '@/types'
 import { GroupBatchEditor } from './GroupBatchEditor'
 import { BracketView } from './BracketView'
 import { SpecialsTab } from './SpecialsTab'
@@ -17,6 +17,7 @@ import { computeFifaBestThirds } from '@/lib/fifa-standings'
 import { getOfficialRoundOf32State, buildFinishedGroupScoreMap } from '@/lib/tournament-state'
 import { buildRoundOf32BonusLedger, buildRoundOf32CrossingAudit, summarizeKnockoutBonus } from '@/lib/knockout-bonus'
 import { BestThirdsComparison, type BestThirdRow } from '@/components/BestThirdsComparison'
+import { buildMatchAuditRows } from '@/lib/ranking-audit'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
@@ -566,6 +567,30 @@ export function MiProdeTabs({
     }),
     [effectivePredMap, groupMatches, knockoutMatches, tiebreakers]
   )
+  const knockoutAuditRows = useMemo(() => {
+    const predictions: Prediction[] = Object.entries(effectivePredMap).map(([matchId, score]) => ({
+      id: `local-${matchId}`,
+      user_id: '',
+      match_id: matchId,
+      home_score: score.home_score,
+      away_score: score.away_score,
+      points: null,
+      tiebreaker_team: effectiveKnockoutTiebreakers[matchId] ?? null,
+      created_at: '',
+      updated_at: '',
+    }))
+    return buildMatchAuditRows(
+      [...groupMatches, ...projectedKnockoutMatches],
+      predictions,
+      { ...tiebreakers, ...effectiveKnockoutTiebreakers }
+    ).filter((row) => row.stage !== 'group')
+  }, [
+    effectivePredMap,
+    effectiveKnockoutTiebreakers,
+    groupMatches,
+    projectedKnockoutMatches,
+    tiebreakers,
+  ])
   const roundOf32Bonus = useMemo(
     () => summarizeKnockoutBonus(trajectoryLedger.filter((item) => item.round === 'round_of_32')),
     [trajectoryLedger]
@@ -1085,6 +1110,7 @@ export function MiProdeTabs({
           onKnockoutPredChange={handleKnockoutPredChange}
           onKnockoutTiebreakerChange={handleKnockoutTiebreakerChange}
           trajectoryAwards={trajectoryLedger}
+          auditRows={knockoutAuditRows}
         />
       </div>
       <div className={activeTab === 'llave' ? 'page-fade' : undefined} style={{ display: activeTab === 'llave' ? undefined : 'none' }}>
@@ -1135,6 +1161,7 @@ export function MiProdeTabs({
           roundOf32AwardedTeams={new Set(roundOf32Bonus.awardedTeams)}
           trajectoryAwards={trajectoryLedger}
           roundOf32ExactCrossings={roundOf32ExactCrossings}
+          auditRows={knockoutAuditRows}
         />
         {roundOf32State.officialBracketReady && (
           <div className="mt-8 border-t border-white/10 pt-7">
