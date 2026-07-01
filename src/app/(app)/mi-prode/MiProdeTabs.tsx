@@ -1084,6 +1084,7 @@ export function MiProdeTabs({
           openRandomModal={bracketModalSignal}
           onKnockoutPredChange={handleKnockoutPredChange}
           onKnockoutTiebreakerChange={handleKnockoutTiebreakerChange}
+          trajectoryAwards={trajectoryLedger}
         />
       </div>
       <div className={activeTab === 'llave' ? 'page-fade' : undefined} style={{ display: activeTab === 'llave' ? undefined : 'none' }}>
@@ -1126,7 +1127,7 @@ export function MiProdeTabs({
           Tu bracket según tus pronósticos de grupos y eliminatorias. Vista de solo lectura.
         </p>
         <TournamentBracket
-          mode="prode"
+          mode={roundOf32State.officialBracketReady ? 'audit' : 'prode'}
           groupMatches={groupMatches}
           knockoutMatches={projectedKnockoutMatches}
           predMap={effectivePredMap}

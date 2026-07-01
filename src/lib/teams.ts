@@ -17,6 +17,8 @@ const TEAMS: Record<string, TeamMeta> = {
   'Marruecos':            { code: 'MAR', flag: '🇲🇦', iso2: 'ma' },
   'Haití':                { code: 'HAI', flag: '🇭🇹', iso2: 'ht' },
   'Escocia':              { code: 'SCO', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', iso2: 'gb-sct' },
+  'Gales':                { code: 'WAL', flag: '🏴󠁧󠁢󠁷󠁬󠁳󠁿', iso2: 'gb-wls' },
+  'Irlanda del Norte':    { code: 'NIR', flag: '🇬🇧', iso2: 'gb-nir' },
   // Grupo D
   'Estados Unidos':       { code: 'USA', flag: '🇺🇸', iso2: 'us' },
   'Paraguay':             { code: 'PAR', flag: '🇵🇾', iso2: 'py' },

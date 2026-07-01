@@ -51,6 +51,10 @@ function sign(value: number) {
   return 0
 }
 
+function sameTeam(left: string | null | undefined, right: string | null | undefined) {
+  return String(left ?? '').trim().localeCompare(String(right ?? '').trim(), undefined, { sensitivity: 'base' }) === 0
+}
+
 function scorePoints(prediction: Prediction, match: Match) {
   if (match.status !== 'finished' || match.home_score == null || match.away_score == null) return null
   if (prediction.home_score === match.home_score && prediction.away_score === match.away_score) return 3
@@ -246,8 +250,8 @@ export function buildMatchAuditRows(
       ? true
       : hasOfficialTeams &&
         hasPredictedTeams &&
-        predictedTeams.home === officialTeams.home &&
-        predictedTeams.away === officialTeams.away
+        sameTeam(predictedTeams.home, officialTeams.home) &&
+        sameTeam(predictedTeams.away, officialTeams.away)
 
     const predictedQualifiedTeam = prediction
       ? prediction.home_score > prediction.away_score

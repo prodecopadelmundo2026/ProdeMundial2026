@@ -12,6 +12,7 @@ import { generateRandomKnockoutPredictions } from '@/app/(app)/fixture/actions'
 import { deleteRealPredictionsByMatchIds, deleteVirtualKnockoutPredictionsByMatchIds, saveRealPredictions, saveVirtualKnockoutPredictions } from './actions'
 import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups, assignBestThirdsToSlots, getPendingGroupTiebreakers, isVirtualKnockoutMatch, KNOCKOUT_FIXTURES, knockoutPNum } from '@/lib/bracket'
 import { normalizeScoreInput, parseScoreInput } from '@/lib/score-input'
+import type { KnockoutBonusLedgerItem, KnockoutBonusRound } from '@/lib/knockout-bonus'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
 type LocalInputs = Record<string, { home: string; away: string }>
@@ -68,6 +69,7 @@ interface Props {
   openRandomModal?: number
   onKnockoutPredChange?: (matchId: string, home: string, away: string) => void
   onKnockoutTiebreakerChange?: (matchId: string, team: string | null) => void
+  trajectoryAwards?: KnockoutBonusLedgerItem[]
 }
 
 const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'third_place', 'final'] as const
@@ -159,6 +161,9 @@ function BracketMatchCard({
   match,
   homeTeam,
   awayTeam,
+  officialHomeTeam,
+  officialAwayTeam,
+  trajectoryPoints = 0,
   initialHome,
   initialAway,
   tiebreaker,
@@ -172,6 +177,9 @@ function BracketMatchCard({
   match: Match
   homeTeam: string
   awayTeam: string
+  officialHomeTeam?: string
+  officialAwayTeam?: string
+  trajectoryPoints?: number
   initialHome: string
   initialAway: string
   tiebreaker?: string
@@ -189,6 +197,12 @@ function BracketMatchCard({
   const isLive = match.status === 'live'
   const isFinished = match.status === 'finished'
   const hasRealScore = (isLive || isFinished) && match.home_score != null && match.away_score != null
+  const officialCrossDiffers = Boolean(
+    hasRealScore &&
+    officialHomeTeam &&
+    officialAwayTeam &&
+    (officialHomeTeam !== homeTeam || officialAwayTeam !== awayTeam)
+  )
 
   const [home, setHome] = useState(initialHome)
   const [away, setAway] = useState(initialAway)
@@ -368,16 +382,33 @@ function BracketMatchCard({
           {/* Resultado final */}
           <div>
             <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] mb-[5px]" style={{ color: '#9a9a9a' }}>
-              {isFinished ? 'Resultado final' : 'Resultado en vivo'}
+              {isFinished ? 'Partido oficial' : 'Partido oficial en vivo'}
             </p>
             <div
               className="flex items-center justify-center rounded-[12px]"
               style={{ padding: '10px 8px', background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,0.08)' }}
             >
-              <span className="inline-flex items-center gap-2 font-display text-[24px] text-white tabular-nums">
-                <span>{match.home_score}</span><span aria-hidden="true">-</span><span>{match.away_score}</span>
-              </span>
+              <div className="text-center">
+                {officialCrossDiffers && (
+                  <p className="mb-1 text-[11px] font-extrabold text-white">
+                    {officialHomeTeam} vs {officialAwayTeam}
+                  </p>
+                )}
+                <span className="inline-flex items-center gap-2 font-display text-[24px] text-white tabular-nums">
+                  <span>{match.home_score}</span><span aria-hidden="true">-</span><span>{match.away_score}</span>
+                </span>
+              </div>
             </div>
+            {officialCrossDiffers && (
+              <p className="mt-2 text-[10px] font-semibold leading-snug text-muted">
+                El cruce pronosticado fue {homeTeam} vs {awayTeam}. Los puntos de resultado solo aplican si coincide con el cruce oficial.
+              </p>
+            )}
+            {trajectoryPoints > 0 && (
+              <p className="mt-2 text-[10px] font-extrabold text-mint">
+                +{trajectoryPoints} pts por trayectoria
+              </p>
+            )}
           </div>
         </div>
       ) : (
@@ -550,6 +581,7 @@ export function BracketView({
   openRandomModal,
   onKnockoutPredChange,
   onKnockoutTiebreakerChange,
+  trajectoryAwards = [],
 }: Props) {
   const router = useRouter()
   const groupBuckets = groupMatches.reduce<Record<string, Match[]>>((acc, match) => {
@@ -788,6 +820,21 @@ export function BracketView({
     const homeTeam = resolveTeamFull(homeSeed, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)
     const awayTeam = resolveTeamFull(awaySeed, standings, pMap, effectivePredMap, tiebreakerMap, 0, bestThirdsGroups, thirdSlotAssignment)
     return { homeTeam, awayTeam }
+  }
+
+  function trajectoryPointsForMatch(match: Match) {
+    const round: KnockoutBonusRound | null =
+      match.stage === 'round_of_32' ? 'round_of_32' :
+      match.stage === 'round_of_16' ? 'round_of_16' :
+      match.stage === 'quarter' ? 'quarterfinal' :
+      match.stage === 'semi' ? 'semifinal' :
+      match.stage === 'final' ? 'final' :
+      null
+    if (!round) return 0
+    const teams = new Set(Object.values(getResolvedTeams(match)))
+    return trajectoryAwards
+      .filter((item) => item.awarded && item.round === round && teams.has(item.team))
+      .reduce((total, item) => total + item.points, 0)
   }
 
   function isMatchReady(match: Match) {
@@ -1315,6 +1362,9 @@ export function BracketView({
                 match={match}
                 homeTeam={getResolvedTeams(match).homeTeam}
                 awayTeam={getResolvedTeams(match).awayTeam}
+                officialHomeTeam={match.home_team}
+                officialAwayTeam={match.away_team}
+                trajectoryPoints={trajectoryPointsForMatch(match)}
                 initialHome={localInputs[match.id]?.home ?? ''}
                 initialAway={localInputs[match.id]?.away ?? ''}
                 tiebreaker={tiebreakerMap[match.id]}
@@ -1344,6 +1394,9 @@ export function BracketView({
                 match={match}
                 homeTeam={getResolvedTeams(match).homeTeam}
                 awayTeam={getResolvedTeams(match).awayTeam}
+                officialHomeTeam={match.home_team}
+                officialAwayTeam={match.away_team}
+                trajectoryPoints={trajectoryPointsForMatch(match)}
                 initialHome={localInputs[match.id]?.home ?? ''}
                 initialAway={localInputs[match.id]?.away ?? ''}
                 tiebreaker={tiebreakerMap[match.id]}
