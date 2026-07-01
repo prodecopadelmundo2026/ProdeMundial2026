@@ -42,6 +42,10 @@ function candidateFullTitle(name: string) {
   return `Pueden quedar acá: ${candidates.join(', ')}`
 }
 
+function sameTeam(left: string | null | undefined, right: string | null | undefined) {
+  return String(left ?? '').trim().localeCompare(String(right ?? '').trim(), undefined, { sensitivity: 'base' }) === 0
+}
+
 function bracketTeamStatusStyle(status?: BracketTeamStatus) {
   if (status === 'confirmed_first') {
     return { background: 'rgba(255,224,64,0.24)', border: 'rgba(255,224,64,0.95)' }
@@ -395,7 +399,7 @@ function TeamRow({
       {bonuses?.map((bonus) => (
         <span
           key={bonus}
-          title={`Bonus real de trayectoria (+${bonus})`}
+          title={`Puntos totales en este cruce (+${bonus})`}
           style={{
             flexShrink: 0,
             fontSize: 8,
@@ -912,30 +916,42 @@ export function TournamentBracket({
     const winner = source === 'official' && match?.status === 'finished' && match.qualified_team
       ? match.qualified_team
       : getWinner(homeTeam, awayTeam, winnerPred, tb)
-    // Audit comparison
+    // Audit comparison: the crossing belongs to the current slot. How either
+    // team reached it in previous rounds must not affect this comparison.
     let auditStatus: 'correct' | 'wrong' | 'pending' | undefined
+    let exactCrossing = false
+    let resultPoints = 0
     if (mode === 'audit' && match) {
       const offPred = officialKoWinnerMap[match.id]
       if (offPred) {
         const offHome   = rawHome ? resolveFromSource(rawHome, 'official') : ''
         const offAway   = rawAway ? resolveFromSource(rawAway, 'official') : ''
         const offTeamsResolved = !isPlaceholderName(offHome) && !isPlaceholderName(offAway)
-        const offWinner = offTeamsResolved
-          ? match.status === 'finished' && match.qualified_team
-            ? match.qualified_team
-            : getWinner(offHome, offAway, offPred)
-          : null
-        if (offWinner && winner) {
-          auditStatus = offWinner === winner ? 'correct' : 'wrong'
-        } else {
-          auditStatus = 'pending'
+        exactCrossing =
+          offTeamsResolved &&
+          sameTeam(homeTeam, offHome) &&
+          sameTeam(awayTeam, offAway)
+
+        if (exactCrossing && displayPred && match.status === 'finished') {
+          const exactScore =
+            displayPred.home_score === offPred.home_score &&
+            displayPred.away_score === offPred.away_score
+          const sameOutcome =
+            Math.sign(displayPred.home_score - displayPred.away_score) ===
+            Math.sign(offPred.home_score - offPred.away_score)
+          const qualifierMatches =
+            offPred.home_score !== offPred.away_score ||
+            (winner != null && sameTeam(winner, match.qualified_team))
+          resultPoints = qualifierMatches ? (exactScore ? 3 : sameOutcome ? 1 : 0) : 0
         }
+
+        auditStatus = exactCrossing ? 'correct' : 'wrong'
       } else {
         auditStatus = 'pending'
       }
     }
 
-    return { homeTeam, awayTeam, homeScore, awayScore, winner, auditStatus, homeStatus, awayStatus }
+    return { homeTeam, awayTeam, homeScore, awayScore, winner, auditStatus, exactCrossing, resultPoints, homeStatus, awayStatus }
   }
 
   const finalData = getMatchData(FINAL_P)
@@ -964,7 +980,9 @@ export function TournamentBracket({
 
   function renderCard(pNum: number, top: number, left: number, side: BracketSide) {
     const d = getMatchData(pNum)
-    const exactCrossing = pNum >= 73 && pNum <= 88 && roundOf32ExactCrossings?.has(pNum)
+    const exactCrossing =
+      d.exactCrossing ||
+      (pNum >= 73 && pNum <= 88 && roundOf32ExactCrossings?.has(pNum))
     const showBonus = mode !== 'official' && pNum <= 88 && roundOf32AwardedTeams != null
     // La UI sólo ubica premios que el ledger ya otorgó. No vuelve a comparar
     // cruce, rival, partido ni slot.
@@ -975,16 +993,18 @@ export function TournamentBracket({
       pNum >= 101 && pNum <= 102 ? 'semifinal' :
       pNum === 104 ? 'final' : null
     const bonusesFor = (team: string) => {
-      const bonuses = trajectoryAwards
+      const trajectoryPoints = trajectoryAwards
         .filter((item) => item.awarded && item.team === team && item.round === displayedRound)
-        .map((item) => item.points)
+        .reduce((total, item) => total + item.points, 0)
+      let total = trajectoryPoints
       if (
-        bonuses.length === 0 &&
+        total === 0 &&
         showBonus &&
         !isPlaceholderName(team) &&
         roundOf32AwardedTeams!.has(team)
-      ) bonuses.push(1)
-      return [...new Set(bonuses)]
+      ) total = 1
+      if (exactCrossing && sameTeam(team, d.winner)) total += d.resultPoints
+      return total > 0 ? [total] : []
     }
     return (
       <div key={pNum} style={{ position: 'absolute', top, left }}>

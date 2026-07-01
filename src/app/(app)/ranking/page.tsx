@@ -10,6 +10,7 @@ import {
 import { addConfirmedTrajectoryToRanking } from '@/lib/public-prediction-data'
 import { buildProjectedKnockoutMatches, knockoutPNum } from '@/lib/bracket'
 import { buildMatchAuditRows } from '@/lib/ranking-audit'
+import { getMatchPredictionHref } from '@/lib/match-links'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,6 +71,7 @@ type PodiumPredictionPreview = {
     away_team: string
     kickoffLabel: string
     stage: Match['stage']
+    detailHref: string
   }
   predictions: Array<{
     user_id: string
@@ -136,13 +138,17 @@ async function getPodiumPredictionPreview({
     ...buildProjectedKnockoutMatches(allMatches.filter((match) => match.stage !== 'group')),
   ]
 
-  return nextMatches.map((nextMatch) => ({
+  return nextMatches.flatMap((nextMatch) => {
+    const detailHref = getMatchPredictionHref(nextMatch.id)
+    if (!detailHref) return []
+    return [{
     match: {
       id: nextMatch.id,
       home_team: nextMatch.home_team,
       away_team: nextMatch.away_team,
       kickoffLabel: safeKickoffLabel(nextMatch.scheduled_at),
       stage: nextMatch.stage,
+      detailHref,
     },
     predictions: settled
       .map((result) => {
@@ -164,7 +170,8 @@ async function getPodiumPredictionPreview({
           : null
       })
       .filter((prediction): prediction is NonNullable<typeof prediction> => Boolean(prediction)),
-  }))
+    }]
+  })
 }
 
 export default async function RankingPage() {

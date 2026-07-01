@@ -14,6 +14,7 @@ type PodiumPredictionPreview = {
     away_team: string
     kickoffLabel: string
     stage: import('@/types').Match['stage']
+    detailHref: string
   }
   predictions: Array<{
     user_id: string
@@ -52,7 +53,7 @@ function clearTeamAbbreviation(name: string): string {
 
 function TeamPredictionMarker({ name }: { name: string }) {
   const team = getTeam(name)
-  const hasFlagImage = /^[a-z]{2}$/i.test(team.iso2)
+  const hasFlagImage = /^[a-z]{2}(?:-[a-z]{3})?$/i.test(team.iso2)
 
   if (hasFlagImage) {
     return (
@@ -72,7 +73,7 @@ function TeamPredictionMarker({ name }: { name: string }) {
     <span
       aria-label={name}
       title={name}
-      className="inline-flex min-w-[34px] shrink-0 justify-center rounded-[5px] px-1.5 py-1 font-mono text-[10px] font-extrabold uppercase leading-none tracking-[0.04em]"
+      className="inline-flex h-6 w-8 shrink-0 items-center justify-center overflow-hidden rounded-[4px] font-mono text-[8px] font-extrabold uppercase leading-none tracking-[0.02em]"
       style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: '#ffffff' }}
     >
       {clearTeamAbbreviation(name)}
@@ -624,7 +625,7 @@ export function RankingClient({
               </p>
             </div>
             <Link
-              href={`/pronosticos/${podiumPredictionPreview.match.id}`}
+              href={podiumPredictionPreview.match.detailHref}
               className="rounded-full bg-orange px-4 py-2 text-[11px] font-extrabold text-bg transition-colors hover:bg-white"
             >
               Ver detalle
