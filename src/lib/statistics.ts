@@ -119,7 +119,9 @@ export function buildStatisticsData({
   participants: StatisticsParticipant[]
   tiebreakersByUser: TiebreakersByUser
 }): StatisticsData {
+  const startedAt = performance.now()
   const predictionsByUser = new Map<string, Prediction[]>()
+  const matchIds = new Set(matches.map((match) => match.id))
   for (const prediction of predictions) {
     const bucket = predictionsByUser.get(prediction.user_id) ?? []
     bucket.push(prediction)
@@ -130,6 +132,7 @@ export function buildStatisticsData({
   const previousByPhase: Record<StatisticsPhase, Map<string, { rank: number; metrics: PhaseMetrics }>> = {
     all: new Map(), group: new Map(), knockout: new Map(),
   }
+  const auditRowsByDayAndUser = new Map<string, ReturnType<typeof buildMatchAuditRows>>()
 
   const snapshots = finishedDays.map((date) => {
     const dailyMatches = cutoffMatches(matches, date)
@@ -137,6 +140,7 @@ export function buildStatisticsData({
       const rows = buildMatchAuditRows(
         dailyMatches, predictionsByUser.get(participant.user_id) ?? [], tiebreakersByUser.get(participant.user_id) ?? {}
       )
+      auditRowsByDayAndUser.set(`${date}:${participant.user_id}`, rows)
       const group = summarizeRows(rows.filter((row) => row.match.stage === 'group'))
       const knockout = summarizeRows(rows.filter((row) => row.match.stage !== 'group'))
       return {
@@ -185,9 +189,9 @@ export function buildStatisticsData({
       const partial: string[] = []
       const incorrect: string[] = []
       for (const participant of active) {
-        const row = buildMatchAuditRows(
-          dailyMatches, predictionsByUser.get(participant.user_id) ?? [], tiebreakersByUser.get(participant.user_id) ?? {}
-        ).find((item) => item.match.id === match.id)
+        const row = auditRowsByDayAndUser
+          .get(`${date}:${participant.user_id}`)
+          ?.find((item) => item.match.id === match.id)
         if (!row?.prediction) continue
         if (row.status === 'exact') exact.push(participant.name)
         else if (row.status === 'partial') partial.push(participant.name)
@@ -216,7 +220,7 @@ export function buildStatisticsData({
       historicalTiebreakers: tiebreakersByUser.get(participant.user_id) ?? {},
     })
     const raw = userPredictions.filter((prediction) =>
-      matches.some((match) => match.id === prediction.match_id) || prediction.match_id.startsWith('virtual-p'))
+      matchIds.has(prediction.match_id) || prediction.match_id.startsWith('virtual-p'))
     return {
       ...participant,
       exact: rows.filter((row) => row.status === 'exact').length,
@@ -283,6 +287,15 @@ export function buildStatisticsData({
     makeCard('nostradamus', 'El nostradamus', metrics, (m) => m.exact, String, 'Más resultados exactos'),
     makeCard('cross-specialist', 'Especialista en cruces', metrics, (m) => m.crosses, String, 'Más cruces exactos'),
   ]
+  if (process.env.STATISTICS_PERF_LOGS === '1') {
+    console.info('[statistics] build complete', {
+      durationMs: Math.round(performance.now() - startedAt),
+      participants: active.length,
+      matches: matches.length,
+      predictions: predictions.length,
+      days: finishedDays.length,
+    })
+  }
   return { participants: active, snapshots, serious, curious }
 }
 

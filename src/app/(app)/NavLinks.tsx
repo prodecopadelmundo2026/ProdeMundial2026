@@ -103,6 +103,7 @@ export function NavLinks({ isLoggedIn }: Props) {
             <Link
               key={href}
               href={href}
+              prefetch={href === '/estadisticas' ? false : undefined}
               onClick={anchor ? () => setActiveAnchor(href) : undefined}
               className={clsx(
                 'relative flex h-full items-center transition-colors duration-150 active:scale-[0.98]',
@@ -148,6 +149,7 @@ export function NavLinks({ isLoggedIn }: Props) {
               <Link
                 key={href}
                 href={href}
+                prefetch={href === '/estadisticas' ? false : undefined}
                 onClick={() => {
                   if (anchor) setActiveAnchor(href)
                   setMenuOpen(false)

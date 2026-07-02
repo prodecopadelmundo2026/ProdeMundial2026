@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getSupabaseConfig, isSupabaseConfigured } from './src/lib/supabase/env'
 
-const PUBLIC_PATHS = ['/', '/login', '/auth/', '/ranking', '/reglas', '/premios', '/fixture', '/pronosticos', '/mundial-en-vivo', '/maintenance']
+const PUBLIC_PATHS = ['/', '/login', '/auth/', '/fixture', '/mundial-en-vivo', '/reglas', '/maintenance']
 const MAINTENANCE_ALLOWED_PATHS = ['/login', '/auth/', '/maintenance']
 
 function isPublic(pathname: string) {
