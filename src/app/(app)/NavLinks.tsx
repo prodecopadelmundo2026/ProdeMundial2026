@@ -18,6 +18,7 @@ const NAV_LINKS: NavLink[] = [
   { href: '/', label: 'Inicio', exact: true, anchor: false },
   { href: '/mi-prode', label: 'Mi Prode', exact: false, anchor: false, requiresAuth: true },
   { href: '/ranking', label: 'Ranking', exact: false, anchor: false },
+  { href: '/estadisticas', label: 'Estadísticas', exact: false, anchor: false },
   { href: '/fixture', label: 'Fixture', exact: false, anchor: false },
   { href: '/mundial-en-vivo', label: 'Mundial en vivo', exact: false, anchor: false },
   { href: '/pronosticos', label: 'Pronósticos', exact: false, anchor: false },
