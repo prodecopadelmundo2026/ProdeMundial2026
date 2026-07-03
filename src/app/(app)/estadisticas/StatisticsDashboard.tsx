@@ -7,18 +7,41 @@ import type {
 } from '@/lib/statistics'
 
 type Metric = 'rank' | 'points' | 'exact' | 'signs' | 'bonus'
-type Sort = 'rank' | 'points' | 'dayPoints' | 'exact' | 'signs' | 'bonus' | 'movement'
 type Hover = { entry: StatisticsSnapshotEntry; date: string; label: string } | null
-const COLORS = ['#FF6B00', '#A8F0D8', '#FFE040', '#8B7CFF', '#53A7FF', '#FF8CC6', '#B8FF6A', '#FFB15C', '#E170FF', '#6FE7FF', '#F59E0B', '#22C55E']
+type LineVisual = { primary: string; secondary?: string; gradientId: string }
+const COLORS = [
+  '#FF6B00', '#A8F0D8', '#FFE040', '#8B7CFF', '#53A7FF', '#FF8CC6',
+  '#B8FF6A', '#FFB15C', '#E170FF', '#6FE7FF', '#F59E0B', '#22C55E',
+  '#F43F5E', '#14B8A6', '#A78BFA', '#38BDF8', '#FB7185', '#84CC16',
+  '#F97316', '#2DD4BF', '#C084FC', '#60A5FA', '#FACC15', '#34D399',
+]
 const STAGES: Record<string, string> = {
   group: 'Fase de grupos', round_of_32: '16avos', round_of_16: 'Octavos',
   quarter: 'Cuartos', semi: 'Semifinal', third_place: 'Tercer puesto', final: 'Final',
 }
 
-function colorFor(userId: string) {
-  let hash = 0
-  for (const character of userId) hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0
-  return COLORS[Math.abs(hash) % COLORS.length]
+function buildLineVisuals(data: StatisticsData) {
+  const combinations: Array<{ primary: string; secondary?: string }> = COLORS.map((primary) => ({ primary }))
+  for (let offset = 1; offset < COLORS.length; offset += 1) {
+    for (let index = 0; index < COLORS.length; index += 1) {
+      const pair = (index + offset) % COLORS.length
+      if (index < pair) combinations.push({ primary: COLORS[index], secondary: COLORS[pair] })
+    }
+  }
+  return new Map(
+    [...data.participants]
+      .sort((a, b) => a.user_id.localeCompare(b.user_id))
+      .map((participant, index) => {
+        const visual = combinations[index % combinations.length]
+        return [participant.user_id, { ...visual, gradientId: `timeline-color-${index}` }] as const
+      })
+  )
+}
+
+function visualBackground(visual: LineVisual) {
+  return visual.secondary
+    ? `linear-gradient(90deg, ${visual.primary} 0 50%, ${visual.secondary} 50% 100%)`
+    : visual.primary
 }
 
 function metricValue(entry: StatisticsSnapshotEntry, phase: StatisticsPhase, metric: Metric) {
@@ -26,11 +49,13 @@ function metricValue(entry: StatisticsSnapshotEntry, phase: StatisticsPhase, met
 }
 
 function UserPicker({
-  data, selected, setSelected,
+  data, selected, setSelected, visuals, currentUserId,
 }: {
   data: StatisticsData
   selected: string[]
   setSelected: (ids: string[]) => void
+  visuals: Map<string, LineVisual>
+  currentUserId: string | null
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -50,11 +75,13 @@ function UserPicker({
           <div className="mt-2 max-h-[210px] overflow-y-auto">
             {filtered.map((participant) => {
               const checked = selected.includes(participant.user_id)
+              const visual = visuals.get(participant.user_id)!
+              const isCurrent = participant.user_id === currentUserId
               return (
                 <label key={participant.user_id} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-[12px] hover:bg-white/5">
                   <input type="checkbox" checked={checked} onChange={() => setSelected(checked ? selected.filter((id) => id !== participant.user_id) : [...selected, participant.user_id])} />
-                  <i className="h-2 w-2 rounded-full" style={{ background: colorFor(participant.user_id) }} />
-                  <span className="min-w-0 truncate font-bold">{participant.name}</span>
+                  <i className={`h-2 w-2 rounded-full ${isCurrent ? 'ring-2 ring-white ring-offset-2 ring-offset-[#171717]' : ''}`} style={{ background: visualBackground(visual) }} />
+                  <span className="min-w-0 truncate font-bold">{participant.name}{isCurrent ? ' · Vos' : ''}</span>
                 </label>
               )
             })}
@@ -130,17 +157,17 @@ function MatchCard({ match }: { match: DateMatchStat }) {
   )
 }
 
-export function StatisticsDashboard({ data }: { data: StatisticsData }) {
+export function StatisticsDashboard({ data, currentUserId }: { data: StatisticsData; currentUserId: string | null }) {
   const [range, setRange] = useState<'all' | 'week' | 'day'>('all')
-  const [limit, setLimit] = useState<'5' | '10' | 'all'>('10')
+  const [limit, setLimit] = useState<'5' | '10' | 'all'>('5')
   const [phase, setPhase] = useState<StatisticsPhase>('all')
   const [metric, setMetric] = useState<Metric>('rank')
-  const [sort, setSort] = useState<Sort>('rank')
   const [selectedDate, setSelectedDate] = useState(data.snapshots.at(-1)?.date ?? '')
   const [pickedUsers, setPickedUsers] = useState<string[]>([])
   const [hovered, setHovered] = useState<Hover>(null)
 
   const selected = data.snapshots.find((snapshot) => snapshot.date === selectedDate)
+  const visuals = useMemo(() => buildLineVisuals(data), [data])
   const visibleSnapshots = useMemo(() => {
     if (range === 'day') return []
     if (range === 'week') {
@@ -151,16 +178,19 @@ export function StatisticsDashboard({ data }: { data: StatisticsData }) {
   }, [data.snapshots, range, selectedDate])
 
   const take = limit === 'all' ? Number.POSITIVE_INFINITY : Number(limit)
-  const chartUsers = pickedUsers.length
-    ? data.participants.filter((participant) => pickedUsers.includes(participant.user_id))
-    : (selected?.entries ?? []).slice(0, take).map((entry) => ({ user_id: entry.userId, name: entry.name, avatar_url: null }))
-  const tableEntries = [...(selected?.entries ?? [])].sort((a, b) => {
-    if (sort === 'rank') return a.ranks[phase] - b.ranks[phase]
-    if (sort === 'movement') return b.rankChanges[phase] - a.rankChanges[phase]
-    if (sort === 'dayPoints') return b.changes[phase].points - a.changes[phase].points
-    const key = sort === 'points' ? 'points' : sort
-    return b.metrics[phase][key] - a.metrics[phase][key]
-  })
+  const chartUsers = useMemo(() => {
+    const base = pickedUsers.length
+      ? data.participants.filter((participant) => pickedUsers.includes(participant.user_id))
+      : (selected?.entries ?? []).slice(0, take).map((entry) => ({
+          user_id: entry.userId, name: entry.name, avatar_url: null,
+        }))
+    const current = currentUserId
+      ? data.participants.find((participant) => participant.user_id === currentUserId)
+      : null
+    return current && !base.some((participant) => participant.user_id === current.user_id)
+      ? [...base, current]
+      : base
+  }, [currentUserId, data.participants, pickedUsers, selected?.entries, take])
 
   const width = 1040
   const height = 390
@@ -170,7 +200,7 @@ export function StatisticsDashboard({ data }: { data: StatisticsData }) {
     return entry ? [metricValue(entry, phase, metric)] : []
   }))
   const minValue = metric === 'rank' ? 1 : Math.min(0, ...plottedValues)
-  const maxValue = Math.max(metric === 'rank' ? chartUsers.length : 1, ...plottedValues)
+  const maxValue = Math.max(1, ...plottedValues)
   const x = (index: number) => pad.left + index * ((width - pad.left - pad.right) / Math.max(1, visibleSnapshots.length - 1))
   const y = (value: number) => pad.top + ((metric === 'rank' ? value - minValue : maxValue - value) / Math.max(1, maxValue - minValue)) * (height - pad.top - pad.bottom)
   const topRise = [...(selected?.entries ?? [])].sort((a, b) => b.rankChange - a.rankChange)[0]
@@ -198,7 +228,13 @@ export function StatisticsDashboard({ data }: { data: StatisticsData }) {
           <select aria-label="Top por defecto" value={limit} onChange={(event) => setLimit(event.target.value as typeof limit)} className="min-w-0 rounded-xl border border-white/10 bg-[#181818] px-3 py-2.5 text-[11px] font-bold">
             <option value="5">Top 5</option><option value="10">Top 10</option><option value="all">Todos</option>
           </select>
-          <UserPicker data={data} selected={pickedUsers} setSelected={setPickedUsers} />
+          <UserPicker
+            data={data}
+            selected={pickedUsers}
+            setSelected={setPickedUsers}
+            visuals={visuals}
+            currentUserId={currentUserId}
+          />
         </div>
         {!selectedDate || !selected ? (
           <div className="mt-4 rounded-[20px] border border-dashed border-white/15 bg-[#0e0e0e] py-16 text-center">
@@ -226,18 +262,35 @@ export function StatisticsDashboard({ data }: { data: StatisticsData }) {
           <div className="relative mt-4 rounded-[20px] border border-white/10 bg-[#0e0e0e] p-3 sm:p-5">
             <div className="hidden w-full overflow-hidden sm:block">
               <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Evolución del ranking" className="h-auto w-full">
+                <defs>
+                  {chartUsers.flatMap((user) => {
+                    const visual = visuals.get(user.user_id)
+                    return visual?.secondary ? [
+                      <linearGradient key={visual.gradientId} id={visual.gradientId} x1="0" x2="1" y1="0" y2="0">
+                        <stop offset="0%" stopColor={visual.primary} />
+                        <stop offset="49%" stopColor={visual.primary} />
+                        <stop offset="51%" stopColor={visual.secondary} />
+                        <stop offset="100%" stopColor={visual.secondary} />
+                      </linearGradient>,
+                    ] : []
+                  })}
+                </defs>
                 {Array.from({ length: 6 }, (_, index) => minValue + index * ((maxValue - minValue) / 5)).map((value) => (
                   <g key={value}><line x1={pad.left} x2={width - pad.right} y1={y(value)} y2={y(value)} stroke="rgba(255,255,255,.07)" /><text x={pad.left - 9} y={y(value) + 4} fill="#777" textAnchor="end" fontSize="10">{metric === 'rank' ? `#${Math.round(value)}` : Math.round(value)}</text></g>
                 ))}
                 {chartUsers.map((user) => {
+                  const visual = visuals.get(user.user_id)!
+                  const isCurrent = user.user_id === currentUserId
+                  const stroke = visual.secondary ? `url(#${visual.gradientId})` : visual.primary
                   const points = visibleSnapshots.flatMap((snapshot, index) => {
                     const entry = snapshot.entries.find((item) => item.userId === user.user_id)
                     return entry ? [{ px: x(index), py: y(metricValue(entry, phase, metric)), entry, snapshot }] : []
                   })
                   const active = !hovered || hovered.entry.userId === user.user_id
                   return <g key={user.user_id} opacity={active ? 1 : .18} onMouseLeave={() => setHovered(null)}>
-                    {points.length > 1 && <polyline points={points.map((point) => `${point.px},${point.py}`).join(' ')} fill="none" stroke={colorFor(user.user_id)} strokeWidth={hovered?.entry.userId === user.user_id ? 5 : 3} strokeLinejoin="round" />}
-                    {points.map((point) => <circle key={point.snapshot.date} cx={point.px} cy={point.py} r="6" fill={colorFor(user.user_id)} className="cursor-pointer" onMouseEnter={() => setHovered({ entry: point.entry, date: point.snapshot.date, label: point.snapshot.label })} />)}
+                    {isCurrent && points.length > 1 && <polyline points={points.map((point) => `${point.px},${point.py}`).join(' ')} fill="none" stroke="rgba(255,255,255,.72)" strokeWidth="8" strokeLinejoin="round" />}
+                    {points.length > 1 && <polyline points={points.map((point) => `${point.px},${point.py}`).join(' ')} fill="none" stroke={stroke} strokeWidth={hovered?.entry.userId === user.user_id || isCurrent ? 5 : 3} strokeLinejoin="round" />}
+                    {points.map((point) => <circle key={point.snapshot.date} cx={point.px} cy={point.py} r={isCurrent ? 7 : 6} fill={stroke} stroke={isCurrent ? '#fff' : 'none'} strokeWidth={isCurrent ? 2.5 : 0} className="cursor-pointer" onMouseEnter={() => setHovered({ entry: point.entry, date: point.snapshot.date, label: point.snapshot.label })} />)}
                   </g>
                 })}
                 {visibleSnapshots.map((snapshot, index) => <text key={snapshot.date} x={x(index)} y={height - 10} fill="#777" textAnchor="middle" fontSize="10">{visibleSnapshots.length <= 12 || index % Math.ceil(visibleSnapshots.length / 8) === 0 ? snapshot.label : ''}</text>)}
@@ -248,21 +301,20 @@ export function StatisticsDashboard({ data }: { data: StatisticsData }) {
               <div className="grid grid-cols-1 gap-2 min-[390px]:grid-cols-2">{chartUsers.map((user) => {
                 const entry = selected.entries.find((item) => item.userId === user.user_id)
                 if (!entry) return null
-                return <button type="button" key={user.user_id} onClick={() => setHovered({ entry, date: selected.date, label: selected.label })} className="flex min-w-0 items-center gap-3 rounded-xl bg-white/5 p-3 text-left"><i className="h-3 w-3 shrink-0 rounded-full" style={{ background: colorFor(user.user_id) }} /><span className="min-w-0 flex-1 truncate text-[12px] font-bold">{user.name}</span><b className="font-mono text-[11px]">{metric === 'rank' ? `#${entry.ranks[phase]}` : metricValue(entry, phase, metric)}</b></button>
+                const visual = visuals.get(user.user_id)!
+                const isCurrent = user.user_id === currentUserId
+                return <button type="button" key={user.user_id} onClick={() => setHovered({ entry, date: selected.date, label: selected.label })} className={`flex min-w-0 items-center gap-3 rounded-xl p-3 text-left ${isCurrent ? 'border border-white/35 bg-white/10 shadow-[0_0_22px_rgba(255,255,255,.08)]' : 'bg-white/5'}`}><i className={`h-3 w-3 shrink-0 rounded-full ${isCurrent ? 'ring-2 ring-white' : ''}`} style={{ background: visualBackground(visual) }} /><span className="min-w-0 flex-1 truncate text-[12px] font-bold">{user.name}{isCurrent ? ' · Vos' : ''}</span><b className="font-mono text-[11px]">{metric === 'rank' ? `#${entry.ranks[phase]}` : metricValue(entry, phase, metric)}</b></button>
               })}</div>
             </div>
             {hovered && <div className="mt-3 rounded-[14px] border border-white/10 bg-[#181818] p-4 sm:absolute sm:right-6 sm:top-6 sm:mt-0 sm:w-[260px]"><div className="flex items-start justify-between"><div><p className="text-[13px] font-extrabold">{hovered.entry.name}</p><p className="mt-1 font-mono text-[9px] uppercase text-muted">{hovered.label}</p></div><button type="button" onClick={() => setHovered(null)} aria-label="Cerrar detalle"><X size={15} /></button></div><div className="mt-3 grid grid-cols-2 gap-2 text-[10px]"><span>Ranking <b className="block text-[16px] text-white">#{hovered.entry.ranks[phase]}</b></span><span>Puntos <b className="block text-[16px] text-white">{hovered.entry.metrics[phase].points}</b></span><span>Cambio <b className="block text-[16px] text-white">{hovered.entry.rankChanges[phase] > 0 ? `↑${hovered.entry.rankChanges[phase]}` : hovered.entry.rankChanges[phase] < 0 ? `↓${Math.abs(hovered.entry.rankChanges[phase])}` : '—'}</b></span><span>Puntos del día <b className="block text-[16px] text-white">+{hovered.entry.changes[phase].points}</b></span></div></div>}
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">{chartUsers.map((user) => <button type="button" onMouseEnter={() => { const entry = selected.entries.find((item) => item.userId === user.user_id); if (entry) setHovered({ entry, date: selected.date, label: selected.label }) }} key={user.user_id} className="flex min-w-0 items-center gap-2 text-[10px] font-bold"><i className="h-2 w-2 shrink-0 rounded-full" style={{ background: colorFor(user.user_id) }} />{user.name}</button>)}</div>
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">{chartUsers.map((user) => {
+              const visual = visuals.get(user.user_id)!
+              const isCurrent = user.user_id === currentUserId
+              return <button type="button" onMouseEnter={() => { const entry = selected.entries.find((item) => item.userId === user.user_id); if (entry) setHovered({ entry, date: selected.date, label: selected.label }) }} key={user.user_id} className={`flex min-w-0 items-center gap-2 rounded-full px-2 py-1 text-[10px] font-bold ${isCurrent ? 'bg-white/10 text-white ring-1 ring-white/35' : ''}`}><i className={`h-2 w-2 shrink-0 rounded-full ${isCurrent ? 'ring-2 ring-white' : ''}`} style={{ background: visualBackground(visual) }} />{user.name}{isCurrent ? ' · Vos' : ''}</button>
+            })}</div>
           </div>
         )}
       </section>
-
-      {selected && (
-        <section>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="font-mono text-[9px] font-bold uppercase tracking-[.16em] text-muted">Corte seleccionado</p><h2 className="mt-2 font-display text-[28px] uppercase sm:text-[36px]">Tabla al {selected.label}</h2></div><select aria-label="Orden de tabla" value={sort} onChange={(event) => setSort(event.target.value as Sort)} className="rounded-xl border border-white/10 bg-[#151515] px-3 py-2 text-[11px] font-bold"><option value="rank">Ordenar: ranking</option><option value="points">Puntos totales</option><option value="dayPoints">Puntos del día</option><option value="exact">Exactas</option><option value="signs">Signos</option><option value="bonus">Bonus</option><option value="movement">Subida / bajada</option></select></div>
-          <div className="mt-4 space-y-2">{tableEntries.map((entry) => <article key={entry.userId} className="grid min-w-0 grid-cols-[40px_minmax(0,1fr)_auto] gap-2 rounded-[14px] border border-white/8 bg-[#111] px-3 py-3 sm:grid-cols-[54px_minmax(0,1fr)_repeat(5,minmax(62px,auto))] sm:items-center"><span className="font-display text-[20px] text-orange">#{entry.ranks[phase]}</span><strong className="truncate text-[13px]">{entry.name}</strong><span className="text-right font-display text-[20px]">{entry.metrics[phase].points}<small className="ml-1 font-mono text-[8px] text-muted">PTS</small></span><span className="col-start-2 font-mono text-[9px] text-muted sm:col-start-auto">{entry.rankChanges[phase] > 0 ? `↑${entry.rankChanges[phase]}` : entry.rankChanges[phase] < 0 ? `↓${Math.abs(entry.rankChanges[phase])}` : '—'} posición</span><span className="font-mono text-[9px] text-muted"><b className="text-white">+{entry.changes[phase].points}</b> día</span><span className="font-mono text-[9px] text-muted"><b className="text-white">{entry.metrics[phase].exact}</b> exactas</span><span className="font-mono text-[9px] text-muted"><b className="text-white">{entry.metrics[phase].signs}</b> signos</span><span className="font-mono text-[9px] text-muted"><b className="text-white">{entry.metrics[phase].bonus}</b> bonus</span></article>)}</div>
-        </section>
-      )}
 
       {selected && <section><p className="font-mono text-[10px] font-extrabold uppercase tracking-[.2em] text-orange">Resultados oficiales</p><h2 className="mb-5 mt-2 font-display text-[30px] uppercase sm:text-[42px]">Partidos de la fecha</h2>{selected.matches.length ? <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{selected.matches.map((match) => <MatchCard key={match.id} match={match} />)}</div> : <div className="rounded-[16px] border border-dashed border-white/15 py-12 text-center text-[12px] text-muted">No hay partidos finalizados para esta fecha.</div>}</section>}
       <section><p className="font-mono text-[10px] font-extrabold uppercase tracking-[.2em] text-orange">Lo que importa</p><h2 className="mb-5 mt-2 font-display text-[30px] uppercase sm:text-[42px]">Estadísticas serias</h2><StatCards cards={data.serious} /></section>

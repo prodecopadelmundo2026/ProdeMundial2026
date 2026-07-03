@@ -24,7 +24,12 @@ type PublicDetail = {
 
 export default async function StatisticsPage() {
   const supabase = await createClient()
-  const [{ data: rankingData, error: rankingError }, { data: matchesData, error: matchesError }] = await Promise.all([
+  const [
+    { data: { user } },
+    { data: rankingData, error: rankingError },
+    { data: matchesData, error: matchesError },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
     supabase.rpc('get_public_ranking'),
     supabase.from('matches').select('*').order('scheduled_at', { ascending: true }),
   ])
@@ -79,7 +84,7 @@ export default async function StatisticsPage() {
             Solo lectura · calculado desde datos existentes{consistent ? '' : ' · histórico estimado'}
           </div>
         </header>
-        <StatisticsDashboard data={data} />
+        <StatisticsDashboard data={data} currentUserId={user?.id ?? null} />
       </div>
     </div>
   )

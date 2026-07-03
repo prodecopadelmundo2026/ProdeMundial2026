@@ -65,20 +65,12 @@ function emptyMetrics(): PhaseMetrics {
   return { points: 0, exact: 0, signs: 0, bonus: 0 }
 }
 
-function summarizeRows(rows: ReturnType<typeof buildMatchAuditRows>): PhaseMetrics {
-  const scored = rows.filter((row) => row.prediction && row.match.status === 'finished')
-  return {
-    points: scored.reduce((sum, row) => sum + (row.points ?? 0), 0),
-    exact: scored.filter((row) => row.status === 'exact').length,
-    signs: scored.filter((row) => row.status === 'exact' || row.status === 'partial').length,
-    bonus: scored.reduce((sum, row) => sum + row.qualifiedPoints, 0),
-  }
-}
-
-function cutoffMatches(matches: Match[], date: string) {
-  return matches.map((match) => match.status === 'finished' && argentinaDay(match.scheduled_at) <= date
-    ? match
-    : { ...match, status: 'upcoming' as const, home_score: null, away_score: null, qualified_team: null })
+function addRowToMetrics(metrics: PhaseMetrics, row: ReturnType<typeof buildMatchAuditRows>[number]) {
+  if (!row.prediction || row.match.status !== 'finished') return
+  metrics.points += row.points ?? 0
+  if (row.status === 'exact') metrics.exact += 1
+  if (row.status === 'exact' || row.status === 'partial') metrics.signs += 1
+  metrics.bonus += row.qualifiedPoints
 }
 
 function rankEntries(entries: StatisticsSnapshotEntry[], phase: StatisticsPhase) {
@@ -122,27 +114,58 @@ export function buildStatisticsData({
   const startedAt = performance.now()
   const predictionsByUser = new Map<string, Prediction[]>()
   const matchIds = new Set(matches.map((match) => match.id))
+  const matchDayById = new Map(matches.map((match) => [match.id, argentinaDay(match.scheduled_at)]))
   for (const prediction of predictions) {
     const bucket = predictionsByUser.get(prediction.user_id) ?? []
     bucket.push(prediction)
     predictionsByUser.set(prediction.user_id, bucket)
   }
   const active = participants.filter((participant) => (predictionsByUser.get(participant.user_id)?.length ?? 0) > 0)
-  const finishedDays = [...new Set(matches.filter((match) => match.status === 'finished').map((match) => argentinaDay(match.scheduled_at)))].sort()
+  const finishedDays = [...new Set(matches
+    .filter((match) => match.status === 'finished')
+    .map((match) => matchDayById.get(match.id)!))].sort()
   const previousByPhase: Record<StatisticsPhase, Map<string, { rank: number; metrics: PhaseMetrics }>> = {
     all: new Map(), group: new Map(), knockout: new Map(),
   }
-  const auditRowsByDayAndUser = new Map<string, ReturnType<typeof buildMatchAuditRows>>()
+  const auditRowsByUser = new Map(active.map((participant) => [
+    participant.user_id,
+    buildMatchAuditRows(
+      matches,
+      predictionsByUser.get(participant.user_id) ?? [],
+      tiebreakersByUser.get(participant.user_id) ?? {}
+    ),
+  ]))
+  const auditRowByUserAndMatch = new Map<string, ReturnType<typeof buildMatchAuditRows>[number]>()
+  const cumulativeByUserAndDay = new Map<string, Map<string, { group: PhaseMetrics; knockout: PhaseMetrics }>>()
+
+  for (const participant of active) {
+    const rowsByDay = new Map<string, ReturnType<typeof buildMatchAuditRows>>()
+    for (const row of auditRowsByUser.get(participant.user_id) ?? []) {
+      auditRowByUserAndMatch.set(`${participant.user_id}:${row.match.id}`, row)
+      if (!row.prediction || row.match.status !== 'finished') continue
+      const day = matchDayById.get(row.match.id) ?? argentinaDay(row.match.scheduled_at)
+      const bucket = rowsByDay.get(day) ?? []
+      bucket.push(row)
+      rowsByDay.set(day, bucket)
+    }
+
+    const group = emptyMetrics()
+    const knockout = emptyMetrics()
+    const byDay = new Map<string, { group: PhaseMetrics; knockout: PhaseMetrics }>()
+    for (const date of finishedDays) {
+      for (const row of rowsByDay.get(date) ?? []) {
+        addRowToMetrics(row.match.stage === 'group' ? group : knockout, row)
+      }
+      byDay.set(date, { group: { ...group }, knockout: { ...knockout } })
+    }
+    cumulativeByUserAndDay.set(participant.user_id, byDay)
+  }
 
   const snapshots = finishedDays.map((date) => {
-    const dailyMatches = cutoffMatches(matches, date)
     const baseEntries = active.map((participant): StatisticsSnapshotEntry => {
-      const rows = buildMatchAuditRows(
-        dailyMatches, predictionsByUser.get(participant.user_id) ?? [], tiebreakersByUser.get(participant.user_id) ?? {}
-      )
-      auditRowsByDayAndUser.set(`${date}:${participant.user_id}`, rows)
-      const group = summarizeRows(rows.filter((row) => row.match.stage === 'group'))
-      const knockout = summarizeRows(rows.filter((row) => row.match.stage !== 'group'))
+      const cumulative = cumulativeByUserAndDay.get(participant.user_id)?.get(date)
+      const group = cumulative?.group ?? emptyMetrics()
+      const knockout = cumulative?.knockout ?? emptyMetrics()
       return {
         userId: participant.user_id, name: participant.name, rank: 0, rankChange: 0,
         ranks: { all: 0, group: 0, knockout: 0 },
@@ -182,16 +205,14 @@ export function buildStatisticsData({
       ]))
     }
 
-    const matchesOfDate = matches.filter((match) => match.status === 'finished' && argentinaDay(match.scheduled_at) === date)
+    const matchesOfDate = matches.filter((match) => match.status === 'finished' && matchDayById.get(match.id) === date)
     const dateMatchStats = matchesOfDate.flatMap((match): DateMatchStat[] => {
       if (match.home_score == null || match.away_score == null) return []
       const exact: string[] = []
       const partial: string[] = []
       const incorrect: string[] = []
       for (const participant of active) {
-        const row = auditRowsByDayAndUser
-          .get(`${date}:${participant.user_id}`)
-          ?.find((item) => item.match.id === match.id)
+        const row = auditRowByUserAndMatch.get(`${participant.user_id}:${match.id}`)
         if (!row?.prediction) continue
         if (row.status === 'exact') exact.push(participant.name)
         else if (row.status === 'partial') partial.push(participant.name)
@@ -208,7 +229,7 @@ export function buildStatisticsData({
 
   const metrics: MetricRow[] = active.map((participant) => {
     const userPredictions = predictionsByUser.get(participant.user_id) ?? []
-    const rows = buildMatchAuditRows(matches, userPredictions, tiebreakersByUser.get(participant.user_id) ?? {})
+    const rows = (auditRowsByUser.get(participant.user_id) ?? [])
       .filter((row) => row.match.status === 'finished' && row.prediction)
     const groupRows = rows.filter((row) => row.match.stage === 'group')
     const knockoutRows = rows.filter((row) => row.match.stage !== 'group')
@@ -243,11 +264,15 @@ export function buildStatisticsData({
     }
   })
 
+  const timelineEntriesByUser = new Map(active.map((participant) => [
+    participant.user_id,
+    [] as StatisticsSnapshotEntry[],
+  ]))
+  for (const snapshot of snapshots) {
+    for (const entry of snapshot.entries) timelineEntriesByUser.get(entry.userId)?.push(entry)
+  }
   const timelineRows = active.map((participant) => {
-    const entries = snapshots.flatMap((snapshot) => {
-      const entry = snapshot.entries.find((item) => item.userId === participant.user_id)
-      return entry ? [entry] : []
-    })
+    const entries = timelineEntriesByUser.get(participant.user_id) ?? []
     return {
       ...participant,
       leaderDays: entries.filter((entry) => entry.rank === 1).length,
@@ -294,6 +319,7 @@ export function buildStatisticsData({
       matches: matches.length,
       predictions: predictions.length,
       days: finishedDays.length,
+      auditRuns: auditRowsByUser.size,
     })
   }
   return { participants: active, snapshots, serious, curious }
