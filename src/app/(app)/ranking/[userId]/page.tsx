@@ -1385,11 +1385,15 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   const viewerPredictionByMatch = new Map(viewerTypedPredictions.map((prediction) => [prediction.match_id, prediction]))
   const viewerRowByMatch = new Map(viewerAuditRows.map((row) => [row.match.id, row]))
   const userTiebreakerMap = tiebreakersByUser.get(userId) ?? {}
+  const userBracketTiebreakerMap = {
+    ...userTiebreakerMap,
+    ...predictionTiebreakerMap(typedUserPredictions),
+  }
   const trajectoryLedger = buildRoundOf32BonusLedger({
     userId,
     matches: allMatches,
     predictionMap,
-    historicalTiebreakers: userTiebreakerMap,
+    historicalTiebreakers: userBracketTiebreakerMap,
   })
   const trajectoryBonus = summarizeKnockoutBonus(trajectoryLedger)
   const roundOf32TrajectoryBonus = summarizeKnockoutBonus(
@@ -1437,10 +1441,6 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
   }
   const totalWithTrajectory = entry.total_points
   const viewerTiebreakerMap = user ? tiebreakersByUser.get(user.id) ?? {} : {}
-  const userBracketTiebreakerMap = {
-    ...userTiebreakerMap,
-    ...predictionTiebreakerMap(typedUserPredictions),
-  }
   const viewerBracketTiebreakerMap = {
     ...viewerTiebreakerMap,
     ...predictionTiebreakerMap(viewerTypedPredictions),

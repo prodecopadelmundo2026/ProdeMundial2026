@@ -563,9 +563,12 @@ export function MiProdeTabs({
       userId: '',
       matches: [...groupMatches, ...knockoutMatches],
       predictionMap: effectivePredMap,
-      historicalTiebreakers: tiebreakers,
+      historicalTiebreakers: {
+        ...tiebreakers,
+        ...effectiveKnockoutTiebreakers,
+      },
     }),
-    [effectivePredMap, groupMatches, knockoutMatches, tiebreakers]
+    [effectiveKnockoutTiebreakers, effectivePredMap, groupMatches, knockoutMatches, tiebreakers]
   )
   const knockoutAuditRows = useMemo(() => {
     const predictions: Prediction[] = Object.entries(effectivePredMap).map(([matchId, score]) => ({

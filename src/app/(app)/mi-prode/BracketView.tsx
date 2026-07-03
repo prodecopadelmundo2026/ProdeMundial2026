@@ -100,6 +100,10 @@ function isPlaceholder(name: string) {
   return name.includes('°') || name.includes('Â') || name.startsWith('Ganador') || name.startsWith('Perdedor') || name === 'Mejor 3°'
 }
 
+function sameTeam(left: string | null | undefined, right: string | null | undefined) {
+  return String(left ?? '').trim().localeCompare(String(right ?? '').trim(), undefined, { sensitivity: 'base' }) === 0
+}
+
 // P-number friendly labels for unresolved knockout placeholders
 const P_NUM_INFO: Record<number, { round: string; short: string }> = {
   73:  { round: 'D16', short: '#1'  }, 74:  { round: 'D16', short: '#2'  },
@@ -904,9 +908,9 @@ export function BracketView({
       match.stage === 'final' ? 'final' :
       null
     if (!round) return 0
-    const teams = new Set(Object.values(getResolvedTeams(match)))
+    const teams = Object.values(getResolvedTeams(match))
     return trajectoryAwards
-      .filter((item) => item.awarded && item.round === round && teams.has(item.team))
+      .filter((item) => item.awarded && item.round === round && teams.some((team) => sameTeam(team, item.team)))
       .reduce((total, item) => total + item.points, 0)
   }
 

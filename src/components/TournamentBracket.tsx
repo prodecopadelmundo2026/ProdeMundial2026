@@ -1000,14 +1000,14 @@ export function TournamentBracket({
       pNum === 104 ? 'final' : null
     const bonusesFor = (team: string) => {
       const trajectoryPoints = trajectoryAwards
-        .filter((item) => item.awarded && item.team === team && item.round === displayedRound)
+        .filter((item) => item.awarded && sameTeam(item.team, team) && item.round === displayedRound)
         .reduce((total, item) => total + item.points, 0)
       let total = trajectoryPoints
       if (
         total === 0 &&
         showBonus &&
         !isPlaceholderName(team) &&
-        roundOf32AwardedTeams!.has(team)
+        [...roundOf32AwardedTeams!].some((awardedTeam) => sameTeam(awardedTeam, team))
       ) total = 1
       const resultPoints = auditRow?.resultPoints ?? d.resultPoints
       if (exactCrossing && sameTeam(team, d.winner)) total += resultPoints
@@ -1037,7 +1037,7 @@ export function TournamentBracket({
   const championBonus = champion
     ? trajectoryAwards.find((item) =>
         item.awarded &&
-        item.team === champion &&
+        sameTeam(item.team, champion) &&
         item.round === 'champion'
       )?.points
     : undefined
