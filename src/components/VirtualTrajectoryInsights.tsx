@@ -21,10 +21,8 @@ function compactNames(items: VirtualTrajectoryParticipant[], limit = 3) {
 
 function ParticipantChips({
   items,
-  points,
 }: {
   items: VirtualTrajectoryParticipant[]
-  points: 1 | 2
 }) {
   if (!items.length) {
     return <p className="text-[12px] font-semibold text-muted">Nadie en esta categoría.</p>
@@ -37,7 +35,7 @@ function ParticipantChips({
           className="rounded-full px-3 py-2 text-[11px] font-bold text-white"
           style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)' }}
         >
-          {item.name} <strong className={points === 2 ? 'text-orange' : 'text-mint'}>+{points}</strong>
+          {item.name}
         </span>
       ))}
     </div>
@@ -82,7 +80,7 @@ export function VirtualTrajectoryInsights({
     ? `${data.exactCrossing[0].name} acertó el cruce exacto`
     : data.exactCrossing.length > 1
     ? `${data.exactCrossing.length} participantes acertaron el cruce exacto`
-    : 'Nadie acertó este cruce exacto'
+    : `Nadie acertó el cruce exacto ${homeTeam} vs ${awayTeam}.`
 
   if (compact) {
     return (
@@ -93,7 +91,7 @@ export function VirtualTrajectoryInsights({
             <PredictionLine participant={data.exactCrossing[0]} homeTeam={homeTeam} awayTeam={awayTeam} />
           )}
           <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-orange">
-            {data.exactCrossing.length ? '+2 trayectoria por ambos clasificados' : 'Cruce exacto'}
+            {data.exactCrossing.length > 0 ? 'Cruce exacto acertado' : 'Cruce exacto'}
           </p>
         </div>
         <div className="grid gap-1.5 text-[11px] font-semibold leading-relaxed text-muted">
@@ -108,43 +106,67 @@ export function VirtualTrajectoryInsights({
   return (
     <div className="grid gap-4">
       <section className="rounded-[18px] p-4" style={{ background: 'linear-gradient(135deg, rgba(255,107,0,0.13), rgba(168,240,216,0.05))', border: '1px solid rgba(255,107,0,0.34)' }}>
-        <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.15em] text-orange">Cruce exacto acertado</p>
+        <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.15em] text-orange">Pronósticos exactos del cruce</p>
         <h3 className="mt-2 font-display text-[clamp(24px,4vw,38px)] uppercase leading-none text-white">{exactTitle}</h3>
         {data.exactCrossing.length > 0 && (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {data.exactCrossing.map((participant) => (
-              <article key={participant.userId} className="rounded-[14px] bg-[#0A0A0A] p-3" style={{ border: '1px solid rgba(168,240,216,0.18)' }}>
-                <div className="flex items-center justify-between gap-3">
+          <div className="mt-4">
+            <span className="inline-flex rounded-full bg-orange/15 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.08em] text-orange">
+              Cruce exacto acertado
+            </span>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {data.exactCrossing.map((participant) => (
+                <article key={participant.userId} className="rounded-[14px] bg-[#0A0A0A] p-3" style={{ border: '1px solid rgba(168,240,216,0.18)' }}>
                   <strong className="text-[13px] text-white">{participant.name}</strong>
-                  <span className="rounded-full bg-orange/15 px-2.5 py-1 text-[10px] font-extrabold text-orange">+2 trayectoria</span>
-                </div>
-                <PredictionLine participant={participant} homeTeam={homeTeam} awayTeam={awayTeam} />
-              </article>
-            ))}
+                  <PredictionLine participant={participant} homeTeam={homeTeam} awayTeam={awayTeam} />
+                </article>
+              ))}
+            </div>
           </div>
         )}
-        <p className="mt-4 text-[11px] font-semibold leading-relaxed text-muted">
-          El +2 corresponde únicamente a los dos equipos clasificados. Puede sumar los puntos normales del partido si acierta ganador, clasificado o resultado según las reglas vigentes.
-        </p>
       </section>
 
-      <div className="grid gap-3 lg:grid-cols-3">
-        <section className="rounded-[15px] bg-[#101010] p-4" style={{ border: '1px solid rgba(255,107,0,0.18)' }}>
-          <p className="text-[12px] font-extrabold text-white">Ambos equipos, en otro cruce</p>
-          <p className="mb-3 mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-orange">+2 trayectoria</p>
-          <ParticipantChips items={data.bothTeamsOtherCrossing} points={2} />
-        </section>
-        <section className="rounded-[15px] bg-[#101010] p-4" style={{ border: '1px solid rgba(168,240,216,0.16)' }}>
-          <p className="text-[12px] font-extrabold text-white"><TeamFlag team={homeTeam} /> Solo acertaron a {homeTeam}</p>
-          <p className="mb-3 mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-mint">+1 trayectoria</p>
-          <ParticipantChips items={data.homeTeamOnly} points={1} />
-        </section>
-        <section className="rounded-[15px] bg-[#101010] p-4" style={{ border: '1px solid rgba(168,240,216,0.16)' }}>
-          <p className="text-[12px] font-extrabold text-white"><TeamFlag team={awayTeam} /> Solo acertaron a {awayTeam}</p>
-          <p className="mb-3 mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-mint">+1 trayectoria</p>
-          <ParticipantChips items={data.awayTeamOnly} points={1} />
-        </section>
+      <div>
+        <p className="mb-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.15em] text-mint">
+          Aciertos de trayectoria en esta instancia
+        </p>
+        <div className="grid gap-3 lg:grid-cols-3">
+          <section className="rounded-[15px] bg-[#101010] p-4" style={{ border: '1px solid rgba(255,107,0,0.18)' }}>
+            <p className="text-[12px] font-extrabold text-white">Ambos equipos en {data.instanceLabel}, pero no este cruce exacto</p>
+            <p className="mb-3 mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-orange">+{data.trajectoryPoints * 2} trayectoria</p>
+            <ParticipantChips items={data.bothTeamsOtherCrossing} />
+          </section>
+          <section className="rounded-[15px] bg-[#101010] p-4" style={{ border: '1px solid rgba(168,240,216,0.16)' }}>
+            <p className="text-[12px] font-extrabold text-white"><TeamFlag team={homeTeam} /> Tenían solo a {homeTeam} en {data.instanceLabel}</p>
+            <p className="mb-3 mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-mint">+{data.trajectoryPoints} trayectoria</p>
+            <ParticipantChips items={data.homeTeamOnly} />
+          </section>
+          <section className="rounded-[15px] bg-[#101010] p-4" style={{ border: '1px solid rgba(168,240,216,0.16)' }}>
+            <p className="text-[12px] font-extrabold text-white"><TeamFlag team={awayTeam} /> Tenían solo a {awayTeam} en {data.instanceLabel}</p>
+            <p className="mb-3 mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-mint">+{data.trajectoryPoints} trayectoria</p>
+            <ParticipantChips items={data.awayTeamOnly} />
+          </section>
+        </div>
       </div>
+
+      {data.nextRoundLabel && data.advancePoints > 0 && (
+        <div>
+          <p className="mb-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.15em] text-mint">
+            Pronosticaron avance
+          </p>
+          <div className="grid gap-3 md:grid-cols-2">
+            <section className="rounded-[15px] bg-[#101010] p-4" style={{ border: '1px solid rgba(168,240,216,0.16)' }}>
+              <p className="text-[12px] font-extrabold text-white"><TeamFlag team={homeTeam} /> Tenían a {homeTeam} avanzando a {data.nextRoundLabel}</p>
+              <p className="mb-3 mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-mint">+{data.advancePoints} avance</p>
+              <ParticipantChips items={data.homeTeamAdvancing} />
+            </section>
+            <section className="rounded-[15px] bg-[#101010] p-4" style={{ border: '1px solid rgba(168,240,216,0.16)' }}>
+              <p className="text-[12px] font-extrabold text-white"><TeamFlag team={awayTeam} /> Tenían a {awayTeam} avanzando a {data.nextRoundLabel}</p>
+              <p className="mb-3 mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-mint">+{data.advancePoints} avance</p>
+              <ParticipantChips items={data.awayTeamAdvancing} />
+            </section>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

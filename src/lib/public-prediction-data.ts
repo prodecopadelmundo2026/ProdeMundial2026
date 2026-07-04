@@ -7,9 +7,10 @@ import {
 import type { Match } from '@/types'
 import {
   buildRoundOf32BonusLedger,
-  buildRoundOf32CrossingAudit,
-  getHistoricalPredictedRoundOf32Teams,
+  getKnockoutStageLabel,
   getQualifiedTeamPointsForStage,
+  getQualifiedTeamRoundLabelForStage,
+  getTrajectoryTeamPointsForStage,
   summarizeKnockoutBonus,
   type KnockoutBonusRound,
 } from '@/lib/knockout-bonus'
@@ -46,10 +47,16 @@ export type VirtualTrajectoryParticipant = {
 }
 
 export type VirtualMatchTrajectoryInsights = {
+  instanceLabel: string
+  nextRoundLabel: string
+  trajectoryPoints: number
+  advancePoints: number
   exactCrossing: VirtualTrajectoryParticipant[]
   bothTeamsOtherCrossing: VirtualTrajectoryParticipant[]
   homeTeamOnly: VirtualTrajectoryParticipant[]
   awayTeamOnly: VirtualTrajectoryParticipant[]
+  homeTeamAdvancing: VirtualTrajectoryParticipant[]
+  awayTeamAdvancing: VirtualTrajectoryParticipant[]
 }
 
 export type VirtualMatchResultPointsParticipant = {
@@ -235,10 +242,8 @@ export async function getVirtualMatchTrajectoryInsights(
   matches: Match[],
   matchId: string
 ): Promise<VirtualMatchTrajectoryInsights | null> {
-  const pNum = Number(matchId.match(/^virtual-p(\d+)$/)?.[1])
-  if (!Number.isFinite(pNum) || pNum < 73 || pNum > 88) return null
   const official = matches.find((match) => match.id === matchId)
-  if (!official) return null
+  if (!official || official.stage === 'group' || official.stage === 'third_place') return null
 
   const rows = await loadTrajectoryRows()
   const nameById = new Map(rows.profiles.map((profile) => [profile.id, profile.name]))
@@ -264,27 +269,72 @@ export async function getVirtualMatchTrajectoryInsights(
   const bothTeamsOtherCrossing: VirtualTrajectoryParticipant[] = []
   const homeTeamOnly: VirtualTrajectoryParticipant[] = []
   const awayTeamOnly: VirtualTrajectoryParticipant[] = []
-  for (const [userId, predictions] of predictionsByUser) {
-    const predictionMap = Object.fromEntries(predictions.map((prediction) => [
-      prediction.match_id,
-      { home_score: prediction.home_score, away_score: prediction.away_score },
-    ]))
+  const homeTeamAdvancing: VirtualTrajectoryParticipant[] = []
+  const awayTeamAdvancing: VirtualTrajectoryParticipant[] = []
+  const userIds = new Set([
+    ...predictionsByUser.keys(),
+    ...rows.virtualPredictions.map((prediction) => prediction.user_id),
+  ])
+
+  for (const userId of userIds) {
+    const predictions = predictionsByUser.get(userId) ?? []
+    const userVirtualPredictions = rows.virtualPredictions.filter(
+      (prediction) => prediction.user_id === userId
+    )
     const tiebreakerMap = Object.fromEntries(
-      (tiebreakersByUser.get(userId) ?? []).map((row) => [row.tiebreaker_key, row.team])
+      [
+        ...(tiebreakersByUser.get(userId) ?? []).map((row) => [row.tiebreaker_key, row.team] as const),
+        ...userVirtualPredictions
+          .filter((prediction) => prediction.tiebreaker_team)
+          .map((prediction) => [prediction.virtual_match_id, prediction.tiebreaker_team!] as const),
+      ]
     )
-    const predictedTeams = getHistoricalPredictedRoundOf32Teams(
-      matches.filter((match) => match.stage === 'group'),
-      predictionMap,
-      tiebreakerMap
+    const auditPredictions: Prediction[] = [
+      ...predictions.map((prediction) => ({
+        id: `${userId}-${prediction.match_id}`,
+        user_id: userId,
+        match_id: prediction.match_id,
+        home_score: prediction.home_score,
+        away_score: prediction.away_score,
+        points: null,
+        tiebreaker_team: null,
+        created_at: '',
+        updated_at: '',
+      })),
+      ...userVirtualPredictions.map((prediction) => ({
+        id: `${userId}-${prediction.virtual_match_id}`,
+        user_id: userId,
+        match_id: prediction.virtual_match_id,
+        home_score: prediction.home_score,
+        away_score: prediction.away_score,
+        points: null,
+        tiebreaker_team: prediction.tiebreaker_team,
+        created_at: '',
+        updated_at: '',
+      })),
+    ]
+    const auditRows = buildMatchAuditRows(matches, auditPredictions, tiebreakerMap)
+    const crossing = auditRows.find((row) => row.match.id === matchId)
+    if (!crossing) continue
+
+    const stageRows = auditRows.filter(
+      (row) => row.stage === official.stage && row.prediction
     )
-    const homeHit = predictedTeams.has(official.home_team)
-    const awayHit = predictedTeams.has(official.away_team)
+    const predictedStageTeams = new Set(
+      stageRows.flatMap((row) => [teamKey(row.predictedHome), teamKey(row.predictedAway)])
+    )
+    const predictedAdvancingTeams = new Set(
+      stageRows.flatMap((row) => {
+        if (!row.prediction) return []
+        if (row.prediction.home_score > row.prediction.away_score) return [teamKey(row.predictedHome)]
+        if (row.prediction.away_score > row.prediction.home_score) return [teamKey(row.predictedAway)]
+        const tiebreaker = tiebreakerMap[row.match.id] ?? row.prediction.tiebreaker_team
+        return tiebreaker ? [teamKey(tiebreaker)] : []
+      })
+    )
+    const homeHit = predictedStageTeams.has(teamKey(official.home_team))
+    const awayHit = predictedStageTeams.has(teamKey(official.away_team))
     const userName = nameById.get(userId) ?? 'Participante'
-    const crossing = buildRoundOf32CrossingAudit({
-      matches,
-      predictionMap,
-      historicalTiebreakers: tiebreakerMap,
-    }).find((item) => item.pNum === pNum)
     const savedPrediction = virtualPredictionByUser.get(userId)
     const classifiedTeam = savedPrediction
       ? savedPrediction.home_score > savedPrediction.away_score
@@ -305,19 +355,28 @@ export async function getVirtualMatchTrajectoryInsights(
           }
         : null,
     }
-    if (crossing?.correct) exactCrossing.push(participant)
+    if (crossing.crossMatches === true) exactCrossing.push(participant)
     else if (homeHit && awayHit) bothTeamsOtherCrossing.push(participant)
     else if (homeHit) homeTeamOnly.push(participant)
     else if (awayHit) awayTeamOnly.push(participant)
+
+    if (predictedAdvancingTeams.has(teamKey(official.home_team))) homeTeamAdvancing.push(participant)
+    if (predictedAdvancingTeams.has(teamKey(official.away_team))) awayTeamAdvancing.push(participant)
   }
 
   const sort = (items: VirtualTrajectoryParticipant[]) =>
     items.sort((a, b) => a.name.localeCompare(b.name, 'es'))
   return {
+    instanceLabel: getKnockoutStageLabel(official.stage),
+    nextRoundLabel: getQualifiedTeamRoundLabelForStage(official.stage),
+    trajectoryPoints: getTrajectoryTeamPointsForStage(official.stage),
+    advancePoints: getQualifiedTeamPointsForStage(official.stage),
     exactCrossing: sort(exactCrossing),
     bothTeamsOtherCrossing: sort(bothTeamsOtherCrossing),
     homeTeamOnly: sort(homeTeamOnly),
     awayTeamOnly: sort(awayTeamOnly),
+    homeTeamAdvancing: sort(homeTeamAdvancing),
+    awayTeamAdvancing: sort(awayTeamAdvancing),
   }
 }
 

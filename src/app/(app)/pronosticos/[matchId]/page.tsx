@@ -275,7 +275,7 @@ export default async function PronosticoDetallePage({
 
         {trajectory ? (
           <section className="rounded-[24px] bg-panel p-5" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-            <h2 className="mb-4 font-display text-[30px] uppercase leading-none">Trayectoria a dieciseisavos</h2>
+            <h2 className="mb-4 font-display text-[30px] uppercase leading-none">Pronósticos del cruce</h2>
             <VirtualTrajectoryInsights homeTeam={match.home_team} awayTeam={match.away_team} data={trajectory} />
           </section>
         ) : insights.total_count > 0 ? (

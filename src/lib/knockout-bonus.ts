@@ -55,6 +55,33 @@ export function getQualifiedTeamPointsForStage(stage: Match['stage']) {
   return 0
 }
 
+export function getTrajectoryTeamPointsForStage(stage: Match['stage']) {
+  if (stage === 'round_of_32') return KNOCKOUT_BONUS_POINTS.round_of_32
+  if (stage === 'round_of_16') return KNOCKOUT_BONUS_POINTS.round_of_16
+  if (stage === 'quarter') return KNOCKOUT_BONUS_POINTS.quarterfinal
+  if (stage === 'semi') return KNOCKOUT_BONUS_POINTS.semifinal
+  if (stage === 'final') return KNOCKOUT_BONUS_POINTS.final
+  return 0
+}
+
+export function getKnockoutStageLabel(stage: Match['stage']) {
+  if (stage === 'round_of_32') return '16avos'
+  if (stage === 'round_of_16') return 'octavos'
+  if (stage === 'quarter') return 'cuartos'
+  if (stage === 'semi') return 'semis'
+  if (stage === 'final') return 'final'
+  return ''
+}
+
+export function getQualifiedTeamRoundLabelForStage(stage: Match['stage']) {
+  if (stage === 'round_of_32') return 'octavos'
+  if (stage === 'round_of_16') return 'cuartos'
+  if (stage === 'quarter') return 'semis'
+  if (stage === 'semi') return 'la final'
+  if (stage === 'final') return 'campeón'
+  return ''
+}
+
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
 type TiebreakerMap = Record<string, string>
 
