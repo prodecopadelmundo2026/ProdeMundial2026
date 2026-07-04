@@ -65,6 +65,22 @@ function PredictionLine({
   )
 }
 
+function sameTeam(left: string | null | undefined, right: string | null | undefined) {
+  return String(left ?? '').trim().localeCompare(String(right ?? '').trim(), undefined, { sensitivity: 'base' }) === 0
+}
+
+function advancePresentation(team: string, data: VirtualMatchTrajectoryInsights) {
+  const isSettled = data.status === 'finished' && Boolean(data.qualifiedTeam)
+  const advanced = isSettled && sameTeam(team, data.qualifiedTeam)
+  return {
+    predictionLabel: isSettled
+      ? `Predijeron que ${team} avanzaba a ${data.nextRoundLabel}`
+      : `Predijeron que ${team} avanza a ${data.nextRoundLabel}`,
+    resultLabel: !isSettled ? 'Pendiente' : advanced ? `+${data.advancePoints} avance` : 'No avanzó',
+    resultClassName: advanced ? 'text-mint' : isSettled ? 'text-muted' : 'text-[#FFE040]',
+  }
+}
+
 export function VirtualTrajectoryInsights({
   homeTeam,
   awayTeam,
@@ -76,6 +92,8 @@ export function VirtualTrajectoryInsights({
   data: VirtualMatchTrajectoryInsights
   compact?: boolean
 }) {
+  const homeAdvance = advancePresentation(homeTeam, data)
+  const awayAdvance = advancePresentation(awayTeam, data)
   const exactTitle = data.exactCrossing.length === 1
     ? `${data.exactCrossing[0].name} acertó el cruce exacto`
     : data.exactCrossing.length > 1
@@ -99,6 +117,19 @@ export function VirtualTrajectoryInsights({
           <p><strong className="text-mint"><TeamFlag team={homeTeam} /> Solo {homeTeam}:</strong> {compactNames(data.homeTeamOnly)}</p>
           <p><strong className="text-mint"><TeamFlag team={awayTeam} /> Solo {awayTeam}:</strong> {compactNames(data.awayTeamOnly)}</p>
         </div>
+        {data.nextRoundLabel && data.advancePoints > 0 && (
+          <div className="grid gap-1.5 text-[11px] font-semibold leading-relaxed text-muted">
+            <p className="font-mono text-[9px] font-extrabold uppercase tracking-[0.12em] text-mint">Pronósticos de avance</p>
+            <p>
+              <strong className="text-white"><TeamFlag team={homeTeam} /> {homeAdvance.predictionLabel}:</strong>{' '}
+              {compactNames(data.homeTeamAdvancing)} · <span className={homeAdvance.resultClassName}>{homeAdvance.resultLabel}</span>
+            </p>
+            <p>
+              <strong className="text-white"><TeamFlag team={awayTeam} /> {awayAdvance.predictionLabel}:</strong>{' '}
+              {compactNames(data.awayTeamAdvancing)} · <span className={awayAdvance.resultClassName}>{awayAdvance.resultLabel}</span>
+            </p>
+          </div>
+        )}
       </div>
     )
   }
@@ -151,17 +182,17 @@ export function VirtualTrajectoryInsights({
       {data.nextRoundLabel && data.advancePoints > 0 && (
         <div>
           <p className="mb-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.15em] text-mint">
-            Pronosticaron avance
+            Pronósticos de avance
           </p>
           <div className="grid gap-3 md:grid-cols-2">
             <section className="rounded-[15px] bg-[#101010] p-4" style={{ border: '1px solid rgba(168,240,216,0.16)' }}>
-              <p className="text-[12px] font-extrabold text-white"><TeamFlag team={homeTeam} /> Tenían a {homeTeam} avanzando a {data.nextRoundLabel}</p>
-              <p className="mb-3 mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-mint">+{data.advancePoints} avance</p>
+              <p className="text-[12px] font-extrabold text-white"><TeamFlag team={homeTeam} /> {homeAdvance.predictionLabel}</p>
+              <p className={`mb-3 mt-1 text-[10px] font-bold uppercase tracking-[0.1em] ${homeAdvance.resultClassName}`}>{homeAdvance.resultLabel}</p>
               <ParticipantChips items={data.homeTeamAdvancing} />
             </section>
             <section className="rounded-[15px] bg-[#101010] p-4" style={{ border: '1px solid rgba(168,240,216,0.16)' }}>
-              <p className="text-[12px] font-extrabold text-white"><TeamFlag team={awayTeam} /> Tenían a {awayTeam} avanzando a {data.nextRoundLabel}</p>
-              <p className="mb-3 mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-mint">+{data.advancePoints} avance</p>
+              <p className="text-[12px] font-extrabold text-white"><TeamFlag team={awayTeam} /> {awayAdvance.predictionLabel}</p>
+              <p className={`mb-3 mt-1 text-[10px] font-bold uppercase tracking-[0.1em] ${awayAdvance.resultClassName}`}>{awayAdvance.resultLabel}</p>
               <ParticipantChips items={data.awayTeamAdvancing} />
             </section>
           </div>

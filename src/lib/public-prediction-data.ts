@@ -47,6 +47,8 @@ export type VirtualTrajectoryParticipant = {
 }
 
 export type VirtualMatchTrajectoryInsights = {
+  status: Match['status']
+  qualifiedTeam: string | null
   instanceLabel: string
   nextRoundLabel: string
   trajectoryPoints: number
@@ -367,6 +369,8 @@ export async function getVirtualMatchTrajectoryInsights(
   const sort = (items: VirtualTrajectoryParticipant[]) =>
     items.sort((a, b) => a.name.localeCompare(b.name, 'es'))
   return {
+    status: official.status,
+    qualifiedTeam: official.qualified_team ?? null,
     instanceLabel: getKnockoutStageLabel(official.stage),
     nextRoundLabel: getQualifiedTeamRoundLabelForStage(official.stage),
     trajectoryPoints: getTrajectoryTeamPointsForStage(official.stage),
