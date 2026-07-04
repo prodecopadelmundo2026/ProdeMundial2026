@@ -403,7 +403,8 @@ function resolveKnockout(
   tiebreakerMap: TiebreakerMap,
   depth: number,
   bestThirdsGroups?: Set<string>,
-  thirdSlotAssignment?: Record<string, string>
+  thirdSlotAssignment?: Record<string, string>,
+  resolutionMode: 'prediction' | 'official' = 'prediction'
 ): string {
   const fallback = type === 'winner' ? `Ganador P${pNum}` : `Perdedor P${pNum}`
   if (depth > 8) return fallback
@@ -414,9 +415,17 @@ function resolveKnockout(
   const fixture = KNOCKOUT_FIXTURES[pNum]
   if (!fixture) return fallback
 
-  const homeResolved = resolveTeamFull(fixture[0], standings, pMap, predMap, tiebreakerMap, depth + 1, bestThirdsGroups, thirdSlotAssignment)
-  const awayResolved = resolveTeamFull(fixture[1], standings, pMap, predMap, tiebreakerMap, depth + 1, bestThirdsGroups, thirdSlotAssignment)
+  const homeResolved = resolveTeamFull(fixture[0], standings, pMap, predMap, tiebreakerMap, depth + 1, bestThirdsGroups, thirdSlotAssignment, resolutionMode)
+  const awayResolved = resolveTeamFull(fixture[1], standings, pMap, predMap, tiebreakerMap, depth + 1, bestThirdsGroups, thirdSlotAssignment, resolutionMode)
   const projectedScore = predMap[match.id]
+
+  // Official brackets must trust the team explicitly qualified by the admin.
+  // A tied official score in predMap is not a personal prediction and does not
+  // require an entry in tiebreakerMap.
+  if (resolutionMode === 'official' && match.status === 'finished' && match.qualified_team) {
+    if (match.qualified_team === homeResolved) return type === 'winner' ? homeResolved : awayResolved
+    if (match.qualified_team === awayResolved) return type === 'winner' ? awayResolved : homeResolved
+  }
 
   // Personal brackets follow the saved projection before considering reality.
   if (projectedScore) {
@@ -482,7 +491,8 @@ export function resolveTeamFull(
   tiebreakerMap: TiebreakerMap = {},
   depth = 0,
   bestThirdsGroups?: Set<string>,
-  thirdSlotAssignment?: Record<string, string>
+  thirdSlotAssignment?: Record<string, string>,
+  resolutionMode: 'prediction' | 'official' = 'prediction'
 ): string {
   // "1° Grupo A", "2° Grupo B"
   const direct = placeholder.match(/^(\d)°\s+Grupo\s+([A-L])$/)
@@ -514,7 +524,7 @@ export function resolveTeamFull(
   if (m) {
     const type = m[1] === 'Ganador' ? 'winner' : 'loser'
     const pNum = Number(m[2])
-    return resolveKnockout(pNum, type, pMap, standings, predMap, tiebreakerMap, depth, bestThirdsGroups, thirdSlotAssignment)
+    return resolveKnockout(pNum, type, pMap, standings, predMap, tiebreakerMap, depth, bestThirdsGroups, thirdSlotAssignment, resolutionMode)
   }
 
   return placeholder

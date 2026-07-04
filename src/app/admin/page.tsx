@@ -224,7 +224,8 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       {},
       0,
       bestThirdsGroups,
-      thirdSlotAssignment
+      thirdSlotAssignment,
+      'official'
     )
   }
 

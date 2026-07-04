@@ -177,8 +177,14 @@ async function getPodiumPredictionPreview({
 export default async function RankingPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const [{ data, error }, { data: metricsData, error: metricsError }, nextMatchResult] = await Promise.all([
-    supabase.rpc('get_public_ranking'),
+  const [rankingResult, { data: metricsData, error: metricsError }, nextMatchResult] = await Promise.all([
+    user
+      ? supabase.rpc('get_public_ranking')
+      : supabase
+          .from('ranking_entries')
+          .select('user_id, name, avatar_url, total_points, exact_predictions, correct_result_predictions, rank')
+          .order('rank', { ascending: true })
+          .order('name', { ascending: true }),
     supabase.rpc('get_public_home_metrics'),
     supabase
       .from('matches')
@@ -186,20 +192,23 @@ export default async function RankingPage() {
       .order('scheduled_at', { ascending: true }),
   ])
 
-  if (error) throw error
+  if (rankingResult.error) throw rankingResult.error
   if (metricsError) throw metricsError
 
-  const baseEntries = ((data ?? []) as PublicRankingRow[]).map((entry) => ({
+  const baseEntries = ((rankingResult.data ?? []) as PublicRankingRow[]).map((entry) => ({
     ...entry,
-    participant_status: entry.participant_status,
-    prode_status: entry.prode_status,
+    participant_status: entry.participant_status ?? 'confirmed',
+    prode_status: entry.prode_status ?? 'not_started',
   }))
-  // P0: el ranking general usa el RPC agregado. La auditoría de trayectoria
-  // por usuario vive en /ranking/[userId]; no hacemos un RPC por participante.
-  const entries = await addConfirmedTrajectoryToRanking(
-    baseEntries,
-    (nextMatchResult.data ?? []) as Match[]
-  )
+  // Anonymous visitors stay entirely on the public ranking view. Enriching the
+  // signed-in experience uses private prediction data and must not be required
+  // for the public, read-only page.
+  const entries = user
+    ? await addConfirmedTrajectoryToRanking(
+        baseEntries,
+        (nextMatchResult.data ?? []) as Match[]
+      )
+    : baseEntries
   const metricsRows = metricsData as PublicHomeMetrics[] | null
   const metrics = Array.isArray(metricsRows) ? metricsRows[0] : metricsRows
   const rankingMode = metrics?.ranking_mode ?? getRankingMode(metrics?.finished_matches_count)

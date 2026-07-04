@@ -499,8 +499,8 @@ function resolveRoundTeams(match: Match, workingMatches: Match[]) {
   const thirdSlotAssignment = assignBestThirdsToSlots(bestThirdsGroups)
   const knockoutMap = buildKnockoutMap(knockoutMatches)
 
-  const home = resolveTeamFull(match.home_team, standings, knockoutMap, scoreMap, {}, 0, bestThirdsGroups, thirdSlotAssignment)
-  const away = resolveTeamFull(match.away_team, standings, knockoutMap, scoreMap, {}, 0, bestThirdsGroups, thirdSlotAssignment)
+  const home = resolveTeamFull(match.home_team, standings, knockoutMap, scoreMap, {}, 0, bestThirdsGroups, thirdSlotAssignment, 'official')
+  const away = resolveTeamFull(match.away_team, standings, knockoutMap, scoreMap, {}, 0, bestThirdsGroups, thirdSlotAssignment, 'official')
   return { home, away }
 }
 

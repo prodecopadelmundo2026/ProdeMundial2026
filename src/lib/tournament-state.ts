@@ -119,8 +119,8 @@ export function getTournamentVisibleMatches(matches: Match[]): Match[] {
     if (!fixture) return match
     return {
       ...match,
-      home_team: resolveTeamFull(fixture[0], orderedStandings, knockoutMap, {}, {}, 0, qualifiedThirdGroups, thirdSlotAssignment),
-      away_team: resolveTeamFull(fixture[1], orderedStandings, knockoutMap, {}, {}, 0, qualifiedThirdGroups, thirdSlotAssignment),
+      home_team: resolveTeamFull(fixture[0], orderedStandings, knockoutMap, {}, {}, 0, qualifiedThirdGroups, thirdSlotAssignment, 'official'),
+      away_team: resolveTeamFull(fixture[1], orderedStandings, knockoutMap, {}, {}, 0, qualifiedThirdGroups, thirdSlotAssignment, 'official'),
     }
   })
 

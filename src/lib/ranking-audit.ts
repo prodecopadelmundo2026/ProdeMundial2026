@@ -168,7 +168,8 @@ function buildResolvedTeams(
       tiebreakerMap,
       0,
       bestThirdsGroups,
-      thirdSlotAssignment
+      thirdSlotAssignment,
+      mode
     ),
     away: resolveTeamFull(
       awaySeed,
@@ -178,7 +179,8 @@ function buildResolvedTeams(
       tiebreakerMap,
       0,
       bestThirdsGroups,
-      thirdSlotAssignment
+      thirdSlotAssignment,
+      mode
     ),
   }
 }
