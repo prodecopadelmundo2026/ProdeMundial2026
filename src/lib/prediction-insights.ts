@@ -39,6 +39,20 @@ export type PredictionMatchCardData = {
   trajectory?: import('@/lib/public-prediction-data').VirtualMatchTrajectoryInsights | null
 }
 
+export function hasVirtualTrajectoryInsights(
+  trajectory: import('@/lib/public-prediction-data').VirtualMatchTrajectoryInsights | null | undefined
+) {
+  if (!trajectory) return false
+  return [
+    trajectory.exactCrossing,
+    trajectory.bothTeamsOtherCrossing,
+    trajectory.homeTeamOnly,
+    trajectory.awayTeamOnly,
+    trajectory.homeTeamAdvancing,
+    trajectory.awayTeamAdvancing,
+  ].some((participants) => participants.length > 0)
+}
+
 export function stageLabel(stage: string, group: string | null = null) {
   if (stage === 'group') return group ? `Grupo ${group}` : 'Fase de grupos'
   if (stage === 'round_of_32') return 'Dieciseisavos'

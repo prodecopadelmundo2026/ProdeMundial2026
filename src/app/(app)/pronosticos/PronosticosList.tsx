@@ -7,6 +7,7 @@ import { ArrowRight, Search } from 'lucide-react'
 import {
   formatAverageScore,
   formatPickedResult,
+  hasVirtualTrajectoryInsights,
   percent,
   statusLabel,
   stageLabel,
@@ -92,6 +93,8 @@ function MiniBar({ label, value, total, color }: { label: string; value: number;
 
 function MatchPredictionCard({ match }: { match: PredictionMatchCardData }) {
   const isScored = match.status === 'live' || match.status === 'finished'
+  const exactCrossingCount = match.trajectory?.exactCrossing.length ?? 0
+  const hasTrajectoryInsights = hasVirtualTrajectoryInsights(match.trajectory)
   const statusTone =
     match.status === 'live'
       ? { bg: 'rgba(255,59,59,0.12)', color: '#FF6B6B' }
@@ -126,19 +129,24 @@ function MatchPredictionCard({ match }: { match: PredictionMatchCardData }) {
               : `${match.kickoff_label} ART`}
           </p>
         </div>
-        <div className="rounded-[16px] bg-[#0A0A0A] px-4 py-3 text-right" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-          <p className="font-display text-[30px] leading-none">
-            {match.trajectory ? match.trajectory.exactCrossing.length : match.insights.total_count}
-          </p>
-          <p className="font-mono text-[9px] font-extrabold uppercase tracking-[0.16em] text-muted">
-            {match.trajectory
-              ? match.trajectory.exactCrossing.length === 1 ? 'Cruce exacto' : 'Cruces exactos'
-              : 'Cargados'}
-          </p>
+        <div
+          className="grid min-h-[74px] w-[96px] shrink-0 place-items-center rounded-[16px] bg-[#0A0A0A] px-2 py-3 text-center"
+          style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <div className="min-w-0">
+            <p className="font-display text-[30px] leading-none tabular-nums">
+              {match.trajectory ? exactCrossingCount : match.insights.total_count}
+            </p>
+            <p className="mt-1 font-mono text-[9px] font-extrabold uppercase leading-tight tracking-[0.12em] text-muted">
+              {match.trajectory
+                ? exactCrossingCount === 1 ? 'Cruce exacto' : 'Cruces exactos'
+                : 'Cargados'}
+            </p>
+          </div>
         </div>
       </div>
 
-      {match.trajectory ? (
+      {match.trajectory && hasTrajectoryInsights ? (
         <div className="mt-5 rounded-[14px] bg-[#0A0A0A] p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
           <VirtualTrajectoryInsights homeTeam={match.home_team} awayTeam={match.away_team} data={match.trajectory} compact />
         </div>
