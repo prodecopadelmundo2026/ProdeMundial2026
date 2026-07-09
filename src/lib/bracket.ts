@@ -119,7 +119,15 @@ function virtualPNum(matchId: string) {
   return match ? Number(match[1]) : null
 }
 
-export function knockoutPNum(match: Pick<Match, 'id' | 'home_team' | 'away_team' | 'scheduled_at'>) {
+export function knockoutPNum(match: Pick<Match, 'id' | 'home_team' | 'away_team' | 'scheduled_at' | 'bracket_slot'>) {
+  if (
+    match.bracket_slot != null &&
+    Number.isInteger(match.bracket_slot) &&
+    KNOCKOUT_FIXTURES[match.bracket_slot]
+  ) {
+    return match.bracket_slot
+  }
+
   const virtual = virtualPNum(match.id)
   if (virtual != null) return virtual
 

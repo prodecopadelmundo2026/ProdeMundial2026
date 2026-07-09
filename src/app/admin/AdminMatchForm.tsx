@@ -34,7 +34,7 @@ export function AdminMatchForm({
     setQualifiedTeam(match.qualified_team ?? '')
     setError(null)
     setOk(false)
-  }, [match.id, match.home_score, match.away_score, match.status])
+  }, [match.id, match.home_score, match.away_score, match.status, match.decided_by, match.qualified_team])
 
   const bothScoresSet = home !== '' && away !== ''
   const pointsWillCalculate = bothScoresSet && status === 'finished'

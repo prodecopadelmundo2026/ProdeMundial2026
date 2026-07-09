@@ -11,6 +11,7 @@ import { addConfirmedTrajectoryToRanking } from '@/lib/public-prediction-data'
 import { buildProjectedKnockoutMatches, knockoutPNum } from '@/lib/bracket'
 import { buildMatchAuditRows } from '@/lib/ranking-audit'
 import { getMatchPredictionHref } from '@/lib/match-links'
+import { getTournamentVisibleMatches } from '@/lib/tournament-state'
 
 export const dynamic = 'force-dynamic'
 
@@ -216,9 +217,11 @@ export default async function RankingPage() {
   if (nextMatchResult.error) {
     console.warn('[ranking] No se pudo cargar el próximo partido para Pronóstico del podio', nextMatchResult.error)
   }
+  const allMatches = (nextMatchResult.data ?? []) as Match[]
+  const visibleMatches = getTournamentVisibleMatches(allMatches)
   const orderedMatches = nextMatchResult.error
     ? []
-    : ((nextMatchResult.data ?? []) as Match[])
+    : visibleMatches
         .filter((match) => match.status !== 'finished')
         .sort(compareMatchesByProductScheduleAsc)
   const nextSlotKey = orderedMatches[0] ? getMatchProductOrderKey(orderedMatches[0].scheduled_at) : null
@@ -233,7 +236,7 @@ export default async function RankingPage() {
   const podiumPredictionPreviews = await getPodiumPredictionPreview({
     supabase,
     nextMatches,
-    allMatches: (nextMatchResult.data ?? []) as Match[],
+    allMatches,
     podiumUserIds,
   })
 

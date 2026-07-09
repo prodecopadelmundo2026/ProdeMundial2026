@@ -617,8 +617,16 @@ export function RankingClient({
           <article key={podiumPredictionPreview.match.id} className="rounded-[16px] bg-white/[0.02] p-3" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[13px] font-extrabold leading-snug text-white">
-                {podiumPredictionPreview.match.home_team} vs {podiumPredictionPreview.match.away_team}
+              <p className="flex min-w-0 flex-wrap items-center gap-2 text-[13px] font-extrabold leading-snug text-white">
+                <span className="inline-flex min-w-0 items-center gap-2">
+                  <TeamPredictionMarker name={podiumPredictionPreview.match.home_team} />
+                  <span className="min-w-0 truncate">{podiumPredictionPreview.match.home_team}</span>
+                </span>
+                <span className="shrink-0 text-muted">vs</span>
+                <span className="inline-flex min-w-0 items-center gap-2">
+                  <TeamPredictionMarker name={podiumPredictionPreview.match.away_team} />
+                  <span className="min-w-0 truncate">{podiumPredictionPreview.match.away_team}</span>
+                </span>
               </p>
               <p className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
                 {podiumPredictionPreview.match.kickoffLabel}
