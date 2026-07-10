@@ -7,7 +7,7 @@ import type {
 } from '@/lib/statistics'
 
 type Metric = 'rank' | 'points' | 'exact' | 'signs' | 'bonus'
-type Hover = { entry: StatisticsSnapshotEntry; date: string; label: string } | null
+type Hover = { entry: StatisticsSnapshotEntry; date: string; label: string; x?: number; y?: number } | null
 type LineVisual = { primary: string; secondary?: string; gradientId: string }
 const COLORS = [
   '#FF6B00', '#A8F0D8', '#FFE040', '#8B7CFF', '#53A7FF', '#FF8CC6',
@@ -116,20 +116,25 @@ function StatCards({ cards }: { cards: StatisticsCard[] }) {
   const [detail, setDetail] = useState<StatisticsCard | null>(null)
   return (
     <>
-      <div className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {cards.map((card) => (
-          <article key={card.key} className="flex min-h-[190px] min-w-0 flex-col rounded-[18px] border border-white/10 bg-[#111] p-4 sm:p-5">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {cards.map((card) => {
+          const hasUsefulDetail = card.winners.length > 1
+          return (
+          <article key={card.key} className="flex min-h-[136px] min-w-0 flex-col rounded-[16px] border border-white/10 bg-[#111] p-3.5 sm:min-h-[176px] sm:rounded-[18px] sm:p-5">
             <p className="font-mono text-[9px] font-extrabold uppercase tracking-[0.14em] text-orange">{card.title}</p>
-            <p className="mt-3 font-display text-[28px] leading-none text-[#A8F0D8]">{card.value}</p>
-            <div className="mt-3 min-h-[38px] text-[13px] font-extrabold leading-snug">
+            <p className="mt-2 font-display text-[26px] leading-none text-[#A8F0D8] sm:mt-3 sm:text-[28px]">{card.value}</p>
+            <div className="mt-2 min-h-0 text-[12px] font-extrabold leading-snug sm:mt-3 sm:min-h-[38px] sm:text-[13px]">
               {card.winners.length > 3 ? (
                 <><p>{card.winners.length} participantes empatados</p><p className="mt-1 truncate text-[10px] font-medium text-muted">{card.winners.slice(0, 3).map((winner) => winner.name).join(', ')}…</p></>
               ) : <p className="line-clamp-2">{card.winners.map((winner) => winner.name).join(', ') || 'Sin datos'}</p>}
             </div>
-            <p className="mt-2 line-clamp-2 text-[10px] font-medium leading-relaxed text-muted">{card.detail}</p>
-            <button type="button" onClick={() => setDetail(card)} className="mt-auto pt-3 text-left font-mono text-[9px] font-extrabold uppercase tracking-[.12em] text-white/70 hover:text-white">Ver detalle</button>
+            <p className="mt-1.5 line-clamp-2 text-[10px] font-medium leading-relaxed text-muted sm:mt-2">{card.detail}</p>
+            {hasUsefulDetail && (
+              <button type="button" onClick={() => setDetail(card)} className="mt-auto pt-2 text-left font-mono text-[9px] font-extrabold uppercase tracking-[.12em] text-white/70 hover:text-white sm:pt-3">Ver detalle</button>
+            )}
           </article>
-        ))}
+          )
+        })}
       </div>
       {detail && <DetailModal card={detail} close={() => setDetail(null)} />}
     </>
@@ -142,12 +147,12 @@ function MatchCard({ match }: { match: DateMatchStat }) {
     ['Exactas', match.exact, '#A8F0D8'], ['Signo / parcial', match.partial, '#FFE040'], ['Sin puntos', match.incorrect, '#ff8f8f'],
   ] as const
   return (
-    <article className="rounded-[16px] border border-white/10 bg-[#111] p-4">
+    <article className="min-w-0 rounded-[16px] border border-white/10 bg-[#111] p-3.5 sm:p-4">
       <p className="font-mono text-[9px] font-bold uppercase tracking-[.14em] text-muted">{STAGES[match.stage]}{match.group ? ` · Grupo ${match.group}` : ''}</p>
-      <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-[13px] font-extrabold">
-        <span className="min-w-0 text-right">{match.homeTeam}</span>
-        <strong className="rounded-lg bg-white/8 px-3 py-2 font-display text-[22px]">{match.homeScore}–{match.awayScore}</strong>
-        <span className="min-w-0">{match.awayTeam}</span>
+      <div className="mt-3 grid min-w-0 grid-cols-[minmax(0,1fr)_74px_minmax(0,1fr)] items-center gap-2 text-[12px] font-extrabold sm:text-[13px]">
+        <span className="min-w-0 overflow-hidden text-ellipsis text-right leading-tight [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">{match.homeTeam}</span>
+        <strong className="rounded-lg bg-white/8 px-2 py-2 text-center font-display text-[20px] tabular-nums sm:text-[22px]">{match.homeScore}–{match.awayScore}</strong>
+        <span className="min-w-0 overflow-hidden text-ellipsis leading-tight [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">{match.awayTeam}</span>
       </div>
       <button type="button" onClick={() => setOpen((value) => !value)} className="mt-4 grid w-full grid-cols-3 gap-1 text-[9px] font-bold">
         {categories.map(([label, users, color]) => <span key={label} className="rounded-lg bg-white/5 p-2"><b className="block text-[15px]" style={{ color }}>{users.length}</b>{label}</span>)}
@@ -165,6 +170,7 @@ export function StatisticsDashboard({ data, currentUserId }: { data: StatisticsD
   const [selectedDate, setSelectedDate] = useState(data.snapshots.at(-1)?.date ?? '')
   const [pickedUsers, setPickedUsers] = useState<string[]>([])
   const [hovered, setHovered] = useState<Hover>(null)
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
 
   const selected = data.snapshots.find((snapshot) => snapshot.date === selectedDate)
   const visuals = useMemo(() => buildLineVisuals(data), [data])
@@ -214,27 +220,32 @@ export function StatisticsDashboard({ data, currentUserId }: { data: StatisticsD
           <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.2em] text-orange">Evolución diaria</p>
           <h2 id="timeline-title" className="mt-2 font-display text-[30px] uppercase leading-none sm:text-[42px]">Línea de tiempo</h2>
         </div>
-        <div className="grid grid-cols-1 gap-2 rounded-[18px] border border-white/10 bg-[#111] p-3 min-[430px]:grid-cols-2 lg:grid-cols-6">
+        <div className="grid grid-cols-1 gap-2 rounded-[18px] border border-white/10 bg-[#111] p-3 sm:grid-cols-2 lg:grid-cols-6">
           <select aria-label="Período" value={range} onChange={(event) => setRange(event.target.value as typeof range)} className="min-w-0 rounded-xl border border-white/10 bg-[#181818] px-3 py-2.5 text-[11px] font-bold">
             <option value="all">Todos los días</option><option value="week">Semana</option><option value="day">Fecha puntual</option>
           </select>
           <input type="date" aria-label="Fecha" min={data.snapshots[0]?.date} max={data.snapshots.at(-1)?.date} value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} className="min-w-0 rounded-xl border border-white/10 bg-[#181818] px-3 py-2 text-[11px] font-bold" />
-          <select aria-label="Fase" value={phase} onChange={(event) => setPhase(event.target.value as StatisticsPhase)} className="min-w-0 rounded-xl border border-white/10 bg-[#181818] px-3 py-2.5 text-[11px] font-bold">
-            <option value="all">Todas las fases</option><option value="group">Grupos</option><option value="knockout">Eliminatorias</option>
-          </select>
-          <select aria-label="Métrica" value={metric} onChange={(event) => setMetric(event.target.value as Metric)} className="min-w-0 rounded-xl border border-white/10 bg-[#181818] px-3 py-2.5 text-[11px] font-bold">
-            <option value="rank">Ranking</option><option value="points">Puntos</option><option value="exact">Exactas</option><option value="signs">Signos</option><option value="bonus">Bonus</option>
-          </select>
-          <select aria-label="Top por defecto" value={limit} onChange={(event) => setLimit(event.target.value as typeof limit)} className="min-w-0 rounded-xl border border-white/10 bg-[#181818] px-3 py-2.5 text-[11px] font-bold">
-            <option value="5">Top 5</option><option value="10">Top 10</option><option value="all">Todos</option>
-          </select>
-          <UserPicker
-            data={data}
-            selected={pickedUsers}
-            setSelected={setPickedUsers}
-            visuals={visuals}
-            currentUserId={currentUserId}
-          />
+          <button type="button" onClick={() => setShowMobileFilters((value) => !value)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-left font-mono text-[10px] font-extrabold uppercase tracking-[.12em] text-white/80 sm:col-span-2 lg:hidden">
+            {showMobileFilters ? 'Ocultar filtros' : 'Mas filtros'}
+          </button>
+          <div className={`${showMobileFilters ? 'grid' : 'hidden'} col-span-full grid-cols-1 gap-2 sm:grid-cols-2 lg:contents`}>
+            <select aria-label="Fase" value={phase} onChange={(event) => setPhase(event.target.value as StatisticsPhase)} className="min-w-0 rounded-xl border border-white/10 bg-[#181818] px-3 py-2.5 text-[11px] font-bold">
+              <option value="all">Todas las fases</option><option value="group">Grupos</option><option value="knockout">Eliminatorias</option>
+            </select>
+            <select aria-label="Métrica" value={metric} onChange={(event) => setMetric(event.target.value as Metric)} className="min-w-0 rounded-xl border border-white/10 bg-[#181818] px-3 py-2.5 text-[11px] font-bold">
+              <option value="rank">Ranking</option><option value="points">Puntos</option><option value="exact">Exactas</option><option value="signs">Signos</option><option value="bonus">Bonus</option>
+            </select>
+            <select aria-label="Top por defecto" value={limit} onChange={(event) => setLimit(event.target.value as typeof limit)} className="min-w-0 rounded-xl border border-white/10 bg-[#181818] px-3 py-2.5 text-[11px] font-bold">
+              <option value="5">Top 5</option><option value="10">Top 10</option><option value="all">Todos</option>
+            </select>
+            <UserPicker
+              data={data}
+              selected={pickedUsers}
+              setSelected={setPickedUsers}
+              visuals={visuals}
+              currentUserId={currentUserId}
+            />
+          </div>
         </div>
         {!selectedDate || !selected ? (
           <div className="mt-4 rounded-[20px] border border-dashed border-white/15 bg-[#0e0e0e] py-16 text-center">
@@ -243,13 +254,13 @@ export function StatisticsDashboard({ data, currentUserId }: { data: StatisticsD
           </div>
         ) : range === 'day' ? (
           <div className="mt-4 space-y-4">
-            <div className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 ['Líder del día', selected.entries[0]?.name ?? '—', `#${selected.entries[0]?.rank ?? '—'}`],
                 ['Mayor subida', topRise?.name ?? '—', topRise?.rankChange ? `↑ ${topRise.rankChange}` : 'Sin cambios'],
                 ['Mayor caída', topFall?.name ?? '—', topFall?.rankChange ? `↓ ${Math.abs(topFall.rankChange)}` : 'Sin cambios'],
                 ['Más puntos del día', topDay?.name ?? '—', `+${topDay?.changes[phase].points ?? 0} pts`],
-              ].map(([title, name, value]) => <article key={title} className="rounded-[16px] border border-white/10 bg-[#111] p-4"><p className="font-mono text-[9px] font-bold uppercase tracking-[.14em] text-muted">{title}</p><p className="mt-2 truncate text-[14px] font-extrabold">{name}</p><p className="mt-2 font-display text-[26px] text-[#A8F0D8]">{value}</p></article>)}
+              ].map(([title, name, value]) => <article key={title} className="rounded-[16px] border border-white/10 bg-[#111] p-3.5 sm:p-4"><p className="font-mono text-[9px] font-bold uppercase tracking-[.14em] text-muted">{title}</p><p className="mt-2 truncate text-[13px] font-extrabold sm:text-[14px]">{name}</p><p className="mt-1.5 font-display text-[24px] text-[#A8F0D8] sm:mt-2 sm:text-[26px]">{value}</p></article>)}
             </div>
             <div className="rounded-[18px] border border-white/10 bg-[#111] p-4">
               <h3 className="font-display text-[24px] uppercase">Balance de la fecha</h3>
@@ -290,7 +301,7 @@ export function StatisticsDashboard({ data, currentUserId }: { data: StatisticsD
                   return <g key={user.user_id} opacity={active ? 1 : .18} onMouseLeave={() => setHovered(null)}>
                     {isCurrent && points.length > 1 && <polyline points={points.map((point) => `${point.px},${point.py}`).join(' ')} fill="none" stroke="rgba(255,255,255,.72)" strokeWidth="8" strokeLinejoin="round" />}
                     {points.length > 1 && <polyline points={points.map((point) => `${point.px},${point.py}`).join(' ')} fill="none" stroke={stroke} strokeWidth={hovered?.entry.userId === user.user_id || isCurrent ? 5 : 3} strokeLinejoin="round" />}
-                    {points.map((point) => <circle key={point.snapshot.date} cx={point.px} cy={point.py} r={isCurrent ? 7 : 6} fill={stroke} stroke={isCurrent ? '#fff' : 'none'} strokeWidth={isCurrent ? 2.5 : 0} className="cursor-pointer" onMouseEnter={() => setHovered({ entry: point.entry, date: point.snapshot.date, label: point.snapshot.label })} />)}
+                    {points.map((point) => <circle key={point.snapshot.date} cx={point.px} cy={point.py} r={isCurrent ? 7 : 6} fill={stroke} stroke={isCurrent ? '#fff' : 'none'} strokeWidth={isCurrent ? 2.5 : 0} className="cursor-pointer" onMouseEnter={() => setHovered({ entry: point.entry, date: point.snapshot.date, label: point.snapshot.label, x: point.px, y: point.py })} />)}
                   </g>
                 })}
                 {visibleSnapshots.map((snapshot, index) => <text key={snapshot.date} x={x(index)} y={height - 10} fill="#777" textAnchor="middle" fontSize="10">{visibleSnapshots.length <= 12 || index % Math.ceil(visibleSnapshots.length / 8) === 0 ? snapshot.label : ''}</text>)}
@@ -298,7 +309,7 @@ export function StatisticsDashboard({ data, currentUserId }: { data: StatisticsD
             </div>
             <div className="sm:hidden">
               <p className="mb-3 text-[11px] text-muted">En mobile, tocá un participante para ver su detalle. El gráfico completo queda priorizado para pantallas grandes.</p>
-              <div className="grid grid-cols-1 gap-2 min-[390px]:grid-cols-2">{chartUsers.map((user) => {
+              <div className="grid grid-cols-1 gap-2">{chartUsers.map((user) => {
                 const entry = selected.entries.find((item) => item.userId === user.user_id)
                 if (!entry) return null
                 const visual = visuals.get(user.user_id)!
@@ -306,8 +317,27 @@ export function StatisticsDashboard({ data, currentUserId }: { data: StatisticsD
                 return <button type="button" key={user.user_id} onClick={() => setHovered({ entry, date: selected.date, label: selected.label })} className={`flex min-w-0 items-center gap-3 rounded-xl p-3 text-left ${isCurrent ? 'border border-white/35 bg-white/10 shadow-[0_0_22px_rgba(255,255,255,.08)]' : 'bg-white/5'}`}><i className={`h-3 w-3 shrink-0 rounded-full ${isCurrent ? 'ring-2 ring-white' : ''}`} style={{ background: visualBackground(visual) }} /><span className="min-w-0 flex-1 truncate text-[12px] font-bold">{user.name}{isCurrent ? ' · Vos' : ''}</span><b className="font-mono text-[11px]">{metric === 'rank' ? `#${entry.ranks[phase]}` : metricValue(entry, phase, metric)}</b></button>
               })}</div>
             </div>
-            {hovered && <div className="mt-3 rounded-[14px] border border-white/10 bg-[#181818] p-4 sm:absolute sm:right-6 sm:top-6 sm:mt-0 sm:w-[260px]"><div className="flex items-start justify-between"><div><p className="text-[13px] font-extrabold">{hovered.entry.name}</p><p className="mt-1 font-mono text-[9px] uppercase text-muted">{hovered.label}</p></div><button type="button" onClick={() => setHovered(null)} aria-label="Cerrar detalle"><X size={15} /></button></div><div className="mt-3 grid grid-cols-2 gap-2 text-[10px]"><span>Ranking <b className="block text-[16px] text-white">#{hovered.entry.ranks[phase]}</b></span><span>Puntos <b className="block text-[16px] text-white">{hovered.entry.metrics[phase].points}</b></span><span>Cambio <b className="block text-[16px] text-white">{hovered.entry.rankChanges[phase] > 0 ? `↑${hovered.entry.rankChanges[phase]}` : hovered.entry.rankChanges[phase] < 0 ? `↓${Math.abs(hovered.entry.rankChanges[phase])}` : '—'}</b></span><span>Puntos del día <b className="block text-[16px] text-white">+{hovered.entry.changes[phase].points}</b></span></div></div>}
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">{chartUsers.map((user) => {
+            {hovered && (
+              <>
+                <div className="mt-3 rounded-[14px] border border-white/10 bg-[#181818] p-4 sm:hidden">
+                  <div className="flex items-start justify-between gap-3"><div><p className="text-[13px] font-extrabold">{hovered.entry.name}</p><p className="mt-1 font-mono text-[9px] uppercase text-muted">Ranking al {hovered.label}</p></div><button type="button" onClick={() => setHovered(null)} aria-label="Cerrar detalle"><X size={15} /></button></div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]"><span>Ranking <b className="block text-[16px] text-white">#{hovered.entry.ranks[phase]}</b></span><span>Puntos acumulados <b className="block text-[16px] text-white">{hovered.entry.metrics[phase].points}</b></span><span>Cambio de puesto <b className="block text-[16px] text-white">{hovered.entry.rankChanges[phase] > 0 ? `↑${hovered.entry.rankChanges[phase]}` : hovered.entry.rankChanges[phase] < 0 ? `↓${Math.abs(hovered.entry.rankChanges[phase])}` : '—'}</b></span><span>Puntos del día <b className="block text-[16px] text-white">+{hovered.entry.changes[phase].points}</b></span></div>
+                </div>
+                <div
+                  className="pointer-events-none absolute z-20 hidden w-[276px] rounded-[14px] border border-white/10 bg-[#181818]/95 p-4 shadow-2xl sm:block"
+                  style={{
+                    left: `${((hovered.x ?? width - 280) / width) * 100}%`,
+                    top: `${((hovered.y ?? 80) / height) * 100}%`,
+                    transform: (hovered.x ?? 0) > width - 320 ? 'translate(calc(-100% - 14px), -50%)' : 'translate(14px, -50%)',
+                  }}
+                >
+                  <p className="text-[13px] font-extrabold">{hovered.entry.name}</p>
+                  <p className="mt-1 font-mono text-[9px] uppercase tracking-[.08em] text-muted">Ranking al {hovered.label}</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]"><span>Puesto <b className="block text-[16px] text-white">#{hovered.entry.ranks[phase]}</b></span><span>Puntos acumulados <b className="block text-[16px] text-white">{hovered.entry.metrics[phase].points}</b></span><span>Movimiento <b className="block text-[16px] text-white">{hovered.entry.rankChanges[phase] > 0 ? `↑${hovered.entry.rankChanges[phase]}` : hovered.entry.rankChanges[phase] < 0 ? `↓${Math.abs(hovered.entry.rankChanges[phase])}` : '—'}</b></span><span>Ganados ese día <b className="block text-[16px] text-white">+{hovered.entry.changes[phase].points}</b></span></div>
+                </div>
+              </>
+            )}
+            <div className="mt-3 hidden flex-wrap gap-x-4 gap-y-2 sm:flex">{chartUsers.map((user) => {
               const visual = visuals.get(user.user_id)!
               const isCurrent = user.user_id === currentUserId
               return <button type="button" onMouseEnter={() => { const entry = selected.entries.find((item) => item.userId === user.user_id); if (entry) setHovered({ entry, date: selected.date, label: selected.label }) }} key={user.user_id} className={`flex min-w-0 items-center gap-2 rounded-full px-2 py-1 text-[10px] font-bold ${isCurrent ? 'bg-white/10 text-white ring-1 ring-white/35' : ''}`}><i className={`h-2 w-2 shrink-0 rounded-full ${isCurrent ? 'ring-2 ring-white' : ''}`} style={{ background: visualBackground(visual) }} />{user.name}{isCurrent ? ' · Vos' : ''}</button>
