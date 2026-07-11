@@ -519,7 +519,7 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
                           <span className="truncate font-mono text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: '#8A8A8A' }}>
                             {liveRankingStarted
                               ? hasPredictions
-                                ? `Prode en proceso - ${entry.exact_predictions ?? 0} exactas - ${entry.correct_result_predictions ?? 0} parciales`
+                                ? `Prode en proceso - ${entry.exact_predictions ?? 0} marcadores exactos - ${entry.correct_result_predictions ?? 0} ganador/empate sin marcador exacto`
                                 : 'Todavía no cargó su Prode'
                               : `${rankingProgressText(entry)} - ${rankingProgressPercentage(entry)}% cargado`}
                           </span>

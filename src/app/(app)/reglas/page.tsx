@@ -307,7 +307,7 @@ export default function ReglasPage() {
           >
             <p className="text-[14px] font-medium leading-relaxed" style={{ color: '#cfcfcf' }}>
               El ranking ordena primero por puntos. Si hay empate en puntos, desempata la cantidad de resultados exactos.
-              Si también empatan en exactas, los competidores comparten el puesto y el premio correspondiente.
+              Si también empatan en marcadores exactos, los competidores comparten el puesto y el premio correspondiente.
             </p>
             <div className="mt-4 grid gap-2">
               {TIE_EXAMPLES.map((example) => (
@@ -317,7 +317,7 @@ export default function ReglasPage() {
               ))}
             </div>
             <p className="mt-4 text-[12px] font-bold leading-relaxed" style={{ color: '#A8F0D8' }}>
-              Criollo: si quedaron iguales en puntos y exactas, no se inventa otro desempate. Se comparte lo que toque.
+              Criollo: si quedaron iguales en puntos y marcadores exactos, no se inventa otro desempate. Se comparte lo que toque.
             </p>
           </div>
         </section>

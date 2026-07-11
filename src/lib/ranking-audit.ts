@@ -313,7 +313,7 @@ export function buildMatchAuditRows(
       : !hasOfficialResult
       ? 'El resultado oficial todavía está pendiente.'
       : match.stage === 'group'
-      ? resultPoints === 3 ? '+3 resultado exacto.' : resultPoints === 1 ? '+1 por acertar el signo.' : '0 puntos: no acertó el resultado.'
+      ? resultPoints === 3 ? '+3 resultado exacto.' : resultPoints === 1 ? '+1 por acertar ganador/empate sin marcador exacto.' : '0 puntos: no acertó el resultado.'
       : [
           crossingKind === 'exact'
             ? 'Acertó el cruce exacto.'
@@ -327,7 +327,7 @@ export function buildMatchAuditRows(
             : resultPoints === 3
             ? '+3 resultado exacto.'
             : resultPoints === 1
-            ? '+1 por acertar el signo.'
+            ? '+1 por acertar ganador/empate sin marcador exacto.'
             : '0 por marcador.',
           qualifiedPoints > 0
             ? `Sumó +${qualifiedPoints} de trayectoria porque ${trajectoryTeams.join(' y ')} ${trajectoryTeams.length > 1 ? 'avanzaron' : 'avanzó'}.`

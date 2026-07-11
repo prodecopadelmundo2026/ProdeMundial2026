@@ -10,8 +10,8 @@ const VIEW_META: Record<AuditView, { label: string; color: string }> = {
   groups: { label: 'Fase de grupos', color: '#A8F0D8' },
   knockout: { label: 'Eliminatorias', color: '#FFB15C' },
   trajectory: { label: 'Bonus eliminatorias', color: '#A8F0D8' },
-  exact: { label: 'Exactas', color: '#A8F0D8' },
-  partial: { label: 'Parciales', color: '#FFB15C' },
+  exact: { label: 'Marcador exacto', color: '#A8F0D8' },
+  partial: { label: 'Ganador/empate sin marcador exacto', color: '#FFB15C' },
   incorrect: { label: 'Incorrectas', color: '#FF6B6B' },
 }
 

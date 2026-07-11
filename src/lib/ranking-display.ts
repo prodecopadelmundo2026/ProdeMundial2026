@@ -12,7 +12,7 @@ export const RANK_MEDALS: Record<number, string> = {
 }
 
 export const PRIZE_TIE_RULES = [
-  'Orden: puntos y, si empatan, mayor cantidad de exactas.',
+  'Orden: puntos y, si empatan, mayor cantidad de marcadores exactos.',
   'Si siguen empatados, comparten el bloque de premio que corresponda.',
   'Si el empate empieza en 3°, comparten solo el tercer premio.',
 ] as const

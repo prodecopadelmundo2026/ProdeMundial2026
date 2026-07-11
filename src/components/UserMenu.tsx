@@ -165,7 +165,7 @@ export function UserMenu({ initial, name, pts, rank, sharedRank = false, exact, 
               {exact ?? '-'}
             </div>
             <div className="text-[9px] font-extrabold tracking-[0.18em] uppercase text-muted mt-1.5">
-              Exactas
+              Marcador exacto
             </div>
           </div>
         </div>

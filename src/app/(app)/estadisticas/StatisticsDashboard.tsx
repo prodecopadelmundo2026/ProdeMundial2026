@@ -22,15 +22,15 @@ const STAGES: Record<string, string> = {
 const METRIC_LABELS: Record<Metric, string> = {
   rank: 'Ranking',
   points: 'Puntos',
-  exact: 'Exactas',
-  signs: 'Signos acertados',
+  exact: 'Marcador exacto',
+  signs: 'Ganador/empate acertado',
   bonus: 'Bonus',
 }
 const METRIC_HELP: Record<Metric, string> = {
   rank: 'Posicion acumulada al cierre de cada fecha.',
   points: 'Puntos acumulados al cierre de cada fecha.',
   exact: 'Marcadores exactos acumulados.',
-  signs: 'Aciertos de resultado: exactas + parciales.',
+  signs: 'Incluye marcadores exactos y aciertos de ganador/empate sin marcador exacto.',
   bonus: 'Bonus acumulados de eliminatorias y trayectoria.',
 }
 const emptyDayTotals = { points: 0, exact: 0, signs: 0, bonus: 0 }
@@ -169,7 +169,7 @@ function StatCards({ cards }: { cards: StatisticsCard[] }) {
 function MatchCard({ match }: { match: DateMatchStat }) {
   const [open, setOpen] = useState(false)
   const categories = [
-    ['Exactas', match.exact, '#A8F0D8'], ['Signo acertado', match.partial, '#FFE040'], ['Sin puntos', match.incorrect, '#ff8f8f'],
+    ['Marcador exacto', match.exact, '#A8F0D8'], ['Ganador/empate acertado', match.partial, '#FFE040'], ['Sin puntos', match.incorrect, '#ff8f8f'],
   ] as const
   return (
     <article className="min-w-0 rounded-[16px] border border-white/10 bg-[#111] p-3.5 sm:p-4">
@@ -282,7 +282,7 @@ export function StatisticsDashboard({ data, currentUserId }: { data: StatisticsD
               <option value="all">Todas las fases</option><option value="group">Grupos</option><option value="knockout">Eliminatorias</option>
             </select>
             <select aria-label="Métrica" value={metric} onChange={(event) => setMetric(event.target.value as Metric)} className="min-w-0 rounded-xl border border-white/10 bg-[#181818] px-3 py-2.5 text-[11px] font-bold">
-              <option value="rank">Ranking</option><option value="points">Puntos</option><option value="exact">Exactas</option><option value="signs">Signos acertados</option><option value="bonus">Bonus</option>
+              <option value="rank">Ranking</option><option value="points">Puntos</option><option value="exact">Marcador exacto</option><option value="signs">Ganador/empate acertado</option><option value="bonus">Bonus</option>
             </select>
             <select aria-label="Top por defecto" value={limit} onChange={(event) => setLimit(event.target.value as typeof limit)} className="min-w-0 rounded-xl border border-white/10 bg-[#181818] px-3 py-2.5 text-[11px] font-bold">
               <option value="5">Top 5</option><option value="10">Top 10</option><option value="all">Todos</option>
@@ -323,7 +323,7 @@ export function StatisticsDashboard({ data, currentUserId }: { data: StatisticsD
             <div className="rounded-[18px] border border-white/10 bg-[#111] p-4">
               <h3 className="font-display text-[24px] uppercase">Balance de la fecha</h3>
               <div className="mt-3 grid grid-cols-1 gap-2 text-center text-[10px] font-bold sm:grid-cols-3">
-                {(['exact', 'signs', 'bonus'] as const).map((key) => <div key={key} className="rounded-xl bg-white/5 p-3"><b className="block font-display text-[24px] text-white">{dayTotals[key]}</b>{key === 'exact' ? 'Exactas' : key === 'signs' ? 'Signos acertados' : 'Bonus'}</div>)}
+                {(['exact', 'signs', 'bonus'] as const).map((key) => <div key={key} className="rounded-xl bg-white/5 p-3"><b className="block font-display text-[24px] text-white">{dayTotals[key]}</b>{key === 'exact' ? 'Marcador exacto' : key === 'signs' ? 'Ganador/empate acertado' : 'Bonus'}</div>)}
               </div>
             </div>
               </>

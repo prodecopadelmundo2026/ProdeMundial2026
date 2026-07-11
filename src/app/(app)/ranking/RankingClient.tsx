@@ -237,7 +237,7 @@ function RankRow({
           <div className="line-clamp-2 font-mono text-[9px] font-bold uppercase leading-[1.45] tracking-[0.1em] text-muted sm:line-clamp-1 sm:text-[10px] sm:tracking-[0.16em]">
             {rankingStarted
               ? hasPredictions
-                ? `${statusText} · ${entry.exact_predictions ?? 0} exactas · ${entry.correct_result_predictions ?? 0} parciales · ${entry.incorrect_predictions ?? 0} incorrectas`
+                ? `${statusText} · ${entry.exact_predictions ?? 0} marcadores exactos · ${entry.correct_result_predictions ?? 0} ganador/empate sin marcador exacto · ${entry.incorrect_predictions ?? 0} incorrectas`
                 : statusText
               : `${statusText} · ${percentage}% cargado`}
           </div>
@@ -526,7 +526,7 @@ export function RankingClient({
           className="mb-5 rounded-[16px] px-4 py-3 text-[12px] font-semibold leading-relaxed sm:text-[13px]"
           style={{ background: 'rgba(168,240,216,0.07)', border: '1px solid rgba(168,240,216,0.18)', color: '#cfcfcf' }}
         >
-          <strong className="font-extrabold text-white">Empate:</strong> los competidores igualados en puntos y exactas comparten el premio correspondiente. Si el empate excede el podio, la aclaración vale solo para los puestos premiados.
+          <strong className="font-extrabold text-white">Empate:</strong> los competidores igualados en puntos y marcadores exactos comparten el premio correspondiente. Si el empate excede el podio, la aclaración vale solo para los puestos premiados.
         </div>
       )}
 
@@ -593,7 +593,7 @@ export function RankingClient({
                       ))}
                     </div>
                     <p className="mt-2 text-center font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted">
-                      {leader?.exact_predictions ?? 0} exactas · {leader?.correct_result_predictions ?? 0} parciales
+                      {leader?.exact_predictions ?? 0} marcadores exactos · {leader?.correct_result_predictions ?? 0} ganador/empate sin marcador exacto
                     </p>
                   </article>
                 )
@@ -739,7 +739,7 @@ export function RankingClient({
                 <div className="truncate font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted sm:tracking-[0.16em]">
                   {rankingStarted
                     ? (meEntry.predictions_count ?? 0) > 0
-                      ? `Prode en proceso · ${meEntry.exact_predictions ?? 0} exactas · ${meEntry.correct_result_predictions ?? 0} parciales · ${meEntry.incorrect_predictions ?? 0} incorrectas`
+                      ? `Prode en proceso · ${meEntry.exact_predictions ?? 0} marcadores exactos · ${meEntry.correct_result_predictions ?? 0} ganador/empate sin marcador exacto · ${meEntry.incorrect_predictions ?? 0} incorrectas`
                       : 'Todavia no cargo su Prode'
                     : `${progressStatusText(meEntry)} · ${progressPercentage(meEntry)}% cargado`}
                 </div>

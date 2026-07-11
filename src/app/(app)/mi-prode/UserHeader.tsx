@@ -176,7 +176,7 @@ export function UserHeader({
               Aciertos
             </p>
             <span style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#8A8A8A', marginTop: '4px' }}>
-              {exactPredictions} exactos · {partialPredictions} parciales
+              {exactPredictions} marcadores exactos · {partialPredictions} ganador/empate sin marcador exacto
             </span>
           </div>
         </div>
