@@ -1,5 +1,7 @@
 # Estadisticas
 
+> Documento corto de referencia. La documentacion operativa actual del modulo vive en `docs/modules/estadisticas.md`.
+
 ## Para que sirve
 
 `/estadisticas` es una vista de solo lectura para contar la historia del Prode Mundial 2026: evolucion del ranking, lideres por fecha, partidos cerrados en cada dia y records serios/curiosos de los participantes.
@@ -67,6 +69,7 @@ Las cards serias y curiosas salen de `makeCard` en `statistics.ts`. Cada card ti
 ## Riesgos conocidos
 
 - El ranking historico puede no coincidir visualmente con `/ranking` si el usuario esta mirando una fecha anterior al ultimo snapshot.
+- El ultimo snapshot debe coincidir con `/ranking` para la vista actual. La ruta alinea ese corte con el ranking oficial enriquecido cuando corresponde.
 - Si faltan predicciones o tiebreakers en el detalle publico, algunas estadisticas pueden quedar incompletas.
 - Los nombres largos de equipos o participantes requieren layout defensivo para evitar overflow.
 - Cambios en `buildMatchAuditRows` o bonus de eliminatorias impactan indirectamente en esta pagina.

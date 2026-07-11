@@ -1,6 +1,7 @@
 import type { Match, Prediction, RankingEntry } from '@/types'
 import { createClient } from '@/lib/supabase/server'
 import { buildStatisticsData, rankingMatchesLatestSnapshot, type StatisticsParticipant } from '@/lib/statistics'
+import { addConfirmedTrajectoryToRanking } from '@/lib/public-prediction-data'
 import { StatisticsDashboard } from './StatisticsDashboard'
 
 export const dynamic = 'force-dynamic'
@@ -36,7 +37,11 @@ export default async function StatisticsPage() {
   if (rankingError) throw rankingError
   if (matchesError) throw matchesError
 
-  const ranking = (rankingData ?? []) as RankingEntry[]
+  const matches = (matchesData ?? []) as Match[]
+  const baseRanking = (rankingData ?? []) as RankingEntry[]
+  const ranking = user
+    ? await addConfirmedTrajectoryToRanking(baseRanking, matches)
+    : baseRanking
   const seedUserId = ranking.find((entry) => entry.user_id)?.user_id
   let detail: PublicDetail = {}
   if (seedUserId) {
@@ -61,10 +66,11 @@ export default async function StatisticsPage() {
   }
 
   const data = buildStatisticsData({
-    matches: (matchesData ?? []) as Match[],
+    matches,
     predictions,
     participants: detail.participants ?? [],
     tiebreakersByUser,
+    officialRanking: ranking,
   })
   const consistent = rankingMatchesLatestSnapshot(data.snapshots.at(-1), ranking)
 

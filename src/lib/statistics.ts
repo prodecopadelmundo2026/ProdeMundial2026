@@ -43,6 +43,14 @@ export type StatisticsData = {
 }
 
 type TiebreakersByUser = Map<string, Record<string, string>>
+type OfficialRankingEntry = Pick<
+  RankingEntry,
+  'user_id' | 'name' | 'total_points' | 'exact_predictions' | 'correct_result_predictions' | 'rank'
+> & {
+  group_points?: number
+  knockout_points?: number
+  trajectory_bonus?: number
+}
 type MetricRow = StatisticsParticipant & {
   exact: number; signs: number; drawsHit: number; winnersHit: number
   groupPoints: number; knockoutPoints: number; bonus: number; crosses: number
@@ -103,13 +111,90 @@ function makeCard<T extends { user_id: string; name: string }>(
   }
 }
 
+function alignLatestSnapshotWithOfficialRanking(
+  entries: StatisticsSnapshotEntry[],
+  officialRanking: OfficialRankingEntry[]
+) {
+  const officialByUser = new Map(
+    officialRanking
+      .filter((entry) => entry.user_id)
+      .map((entry) => [entry.user_id!, entry])
+  )
+
+  const aligned = entries.map((entry) => {
+    const official = officialByUser.get(entry.userId)
+    if (!official) return entry
+    const previousAll = {
+      points: entry.metrics.all.points - entry.changes.all.points,
+      exact: entry.metrics.all.exact - entry.changes.all.exact,
+      signs: entry.metrics.all.signs - entry.changes.all.signs,
+      bonus: entry.metrics.all.bonus - entry.changes.all.bonus,
+    }
+    const previousAllRank = entry.ranks.all + entry.rankChanges.all
+    const exact = Number(official.exact_predictions ?? entry.metrics.all.exact)
+    const partial = Number(official.correct_result_predictions ?? Math.max(0, entry.metrics.all.signs - entry.metrics.all.exact))
+    const officialRank = Number(official.rank ?? entry.rank)
+    const allMetrics = {
+      points: Number(official.total_points ?? entry.metrics.all.points),
+      exact,
+      signs: exact + partial,
+      bonus: Number(official.trajectory_bonus ?? entry.metrics.all.bonus),
+    }
+    return {
+      ...entry,
+      name: official.name ?? entry.name,
+      rank: officialRank,
+      rankChange: previousAllRank - officialRank,
+      ranks: {
+        ...entry.ranks,
+        all: officialRank,
+      },
+      rankChanges: {
+        ...entry.rankChanges,
+        all: previousAllRank - officialRank,
+      },
+      metrics: {
+        ...entry.metrics,
+        all: allMetrics,
+        group: {
+          ...entry.metrics.group,
+          points: Number(official.group_points ?? entry.metrics.group.points),
+        },
+        knockout: {
+          ...entry.metrics.knockout,
+          points: Number(official.knockout_points ?? entry.metrics.knockout.points),
+          bonus: Number(official.trajectory_bonus ?? entry.metrics.knockout.bonus),
+        },
+      },
+      changes: {
+        ...entry.changes,
+        all: {
+          points: allMetrics.points - previousAll.points,
+          exact: allMetrics.exact - previousAll.exact,
+          signs: allMetrics.signs - previousAll.signs,
+          bonus: allMetrics.bonus - previousAll.bonus,
+        },
+      },
+    }
+  }).sort((a, b) =>
+    a.ranks.all - b.ranks.all ||
+    b.metrics.all.points - a.metrics.all.points ||
+    b.metrics.all.exact - a.metrics.all.exact ||
+    b.metrics.all.signs - a.metrics.all.signs ||
+    a.name.localeCompare(b.name)
+  )
+
+  return aligned
+}
+
 export function buildStatisticsData({
-  matches, predictions, participants, tiebreakersByUser,
+  matches, predictions, participants, tiebreakersByUser, officialRanking = [],
 }: {
   matches: Match[]
   predictions: Prediction[]
   participants: StatisticsParticipant[]
   tiebreakersByUser: TiebreakersByUser
+  officialRanking?: OfficialRankingEntry[]
 }): StatisticsData {
   const startedAt = performance.now()
   const predictionsByUser = new Map<string, Prediction[]>()
@@ -161,7 +246,7 @@ export function buildStatisticsData({
     cumulativeByUserAndDay.set(participant.user_id, byDay)
   }
 
-  const snapshots = finishedDays.map((date) => {
+  const snapshots = finishedDays.map((date, dateIndex) => {
     const baseEntries = active.map((participant): StatisticsSnapshotEntry => {
       const cumulative = cumulativeByUserAndDay.get(participant.user_id)?.get(date)
       const group = cumulative?.group ?? emptyMetrics()
@@ -224,7 +309,10 @@ export function buildStatisticsData({
         exact, partial, incorrect,
       }]
     })
-    return { date, label: dayLabel(date), entries: rankedAll, matches: dateMatchStats }
+    const entries = dateIndex === finishedDays.length - 1 && officialRanking.length > 0
+      ? alignLatestSnapshotWithOfficialRanking(rankedAll, officialRanking)
+      : rankedAll
+    return { date, label: dayLabel(date), entries, matches: dateMatchStats }
   })
 
   const metrics: MetricRow[] = active.map((participant) => {

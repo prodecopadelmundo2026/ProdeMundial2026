@@ -19,6 +19,21 @@ const STAGES: Record<string, string> = {
   group: 'Fase de grupos', round_of_32: '16avos', round_of_16: 'Octavos',
   quarter: 'Cuartos', semi: 'Semifinal', third_place: 'Tercer puesto', final: 'Final',
 }
+const METRIC_LABELS: Record<Metric, string> = {
+  rank: 'Ranking',
+  points: 'Puntos',
+  exact: 'Exactas',
+  signs: 'Signos acertados',
+  bonus: 'Bonus',
+}
+const METRIC_HELP: Record<Metric, string> = {
+  rank: 'Posicion acumulada al cierre de cada fecha.',
+  points: 'Puntos acumulados al cierre de cada fecha.',
+  exact: 'Marcadores exactos acumulados.',
+  signs: 'Aciertos de resultado: exactas + parciales.',
+  bonus: 'Bonus acumulados de eliminatorias y trayectoria.',
+}
+const emptyDayTotals = { points: 0, exact: 0, signs: 0, bonus: 0 }
 
 function buildLineVisuals(data: StatisticsData) {
   const combinations: Array<{ primary: string; secondary?: string }> = COLORS.map((primary) => ({ primary }))
@@ -46,6 +61,16 @@ function visualBackground(visual: LineVisual) {
 
 function metricValue(entry: StatisticsSnapshotEntry, phase: StatisticsPhase, metric: Metric) {
   return metric === 'rank' ? entry.ranks[phase] : entry.metrics[phase][metric]
+}
+
+function compareEntriesByMetric(metric: Metric, phase: StatisticsPhase) {
+  return (a: StatisticsSnapshotEntry, b: StatisticsSnapshotEntry) => {
+    if (metric === 'rank') return a.ranks[phase] - b.ranks[phase] || a.name.localeCompare(b.name)
+    return metricValue(b, phase, metric) - metricValue(a, phase, metric) ||
+      b.metrics[phase].exact - a.metrics[phase].exact ||
+      b.metrics[phase].signs - a.metrics[phase].signs ||
+      a.name.localeCompare(b.name)
+  }
 }
 
 function UserPicker({
@@ -144,7 +169,7 @@ function StatCards({ cards }: { cards: StatisticsCard[] }) {
 function MatchCard({ match }: { match: DateMatchStat }) {
   const [open, setOpen] = useState(false)
   const categories = [
-    ['Exactas', match.exact, '#A8F0D8'], ['Signo / parcial', match.partial, '#FFE040'], ['Sin puntos', match.incorrect, '#ff8f8f'],
+    ['Exactas', match.exact, '#A8F0D8'], ['Signo acertado', match.partial, '#FFE040'], ['Sin puntos', match.incorrect, '#ff8f8f'],
   ] as const
   return (
     <article className="min-w-0 rounded-[16px] border border-white/10 bg-[#111] p-3.5 sm:p-4">
@@ -185,9 +210,10 @@ export function StatisticsDashboard({ data, currentUserId }: { data: StatisticsD
 
   const take = limit === 'all' ? Number.POSITIVE_INFINITY : Number(limit)
   const chartUsers = useMemo(() => {
+    const orderedEntries = [...(selected?.entries ?? [])].sort(compareEntriesByMetric(metric, phase))
     const base = pickedUsers.length
       ? data.participants.filter((participant) => pickedUsers.includes(participant.user_id))
-      : (selected?.entries ?? []).slice(0, take).map((entry) => ({
+      : orderedEntries.slice(0, take).map((entry) => ({
           user_id: entry.userId, name: entry.name, avatar_url: null,
         }))
     const current = currentUserId
@@ -196,7 +222,7 @@ export function StatisticsDashboard({ data, currentUserId }: { data: StatisticsD
     return current && !base.some((participant) => participant.user_id === current.user_id)
       ? [...base, current]
       : base
-  }, [currentUserId, data.participants, pickedUsers, selected?.entries, take])
+  }, [currentUserId, data.participants, metric, phase, pickedUsers, selected?.entries, take])
 
   const width = 1040
   const height = 390
@@ -205,13 +231,36 @@ export function StatisticsDashboard({ data, currentUserId }: { data: StatisticsD
     const entry = snapshot.entries.find((item) => item.userId === user.user_id)
     return entry ? [metricValue(entry, phase, metric)] : []
   }))
-  const minValue = metric === 'rank' ? 1 : Math.min(0, ...plottedValues)
-  const maxValue = Math.max(1, ...plottedValues)
+  const hasPlottedValues = plottedValues.length > 0
+  const rawMinValue = hasPlottedValues ? Math.min(...plottedValues) : 0
+  const rawMaxValue = hasPlottedValues ? Math.max(...plottedValues) : 0
+  const hasMetricVariation = rawMinValue !== rawMaxValue
+  const minValue = metric === 'rank' ? 1 : 0
+  const maxValue = metric === 'rank'
+    ? Math.max(1, rawMaxValue)
+    : Math.max(1, rawMaxValue)
+  const tickValues = metric === 'rank'
+    ? Array.from(new Set(Array.from({ length: 6 }, (_, index) => Math.round(minValue + index * ((maxValue - minValue) / 5)))))
+    : Array.from(new Set(Array.from({ length: Math.min(6, maxValue + 1) }, (_, index) => Math.round(index * (maxValue / Math.max(1, Math.min(6, maxValue + 1) - 1))))))
+  const showEmptyMetricState = hasPlottedValues && !hasMetricVariation && rawMaxValue === 0 && metric !== 'rank'
   const x = (index: number) => pad.left + index * ((width - pad.left - pad.right) / Math.max(1, visibleSnapshots.length - 1))
   const y = (value: number) => pad.top + ((metric === 'rank' ? value - minValue : maxValue - value) / Math.max(1, maxValue - minValue)) * (height - pad.top - pad.bottom)
-  const topRise = [...(selected?.entries ?? [])].sort((a, b) => b.rankChange - a.rankChange)[0]
-  const topFall = [...(selected?.entries ?? [])].sort((a, b) => a.rankChange - b.rankChange)[0]
-  const topDay = [...(selected?.entries ?? [])].sort((a, b) => b.changes[phase].points - a.changes[phase].points)[0]
+  const selectedEntries = selected?.entries ?? []
+  const leaderByPhase = [...selectedEntries].sort(compareEntriesByMetric('rank', phase))[0]
+  const positiveRises = selectedEntries.filter((entry) => entry.rankChanges[phase] > 0)
+  const negativeFalls = selectedEntries.filter((entry) => entry.rankChanges[phase] < 0)
+  const positiveDayPoints = selectedEntries.filter((entry) => entry.changes[phase].points > 0)
+  const topRise = [...positiveRises].sort((a, b) => b.rankChanges[phase] - a.rankChanges[phase])[0]
+  const topFall = [...negativeFalls].sort((a, b) => a.rankChanges[phase] - b.rankChanges[phase])[0]
+  const topDay = [...positiveDayPoints].sort((a, b) => b.changes[phase].points - a.changes[phase].points)[0]
+  const dayTotals = selectedEntries.reduce((totals, entry) => ({
+    points: totals.points + entry.changes[phase].points,
+    exact: totals.exact + entry.changes[phase].exact,
+    signs: totals.signs + entry.changes[phase].signs,
+    bonus: totals.bonus + entry.changes[phase].bonus,
+  }), emptyDayTotals)
+  const hasDateActivity = dayTotals.points !== 0 || dayTotals.exact !== 0 || dayTotals.signs !== 0 ||
+    dayTotals.bonus !== 0 || positiveRises.length > 0 || negativeFalls.length > 0
 
   return (
     <div className="space-y-12">
@@ -226,14 +275,14 @@ export function StatisticsDashboard({ data, currentUserId }: { data: StatisticsD
           </select>
           <input type="date" aria-label="Fecha" min={data.snapshots[0]?.date} max={data.snapshots.at(-1)?.date} value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} className="min-w-0 rounded-xl border border-white/10 bg-[#181818] px-3 py-2 text-[11px] font-bold" />
           <button type="button" onClick={() => setShowMobileFilters((value) => !value)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-left font-mono text-[10px] font-extrabold uppercase tracking-[.12em] text-white/80 sm:col-span-2 lg:hidden">
-            {showMobileFilters ? 'Ocultar filtros' : 'Mas filtros'}
+            {showMobileFilters ? 'Ocultar filtros' : 'Más filtros'}
           </button>
           <div className={`${showMobileFilters ? 'grid' : 'hidden'} col-span-full grid-cols-1 gap-2 sm:grid-cols-2 lg:contents`}>
             <select aria-label="Fase" value={phase} onChange={(event) => setPhase(event.target.value as StatisticsPhase)} className="min-w-0 rounded-xl border border-white/10 bg-[#181818] px-3 py-2.5 text-[11px] font-bold">
               <option value="all">Todas las fases</option><option value="group">Grupos</option><option value="knockout">Eliminatorias</option>
             </select>
             <select aria-label="Métrica" value={metric} onChange={(event) => setMetric(event.target.value as Metric)} className="min-w-0 rounded-xl border border-white/10 bg-[#181818] px-3 py-2.5 text-[11px] font-bold">
-              <option value="rank">Ranking</option><option value="points">Puntos</option><option value="exact">Exactas</option><option value="signs">Signos</option><option value="bonus">Bonus</option>
+              <option value="rank">Ranking</option><option value="points">Puntos</option><option value="exact">Exactas</option><option value="signs">Signos acertados</option><option value="bonus">Bonus</option>
             </select>
             <select aria-label="Top por defecto" value={limit} onChange={(event) => setLimit(event.target.value as typeof limit)} className="min-w-0 rounded-xl border border-white/10 bg-[#181818] px-3 py-2.5 text-[11px] font-bold">
               <option value="5">Top 5</option><option value="10">Top 10</option><option value="all">Todos</option>
@@ -254,23 +303,37 @@ export function StatisticsDashboard({ data, currentUserId }: { data: StatisticsD
           </div>
         ) : range === 'day' ? (
           <div className="mt-4 space-y-4">
+            {!hasDateActivity ? (
+              <div className="rounded-[20px] border border-dashed border-white/15 bg-[#0e0e0e] px-5 py-10 text-center">
+                <p className="font-display text-[26px] uppercase">Sin movimientos en esta fecha</p>
+                <p className="mx-auto mt-2 max-w-[520px] text-[12px] leading-relaxed text-muted">
+                  No hubo puntos nuevos, bonus ni cambios de puesto para la fase y métrica seleccionadas.
+                </p>
+              </div>
+            ) : (
+              <>
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                ['Líder del día', selected.entries[0]?.name ?? '—', `#${selected.entries[0]?.rank ?? '—'}`],
-                ['Mayor subida', topRise?.name ?? '—', topRise?.rankChange ? `↑ ${topRise.rankChange}` : 'Sin cambios'],
-                ['Mayor caída', topFall?.name ?? '—', topFall?.rankChange ? `↓ ${Math.abs(topFall.rankChange)}` : 'Sin cambios'],
-                ['Más puntos del día', topDay?.name ?? '—', `+${topDay?.changes[phase].points ?? 0} pts`],
+                ['Líder del corte', leaderByPhase?.name ?? '-', `#${leaderByPhase?.ranks[phase] ?? '-'}`],
+                ['Mayor subida', topRise?.name ?? 'Sin subidas', topRise ? `+${topRise.rankChanges[phase]}` : '-'],
+                ['Mayor caída', topFall?.name ?? 'Sin caídas', topFall ? `-${Math.abs(topFall.rankChanges[phase])}` : '-'],
+                ['Más puntos del día', topDay?.name ?? 'Sin puntos nuevos', topDay ? `+${topDay.changes[phase].points} pts` : '-'],
               ].map(([title, name, value]) => <article key={title} className="rounded-[16px] border border-white/10 bg-[#111] p-3.5 sm:p-4"><p className="font-mono text-[9px] font-bold uppercase tracking-[.14em] text-muted">{title}</p><p className="mt-2 truncate text-[13px] font-extrabold sm:text-[14px]">{name}</p><p className="mt-1.5 font-display text-[24px] text-[#A8F0D8] sm:mt-2 sm:text-[26px]">{value}</p></article>)}
             </div>
             <div className="rounded-[18px] border border-white/10 bg-[#111] p-4">
               <h3 className="font-display text-[24px] uppercase">Balance de la fecha</h3>
-              <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[10px] font-bold">
-                {(['exact', 'signs', 'bonus'] as const).map((key) => <div key={key} className="rounded-xl bg-white/5 p-3"><b className="block font-display text-[24px] text-white">{selected.entries.reduce((sum, entry) => sum + entry.changes[phase][key], 0)}</b>{key === 'exact' ? 'Exactas' : key === 'signs' ? 'Signos' : 'Bonus'}</div>)}
+              <div className="mt-3 grid grid-cols-1 gap-2 text-center text-[10px] font-bold sm:grid-cols-3">
+                {(['exact', 'signs', 'bonus'] as const).map((key) => <div key={key} className="rounded-xl bg-white/5 p-3"><b className="block font-display text-[24px] text-white">{dayTotals[key]}</b>{key === 'exact' ? 'Exactas' : key === 'signs' ? 'Signos acertados' : 'Bonus'}</div>)}
               </div>
             </div>
+              </>
+            )}
           </div>
         ) : (
           <div className="relative mt-4 rounded-[20px] border border-white/10 bg-[#0e0e0e] p-3 sm:p-5">
+            <p className="mb-3 text-[11px] font-semibold leading-relaxed text-muted sm:text-[12px]">
+              {METRIC_LABELS[metric]} - {METRIC_HELP[metric]}
+            </p>
             <div className="hidden w-full overflow-hidden sm:block">
               <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Evolución del ranking" className="h-auto w-full">
                 <defs>
@@ -286,7 +349,7 @@ export function StatisticsDashboard({ data, currentUserId }: { data: StatisticsD
                     ] : []
                   })}
                 </defs>
-                {Array.from({ length: 6 }, (_, index) => minValue + index * ((maxValue - minValue) / 5)).map((value) => (
+                {tickValues.map((value) => (
                   <g key={value}><line x1={pad.left} x2={width - pad.right} y1={y(value)} y2={y(value)} stroke="rgba(255,255,255,.07)" /><text x={pad.left - 9} y={y(value) + 4} fill="#777" textAnchor="end" fontSize="10">{metric === 'rank' ? `#${Math.round(value)}` : Math.round(value)}</text></g>
                 ))}
                 {chartUsers.map((user) => {
@@ -305,10 +368,22 @@ export function StatisticsDashboard({ data, currentUserId }: { data: StatisticsD
                   </g>
                 })}
                 {visibleSnapshots.map((snapshot, index) => <text key={snapshot.date} x={x(index)} y={height - 10} fill="#777" textAnchor="middle" fontSize="10">{visibleSnapshots.length <= 12 || index % Math.ceil(visibleSnapshots.length / 8) === 0 ? snapshot.label : ''}</text>)}
+                {showEmptyMetricState && (
+                  <g>
+                    <rect x={pad.left + 80} y={pad.top + 86} width={width - pad.left - pad.right - 160} height="86" rx="18" fill="rgba(10,10,10,.78)" stroke="rgba(255,255,255,.1)" />
+                    <text x={width / 2} y={pad.top + 120} textAnchor="middle" fill="#ffffff" fontSize="18" fontWeight="800">Todavía no hay {METRIC_LABELS[metric].toLowerCase()} acumulados</text>
+                    <text x={width / 2} y={pad.top + 146} textAnchor="middle" fill="#8A8A8A" fontSize="12">Cambia de métrica o de periodo para ver otra evolución.</text>
+                  </g>
+                )}
               </svg>
             </div>
             <div className="sm:hidden">
               <p className="mb-3 text-[11px] text-muted">En mobile, tocá un participante para ver su detalle. El gráfico completo queda priorizado para pantallas grandes.</p>
+              {showEmptyMetricState && (
+                <div className="mb-3 rounded-[14px] border border-white/10 bg-white/[0.04] p-3 text-[12px] font-semibold text-muted">
+                  Todavía no hay {METRIC_LABELS[metric].toLowerCase()} acumulados para este corte.
+                </div>
+              )}
               <div className="grid grid-cols-1 gap-2">{chartUsers.map((user) => {
                 const entry = selected.entries.find((item) => item.userId === user.user_id)
                 if (!entry) return null
