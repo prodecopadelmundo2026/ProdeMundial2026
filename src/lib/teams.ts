@@ -76,10 +76,24 @@ const TEAM_ALIASES: Record<string, string> = {
 
 export const TEAM_NAMES = Object.keys(TEAMS)
 
+const TEAMS_BY_CODE = Object.fromEntries(
+  Object.values(TEAMS).map((meta) => [meta.code, meta])
+) as Record<string, TeamMeta>
+
+function fallbackTeam(value: string): TeamMeta {
+  const technicalCode = value.trim().slice(0, 3).toUpperCase()
+  return { code: technicalCode, displayCode: technicalCode, flag: '🌐', iso2: '' }
+}
+
 export function getTeam(name: string): TeamMeta {
-  const technicalCode = name.slice(0, 3).toUpperCase()
-  const canonicalName = TEAM_ALIASES[name] ?? name
-  return TEAMS[canonicalName] ?? { code: technicalCode, displayCode: technicalCode, flag: '🌐', iso2: '' }
+  const trimmed = name.trim()
+  const canonicalName = TEAM_ALIASES[trimmed] ?? trimmed
+  return TEAMS[canonicalName] ?? TEAMS_BY_CODE[canonicalName.toUpperCase()] ?? fallbackTeam(trimmed)
+}
+
+export function getTeamByCode(code: string): TeamMeta {
+  const normalizedCode = code.trim().toUpperCase()
+  return TEAMS_BY_CODE[normalizedCode] ?? fallbackTeam(normalizedCode)
 }
 
 export function getTeamDisplayCode(name: string): string {

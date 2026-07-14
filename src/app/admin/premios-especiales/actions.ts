@@ -255,6 +255,20 @@ async function getCurrentRawGroup(
   return { rawValue, count: userIds.size }
 }
 
+async function getCurrentRawGroups(
+  supabase: SupabaseServerClient,
+  category: SpecialAwardCategory,
+  rawNormalizedValues: string[]
+) {
+  const groups = new Map<string, { rawValue: string; count: number }>()
+  for (const rawNormalized of rawNormalizedValues) {
+    const currentGroup = await getCurrentRawGroup(supabase, category, rawNormalized)
+    if (!currentGroup) throw new Error('No existe una eleccion actual con ese texto.')
+    groups.set(rawNormalized, currentGroup)
+  }
+  return groups
+}
+
 async function getCandidateCounts(supabase: SupabaseServerClient, category: SpecialAwardCategory) {
   const { data: specialBets, error: betsError } = await supabase
     .from('special_bets')
@@ -502,13 +516,18 @@ export async function saveNormalization(
     const supabase = await createClient()
     const user = await requireAdmin(supabase)
     const category = readCategory(formData)
-    const rawNormalized = normalizeSpecialAwardText(readRequiredString(formData, 'raw_normalized', 'Texto normalizado'))
+    const rawNormalizedValues = [...new Set(
+      formData
+        .getAll('raw_normalized')
+        .map((value) => normalizeSpecialAwardText(String(value ?? '').trim()))
+        .filter(Boolean)
+    )]
+    if (rawNormalizedValues.length === 0) throw new Error('Texto normalizado es obligatorio.')
     const status = String(formData.get('status') ?? '').trim() as NormalizationStatus
     const playerId = readOptionalString(formData, 'player_id')
 
     if (!['matched', 'no_match', 'review'].includes(status)) throw new Error('Estado inválido.')
-    const currentGroup = await getCurrentRawGroup(supabase, category, rawNormalized)
-    if (!currentGroup) throw new Error('No existe una elección actual con ese texto.')
+    const currentGroups = await getCurrentRawGroups(supabase, category, rawNormalizedValues)
 
     if (status === 'matched') {
       if (!playerId) throw new Error('Seleccioná un jugador canónico.')
@@ -518,16 +537,19 @@ export async function saveNormalization(
     const reviewed = status === 'matched' || status === 'no_match'
     const { error } = await supabase
       .from('special_bet_normalizations')
-      .upsert({
-        tournament_key: SPECIAL_AWARDS_TOURNAMENT_KEY,
-        category,
-        raw_value: currentGroup.rawValue,
-        raw_normalized: rawNormalized,
-        status,
-        player_id: status === 'matched' ? playerId : null,
-        reviewed_by: reviewed ? user.id : null,
-        reviewed_at: reviewed ? new Date().toISOString() : null,
-      }, { onConflict: 'tournament_key,category,raw_normalized' })
+      .upsert(rawNormalizedValues.map((rawNormalized) => {
+        const currentGroup = currentGroups.get(rawNormalized)
+        return {
+          tournament_key: SPECIAL_AWARDS_TOURNAMENT_KEY,
+          category,
+          raw_value: currentGroup?.rawValue ?? rawNormalized,
+          raw_normalized: rawNormalized,
+          status,
+          player_id: status === 'matched' ? playerId : null,
+          reviewed_by: reviewed ? user.id : null,
+          reviewed_at: reviewed ? new Date().toISOString() : null,
+        }
+      }), { onConflict: 'tournament_key,category,raw_normalized' })
 
     if (error) throw new Error(error.message)
     revalidateAdminSpecialAwards()

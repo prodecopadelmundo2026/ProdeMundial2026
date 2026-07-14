@@ -113,7 +113,7 @@ function HomeMetricCard({
         {live && <span className="h-2 w-2 rounded-full bg-mint" style={{ animation: 'pulse-dot 1.6s infinite' }} />}
         <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">{label}</p>
       </div>
-      <div className={`mt-2 min-w-0 font-display leading-none ${compact ? 'text-[clamp(30px,4.5vw,42px)]' : 'text-[clamp(28px,7vw,42px)]'}`}>
+      <div className={`mt-2 min-w-0 whitespace-nowrap font-display leading-none ${compact ? 'text-[clamp(28px,2.65vw,42px)]' : 'text-[clamp(28px,7vw,42px)]'}`}>
         {value}
       </div>
       {detail && <p className="mt-2 text-[12px] font-semibold leading-snug text-muted">{detail}</p>}
@@ -123,9 +123,9 @@ function HomeMetricCard({
 
 function PrizeValue({ amount }: { amount: number }) {
   return (
-    <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 whitespace-normal">
-      <span className="text-[0.82em]">$</span>
-      <span className="min-w-0 break-words">{amount.toLocaleString('es-AR')}</span>
+    <span className="inline-flex min-w-0 items-baseline gap-x-2 whitespace-nowrap">
+      <span className="shrink-0 text-[0.82em]">$</span>
+      <span className="min-w-0">{amount.toLocaleString('es-AR')}</span>
     </span>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useActionState } from 'react'
 import { useFormStatus } from 'react-dom'
-import { getTeam } from '@/lib/teams'
+import { flagUrl, getTeam, getTeamByCode } from '@/lib/teams'
 import { SPECIAL_AWARD_CATEGORIES, SPECIAL_AWARD_LABELS, type SpecialAwardCategory } from '@/lib/special-awards'
 import {
   addOfficialWinner,
@@ -57,6 +57,19 @@ type RawGroup = {
     email: string | null
     rawValue: string
   }>
+  suggestion:
+    | { type: 'single'; playerId: string; label: string }
+    | { type: 'ambiguous'; label: string }
+    | { type: 'none'; label: string }
+}
+
+type PendingNormalizationGroup = {
+  key: string
+  category: SpecialAwardCategory
+  rawNormalizedValues: string[]
+  variants: Array<{ value: string; count: number }>
+  count: number
+  participants: RawGroup['participants']
   suggestion:
     | { type: 'single'; playerId: string; label: string }
     | { type: 'ambiguous'; label: string }
@@ -176,30 +189,60 @@ function TeamSelect({
   return (
     <label className="grid gap-1">
       <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Selección</span>
-      <select
+      <div className="grid grid-cols-[38px_1fr] items-center gap-2">
+        <TeamFlagImage countryName={selected} countryCode={meta.code} label={selected} />
+        <select
         name={name}
         value={selected}
         onChange={(event) => setSelected(event.target.value)}
         className="w-full rounded-[12px] bg-[#0A0A0A] px-3 py-2 text-[13px] font-bold text-white outline-none"
         style={{ border: '1px solid rgba(255,255,255,0.1)' }}
-      >
+        >
         {teams.map((team) => (
-          <option key={team.name} value={team.name}>{team.flag} {team.name}</option>
-        ))}
-      </select>
+            <option key={team.name} value={team.name}>{team.name}</option>
+          ))}
+        </select>
+      </div>
       <input type="hidden" name={codeName} value={meta.code} />
     </label>
   )
 }
 
-function PlayerFlag({ countryName }: { countryName: string }) {
+function resolveTeamMeta(countryName?: string | null, countryCode?: string | null) {
+  const byName = countryName ? getTeam(countryName) : null
+  if (byName?.iso2) return byName
+  return countryCode ? getTeamByCode(countryCode) : byName ?? getTeam('')
+}
+
+function TeamFlagImage({
+  countryName,
+  countryCode,
+  label,
+}: {
+  countryName?: string | null
+  countryCode?: string | null
+  label: string
+}) {
+  const team = resolveTeamMeta(countryName, countryCode)
+  const src = team.iso2 ? flagUrl(team.iso2) : ''
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+  return (
+    <span className="grid h-[24px] w-[34px] shrink-0 place-items-center overflow-hidden rounded-[4px] bg-white/10 text-[10px] font-extrabold text-white">
+      {src && failedSrc !== src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt={label} className="h-full w-full object-cover" loading="lazy" onError={() => setFailedSrc(src)} />
+      ) : (
+        team.displayCode || team.code
+      )}
+    </span>
+  )
+}
+
+function PlayerFlag({ countryName, countryCode }: { countryName: string; countryCode?: string }) {
   if (!countryName) return <span className="text-muted">Sin selección</span>
-  const team = getTeam(countryName)
   return (
     <span className="inline-flex min-w-0 items-center gap-2">
-      <span className="grid h-[18px] w-[26px] shrink-0 place-items-center overflow-hidden rounded-[3px] bg-white/10 text-[15px]">
-        {team.flag}
-      </span>
+      <TeamFlagImage countryName={countryName} countryCode={countryCode} label={countryName} />
       <span className="min-w-0 truncate">{countryName}</span>
     </span>
   )
@@ -223,12 +266,87 @@ function statusLabel(status: RawGroup['status'] | 'matched') {
   return 'Pendiente'
 }
 
+function mergeVariants(groups: RawGroup[]) {
+  const variants = new Map<string, number>()
+  for (const group of groups) {
+    for (const variant of group.variants) {
+      variants.set(variant.value, (variants.get(variant.value) ?? 0) + variant.count)
+    }
+  }
+  return [...variants.entries()]
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value, 'es'))
+}
+
+function mergeParticipants(groups: RawGroup[]) {
+  return groups
+    .flatMap((group) => group.participants)
+    .sort((a, b) => a.name.localeCompare(b.name, 'es') || a.rawValue.localeCompare(b.rawValue, 'es'))
+}
+
+function groupPendingNormalizations(groups: RawGroup[]): PendingNormalizationGroup[] {
+  const bySuggestedPlayer = new Map<string, RawGroup[]>()
+  const standalone: RawGroup[] = []
+
+  for (const group of groups) {
+    if (group.suggestion.type === 'single') {
+      const list = bySuggestedPlayer.get(group.suggestion.playerId) ?? []
+      list.push(group)
+      bySuggestedPlayer.set(group.suggestion.playerId, list)
+    } else {
+      standalone.push(group)
+    }
+  }
+
+  const suggestedGroups = [...bySuggestedPlayer.entries()].map(([playerId, playerGroups]) => {
+    const first = playerGroups[0]!
+    return {
+      key: `suggested-${playerId}`,
+      category: first.category,
+      rawNormalizedValues: playerGroups.map((group) => group.rawNormalized),
+      variants: mergeVariants(playerGroups),
+      count: playerGroups.reduce((sum, group) => sum + group.count, 0),
+      participants: mergeParticipants(playerGroups),
+      suggestion: first.suggestion,
+    }
+  })
+
+  const standaloneGroups = standalone.map((group) => ({
+    key: `raw-${group.rawNormalized}`,
+    category: group.category,
+    rawNormalizedValues: [group.rawNormalized],
+    variants: group.variants,
+    count: group.count,
+    participants: group.participants,
+    suggestion: group.suggestion,
+  }))
+
+  return [...suggestedGroups, ...standaloneGroups]
+    .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key, 'es'))
+}
+
 function GoalsAdminSection({ data, writesDisabled }: { data: SpecialAwardsAdminData; writesDisabled: boolean }) {
   const [state, action] = useActionState(saveGoalScorer, null)
   const [query, setQuery] = useState('')
-  const filteredPlayers = data.players.filter((player) =>
-    `${player.displayName} ${player.countryName}`.toLowerCase().includes(query.toLowerCase())
+  const normalizedQuery = query.trim().toLowerCase()
+  const semifinalistCountryCodes = new Set(['ARG', 'FRA', 'ESP', 'ENG'])
+  const sortPlayers = (players: PlayerOption[]) =>
+    [...players].sort((a, b) => b.goals - a.goals || a.displayName.localeCompare(b.displayName, 'es'))
+  const sortedPlayers = sortPlayers(data.players)
+  const topEight = sortedPlayers.slice(0, 8)
+  const cutoffGoals = topEight.at(-1)?.goals ?? 0
+  const topGeneralScorers = sortedPlayers.filter((player) => player.goals > 0 && player.goals >= cutoffGoals)
+  const semifinalistScorers = sortedPlayers.filter(
+    (player) => player.goals > 0 && semifinalistCountryCodes.has(player.countryCode)
   )
+  const featuredPlayerIds = new Set([...topGeneralScorers, ...semifinalistScorers].map((player) => player.id))
+  const featuredPlayers = sortPlayers(data.players.filter((player) => featuredPlayerIds.has(player.id)))
+  const remainingPlayers = sortPlayers(data.players.filter((player) => !featuredPlayerIds.has(player.id)))
+  const filteredPlayers = normalizedQuery
+    ? sortPlayers(data.players.filter((player) =>
+        `${player.displayName} ${player.countryName} ${player.countryCode}`.toLowerCase().includes(normalizedQuery)
+      ))
+    : []
   const rankedScorers = sharedPositions(data.scorers)
   const botaVotesByPlayerId = new Map(data.canonicalChoices.bota.map((choice) => [choice.playerId, choice.count]))
 
@@ -265,7 +383,7 @@ function GoalsAdminSection({ data, writesDisabled }: { data: SpecialAwardsAdminD
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h3 className="text-[16px] font-extrabold text-white">Catálogo de jugadores</h3>
-            <p className="mt-1 text-[12px] text-muted">Todos los jugadores canónicos, tengan o no goles.</p>
+            <p className="mt-1 text-[12px] text-muted">Vista compacta. El buscador revisa todos los jugadores.</p>
           </div>
           <input
             value={query}
@@ -275,11 +393,37 @@ function GoalsAdminSection({ data, writesDisabled }: { data: SpecialAwardsAdminD
             style={{ border: '1px solid rgba(255,255,255,0.1)' }}
           />
         </div>
-        {filteredPlayers.length === 0 ? (
-          <p className="rounded-[14px] p-4 text-[13px] text-muted" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>No hay jugadores para ese filtro.</p>
-        ) : filteredPlayers.map((player) => (
-          <CatalogPlayerCard key={player.id} player={player} teams={data.teamOptions} writesDisabled={writesDisabled} />
-        ))}
+        {normalizedQuery ? (
+          <PlayerCatalogGrid
+            title="Resultados de búsqueda"
+            empty="No hay jugadores para ese filtro."
+            players={filteredPlayers}
+            teams={data.teamOptions}
+            writesDisabled={writesDisabled}
+          />
+        ) : (
+          <>
+            <PlayerCatalogGrid
+              title="Jugadores destacados"
+              empty="No hay jugadores destacados cargados."
+              players={featuredPlayers}
+              teams={data.teamOptions}
+              writesDisabled={writesDisabled}
+            />
+            <details className="rounded-[14px] p-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <summary className="cursor-pointer text-[12px] font-extrabold uppercase text-orange">Ver resto de jugadores ({remainingPlayers.length})</summary>
+              <div className="mt-3">
+                <PlayerCatalogGrid
+                  title=""
+                  empty="No hay otros jugadores cargados."
+                  players={remainingPlayers}
+                  teams={data.teamOptions}
+                  writesDisabled={writesDisabled}
+                />
+              </div>
+            </details>
+          </>
+        )}
       </div>
 
       <div className="grid gap-2">
@@ -293,7 +437,7 @@ function GoalsAdminSection({ data, writesDisabled }: { data: SpecialAwardsAdminD
             <span className="font-mono text-[18px] font-extrabold text-orange">#{scorer.position}</span>
             <div className="min-w-0">
               <p className="truncate text-[14px] font-extrabold text-white">{scorer.displayName}</p>
-              <p className="mt-1 text-[12px] text-muted"><PlayerFlag countryName={scorer.countryName} /></p>
+              <p className="mt-1 text-[12px] text-muted"><PlayerFlag countryName={scorer.countryName} countryCode={scorer.countryCode} /></p>
             </div>
             <div>
               <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Goles</p>
@@ -311,6 +455,35 @@ function GoalsAdminSection({ data, writesDisabled }: { data: SpecialAwardsAdminD
   )
 }
 
+function PlayerCatalogGrid({
+  title,
+  empty,
+  players,
+  teams,
+  writesDisabled,
+}: {
+  title: string
+  empty: string
+  players: PlayerOption[]
+  teams: TeamOption[]
+  writesDisabled: boolean
+}) {
+  return (
+    <div className="grid gap-2">
+      {title && <p className="text-[12px] font-extrabold uppercase tracking-[0.14em] text-muted">{title}</p>}
+      {players.length === 0 ? (
+        <p className="rounded-[14px] p-4 text-[13px] text-muted" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>{empty}</p>
+      ) : (
+        <div className="grid gap-2 lg:grid-cols-2">
+          {players.map((player) => (
+            <CatalogPlayerCard key={player.id} player={player} teams={teams} writesDisabled={writesDisabled} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function CatalogPlayerCard({ player, teams, writesDisabled }: { player: PlayerOption; teams: TeamOption[]; writesDisabled: boolean }) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -318,18 +491,20 @@ function CatalogPlayerCard({ player, teams, writesDisabled }: { player: PlayerOp
   const [deleteState, deleteAction] = useActionState(deletePlayer, null)
 
   return (
-    <article className="rounded-[14px] p-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
-      <div className="grid gap-3 md:grid-cols-[1fr_90px_auto] md:items-center">
-        <div className="min-w-0">
-          <p className="truncate text-[14px] font-extrabold text-white">{player.displayName}</p>
-          <p className="mt-1 text-[12px] text-muted"><PlayerFlag countryName={player.countryName} /></p>
-          <p className="mt-1 text-[11px] text-muted">{player.goals === 0 ? '0 goles cargados' : `Actualizado: ${player.updatedAt ? new Date(player.updatedAt).toLocaleString('es-AR') : 'sin fecha'}`}</p>
+    <article className="rounded-[12px] p-2.5" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_58px_auto] sm:items-center">
+        <div className="flex min-w-0 items-center gap-2">
+          <TeamFlagImage countryName={player.countryName} countryCode={player.countryCode} label={player.countryName || player.displayName} />
+          <div className="min-w-0">
+            <p className="truncate text-[13px] font-extrabold text-white">{player.displayName}</p>
+            <p className="truncate text-[11px] font-bold text-muted">{player.countryName || 'Sin selección'}</p>
+          </div>
         </div>
-        <div>
+        <div className="sm:text-right">
           <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Goles</p>
-          <p className="font-mono text-[22px] font-extrabold text-white">{player.goals}</p>
+          <p className="font-mono text-[20px] font-extrabold text-white">{player.goals}</p>
         </div>
-        <div className="flex flex-wrap gap-2 md:justify-end">
+        <div className="flex flex-wrap gap-1.5 sm:justify-end">
           <button type="button" onClick={() => setEditOpen((value) => !value)} className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase text-white" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)' }}>
             {editOpen ? 'Cerrar' : 'Editar'}
           </button>
@@ -431,6 +606,7 @@ function AwardNormalizationModule({
     const text = `${group.rawNormalized} ${group.variants.map((variant) => variant.value).join(' ')}`.toLowerCase()
     return text.includes(normalizedQuery)
   })
+  const pendingGroups = groupPendingNormalizations(pending)
 
   return (
     <div className="grid gap-3 rounded-[16px] p-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -460,10 +636,10 @@ function AwardNormalizationModule({
       </div>
       <div className="grid gap-2">
         <p className="text-[12px] font-extrabold uppercase tracking-[0.14em] text-muted">Respuestas pendientes de revisión</p>
-        {pending.length === 0 ? (
+        {pendingGroups.length === 0 ? (
           <p className="rounded-[12px] p-3 text-[12px] text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>No hay respuestas pendientes para este filtro.</p>
-        ) : pending.map((group) => (
-          <NormalizationCard key={`${group.category}-${group.rawNormalized}`} group={group} players={data.players} writesDisabled={writesDisabled} />
+        ) : pendingGroups.map((group) => (
+          <NormalizationCard key={`${group.category}-${group.key}`} group={group} players={data.players} writesDisabled={writesDisabled} />
         ))}
       </div>
     </div>
@@ -501,7 +677,7 @@ function CanonicalChoiceCard({ category, choice, writesDisabled }: { category: S
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-[15px] font-extrabold text-white">{choice.displayName}</p>
-          <p className="mt-1 text-[12px] text-muted"><PlayerFlag countryName={choice.countryName} /></p>
+          <p className="mt-1 text-[12px] text-muted"><PlayerFlag countryName={choice.countryName} countryCode={choice.countryCode} /></p>
         </div>
         <div className="rounded-[12px] px-3 py-2 text-right" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
           <p className="font-mono text-[22px] font-extrabold text-orange">{choice.count}</p>
@@ -622,9 +798,9 @@ function NoMatchGroupCard({ group, writesDisabled }: { group: RawGroup; writesDi
   )
 }
 
-function NormalizationCard({ group, players, writesDisabled }: { group: RawGroup; players: PlayerOption[]; writesDisabled: boolean }) {
+function NormalizationCard({ group, players, writesDisabled }: { group: PendingNormalizationGroup; players: PlayerOption[]; writesDisabled: boolean }) {
   const [state, action] = useActionState(saveNormalization, null)
-  const selectedId = group.playerId ?? (group.suggestion.type === 'single' ? group.suggestion.playerId : '')
+  const selectedId = group.suggestion.type === 'single' ? group.suggestion.playerId : ''
 
   return (
     <article className="rounded-[14px] p-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -633,9 +809,9 @@ function NormalizationCard({ group, players, writesDisabled }: { group: RawGroup
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase text-bg" style={{ background: '#FF6B00' }}>{SPECIAL_AWARD_LABELS[group.category]}</span>
             <span className="rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>{group.count} participantes</span>
-            <span className="rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>{statusLabel(group.status)}</span>
+            <span className="rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>Pendiente</span>
           </div>
-          <p className="mt-2 font-mono text-[12px] text-muted">{group.rawNormalized}</p>
+          <p className="mt-2 font-mono text-[12px] text-muted">{group.rawNormalizedValues.join(', ')}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {group.variants.map((variant) => (
               <span key={variant.value} className="rounded-[10px] px-2.5 py-1 text-[12px] font-bold text-white" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -644,12 +820,11 @@ function NormalizationCard({ group, players, writesDisabled }: { group: RawGroup
             ))}
           </div>
           <p className="mt-2 text-[12px] text-muted">Sugerencia: <span className="text-white">{group.suggestion.label}</span></p>
-          {group.playerId && <p className="mt-1 text-[12px] text-muted">Asignado: <span className="text-white">{group.playerLabel}</span></p>}
           <details className="mt-3 rounded-[10px] p-3" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
             <summary className="cursor-pointer text-[12px] font-extrabold uppercase text-orange">Ver participantes</summary>
             <div className="mt-2 grid gap-2">
               {group.participants.map((participant) => (
-                <div key={participant.userId} className="text-[12px] text-muted">
+                <div key={`${participant.userId}-${participant.rawValue}`} className="text-[12px] text-muted">
                   <span className="font-extrabold text-white">{participant.name}</span> escribió <span className="text-white">{participant.rawValue}</span>
                 </div>
               ))}
@@ -659,7 +834,9 @@ function NormalizationCard({ group, players, writesDisabled }: { group: RawGroup
         <form action={action} className="grid gap-2">
           <fieldset disabled={writesDisabled} className="contents">
           <input type="hidden" name="category" value={group.category} />
-          <input type="hidden" name="raw_normalized" value={group.rawNormalized} />
+          {group.rawNormalizedValues.map((rawNormalized) => (
+            <input key={rawNormalized} type="hidden" name="raw_normalized" value={rawNormalized} />
+          ))}
           <select name="player_id" defaultValue={selectedId} className="w-full rounded-[12px] bg-[#0A0A0A] px-3 py-2 text-[13px] font-bold text-white outline-none" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
             <option value="">Seleccionar jugador</option>
             {players.map((player) => (
@@ -820,7 +997,7 @@ function WinnerRow({ winner, resultId, locked, writesDisabled }: { winner: Award
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-[13px] font-extrabold text-white">{winner.displayName}</p>
-          <p className="text-[12px] text-muted"><PlayerFlag countryName={winner.countryName} /> · {winner.choices > 0 ? `${winner.choices} elecciones` : 'no elegido por participantes'}</p>
+          <p className="text-[12px] text-muted"><PlayerFlag countryName={winner.countryName} countryCode={winner.countryCode} /> · {winner.choices > 0 ? `${winner.choices} elecciones` : 'no elegido por participantes'}</p>
         </div>
         {!locked && resultId && (
           <button type="button" onClick={() => setConfirmOpen((value) => !value)} className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase text-white" style={{ background: 'rgba(255,107,107,0.1)', border: '1px solid rgba(255,107,107,0.24)' }}>
