@@ -1,75 +1,90 @@
-export type TeamMeta = { code: string; flag: string; iso2: string }
+export type TeamMeta = { code: string; displayCode: string; flag: string; iso2: string }
+
+function team(code: string, flag: string, iso2: string, displayCode = code): TeamMeta {
+  return { code, displayCode, flag, iso2 }
+}
 
 const TEAMS: Record<string, TeamMeta> = {
-  'República Checa':      { code: 'CZE', flag: '🇨🇿', iso2: 'cz' },
+  'República Checa':      team('CZE', '🇨🇿', 'cz', 'RCH'),
   // Grupo A
-  'México':               { code: 'MEX', flag: '🇲🇽', iso2: 'mx' },
-  'Sudáfrica':            { code: 'RSA', flag: '🇿🇦', iso2: 'za' },
-  'Corea del Sur':        { code: 'KOR', flag: '🇰🇷', iso2: 'kr' },
-  'Chequia':              { code: 'CZE', flag: '🇨🇿', iso2: 'cz' },
+  'México':               team('MEX', '🇲🇽', 'mx'),
+  'Sudáfrica':            team('RSA', '🇿🇦', 'za', 'SUD'),
+  'Corea del Sur':        team('KOR', '🇰🇷', 'kr', 'CDS'),
   // Grupo B
-  'Canadá':               { code: 'CAN', flag: '🇨🇦', iso2: 'ca' },
-  'Bosnia y Herzegovina': { code: 'BIH', flag: '🇧🇦', iso2: 'ba' },
-  'Qatar':                { code: 'QAT', flag: '🇶🇦', iso2: 'qa' },
-  'Suiza':                { code: 'SUI', flag: '🇨🇭', iso2: 'ch' },
+  'Canadá':               team('CAN', '🇨🇦', 'ca'),
+  'Bosnia y Herzegovina': team('BIH', '🇧🇦', 'ba', 'BYH'),
+  'Qatar':                team('QAT', '🇶🇦', 'qa'),
+  'Suiza':                team('SUI', '🇨🇭', 'ch'),
   // Grupo C
-  'Brasil':               { code: 'BRA', flag: '🇧🇷', iso2: 'br' },
-  'Marruecos':            { code: 'MAR', flag: '🇲🇦', iso2: 'ma' },
-  'Haití':                { code: 'HAI', flag: '🇭🇹', iso2: 'ht' },
-  'Escocia':              { code: 'SCO', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', iso2: 'gb-sct' },
-  'Gales':                { code: 'WAL', flag: '🏴󠁧󠁢󠁷󠁬󠁳󠁿', iso2: 'gb-wls' },
-  'Irlanda del Norte':    { code: 'NIR', flag: '🇬🇧', iso2: 'gb-nir' },
+  'Brasil':               team('BRA', '🇧🇷', 'br'),
+  'Marruecos':            team('MAR', '🇲🇦', 'ma'),
+  'Haití':                team('HAI', '🇭🇹', 'ht'),
+  'Escocia':              team('SCO', '🏴󠁧󠁢󠁳󠁣󠁴󠁿', 'gb-sct', 'ESC'),
+  'Gales':                team('WAL', '🏴󠁧󠁢󠁷󠁬󠁳󠁿', 'gb-wls', 'GAL'),
+  'Irlanda del Norte':    team('NIR', '🇬🇧', 'gb-nir', 'IDN'),
   // Grupo D
-  'Estados Unidos':       { code: 'USA', flag: '🇺🇸', iso2: 'us' },
-  'Paraguay':             { code: 'PAR', flag: '🇵🇾', iso2: 'py' },
-  'Australia':            { code: 'AUS', flag: '🇦🇺', iso2: 'au' },
-  'Turquía':              { code: 'TUR', flag: '🇹🇷', iso2: 'tr' },
+  'Estados Unidos':       team('USA', '🇺🇸', 'us', 'EUA'),
+  'Paraguay':             team('PAR', '🇵🇾', 'py'),
+  'Australia':            team('AUS', '🇦🇺', 'au'),
+  'Turquía':              team('TUR', '🇹🇷', 'tr'),
   // Grupo E
-  'Alemania':             { code: 'GER', flag: '🇩🇪', iso2: 'de' },
-  'Curazao':              { code: 'CUW', flag: '🇨🇼', iso2: 'cw' },
-  'Costa de Marfil':      { code: 'CIV', flag: '🇨🇮', iso2: 'ci' },
-  'Ecuador':              { code: 'ECU', flag: '🇪🇨', iso2: 'ec' },
+  'Alemania':             team('GER', '🇩🇪', 'de', 'ALE'),
+  'Curazao':              team('CUW', '🇨🇼', 'cw', 'CUR'),
+  'Costa de Marfil':      team('CIV', '🇨🇮', 'ci', 'CDM'),
+  'Ecuador':              team('ECU', '🇪🇨', 'ec'),
   // Grupo F
-  'Países Bajos':         { code: 'NED', flag: '🇳🇱', iso2: 'nl' },
-  'Japón':                { code: 'JPN', flag: '🇯🇵', iso2: 'jp' },
-  'Suecia':               { code: 'SWE', flag: '🇸🇪', iso2: 'se' },
-  'Túnez':                { code: 'TUN', flag: '🇹🇳', iso2: 'tn' },
+  'Países Bajos':         team('NED', '🇳🇱', 'nl', 'HOL'),
+  'Japón':                team('JPN', '🇯🇵', 'jp', 'JAP'),
+  'Suecia':               team('SWE', '🇸🇪', 'se', 'SUE'),
+  'Túnez':                team('TUN', '🇹🇳', 'tn'),
   // Grupo G
-  'Bélgica':              { code: 'BEL', flag: '🇧🇪', iso2: 'be' },
-  'Egipto':               { code: 'EGY', flag: '🇪🇬', iso2: 'eg' },
-  'Irán':                 { code: 'IRN', flag: '🇮🇷', iso2: 'ir' },
-  'Nueva Zelanda':        { code: 'NZL', flag: '🇳🇿', iso2: 'nz' },
+  'Bélgica':              team('BEL', '🇧🇪', 'be'),
+  'Egipto':               team('EGY', '🇪🇬', 'eg', 'EGI'),
+  'Irán':                 team('IRN', '🇮🇷', 'ir'),
+  'Nueva Zelanda':        team('NZL', '🇳🇿', 'nz'),
   // Grupo H
-  'España':               { code: 'ESP', flag: '🇪🇸', iso2: 'es' },
-  'Cabo Verde':           { code: 'CPV', flag: '🇨🇻', iso2: 'cv' },
-  'Arabia Saudita':       { code: 'KSA', flag: '🇸🇦', iso2: 'sa' },
-  'Uruguay':              { code: 'URU', flag: '🇺🇾', iso2: 'uy' },
+  'España':               team('ESP', '🇪🇸', 'es'),
+  'Cabo Verde':           team('CPV', '🇨🇻', 'cv', 'CVE'),
+  'Arabia Saudita':       team('KSA', '🇸🇦', 'sa', 'ASA'),
+  'Uruguay':              team('URU', '🇺🇾', 'uy'),
   // Grupo I
-  'Francia':              { code: 'FRA', flag: '🇫🇷', iso2: 'fr' },
-  'Senegal':              { code: 'SEN', flag: '🇸🇳', iso2: 'sn' },
-  'Irak':                 { code: 'IRQ', flag: '🇮🇶', iso2: 'iq' },
-  'Noruega':              { code: 'NOR', flag: '🇳🇴', iso2: 'no' },
+  'Francia':              team('FRA', '🇫🇷', 'fr'),
+  'Senegal':              team('SEN', '🇸🇳', 'sn'),
+  'Irak':                 team('IRQ', '🇮🇶', 'iq', 'IRK'),
+  'Noruega':              team('NOR', '🇳🇴', 'no'),
   // Grupo J
-  'Argentina':            { code: 'ARG', flag: '🇦🇷', iso2: 'ar' },
-  'Argelia':              { code: 'ALG', flag: '🇩🇿', iso2: 'dz' },
-  'Austria':              { code: 'AUT', flag: '🇦🇹', iso2: 'at' },
-  'Jordania':             { code: 'JOR', flag: '🇯🇴', iso2: 'jo' },
+  'Argentina':            team('ARG', '🇦🇷', 'ar'),
+  'Argelia':              team('ALG', '🇩🇿', 'dz'),
+  'Austria':              team('AUT', '🇦🇹', 'at'),
+  'Jordania':             team('JOR', '🇯🇴', 'jo'),
   // Grupo K
-  'Portugal':             { code: 'POR', flag: '🇵🇹', iso2: 'pt' },
-  'Colombia':             { code: 'COL', flag: '🇨🇴', iso2: 'co' },
-  'Uzbekistán':           { code: 'UZB', flag: '🇺🇿', iso2: 'uz' },
-  'RD Congo':             { code: 'COD', flag: '🇨🇩', iso2: 'cd' },
+  'Portugal':             team('POR', '🇵🇹', 'pt'),
+  'Colombia':             team('COL', '🇨🇴', 'co'),
+  'Uzbekistán':           team('UZB', '🇺🇿', 'uz'),
+  'RD Congo':             team('COD', '🇨🇩', 'cd', 'RDC'),
   // Grupo L
-  'Inglaterra':           { code: 'ENG', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', iso2: 'gb-eng' },
-  'Croacia':              { code: 'CRO', flag: '🇭🇷', iso2: 'hr' },
-  'Ghana':                { code: 'GHA', flag: '🇬🇭', iso2: 'gh' },
-  'Panamá':               { code: 'PAN', flag: '🇵🇦', iso2: 'pa' },
+  'Inglaterra':           team('ENG', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'gb-eng', 'ING'),
+  'Croacia':              team('CRO', '🇭🇷', 'hr'),
+  'Ghana':                team('GHA', '🇬🇭', 'gh'),
+  'Panamá':               team('PAN', '🇵🇦', 'pa'),
+}
+
+const TEAM_ALIASES: Record<string, string> = {
+  Chequia: 'República Checa',
+  Czechia: 'República Checa',
 }
 
 export const TEAM_NAMES = Object.keys(TEAMS)
 
 export function getTeam(name: string): TeamMeta {
-  return TEAMS[name] ?? { code: name.slice(0, 3).toUpperCase(), flag: '🏳️', iso2: '' }
+  const technicalCode = name.slice(0, 3).toUpperCase()
+  const canonicalName = TEAM_ALIASES[name] ?? name
+  return TEAMS[canonicalName] ?? { code: technicalCode, displayCode: technicalCode, flag: '🌐', iso2: '' }
+}
+
+export function getTeamDisplayCode(name: string): string {
+  const team = getTeam(name)
+  return team.displayCode || team.code
 }
 
 export function flagUrl(iso2: string) {

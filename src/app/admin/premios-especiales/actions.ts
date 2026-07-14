@@ -531,7 +531,7 @@ export async function saveNormalization(
 
     if (error) throw new Error(error.message)
     revalidateAdminSpecialAwards()
-    return result(true, status === 'matched' ? 'Normalización guardada.' : status === 'no_match' ? 'Marcado como sin coincidencia.' : 'Vuelto a revisión.')
+    return result(true, status === 'matched' ? 'Jugador confirmado.' : status === 'no_match' ? 'Marcado como sin coincidencia.' : 'La variante volvió a quedar pendiente de revisión.')
   } catch (error) {
     return actionError(error)
   }

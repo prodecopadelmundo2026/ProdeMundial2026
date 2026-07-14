@@ -257,7 +257,7 @@ export default async function RankingPage() {
             <em className="not-italic italic" style={{ color: '#FF6B00' }}>Ranking</em>
           </h1>
           <p className="font-mono text-[13px] font-bold text-muted tracking-[0.04em] mt-[14px]">
-            Mundial 2026 · USA · Canadá · México
+            Mundial 2026 · Estados Unidos · Canadá · México
           </p>
           <p className="mt-4 max-w-[620px] text-[13px] font-medium leading-relaxed text-muted">
             Tocá cualquier Prode para ver pronósticos, aciertos, errores y puntos partido por partido.

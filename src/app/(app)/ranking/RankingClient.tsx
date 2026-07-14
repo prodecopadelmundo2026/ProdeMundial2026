@@ -5,7 +5,7 @@ import type { ReactNode, RefObject } from 'react'
 import Link from 'next/link'
 import type { RankingEntry } from '@/types'
 import { formatRank, hasPrizeTie, rankMedal } from '@/lib/ranking-display'
-import { flagUrl, getTeam } from '@/lib/teams'
+import { flagUrl, getTeam, getTeamDisplayCode } from '@/lib/teams'
 
 type PodiumPredictionPreview = {
   match: {
@@ -30,25 +30,6 @@ const SCORING_NOTICE_STORAGE_KEY = 'ranking-knockout-scoring-notice-v1'
 
 function initials(name: string): string {
   return name.trim()[0]?.toUpperCase() ?? '?'
-}
-
-function clearTeamAbbreviation(name: string): string {
-  const normalized = name
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9\s]/g, ' ')
-    .trim()
-
-  if (!normalized) return '?'
-
-  const words = normalized.split(/\s+/).filter(Boolean)
-  if (words.length === 1) return words[0].slice(0, 3).toUpperCase()
-
-  return words
-    .map((word) => word[0])
-    .join('')
-    .slice(0, 3)
-    .toUpperCase()
 }
 
 function TeamPredictionMarker({ name }: { name: string }) {
@@ -76,7 +57,7 @@ function TeamPredictionMarker({ name }: { name: string }) {
       className="inline-flex h-6 w-8 shrink-0 items-center justify-center overflow-hidden rounded-[4px] font-mono text-[8px] font-extrabold uppercase leading-none tracking-[0.02em]"
       style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: '#ffffff' }}
     >
-      {clearTeamAbbreviation(name)}
+      {getTeamDisplayCode(name)}
     </span>
   )
 }
@@ -401,7 +382,13 @@ export function RankingClient({
   const podiumEntries = podiumGroups.flatMap((group) => group.entries)
 
   useEffect(() => {
-    setShowScoringNotice(window.localStorage.getItem(SCORING_NOTICE_STORAGE_KEY) !== 'dismissed')
+    const timeoutId = window.setTimeout(() => {
+      setShowScoringNotice(
+        window.localStorage.getItem(SCORING_NOTICE_STORAGE_KEY) !== 'dismissed'
+      )
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [])
 
   useEffect(() => {

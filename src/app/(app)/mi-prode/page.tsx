@@ -246,7 +246,7 @@ export default async function MiProdePage() {
             Mi <em className="not-italic italic" style={{ color: '#FF6B00' }}>Prode</em>
           </h1>
           <p className="font-mono text-[12px] font-bold text-muted tracking-[0.04em] mt-[8px]">
-            Mundial 2026 · USA · Canadá · México
+            Mundial 2026 · Estados Unidos · Canadá · México
           </p>
           </div>
           {prodeLock.locked && (

@@ -1,5 +1,39 @@
 # Worklog
 
+## 2026-07-14 - Premios especiales admin y métricas Home
+
+### Objetivo
+
+Mejorar la herramienta admin de premios especiales sin tocar scoring, ranking, migraciones ni respuestas originales.
+
+### Cambios
+
+- La Home muestra partidos jugados como `100 / 104` y los premios con `$` alineado al importe.
+- El admin agrupa elecciones por jugador canónico y premio, no por variante escrita.
+- Se agregan detalles desplegables de participantes y respuesta original exacta.
+- Se separan visualmente Bota de Oro, Balón de Oro y Guante de Oro.
+- La tabla de goleadores queda manual e informativa, sin campos visibles de fuente o URL.
+- Se traducen estados y acciones visibles de normalización.
+- Se normaliza el render de banderas con caja estable.
+- Las normalizaciones confirmadas conservan sus grupos por `raw_normalized`.
+- Cada grupo confirmado puede volver a pendiente sin modificar `special_bets`.
+- Las respuestas `Sin coincidencia` permanecen visibles, auditables y reversibles.
+- Se eliminó la acción redundante `Dejar pendiente` de respuestas ya pendientes.
+- Se separaron los códigos técnicos de selecciones de las abreviaturas visibles mediante `displayCode`.
+- Fixture mobile, bracket compacto y fallback del ranking usan el helper centralizado.
+- República Checa queda como nombre visible principal; Chequia y Czechia solo como aliases internos.
+- Los headers públicos muestran `Estados Unidos · Canadá · México`.
+- Los códigos técnicos guardados y `country_code` permanecen sin cambios.
+
+### Validación
+
+- `npx eslint` dirigido a archivos modificados: OK.
+- `npx tsc --noEmit --pretty false`: OK.
+- `git diff --check`: OK, salvo avisos CRLF de Windows.
+- No se ejecutó build.
+- No se hizo commit ni push.
+- No se consultó ni modificó Supabase remoto.
+
 ## 2026-07-11 - Premios especiales Etapa 3 admin
 
 ### Objetivo

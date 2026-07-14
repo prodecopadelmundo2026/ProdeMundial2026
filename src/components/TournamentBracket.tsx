@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { Match } from '@/types'
-import { getTeam, flagUrl } from '@/lib/teams'
+import { getTeam, flagUrl, getTeamDisplayCode } from '@/lib/teams'
 import { buildOfficialGroupScoreMap } from '@/lib/group-standings'
 import {
   computeAllStandings,
@@ -119,19 +119,6 @@ const COMPACT_CARD_W = 122
 const COMPACT_COL_GAP = 9
 
 type BracketSide = 'left' | 'right' | 'center'
-
-const COMPACT_TEAM_NAMES: Record<string, string> = {
-  'Arabia Saudita': 'Arabia S.',
-  'Bosnia y Herzegovina': 'Bosnia H.',
-  'Cabo Verde': 'C. Verde',
-  'Corea del Sur': 'Corea Sur',
-  'Costa de Marfil': 'Costa Marfil',
-  'Estados Unidos': 'EE.UU.',
-  'Nueva Zelanda': 'N. Zelanda',
-  'Países Bajos': 'P. Bajos',
-  'República Checa': 'R. Checa',
-  'RD Congo': 'R.D. Congo',
-}
 
 function cardCenterY(pos: number, round: 'd32' | 'oct' | 'qf' | 'semi' | 'final'): number {
   const mul = round === 'd32' ? 1 : round === 'oct' ? 2 : round === 'qf' ? 4 : round === 'semi' ? 8 : 8
@@ -334,8 +321,8 @@ function TeamRow({
 }) {
   const candidates = candidateList(name)
   const candidateName = candidateDisplayName(name)
-  const displayName = compact ? (COMPACT_TEAM_NAMES[candidateName] ?? candidateName) : candidateName
   const fullTitle = candidates.length > 1 ? `Pueden quedar acá: ${candidates.join(', ')}` : undefined
+  const displayName = compact && !fullTitle ? getTeamDisplayCode(candidateName) : candidateName
   const meta = !isPH ? getTeam(name) : null
   const statusStyle = bracketTeamStatusStyle(status)
 

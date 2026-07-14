@@ -125,7 +125,7 @@ export default function PremiosPage() {
             Podio de <em className="italic text-orange">premios</em>
           </h1>
           <p className="mt-[14px] font-mono text-[13px] font-bold tracking-[0.04em] text-muted">
-            Mundial 2026 · USA · Canadá · México
+            Mundial 2026 · Estados Unidos · Canadá · México
           </p>
         </div>
 

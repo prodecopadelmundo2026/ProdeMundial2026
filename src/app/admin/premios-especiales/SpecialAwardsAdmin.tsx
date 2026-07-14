@@ -22,8 +22,6 @@ type PlayerOption = {
   countryName: string
   countryCode: string
   goals: number
-  sourceNote: string | null
-  sourceUrl: string | null
   updatedAt: string | null
 }
 
@@ -40,8 +38,6 @@ type ScorerRow = {
   countryName: string
   countryCode: string
   goals: number
-  sourceNote: string | null
-  sourceUrl: string | null
   updatedAt: string | null
 }
 
@@ -55,6 +51,12 @@ type RawGroup = {
   playerId: string | null
   playerLabel: string
   reviewedAt: string | null
+  participants: Array<{
+    userId: string
+    name: string
+    email: string | null
+    rawValue: string
+  }>
   suggestion:
     | { type: 'single'; playerId: string; label: string }
     | { type: 'ambiguous'; label: string }
@@ -67,6 +69,34 @@ type CandidateSummaryItem = {
   countryName: string
   countryCode: string
   count: number
+}
+
+type CanonicalParticipant = {
+  userId: string
+  name: string
+  email: string | null
+  rawValue: string
+  category: SpecialAwardCategory
+  playerLabel: string
+  status: 'matched'
+}
+
+type CanonicalGroup = {
+  rawNormalized: string
+  variants: Array<{ value: string; count: number }>
+  participants: CanonicalParticipant[]
+}
+
+type CanonicalChoice = {
+  playerId: string
+  displayName: string
+  countryName: string
+  countryCode: string
+  count: number
+  crossAwardCount: number
+  variants: Array<{ value: string; count: number }>
+  participants: CanonicalParticipant[]
+  groups: CanonicalGroup[]
 }
 
 type AwardResult = {
@@ -89,6 +119,7 @@ export type SpecialAwardsAdminData = {
   players: PlayerOption[]
   scorers: ScorerRow[]
   rawGroups: RawGroup[]
+  canonicalChoices: Record<SpecialAwardCategory, CanonicalChoice[]>
   candidateSummaries: Record<SpecialAwardCategory, {
     items: CandidateSummaryItem[]
     pendingCount: number
@@ -164,7 +195,14 @@ function TeamSelect({
 function PlayerFlag({ countryName }: { countryName: string }) {
   if (!countryName) return <span className="text-muted">Sin selección</span>
   const team = getTeam(countryName)
-  return <span className="inline-flex items-center gap-1">{team.flag} {countryName}</span>
+  return (
+    <span className="inline-flex min-w-0 items-center gap-2">
+      <span className="grid h-[18px] w-[26px] shrink-0 place-items-center overflow-hidden rounded-[3px] bg-white/10 text-[15px]">
+        {team.flag}
+      </span>
+      <span className="min-w-0 truncate">{countryName}</span>
+    </span>
+  )
 }
 
 function sharedPositions(scorers: ScorerRow[]) {
@@ -179,6 +217,12 @@ function sharedPositions(scorers: ScorerRow[]) {
   })
 }
 
+function statusLabel(status: RawGroup['status'] | 'matched') {
+  if (status === 'matched') return 'Confirmado'
+  if (status === 'no_match') return 'Sin coincidencia'
+  return 'Pendiente'
+}
+
 function GoalsAdminSection({ data, writesDisabled }: { data: SpecialAwardsAdminData; writesDisabled: boolean }) {
   const [state, action] = useActionState(saveGoalScorer, null)
   const [query, setQuery] = useState('')
@@ -186,6 +230,7 @@ function GoalsAdminSection({ data, writesDisabled }: { data: SpecialAwardsAdminD
     `${player.displayName} ${player.countryName}`.toLowerCase().includes(query.toLowerCase())
   )
   const rankedScorers = sharedPositions(data.scorers)
+  const botaVotesByPlayerId = new Map(data.canonicalChoices.bota.map((choice) => [choice.playerId, choice.count]))
 
   return (
     <section id="tabla-goleadores" className="grid gap-4 rounded-[16px] p-4" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -197,7 +242,7 @@ function GoalsAdminSection({ data, writesDisabled }: { data: SpecialAwardsAdminD
 
       <form action={action} className="grid gap-3 rounded-[14px] p-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
         <fieldset disabled={writesDisabled} className="contents">
-          <p className="text-[12px] font-extrabold text-white">Crear jugador</p>
+          <p className="text-[12px] font-extrabold text-white">Agregar jugador</p>
           <div className="grid gap-3 md:grid-cols-[1.2fr_1fr_110px]">
             <label className="grid gap-1">
               <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Jugador</span>
@@ -209,13 +254,9 @@ function GoalsAdminSection({ data, writesDisabled }: { data: SpecialAwardsAdminD
               <input name="goals" type="number" inputMode="numeric" min={0} step={1} required defaultValue={0} className="w-full rounded-[12px] bg-[#0A0A0A] px-3 py-2 text-[13px] font-bold text-white outline-none" style={{ border: '1px solid rgba(255,255,255,0.1)' }} />
             </label>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <input name="source_note" placeholder="Nota o fuente" className="w-full rounded-[12px] bg-[#0A0A0A] px-3 py-2 text-[13px] font-bold text-white outline-none" style={{ border: '1px solid rgba(255,255,255,0.1)' }} />
-            <input name="source_url" type="url" placeholder="URL de fuente" className="w-full rounded-[12px] bg-[#0A0A0A] px-3 py-2 text-[13px] font-bold text-white outline-none" style={{ border: '1px solid rgba(255,255,255,0.1)' }} />
-          </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <ActionMessage state={state} />
-            <SubmitButton idle="Crear jugador" pending="Guardando..." disabled={writesDisabled} />
+            <SubmitButton idle="Agregar jugador" pending="Guardando..." disabled={writesDisabled} />
           </div>
         </fieldset>
       </form>
@@ -248,7 +289,7 @@ function GoalsAdminSection({ data, writesDisabled }: { data: SpecialAwardsAdminD
             Todavía no hay goleadores cargados con goles mayores a 0.
           </p>
         ) : rankedScorers.map((scorer) => (
-          <div key={scorer.id} className="grid gap-3 rounded-[14px] p-3 md:grid-cols-[48px_1fr_90px_1fr]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div key={scorer.id} className="grid gap-3 rounded-[14px] p-3 md:grid-cols-[48px_1fr_90px_90px_120px]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
             <span className="font-mono text-[18px] font-extrabold text-orange">#{scorer.position}</span>
             <div className="min-w-0">
               <p className="truncate text-[14px] font-extrabold text-white">{scorer.displayName}</p>
@@ -258,9 +299,11 @@ function GoalsAdminSection({ data, writesDisabled }: { data: SpecialAwardsAdminD
               <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Goles</p>
               <p className="font-mono text-[22px] font-extrabold text-white">{scorer.goals}</p>
             </div>
-            <p className="text-[12px] text-muted">
-              {scorer.sourceUrl ? <a className="text-orange underline" href={scorer.sourceUrl} target="_blank" rel="noreferrer">{scorer.sourceNote || 'Fuente'}</a> : scorer.sourceNote || 'Sin fuente'}
-            </p>
+            <div>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Votos</p>
+              <p className="font-mono text-[22px] font-extrabold text-white">{botaVotesByPlayerId.get(scorer.playerId) ?? 0}</p>
+            </div>
+            <p className="text-[12px] font-bold text-muted">Editar desde el catálogo</p>
           </div>
         ))}
       </div>
@@ -305,10 +348,6 @@ function CatalogPlayerCard({ player, teams, writesDisabled }: { player: PlayerOp
             <TeamSelect teams={teams} defaultName={player.countryName} />
             <input name="goals" type="number" min={0} step={1} required defaultValue={player.goals} className="w-full rounded-[12px] bg-[#050505] px-3 py-2 text-[13px] font-bold text-white outline-none" style={{ border: '1px solid rgba(255,255,255,0.1)' }} />
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <input name="source_note" defaultValue={player.sourceNote ?? ''} placeholder="Nota o fuente" className="w-full rounded-[12px] bg-[#050505] px-3 py-2 text-[13px] font-bold text-white outline-none" style={{ border: '1px solid rgba(255,255,255,0.1)' }} />
-            <input name="source_url" type="url" defaultValue={player.sourceUrl ?? ''} placeholder="URL de fuente" className="w-full rounded-[12px] bg-[#050505] px-3 py-2 text-[13px] font-bold text-white outline-none" style={{ border: '1px solid rgba(255,255,255,0.1)' }} />
-          </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <ActionMessage state={saveState} />
             <SubmitButton idle="Guardar cambios" pending="Guardando..." disabled={writesDisabled} />
@@ -337,12 +376,7 @@ function CatalogPlayerCard({ player, teams, writesDisabled }: { player: PlayerOp
 }
 
 function NormalizationSection({ data, writesDisabled }: { data: SpecialAwardsAdminData; writesDisabled: boolean }) {
-  const [category, setCategory] = useState<SpecialAwardCategory>('balon')
   const [query, setQuery] = useState('')
-  const filtered = data.rawGroups.filter((group) => {
-    const text = `${group.rawNormalized} ${group.variants.map((variant) => variant.value).join(' ')}`.toLowerCase()
-    return group.category === category && text.includes(query.toLowerCase())
-  })
 
   return (
     <section id="normalizacion" className="grid gap-4 rounded-[16px] p-4" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -352,49 +386,239 @@ function NormalizationSection({ data, writesDisabled }: { data: SpecialAwardsAdm
         <p className="mt-1 text-[12px] text-muted">Se lee <code>special_bets</code> sin modificarlo. Las decisiones se guardan aparte.</p>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[1fr_1fr]">
-        <div className="flex flex-wrap gap-2">
-          {SPECIAL_AWARD_CATEGORIES.map((item) => (
-            <button key={item} type="button" onClick={() => setCategory(item)} className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase" style={{ background: category === item ? '#FF6B00' : '#141414', color: category === item ? '#0A0A0A' : '#cfcfcf', border: '1px solid rgba(255,255,255,0.1)' }}>
-              {SPECIAL_AWARD_LABELS[item]}
-            </button>
-          ))}
-        </div>
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar texto o variante" className="w-full rounded-[12px] bg-[#141414] px-3 py-2 text-[13px] font-bold text-white outline-none" style={{ border: '1px solid rgba(255,255,255,0.1)' }} />
-      </div>
+      <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar texto o variante" className="w-full rounded-[12px] bg-[#141414] px-3 py-2 text-[13px] font-bold text-white outline-none" style={{ border: '1px solid rgba(255,255,255,0.1)' }} />
 
-      <CandidateSummary data={data} category={category} />
-
-      <div className="grid gap-2">
-        {filtered.length === 0 ? (
-          <p className="rounded-[14px] p-4 text-[13px] text-muted" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>No hay respuestas para este filtro.</p>
-        ) : filtered.map((group) => (
-          <NormalizationCard key={`${group.category}-${group.rawNormalized}`} group={group} players={data.players} writesDisabled={writesDisabled} />
-        ))}
-      </div>
+      {SPECIAL_AWARD_CATEGORIES.map((category) => (
+        <AwardNormalizationModule
+          key={category}
+          category={category}
+          data={data}
+          query={query}
+          writesDisabled={writesDisabled}
+        />
+      ))}
     </section>
   )
 }
 
-function CandidateSummary({ data, category }: { data: SpecialAwardsAdminData; category: SpecialAwardCategory }) {
+function AwardNormalizationModule({
+  category,
+  data,
+  query,
+  writesDisabled,
+}: {
+  category: SpecialAwardCategory
+  data: SpecialAwardsAdminData
+  query: string
+  writesDisabled: boolean
+}) {
   const summary = data.candidateSummaries[category]
+  const normalizedQuery = query.trim().toLowerCase()
+  const choices = data.canonicalChoices[category].filter((choice) => {
+    if (!normalizedQuery) return true
+    const text = `${choice.displayName} ${choice.countryName} ${choice.groups.map((group) => `${group.rawNormalized} ${group.variants.map((variant) => variant.value).join(' ')}`).join(' ')}`.toLowerCase()
+    return text.includes(normalizedQuery)
+  })
+  const noMatch = data.rawGroups.filter((group) => {
+    if (group.category !== category || group.status !== 'no_match') return false
+    if (!normalizedQuery) return true
+    const text = `${group.rawNormalized} ${group.variants.map((variant) => variant.value).join(' ')}`.toLowerCase()
+    return text.includes(normalizedQuery)
+  })
+  const pending = data.rawGroups.filter((group) => {
+    if (group.category !== category || group.status !== 'review') return false
+    if (!normalizedQuery) return true
+    const text = `${group.rawNormalized} ${group.variants.map((variant) => variant.value).join(' ')}`.toLowerCase()
+    return text.includes(normalizedQuery)
+  })
+
   return (
-    <div className="rounded-[14px] p-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+    <div className="grid gap-3 rounded-[16px] p-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div>
+        <h3 className="text-[18px] font-extrabold text-white">{SPECIAL_AWARD_LABELS[category]}</h3>
+        <p className="mt-1 text-[12px] text-muted">Votos agrupados por jugador canónico, sin mezclar premios.</p>
+      </div>
       <div className="flex flex-wrap gap-2 text-[11px] font-extrabold uppercase">
         <span className="rounded-full px-3 py-1.5 text-[#A8F0D8]" style={{ background: 'rgba(168,240,216,0.1)' }}>Pendientes: {summary.pendingCount}</span>
-        <span className="rounded-full px-3 py-1.5 text-[#FFB15C]" style={{ background: 'rgba(255,177,92,0.1)' }}>No match: {summary.noMatchCount}</span>
+        <span className="rounded-full px-3 py-1.5 text-[#FFB15C]" style={{ background: 'rgba(255,177,92,0.1)' }}>Sin coincidencia: {summary.noMatchCount}</span>
       </div>
-      <div className="mt-3 grid gap-2 md:grid-cols-2">
-        {summary.items.length === 0 ? (
-          <p className="text-[12px] text-muted">Todavía no hay candidatos matched para esta categoría.</p>
-        ) : summary.items.map((item) => (
-          <div key={item.playerId} className="flex items-center justify-between gap-3 rounded-[10px] px-3 py-2" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <span className="min-w-0 truncate text-[13px] font-extrabold text-white">{item.displayName}</span>
-            <span className="shrink-0 font-mono text-[12px] text-orange">{item.count} elecciones</span>
-          </div>
+      <div className="grid gap-2">
+        <p className="text-[12px] font-extrabold uppercase tracking-[0.14em] text-muted">Jugadores canónicos confirmados</p>
+        {choices.length === 0 ? (
+          <p className="rounded-[12px] p-3 text-[12px] text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>Todavía no hay jugadores confirmados para este premio.</p>
+        ) : choices.map((choice) => (
+          <CanonicalChoiceCard key={choice.playerId} category={category} choice={choice} writesDisabled={writesDisabled} />
+        ))}
+      </div>
+      <div className="grid gap-2">
+        <p className="text-[12px] font-extrabold uppercase tracking-[0.14em] text-muted">Respuestas sin coincidencia</p>
+        {noMatch.length === 0 ? (
+          <p className="rounded-[12px] p-3 text-[12px] text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>No hay respuestas sin coincidencia.</p>
+        ) : noMatch.map((group) => (
+          <NoMatchGroupCard key={`${group.category}-${group.rawNormalized}`} group={group} writesDisabled={writesDisabled} />
+        ))}
+      </div>
+      <div className="grid gap-2">
+        <p className="text-[12px] font-extrabold uppercase tracking-[0.14em] text-muted">Respuestas pendientes de revisión</p>
+        {pending.length === 0 ? (
+          <p className="rounded-[12px] p-3 text-[12px] text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>No hay respuestas pendientes para este filtro.</p>
+        ) : pending.map((group) => (
+          <NormalizationCard key={`${group.category}-${group.rawNormalized}`} group={group} players={data.players} writesDisabled={writesDisabled} />
         ))}
       </div>
     </div>
+  )
+}
+
+function ReviewNormalizationForm({
+  category,
+  rawNormalized,
+  writesDisabled,
+}: {
+  category: SpecialAwardCategory
+  rawNormalized: string
+  writesDisabled: boolean
+}) {
+  const [state, action] = useActionState(saveNormalization, null)
+
+  return (
+    <form action={action} className="grid gap-2">
+      <fieldset disabled={writesDisabled} className="contents">
+        <input type="hidden" name="category" value={category} />
+        <input type="hidden" name="raw_normalized" value={rawNormalized} />
+        <button disabled={writesDisabled} name="status" value="review" className="rounded-full px-3 py-2 text-[10px] font-extrabold uppercase text-white disabled:opacity-50" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)' }}>
+          Volver a pendiente
+        </button>
+        <ActionMessage state={state} />
+      </fieldset>
+    </form>
+  )
+}
+
+function CanonicalChoiceCard({ category, choice, writesDisabled }: { category: SpecialAwardCategory; choice: CanonicalChoice; writesDisabled: boolean }) {
+  return (
+    <article className="grid gap-3 rounded-[14px] p-3" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-[15px] font-extrabold text-white">{choice.displayName}</p>
+          <p className="mt-1 text-[12px] text-muted"><PlayerFlag countryName={choice.countryName} /></p>
+        </div>
+        <div className="rounded-[12px] px-3 py-2 text-right" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <p className="font-mono text-[22px] font-extrabold text-orange">{choice.count}</p>
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">votos</p>
+        </div>
+      </div>
+      {choice.crossAwardCount > 0 && (
+        <p className="rounded-[10px] px-3 py-2 text-[12px] font-bold text-muted" style={{ background: 'rgba(168,240,216,0.08)', border: '1px solid rgba(168,240,216,0.18)' }}>
+          {choice.crossAwardCount} participantes también lo eligieron en otro premio.
+        </p>
+      )}
+      <div className="grid gap-2">
+        {choice.groups.map((group) => (
+          <CanonicalGroupCard key={`${category}-${group.rawNormalized}`} category={category} group={group} playerLabel={`${choice.displayName}${choice.countryName ? ` - ${choice.countryName}` : ''}`} writesDisabled={writesDisabled} />
+        ))}
+      </div>
+    </article>
+  )
+}
+
+function CanonicalGroupCard({
+  category,
+  group,
+  playerLabel,
+  writesDisabled,
+}: {
+  category: SpecialAwardCategory
+  group: CanonicalGroup
+  playerLabel: string
+  writesDisabled: boolean
+}) {
+  return (
+    <div className="grid gap-3 rounded-[12px] p-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
+        <div className="min-w-0">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted">Grupo normalizado</p>
+          <p className="mt-1 font-mono text-[12px] text-white">{group.rawNormalized}</p>
+          <p className="mt-1 text-[12px] text-muted">Jugador canónico actual: <span className="text-white">{playerLabel}</span></p>
+        </div>
+        <ReviewNormalizationForm category={category} rawNormalized={group.rawNormalized} writesDisabled={writesDisabled} />
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {group.variants.map((variant) => (
+          <span key={variant.value} className="rounded-[10px] px-2.5 py-1 text-[12px] font-bold text-white" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
+            {variant.value} <span className="text-muted">x{variant.count}</span>
+          </span>
+        ))}
+      </div>
+      <ParticipantDetails
+        label={`Ver ${group.participants.length} participantes`}
+        participants={group.participants}
+        category={category}
+      />
+    </div>
+  )
+}
+
+function ParticipantDetails({
+  label,
+  participants,
+  category,
+}: {
+  label: string
+  participants: CanonicalParticipant[]
+  category: SpecialAwardCategory
+}) {
+  return (
+    <details className="rounded-[12px] p-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <summary className="cursor-pointer text-[12px] font-extrabold uppercase text-orange">{label}</summary>
+      <div className="mt-3 grid gap-2">
+        {participants.map((participant) => (
+          <div key={`${participant.userId}-${participant.rawValue}`} className="grid gap-1 rounded-[10px] px-3 py-2 text-[12px]" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <p className="font-extrabold text-white">{participant.name}</p>
+            <p className="text-muted">Escribió: <span className="text-white">{participant.rawValue}</span></p>
+            <p className="text-muted">Premio: <span className="text-white">{SPECIAL_AWARD_LABELS[category]}</span></p>
+            <p className="text-muted">Jugador canónico: <span className="text-white">{participant.playerLabel}</span></p>
+            <p className="text-muted">Estado: <span className="text-white">{statusLabel(participant.status)}</span></p>
+          </div>
+        ))}
+      </div>
+    </details>
+  )
+}
+
+function NoMatchGroupCard({ group, writesDisabled }: { group: RawGroup; writesDisabled: boolean }) {
+  return (
+    <article className="grid gap-3 rounded-[14px] p-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="grid gap-3 lg:grid-cols-[1fr_180px]">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase text-bg" style={{ background: '#FF6B00' }}>{SPECIAL_AWARD_LABELS[group.category]}</span>
+            <span className="rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>{group.count} participantes</span>
+            <span className="rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase text-[#FFB15C]" style={{ background: 'rgba(255,177,92,0.1)', border: '1px solid rgba(255,177,92,0.2)' }}>Sin coincidencia</span>
+          </div>
+          <p className="mt-2 font-mono text-[12px] text-white">{group.rawNormalized}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {group.variants.map((variant) => (
+              <span key={variant.value} className="rounded-[10px] px-2.5 py-1 text-[12px] font-bold text-white" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
+                {variant.value} <span className="text-muted">x{variant.count}</span>
+              </span>
+            ))}
+          </div>
+          <details className="mt-3 rounded-[10px] p-3" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <summary className="cursor-pointer text-[12px] font-extrabold uppercase text-orange">Ver participantes</summary>
+            <div className="mt-2 grid gap-2">
+              {group.participants.map((participant) => (
+                <div key={`${participant.userId}-${participant.rawValue}`} className="grid gap-1 rounded-[10px] px-3 py-2 text-[12px]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p className="font-extrabold text-white">{participant.name}</p>
+                  <p className="text-muted">Escribió: <span className="text-white">{participant.rawValue}</span></p>
+                </div>
+              ))}
+            </div>
+          </details>
+        </div>
+        <ReviewNormalizationForm category={group.category} rawNormalized={group.rawNormalized} writesDisabled={writesDisabled} />
+      </div>
+    </article>
   )
 }
 
@@ -409,7 +633,7 @@ function NormalizationCard({ group, players, writesDisabled }: { group: RawGroup
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase text-bg" style={{ background: '#FF6B00' }}>{SPECIAL_AWARD_LABELS[group.category]}</span>
             <span className="rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>{group.count} participantes</span>
-            <span className="rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>{group.status}</span>
+            <span className="rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>{statusLabel(group.status)}</span>
           </div>
           <p className="mt-2 font-mono text-[12px] text-muted">{group.rawNormalized}</p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -421,6 +645,16 @@ function NormalizationCard({ group, players, writesDisabled }: { group: RawGroup
           </div>
           <p className="mt-2 text-[12px] text-muted">Sugerencia: <span className="text-white">{group.suggestion.label}</span></p>
           {group.playerId && <p className="mt-1 text-[12px] text-muted">Asignado: <span className="text-white">{group.playerLabel}</span></p>}
+          <details className="mt-3 rounded-[10px] p-3" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <summary className="cursor-pointer text-[12px] font-extrabold uppercase text-orange">Ver participantes</summary>
+            <div className="mt-2 grid gap-2">
+              {group.participants.map((participant) => (
+                <div key={participant.userId} className="text-[12px] text-muted">
+                  <span className="font-extrabold text-white">{participant.name}</span> escribió <span className="text-white">{participant.rawValue}</span>
+                </div>
+              ))}
+            </div>
+          </details>
         </div>
         <form action={action} className="grid gap-2">
           <fieldset disabled={writesDisabled} className="contents">
@@ -432,10 +666,9 @@ function NormalizationCard({ group, players, writesDisabled }: { group: RawGroup
               <option key={player.id} value={player.id}>{player.displayName}{player.countryName ? ` - ${player.countryName}` : ''}</option>
             ))}
           </select>
-          <div className="grid grid-cols-3 gap-2">
-            <button disabled={writesDisabled} name="status" value="matched" className="rounded-full px-3 py-2 text-[10px] font-extrabold uppercase text-bg disabled:opacity-50" style={{ background: '#FF6B00' }}>Matched</button>
-            <button disabled={writesDisabled} name="status" value="no_match" className="rounded-full px-3 py-2 text-[10px] font-extrabold uppercase text-white disabled:opacity-50" style={{ background: '#332017', border: '1px solid rgba(255,177,92,0.24)' }}>No match</button>
-            <button disabled={writesDisabled} name="status" value="review" className="rounded-full px-3 py-2 text-[10px] font-extrabold uppercase text-white disabled:opacity-50" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)' }}>Review</button>
+          <div className="grid grid-cols-2 gap-2">
+            <button disabled={writesDisabled} name="status" value="matched" className="rounded-full px-3 py-2 text-[10px] font-extrabold uppercase text-bg disabled:opacity-50" style={{ background: '#FF6B00' }}>Confirmar jugador</button>
+            <button disabled={writesDisabled} name="status" value="no_match" className="rounded-full px-3 py-2 text-[10px] font-extrabold uppercase text-white disabled:opacity-50" style={{ background: '#332017', border: '1px solid rgba(255,177,92,0.24)' }}>Sin coincidencia</button>
           </div>
           <ActionMessage state={state} />
           </fieldset>

@@ -105,7 +105,7 @@ export default async function FixturePage({ searchParams }: FixturePageProps) {
       <div className="max-w-[1280px] mx-auto">
         <div className="mb-8">
           <p className="text-[11px] font-extrabold tracking-[0.22em] uppercase text-muted mb-2">
-            FIFA · USA · Canadá · México
+            FIFA · Estados Unidos · Canadá · México
           </p>
           <h1
             className="font-display uppercase leading-[0.9] tracking-[-0.03em]"

@@ -9,7 +9,6 @@ import {
   TOURNAMENT_TOTAL_TEAMS,
 } from '@/lib/tournament-config'
 import { getBonusPollState } from '@/lib/bonus-poll'
-import { formatCurrency } from '@/lib/prode-progress'
 import { getRankingMode, isLiveRankingMode, type RankingMode } from '@/lib/ranking-mode'
 import { formatMatchKickoffArgentina } from '@/lib/match-datetime'
 import {
@@ -100,21 +99,34 @@ function HomeMetricCard({
   label,
   detail,
   live,
+  compact,
 }: {
-  value: number | string
+  value: ReactNode
   label: string
   detail?: string
   live?: boolean
+  compact?: boolean
 }) {
   return (
-    <div className="tap-card min-w-0 rounded-[18px] bg-[#0A0A0A] px-4 py-4 text-white" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+    <div className="tap-card flex min-h-[136px] min-w-0 flex-col rounded-[18px] bg-[#0A0A0A] px-4 py-4 text-white" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
       <div className="flex items-center gap-2">
         {live && <span className="h-2 w-2 rounded-full bg-mint" style={{ animation: 'pulse-dot 1.6s infinite' }} />}
         <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">{label}</p>
       </div>
-      <p className="mt-2 whitespace-nowrap font-display text-[clamp(28px,7vw,42px)] leading-none tracking-[-0.02em]">{value}</p>
+      <div className={`mt-2 min-w-0 font-display leading-none ${compact ? 'text-[clamp(30px,4.5vw,42px)]' : 'text-[clamp(28px,7vw,42px)]'}`}>
+        {value}
+      </div>
       {detail && <p className="mt-2 text-[12px] font-semibold leading-snug text-muted">{detail}</p>}
     </div>
+  )
+}
+
+function PrizeValue({ amount }: { amount: number }) {
+  return (
+    <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 whitespace-normal">
+      <span className="text-[0.82em]">$</span>
+      <span className="min-w-0 break-words">{amount.toLocaleString('es-AR')}</span>
+    </span>
   )
 }
 
@@ -478,10 +490,10 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
         <div className="mx-auto max-w-[1280px] px-5 py-6">
           <div className="grid grid-cols-1 gap-3 min-[680px]:grid-cols-2 min-[1100px]:grid-cols-5">
             <HomeMetricCard value={metrics.competitors_count} label="Participantes" detail="Confirmados activos." live />
-            <HomeMetricCard value={`${metrics.finished_matches_count} de ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" detail={`${metrics.alive_teams_count} selecciones disponibles.`} />
-            <HomeMetricCard value={formatCurrency(OFFICIAL_PRIZES.first)} label="1er premio" detail="Oro." />
-            <HomeMetricCard value={formatCurrency(OFFICIAL_PRIZES.second)} label="2do premio" detail="Plata." />
-            <HomeMetricCard value={formatCurrency(OFFICIAL_PRIZES.third)} label="3er premio" detail="Bronce." />
+            <HomeMetricCard value={`${metrics.finished_matches_count} / ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" detail={`${metrics.alive_teams_count} selecciones disponibles.`} compact />
+            <HomeMetricCard value={<PrizeValue amount={OFFICIAL_PRIZES.first} />} label="1er premio" detail="Oro." compact />
+            <HomeMetricCard value={<PrizeValue amount={OFFICIAL_PRIZES.second} />} label="2do premio" detail="Plata." compact />
+            <HomeMetricCard value={<PrizeValue amount={OFFICIAL_PRIZES.third} />} label="3er premio" detail="Bronce." compact />
           </div>
         </div>
       </section>

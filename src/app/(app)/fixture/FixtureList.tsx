@@ -101,7 +101,7 @@ function MatchRow({ match }: { match: Match }) {
         <span className="hidden truncate text-right text-[13px] font-semibold min-[520px]:block">{match.home_team}</span>
         <TeamFlag iso2={home.iso2} fallback={home.flag} />
         <span className="font-mono text-[11px] font-extrabold uppercase tracking-[0.06em] text-white min-[520px]:hidden">
-          {home.code}
+          {home.displayCode}
         </span>
       </div>
 
@@ -119,7 +119,7 @@ function MatchRow({ match }: { match: Match }) {
       {/* Away */}
       <div className="flex min-w-0 flex-1 items-center gap-1.5 min-[520px]:gap-2">
         <span className="font-mono text-[11px] font-extrabold uppercase tracking-[0.06em] text-white min-[520px]:hidden">
-          {away.code}
+          {away.displayCode}
         </span>
         <TeamFlag iso2={away.iso2} fallback={away.flag} />
         <span className="hidden truncate text-[13px] font-semibold min-[520px]:block">{match.away_team}</span>
