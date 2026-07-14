@@ -10,7 +10,7 @@ Este documento cubre:
 - Catálogo canónico de jugadores.
 - Aliases confirmados para respuestas escritas a mano.
 - Tabla manual/extensible de estadísticas personales.
-- Resultados oficiales de Balón de Oro, Botín de Oro y Guante de Oro.
+- Resultados oficiales de Balón de Oro, Bota de Oro y Guante de Oro.
 - Integraciones futuras en admin, Mundial en vivo, Mi Prode y detalle de ranking.
 
 ## Estado actual
@@ -39,7 +39,7 @@ La tabla se usa hoy para:
 - `public.special_bets` queda intacta.
 - La exclusión de una apuesta debe resolverse por un dato estable, preferentemente `user_id`, no por nombre visible.
 - ProdeMun dial2026 cuenta.
-- No se suman puntos hasta que admin cargue, confirme y bloquee el resultado oficial.
+- No se suman puntos hasta que se diseñe, apruebe y pruebe una etapa futura de bloqueo y scoring idempotente.
 - No se modifica ranking ni scoring actual en las etapas de normalización o estadísticas.
 - No se integra API externa para estadísticas de jugadores en el MVP.
 - Las estadísticas personales son informativas y visuales: no modifican `predictions.points`, `special_bets.points`, ranking, auditoría actual ni RPCs actuales.
@@ -47,16 +47,16 @@ La tabla se usa hoy para:
 ## Premios
 
 - `balon`: Balón de Oro.
-- `bota`: Botín/Bota de Oro.
+- `bota`: Bota de Oro.
 - `guante`: Guante de Oro.
 
-Balón de Oro y Guante de Oro se definen por confirmación oficial al final del Mundial. Botín de Oro se puede acompañar con tabla de goleadores, pero ser máximo goleador en la tabla visual no activa scoring automáticamente.
+Balón de Oro y Guante de Oro se definen por confirmación oficial al final del Mundial. Bota de Oro se puede acompañar con tabla de goleadores, pero ser máximo goleador en la tabla visual no activa scoring automáticamente.
 
-El scoring especial solo podrá ejecutarse cuando admin confirme y bloquee los ganadores oficiales.
+La Etapa 3 solo confirma resultados oficiales de forma informativa. `locked` queda reservado para una etapa futura y no se debe activar scoring hasta diseñar, aprobar y probar ese proceso.
 
-## Regla cerrada para empates en Botín de Oro
+## Regla cerrada para empates en Bota de Oro
 
-Si el resultado oficial del Botín de Oro reconoce empate entre dos o más goleadores:
+Si el resultado oficial de la Bota de Oro reconoce empate entre dos o más goleadores:
 
 - todos esos jugadores deben registrarse como ganadores oficiales;
 - los usuarios que apostaron por cualquiera de esos jugadores reciben el puntaje completo definido por reglamento;
@@ -67,7 +67,7 @@ Esta regla queda documentada ahora. No se implementa todavía en scoring.
 
 ## Aliases confirmados
 
-Estos aliases ya fueron revisados manualmente. En futuras migraciones deben cargarse como aliases literales, no modificar `special_bets`.
+Estos aliases ya fueron revisados manualmente. En futuros archivos SQL deben cargarse como aliases literales, no modificar `special_bets`.
 
 - Lionel Messi: Messi, Lionel Messi, Lionel  Messi, Fressi.
 - Kylian Mbappé: Mbappe, Mbappé, Kylian Mbappe, Kylian Mbappé, mbbape.
@@ -111,7 +111,7 @@ Balón de Oro:
 - Ousmane Dembélé: 1.
 - Erling Haaland: 1.
 
-Botín de Oro:
+Bota de Oro:
 
 - Kylian Mbappé: 17.
 - Julián Álvarez: 6.
@@ -215,14 +215,18 @@ Cabecera del resultado oficial confirmado por admin.
 - `id uuid primary key`.
 - `tournament_key text not null`.
 - `category text not null check (category in ('balon','bota','guante'))`.
-- `no_winner boolean not null default false`.
+- `status text not null check (status in ('draft','confirmed','locked'))`.
+- `confirmed_at timestamptz null`.
+- `confirmed_by uuid null references profiles(id)`.
 - `locked_at timestamptz null`.
-- `updated_by uuid not null references profiles(id)`.
+- `locked_by uuid null references profiles(id)`.
+- `updated_by uuid null references profiles(id)`.
+- `created_at timestamptz not null`.
 - `updated_at timestamptz not null`.
 
 Debe tener unique sobre `(tournament_key, category)`.
 
-El scoring solo puede activarse si una categoría está bloqueada con `no_winner` o con uno o más ganadores en `special_bet_result_winners`.
+En Etapa 3 la UI usa `draft` y `confirmed`. `locked` queda reservado para una etapa futura de scoring. El scoring solo podrá activarse en una etapa posterior, cuando exista resultado oficial completo y se apruebe el proceso idempotente de puntos.
 
 ### `special_bet_result_winners`
 
@@ -294,7 +298,7 @@ Estas estadísticas:
 - no determinan ganadores oficiales automáticamente;
 - no activan scoring especial.
 
-La tabla de goleadores sirve como información visual y como referencia para seguir la apuesta de Botín de Oro. No reemplaza la carga oficial de resultados especiales.
+La tabla de goleadores sirve como información visual y como referencia para seguir la apuesta de Bota de Oro. No reemplaza la carga oficial de resultados especiales.
 
 ## Integraciones futuras
 
@@ -309,7 +313,7 @@ Agregar herramientas protegidas para admins:
 - Cargar valores actuales de estadísticas personales, empezando por goles.
 - Cargar fuente o nota opcional para auditar el dato estadístico.
 - Cargar uno o más ganadores oficiales por premio.
-- Bloquear resultado oficial cuando esté completo.
+- Confirmar resultado oficial cuando esté completo, sin modificar puntos ni ranking.
 
 La pantalla actual de `/admin` ya tiene sección de especiales read-only. Puede evolucionar ahí o dividirse en subcomponentes para no agrandar `src/app/admin/page.tsx`.
 
@@ -324,7 +328,7 @@ La pantalla actual de `/admin` ya tiene sección de especiales read-only. Puede 
 
 ### Mi Prode
 
-`src/app/(app)/mi-prode/SpecialsTab.tsx` debe mantener el input libre, pero el bloque de Botín de Oro puede mostrar una tabla compacta de goleadores para contexto. Esa tabla no debe modificar la apuesta del usuario por sí sola.
+`src/app/(app)/mi-prode/SpecialsTab.tsx` debe mantener el input libre, pero el bloque de Bota de Oro puede mostrar una tabla compacta de goleadores para contexto. Esa tabla no debe modificar la apuesta del usuario por sí sola.
 
 ### Detalle de ranking
 
@@ -361,10 +365,10 @@ El admin debe poder mantener estos flujos sin mezclarlos:
 1. Jugadores y aliases.
 2. Normalización manual de respuestas.
 3. Carga visual de estadísticas personales.
-4. Carga y bloqueo de resultados oficiales.
+4. Carga y confirmación de resultados oficiales.
 5. Futuro scoring idempotente y auditado.
 
-La carga visual de goleadores no debe adelantar ni disparar el scoring de Botín de Oro.
+La carga visual de goleadores no debe adelantar ni disparar el scoring de Bota de Oro.
 
 ## Riesgos
 
@@ -378,11 +382,10 @@ La carga visual de goleadores no debe adelantar ni disparar el scoring de Botín
 ## Etapas
 
 1. Documentación y diseño.
-2. Migraciones propuestas, sin aplicar.
-3. Admin para cargar estadísticas de jugadores, empezando por goles.
-4. Tabla pública de goleadores en Mundial en vivo.
-5. Tabla de goleadores en Mi Prode / Botín de Oro.
-6. Normalización admin de apuestas especiales.
-7. Mostrar interpretación de votos a usuarios.
-8. Carga admin de ganadores oficiales.
-9. Scoring idempotente y auditado de especiales.
+2. Modelo base de jugadores y estadísticas.
+3. Admin para tabla de goleadores, normalización de elecciones y confirmación informativa de premios oficiales, sin scoring.
+4. Aplicar y validar la migración de Etapa 3 con datos reales.
+5. Tabla pública de goleadores en Mundial en vivo.
+6. Tabla de goleadores en Mi Prode / Bota de Oro.
+7. Mostrar a los usuarios la interpretación normalizada de sus elecciones.
+8. Diseñar el bloqueo futuro de resultados y el scoring idempotente y auditado de premios especiales.

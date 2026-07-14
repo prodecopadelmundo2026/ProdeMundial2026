@@ -66,6 +66,8 @@ const TEAMS: Record<string, TeamMeta> = {
   'Panamá':               { code: 'PAN', flag: '🇵🇦', iso2: 'pa' },
 }
 
+export const TEAM_NAMES = Object.keys(TEAMS)
+
 export function getTeam(name: string): TeamMeta {
   return TEAMS[name] ?? { code: name.slice(0, 3).toUpperCase(), flag: '🏳️', iso2: '' }
 }

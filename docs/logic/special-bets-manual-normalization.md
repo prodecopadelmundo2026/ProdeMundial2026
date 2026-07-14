@@ -2,9 +2,9 @@
 
 ## Objetivo
 
-Permitir que admin revise respuestas reales de usuarios para Balón de Oro, Botín/Bota de Oro y Guante de Oro, las agrupe manualmente contra jugadores canónicos y, al cierre del Mundial, asigne puntos sin fuzzy matching automático ni IA.
+Permitir que admin revise respuestas reales de usuarios para Balón de Oro, Bota de Oro y Guante de Oro, las agrupe manualmente contra jugadores canónicos y, al cierre del Mundial, asigne puntos sin fuzzy matching automático ni IA.
 
-El diseño actualizado del modelo compartido de jugadores, aliases, normalizaciones, resultados oficiales y estadísticas personales vive en `docs/logic/player-special-awards-and-stats.md`.
+El diseño actualizado del modelo compartido de jugadores, aliases, mapeos manuales, resultados oficiales y estadísticas personales vive en `docs/logic/player-special-awards-and-stats.md`.
 
 ## Estado actual auditado
 
@@ -68,7 +68,7 @@ Tablas propuestas:
   - `notes text`
   - unique sobre `(tournament_key, category, raw_normalized)`
 
-La normalización es independiente para Balón, Botín y Guante aunque los tres textos estén en una misma fila de `special_bets`. Cada premio se representa por su `category`.
+La normalización es independiente para Balón, Bota y Guante aunque los tres textos estén en una misma fila de `special_bets`. Cada premio se representa por su `category`.
 
 `raw_value` guarda una variante observada; `raw_normalized` agrupa equivalencias técnicas. El texto original que se muestra en detalle debe seguir saliendo de `special_bets`.
 
@@ -76,9 +76,13 @@ La normalización es independiente para Balón, Botín y Guante aunque los tres 
   - `id uuid primary key`
   - `tournament_key text not null`
   - `category text check in ('balon','bota','guante')`
-  - `no_winner boolean not null default false`
+  - `status text check in ('draft','confirmed','locked')`
+  - `confirmed_at timestamptz null`
+  - `confirmed_by uuid references profiles(id)`
   - `locked_at timestamptz null`
+  - `locked_by uuid references profiles(id)`
   - `updated_by uuid references profiles(id)`
+  - `created_at timestamptz`
   - `updated_at timestamptz`
   - unique sobre `(tournament_key, category)`
 
@@ -90,7 +94,7 @@ La normalización es independiente para Balón, Botín y Guante aunque los tres 
   - `created_at timestamptz`
   - unique sobre `(special_bet_result_id, player_id)`
 
-Este diseño permite múltiples ganadores por premio. Para Botín de Oro, si hay empate oficial entre dos o más goleadores, todos deben registrarse como ganadores, cualquier usuario que apostó por uno de ellos recibe puntaje completo y el puntaje no se divide.
+Este diseño permite múltiples ganadores por premio. Para Bota de Oro, si hay empate oficial entre dos o más goleadores, todos deben registrarse como ganadores, cualquier usuario que apostó por uno de ellos recibe puntaje completo y el puntaje no se divide.
 
 - `player_stat_types`
   - `id uuid primary key`
@@ -119,9 +123,9 @@ El admin carga totales actuales, por ejemplo `7 goles`, no acciones incrementale
 
 Goles, asistencias, amarillas, rojas, barridas ganadas y cualquier otra estadística personal son únicamente informativas y visuales.
 
-Estas estadísticas no tienen relación con scoring, ranking, `predictions.points`, `special_bets.points` ni RPCs actuales. La tabla de goleadores sirve como referencia visual para seguir la apuesta de Botín de Oro, pero no activa scoring automáticamente.
+Estas estadísticas no tienen relación con scoring, ranking, `predictions.points`, `special_bets.points` ni RPCs actuales. La tabla de goleadores sirve como referencia visual para seguir la apuesta de Bota de Oro, pero no activa scoring automáticamente.
 
-El scoring especial solo podrá ejecutarse cuando admin cargue o confirme los ganadores oficiales y bloquee el resultado.
+La Etapa 3 solo confirma resultados oficiales de forma informativa. `locked` queda reservado para una etapa futura. No se debe activar scoring hasta diseñar, aprobar y probar ese proceso idempotente y auditado.
 
 ## Flujo admin
 
@@ -130,17 +134,17 @@ El scoring especial solo podrá ejecutarse cuando admin cargue o confirme los ga
 3. Asignar cada respuesta cruda a un jugador canónico, marcarla como `no_match` o dejarla en `review`.
 4. Mantener estadísticas visuales de jugadores, empezando por goles.
 5. Cargar fuente o nota opcional para auditar una estadística.
-6. Al cierre, seleccionar uno o más ganadores oficiales por categoría o `no_winner`.
-7. Bloquear el resultado oficial.
-8. Recién en una etapa posterior, ejecutar scoring idempotente y auditado.
+6. Al cierre, seleccionar uno o más ganadores oficiales por categoría.
+7. Confirmar el resultado oficial, sin modificar puntos ni ranking.
+8. En una etapa futura, definir el bloqueo y ejecutar scoring idempotente y auditado.
 
 ## Reglas de seguridad
 
 - Solo admins pueden crear jugadores, asignar aliases, publicar ganadores y cargar estadísticas.
 - No se modifica `special_bets`: se preserva la respuesta original del usuario.
 - El recalculo futuro debe ser idempotente: correrlo dos veces no duplica puntos.
-- No activar scoring automático hasta tener UI admin, resultados oficiales bloqueados y pruebas con datos reales.
-- Botín de Oro puede usar tabla manual de goleadores como contexto, pero no debe puntuar hasta confirmar ganador oficial.
+- No activar scoring automático con la confirmación de Etapa 3; el bloqueo queda reservado para una etapa futura con pruebas y aprobación explícita.
+- Bota de Oro puede usar tabla manual de goleadores como contexto, pero no debe puntuar hasta diseñar y aprobar el scoring futuro.
 - En Etapa 2, RLS debe permitir lectura y escritura solo a administradores mediante `public.current_user_is_admin()`.
 - En Etapa 2, se permite borrado admin de jugadores y valores estadísticos para corregir errores de carga, pero no de tipos de estadística iniciales.
 - La lectura pública de goleadores queda para Etapa 4, idealmente mediante una vista o grants limitados a columnas públicas.
@@ -176,15 +180,14 @@ Los aliases confirmados deben guardarse como valores literales:
 
 Pendiente confirmar si kevsaul045@gmail.com / Kevin Saúl corresponde al participante identificado previamente como Kevin Garcia y registrar su user_id exacto antes de generar datos iniciales o scoring.
 
-La exclusión no debe aplicarse sobre aliases compartidos ni normalizaciones globales, porque el mismo texto puede pertenecer a usuarios válidos.
+La exclusión no debe aplicarse sobre aliases compartidos ni mapeos globales, porque el mismo texto puede pertenecer a usuarios válidos.
 
 ## Pendiente de implementación
 
-- Migraciones con RLS y grants, propuestas antes de aplicar.
-- Pantalla admin de agrupación por categoría.
-- Pantalla admin de estadísticas personales, empezando por goleadores.
+- Aplicar y validar la migración de Etapa 3.
+- Revisar la herramienta admin con datos reales.
 - Vista pública de goleadores en Mundial en vivo.
-- Vista de goleadores en Mi Prode / Botín de Oro.
+- Vista de goleadores en Mi Prode / Bota de Oro.
 - Mostrar interpretación de votos a usuarios.
-- Carga admin de ganadores oficiales.
-- Función SQL o Server Action idempotente para scoring, recién cuando se apruebe esa etapa.
+- Definir bloqueo futuro.
+- Scoring idempotente y auditado, recién cuando se apruebe esa etapa.

@@ -318,6 +318,13 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
               >
                 Participantes habilitados
               </Link>
+              <Link
+                href="/admin/premios-especiales"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-extrabold text-[12px] uppercase transition-all duration-150"
+                style={{ background: 'rgba(255,107,0,0.16)', border: '1px solid rgba(255,107,0,0.32)', color: '#FF6B00' }}
+              >
+                Tabla de goleadores y premios especiales
+              </Link>
               <details className="group relative">
                 <summary
                   className="inline-flex cursor-pointer list-none items-center gap-2 rounded-full px-4 py-2 text-[12px] font-extrabold uppercase transition-all duration-150 [&::-webkit-details-marker]:hidden"
@@ -376,9 +383,10 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-orange">Operación del torneo</p>
           <h2 className="mt-1 font-display text-[26px] uppercase leading-none text-white">Resultados, puntos y llave oficial</h2>
           <p className="mt-2 max-w-[650px] text-[12px] leading-relaxed text-muted">Cargá resultados oficiales, comprobá su impacto en el ranking y revisá cómo avanza la llave.</p>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
             <a href="#admin-section-resultados" className="rounded-[14px] bg-orange px-4 py-3 text-[12px] font-extrabold uppercase text-bg">Gestionar resultados</a>
             <a href="#admin-section-llave" className="rounded-[14px] px-4 py-3 text-[12px] font-extrabold uppercase text-white" style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.1)' }}>Ver llave oficial</a>
+            <Link href="/admin/premios-especiales" className="rounded-[14px] px-4 py-3 text-[12px] font-extrabold uppercase text-white" style={{ background: '#181818', border: '1px solid rgba(255,107,0,0.28)' }}>Tabla de goleadores y premios especiales</Link>
           </div>
         </section>
 
