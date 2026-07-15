@@ -43,6 +43,7 @@ function actionError(error: unknown) {
 function revalidateAdminSpecialAwards() {
   revalidatePath('/admin')
   revalidatePath('/admin/premios-especiales')
+  revalidatePath('/mundial-en-vivo')
 }
 
 async function requireAdmin(supabase: SupabaseServerClient) {
@@ -473,6 +474,50 @@ export async function saveGoalScorer(
     if (error) throw new Error(error.message)
     revalidateAdminSpecialAwards()
     return result(true, 'Jugador y goles actualizados.')
+  } catch (error) {
+    return actionError(error)
+  }
+}
+
+export async function updatePlayerGoals(
+  _prevState: SpecialAwardActionResult | null,
+  formData: FormData
+): Promise<SpecialAwardActionResult> {
+  try {
+    const supabase = await createClient()
+    const user = await requireAdmin(supabase)
+    const playerId = readRequiredString(formData, 'player_id', 'Jugador')
+    const value = readInteger(formData, 'goals', 'Total de goles')
+
+    await ensurePlayerExists(supabase, playerId)
+    const statTypeId = await getGoalsStatTypeId(supabase)
+
+    if (value === 0) {
+      const { error } = await supabase
+        .from('player_tournament_stat_values')
+        .delete()
+        .eq('tournament_key', SPECIAL_AWARDS_TOURNAMENT_KEY)
+        .eq('player_id', playerId)
+        .eq('stat_type_id', statTypeId)
+
+      if (error) throw new Error(error.message)
+      revalidateAdminSpecialAwards()
+      return result(true, 'Goles actualizados en 0.')
+    }
+
+    const { error } = await supabase
+      .from('player_tournament_stat_values')
+      .upsert({
+        tournament_key: SPECIAL_AWARDS_TOURNAMENT_KEY,
+        player_id: playerId,
+        stat_type_id: statTypeId,
+        value,
+        updated_by: user.id,
+      }, { onConflict: 'tournament_key,player_id,stat_type_id' })
+
+    if (error) throw new Error(error.message)
+    revalidateAdminSpecialAwards()
+    return result(true, 'Goles actualizados.')
   } catch (error) {
     return actionError(error)
   }

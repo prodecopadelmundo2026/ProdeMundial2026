@@ -13,6 +13,7 @@ import {
   returnOfficialResultToDraft,
   saveGoalScorer,
   saveNormalization,
+  updatePlayerGoals,
   type SpecialAwardActionResult,
 } from './actions'
 
@@ -494,7 +495,7 @@ function CatalogPlayerCard({ player, teams, writesDisabled }: { player: PlayerOp
 
   return (
     <article className="rounded-[12px] p-2.5" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_58px_auto] sm:items-center">
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(220px,auto)_auto] sm:items-center">
         <div className="flex min-w-0 items-center gap-2">
           <TeamFlagImage countryName={player.countryName} countryCode={player.countryCode} label={player.countryName || player.displayName} />
           <div className="min-w-0">
@@ -502,10 +503,7 @@ function CatalogPlayerCard({ player, teams, writesDisabled }: { player: PlayerOp
             <p className="truncate text-[11px] font-bold text-muted">{player.countryName || 'Sin selección'}</p>
           </div>
         </div>
-        <div className="sm:text-right">
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Goles</p>
-          <p className="font-mono text-[20px] font-extrabold text-white">{player.goals}</p>
-        </div>
+        <QuickGoalsEditor key={`${player.id}-${player.goals}`} player={player} writesDisabled={writesDisabled} />
         <div className="flex flex-wrap gap-1.5 sm:justify-end">
           <button type="button" onClick={() => setEditOpen((value) => !value)} className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase text-white" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)' }}>
             {editOpen ? 'Cerrar' : 'Editar'}
@@ -1051,6 +1049,47 @@ function UnchosenWinnerForm({ category, players, teams, writesDisabled }: { cate
       <SubmitButton idle="Agregar no elegido" pending="Agregando..." disabled={writesDisabled} />
       <ActionMessage state={state} />
       </fieldset>
+    </form>
+  )
+}
+
+function QuickGoalsEditor({ player, writesDisabled }: { player: PlayerOption; writesDisabled: boolean }) {
+  const [goals, setGoals] = useState(player.goals)
+  const [state, action] = useActionState(updatePlayerGoals, null)
+  const canDecrement = goals > 0 && !writesDisabled
+
+  return (
+    <form action={action} className="grid gap-2">
+      <input type="hidden" name="player_id" value={player.id} />
+      <input type="hidden" name="goals" value={goals} />
+      <div className="sm:text-right">
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Goles</p>
+        <div className="mt-1 flex flex-wrap items-center gap-2 sm:justify-end">
+          <button
+            type="button"
+            aria-label={`Restar un gol a ${player.displayName}`}
+            disabled={!canDecrement}
+            onClick={() => setGoals((value) => Math.max(0, value - 1))}
+            className="grid h-10 w-10 place-items-center rounded-full text-[18px] font-extrabold text-white disabled:opacity-40"
+            style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)' }}
+          >
+            ↓
+          </button>
+          <span className="min-w-8 text-center font-mono text-[20px] font-extrabold tabular-nums text-white">{goals}</span>
+          <button
+            type="button"
+            aria-label={`Sumar un gol a ${player.displayName}`}
+            disabled={writesDisabled}
+            onClick={() => setGoals((value) => value + 1)}
+            className="grid h-10 w-10 place-items-center rounded-full text-[18px] font-extrabold text-white disabled:opacity-40"
+            style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)' }}
+          >
+            ↑
+          </button>
+          <SubmitButton idle="Guardar" pending="Guardando..." disabled={writesDisabled} />
+        </div>
+      </div>
+      <ActionMessage state={state} />
     </form>
   )
 }
