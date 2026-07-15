@@ -401,7 +401,6 @@ function GoalsAdminSection({ data, writesDisabled }: { data: SpecialAwardsAdminD
             title="Resultados de búsqueda"
             empty="No hay jugadores para ese filtro."
             players={filteredPlayers}
-            teams={data.teamOptions}
             writesDisabled={writesDisabled}
           />
         ) : (
@@ -410,7 +409,6 @@ function GoalsAdminSection({ data, writesDisabled }: { data: SpecialAwardsAdminD
               title="Jugadores destacados"
               empty="No hay jugadores destacados cargados."
               players={featuredPlayers}
-              teams={data.teamOptions}
               writesDisabled={writesDisabled}
             />
             <details className="rounded-[14px] p-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -420,7 +418,6 @@ function GoalsAdminSection({ data, writesDisabled }: { data: SpecialAwardsAdminD
                   title=""
                   empty="No hay otros jugadores cargados."
                   players={remainingPlayers}
-                  teams={data.teamOptions}
                   writesDisabled={writesDisabled}
                 />
               </div>
@@ -462,13 +459,11 @@ function PlayerCatalogGrid({
   title,
   empty,
   players,
-  teams,
   writesDisabled,
 }: {
   title: string
   empty: string
   players: PlayerOption[]
-  teams: TeamOption[]
   writesDisabled: boolean
 }) {
   return (
@@ -479,7 +474,7 @@ function PlayerCatalogGrid({
       ) : (
         <div className="grid gap-2 lg:grid-cols-2">
           {players.map((player) => (
-            <CatalogPlayerCard key={player.id} player={player} teams={teams} writesDisabled={writesDisabled} />
+            <CatalogPlayerCard key={player.id} player={player} writesDisabled={writesDisabled} />
           ))}
         </div>
       )}
@@ -487,15 +482,38 @@ function PlayerCatalogGrid({
   )
 }
 
-function CatalogPlayerCard({ player, teams, writesDisabled }: { player: PlayerOption; teams: TeamOption[]; writesDisabled: boolean }) {
+function CatalogPlayerCard({ player, writesDisabled }: { player: PlayerOption; writesDisabled: boolean }) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [saveState, saveAction] = useActionState(saveGoalScorer, null)
+  const [draftGoals, setDraftGoals] = useState(player.goals)
+  const [savedGoals, setSavedGoals] = useState<number | null>(null)
   const [deleteState, deleteAction] = useActionState(deletePlayer, null)
+  const displayedGoals = savedGoals ?? player.goals
+  const [goalsState, goalsAction] = useActionState(async (
+    previous: SpecialAwardActionResult | null,
+    formData: FormData
+  ) => {
+    const next = await updatePlayerGoals(previous, formData)
+    if (next.ok) {
+      setSavedGoals(draftGoals)
+      setEditOpen(false)
+    }
+    return next
+  }, null)
+
+  function startEditing() {
+    setDraftGoals(displayedGoals)
+    setEditOpen(true)
+  }
+
+  function cancelEditing() {
+    setDraftGoals(displayedGoals)
+    setEditOpen(false)
+  }
 
   return (
     <article className="rounded-[12px] p-2.5" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(220px,auto)_auto] sm:items-center">
+      <form action={goalsAction} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_90px_auto] sm:items-center">
         <div className="flex min-w-0 items-center gap-2">
           <TeamFlagImage countryName={player.countryName} countryCode={player.countryCode} label={player.countryName || player.displayName} />
           <div className="min-w-0">
@@ -503,33 +521,47 @@ function CatalogPlayerCard({ player, teams, writesDisabled }: { player: PlayerOp
             <p className="truncate text-[11px] font-bold text-muted">{player.countryName || 'Sin selección'}</p>
           </div>
         </div>
-        <QuickGoalsEditor key={`${player.id}-${player.goals}`} player={player} writesDisabled={writesDisabled} />
+        <input type="hidden" name="player_id" value={player.id} />
+        <div className="sm:text-right">
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Goles</p>
+          {editOpen ? (
+            <input
+              name="goals"
+              type="number"
+              min={0}
+              step={1}
+              inputMode="numeric"
+              required
+              autoFocus
+              value={draftGoals}
+              onFocus={(event) => event.currentTarget.select()}
+              onChange={(event) => setDraftGoals(Math.max(0, Number(event.currentTarget.value || 0)))}
+              className="mt-1 h-10 w-[76px] rounded-[10px] bg-[#050505] px-3 text-center font-mono text-[18px] font-extrabold tabular-nums text-white outline-none"
+              style={{ border: '1px solid rgba(255,255,255,0.18)' }}
+            />
+          ) : (
+            <p className="font-mono text-[20px] font-extrabold text-white">{displayedGoals}</p>
+          )}
+        </div>
         <div className="flex flex-wrap gap-1.5 sm:justify-end">
-          <button type="button" onClick={() => setEditOpen((value) => !value)} className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase text-white" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)' }}>
-            {editOpen ? 'Cerrar' : 'Editar'}
-          </button>
+          {editOpen ? (
+            <>
+              <SubmitButton idle="Guardar" pending="Guardando..." disabled={writesDisabled} />
+              <button type="button" onClick={cancelEditing} className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase text-white" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)' }}>
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <button type="button" onClick={startEditing} className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase text-white" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)' }}>
+              Editar
+            </button>
+          )}
           <button type="button" onClick={() => setDeleteOpen((value) => !value)} className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase text-white" style={{ background: 'rgba(255,107,107,0.1)', border: '1px solid rgba(255,107,107,0.24)' }}>
             Eliminar
           </button>
         </div>
-      </div>
-
-      {editOpen && (
-        <form action={saveAction} className="mt-3 grid gap-3 rounded-[12px] p-3" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <fieldset disabled={writesDisabled} className="contents">
-          <input type="hidden" name="player_id" value={player.id} />
-          <div className="grid gap-3 md:grid-cols-[1.2fr_1fr_110px]">
-            <input name="display_name" required defaultValue={player.displayName} className="w-full rounded-[12px] bg-[#050505] px-3 py-2 text-[13px] font-bold text-white outline-none" style={{ border: '1px solid rgba(255,255,255,0.1)' }} />
-            <TeamSelect teams={teams} defaultName={player.countryName} />
-            <input name="goals" type="number" min={0} step={1} required defaultValue={player.goals} className="w-full rounded-[12px] bg-[#050505] px-3 py-2 text-[13px] font-bold text-white outline-none" style={{ border: '1px solid rgba(255,255,255,0.1)' }} />
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <ActionMessage state={saveState} />
-            <SubmitButton idle="Guardar cambios" pending="Guardando..." disabled={writesDisabled} />
-          </div>
-          </fieldset>
-        </form>
-      )}
+      </form>
+      <ActionMessage state={goalsState} />
 
       {deleteOpen && (
         <form action={deleteAction} className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[12px] p-3" style={{ background: 'rgba(255,107,107,0.08)', border: '1px solid rgba(255,107,107,0.2)' }}>
@@ -1053,46 +1085,6 @@ function UnchosenWinnerForm({ category, players, teams, writesDisabled }: { cate
   )
 }
 
-function QuickGoalsEditor({ player, writesDisabled }: { player: PlayerOption; writesDisabled: boolean }) {
-  const [goals, setGoals] = useState(player.goals)
-  const [state, action] = useActionState(updatePlayerGoals, null)
-  const canDecrement = goals > 0 && !writesDisabled
-
-  return (
-    <form action={action} className="grid gap-2">
-      <input type="hidden" name="player_id" value={player.id} />
-      <input type="hidden" name="goals" value={goals} />
-      <div className="sm:text-right">
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Goles</p>
-        <div className="mt-1 flex flex-wrap items-center gap-2 sm:justify-end">
-          <button
-            type="button"
-            aria-label={`Restar un gol a ${player.displayName}`}
-            disabled={!canDecrement}
-            onClick={() => setGoals((value) => Math.max(0, value - 1))}
-            className="grid h-10 w-10 place-items-center rounded-full text-[18px] font-extrabold text-white disabled:opacity-40"
-            style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)' }}
-          >
-            ↓
-          </button>
-          <span className="min-w-8 text-center font-mono text-[20px] font-extrabold tabular-nums text-white">{goals}</span>
-          <button
-            type="button"
-            aria-label={`Sumar un gol a ${player.displayName}`}
-            disabled={writesDisabled}
-            onClick={() => setGoals((value) => value + 1)}
-            className="grid h-10 w-10 place-items-center rounded-full text-[18px] font-extrabold text-white disabled:opacity-40"
-            style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)' }}
-          >
-            ↑
-          </button>
-          <SubmitButton idle="Guardar" pending="Guardando..." disabled={writesDisabled} />
-        </div>
-      </div>
-      <ActionMessage state={state} />
-    </form>
-  )
-}
 
 function PreviewSection({ data }: { data: SpecialAwardsAdminData }) {
   return (
