@@ -546,7 +546,7 @@ function CatalogPlayerCard({ player, writesDisabled }: { player: PlayerOption; w
         <div className="flex flex-wrap gap-1.5 sm:justify-end">
           {editOpen ? (
             <>
-              <SubmitButton idle="Guardar" pending="Guardando..." disabled={writesDisabled} />
+              <SubmitButton idle="Guardar" pending="Guardando..." />
               <button type="button" onClick={cancelEditing} className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase text-white" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.1)' }}>
                 Cancelar
               </button>
