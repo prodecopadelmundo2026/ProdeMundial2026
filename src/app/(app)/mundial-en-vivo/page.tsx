@@ -6,7 +6,7 @@ import { computeFifaBestThirds, type FifaBestThirdStanding } from '@/lib/fifa-st
 import { buildGroupTableRows, buildOfficialGroupScoreMap } from '@/lib/group-standings'
 import { GroupStandingsTables, type GroupTableSection } from '@/components/GroupStandingsTables'
 import { TournamentBracket } from '@/components/TournamentBracket'
-import { flagUrl, getTeam } from '@/lib/teams'
+import { flagUrl, getTeam, getTeamByCode } from '@/lib/teams'
 import { getOfficialRoundOf32State } from '@/lib/tournament-state'
 
 export const dynamic = 'force-dynamic'
@@ -15,6 +15,14 @@ export const revalidate = 0
 type RawMatchRow = Match & {
   group_name?: string | null
   group_key?: string | null
+}
+
+type PublicGoalScorerRow = {
+  player_id: string
+  player_name: string
+  country_code: string | null
+  country_name: string | null
+  goals: number
 }
 
 const GROUP_ORDER = Array.from({ length: 12 }, (_, index) => String.fromCharCode(65 + index))
@@ -87,6 +95,90 @@ function ThirdTeamCell({ name }: { name: string }) {
         )}
       </span>
       <span className="truncate text-[13px] font-extrabold text-white">{name}</span>
+    </div>
+  )
+}
+
+function goalScorerRank(rows: PublicGoalScorerRow[], index: number) {
+  if (index === 0) return 1
+  const previous = rows[index - 1]
+  const current = rows[index]
+  if (previous?.goals === current.goals) return goalScorerRank(rows, index - 1)
+  return index + 1
+}
+
+function GoalScorerFlag({ countryName, countryCode }: { countryName: string | null; countryCode: string | null }) {
+  const meta = countryCode ? getTeamByCode(countryCode) : getTeam(countryName ?? '')
+
+  return (
+    <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-black/40" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+      {meta.iso2 ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={flagUrl(meta.iso2)} alt="" className="h-[19px] w-[25px] object-contain" />
+      ) : (
+        <span className="text-[15px] leading-none">{meta.flag}</span>
+      )}
+    </span>
+  )
+}
+
+function GoalScorersSection({ rows }: { rows: PublicGoalScorerRow[] }) {
+  const topRows = rows.slice(0, 8)
+  const restRows = rows.slice(8)
+
+  return (
+    <section id="goleadores" className="scroll-mt-24 rounded-[20px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[14px] font-extrabold text-white">Goleadores</p>
+          <p className="mt-1 max-w-[680px] text-[12px] font-semibold leading-relaxed text-muted">
+            Tabla informativa cargada desde el admin. No liquida la Bota de Oro ni otorga puntos.
+          </p>
+        </div>
+        <span className="rounded-full px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: 'rgba(255,224,64,0.1)', border: '1px solid rgba(255,224,64,0.28)', color: '#FFE040' }}>
+          Provisional
+        </span>
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="rounded-[16px] bg-[#0A0A0A] px-4 py-8 text-center text-[13px] font-semibold leading-relaxed text-muted" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+          Todavía no hay goleadores cargados.
+        </p>
+      ) : (
+        <div className="grid gap-2">
+          {topRows.map((row, index) => (
+            <GoalScorerCard key={row.player_id} row={row} position={goalScorerRank(rows, index)} />
+          ))}
+          {restRows.length > 0 && (
+            <details className="mt-2 rounded-[14px] p-3" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <summary className="cursor-pointer text-[12px] font-extrabold uppercase text-white">Ver todos ({rows.length})</summary>
+              <div className="mt-3 grid gap-2">
+                {restRows.map((row, restIndex) => {
+                  const index = restIndex + topRows.length
+                  return <GoalScorerCard key={row.player_id} row={row} position={goalScorerRank(rows, index)} compact />
+                })}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function GoalScorerCard({ row, position, compact = false }: { row: PublicGoalScorerRow; position: number; compact?: boolean }) {
+  return (
+    <div className="grid grid-cols-[34px_40px_minmax(0,1fr)_auto] items-center gap-2 rounded-[14px] px-3 py-2" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.07)' }}>
+      <span className="text-center font-mono text-[12px] font-extrabold tabular-nums text-muted">#{position}</span>
+      <GoalScorerFlag countryName={row.country_name} countryCode={row.country_code} />
+      <div className="min-w-0">
+        <p className={`${compact ? 'text-[13px]' : 'text-[15px]'} truncate font-extrabold text-white`}>{row.player_name}</p>
+        <p className="truncate text-[11px] font-bold text-muted">{row.country_name ?? row.country_code ?? 'Selección sin definir'}</p>
+      </div>
+      <div className="rounded-[12px] px-3 py-1.5 text-right" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <p className="font-display text-[24px] leading-none text-white">{row.goals}</p>
+        <p className="font-mono text-[9px] font-extrabold uppercase tracking-[0.08em] text-muted">goles</p>
+      </div>
     </div>
   )
 }
@@ -242,6 +334,7 @@ export default async function MundialEnVivoPage() {
     .from('matches')
     .select('*')
     .order('scheduled_at', { ascending: true })
+  const { data: goalScorersData, error: goalScorersError } = await supabase.rpc('get_public_goal_scorers')
 
   if (error) {
     return (
@@ -255,6 +348,13 @@ export default async function MundialEnVivoPage() {
   }
 
   const matches = ((data ?? []) as RawMatchRow[]).map(normalizeMatchRow)
+  if (goalScorersError) {
+    console.warn('No se pudo cargar get_public_goal_scorers:', goalScorersError.message)
+  }
+  const goalScorers = ((goalScorersData ?? []) as PublicGoalScorerRow[])
+    .map((row) => ({ ...row, goals: Number(row.goals ?? 0) }))
+    .filter((row) => row.goals > 0)
+    .sort((a, b) => b.goals - a.goals || a.player_name.localeCompare(b.player_name, 'es'))
   const roundOf32State = getOfficialRoundOf32State(matches)
   const groupMatches = matches.filter((match) => match.stage === 'group' && match.group)
   const knockoutMatches = buildProjectedKnockoutMatches(matches.filter((match) => match.stage !== 'group'))
@@ -318,9 +418,13 @@ export default async function MundialEnVivoPage() {
           <a href="#mejores-terceros" className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase transition-colors" style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.1)' }}>
             Ver mejores terceros
           </a>
+          <a href="#goleadores" className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase transition-colors" style={{ background: '#141414', color: '#cfcfcf', border: '1px solid rgba(255,255,255,0.1)' }}>
+            Ver goleadores
+          </a>
         </div>
 
         <div className="grid gap-5">
+          <GoalScorersSection rows={goalScorers} />
           <LiveBracketSection
             groupMatches={groupMatches}
             knockoutMatches={knockoutMatches}

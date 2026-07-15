@@ -10,6 +10,12 @@ export const SPECIAL_AWARD_LABELS: Record<SpecialAwardCategory, string> = {
   guante: 'Guante de Oro',
 }
 
+export const SPECIAL_AWARD_POINTS: Record<SpecialAwardCategory, number> = {
+  balon: 20,
+  bota: 15,
+  guante: 15,
+}
+
 export function isSpecialAwardCategory(value: unknown): value is SpecialAwardCategory {
   return SPECIAL_AWARD_CATEGORIES.includes(value as SpecialAwardCategory)
 }

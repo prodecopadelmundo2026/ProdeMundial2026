@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/current-profile'
 import { normalizeSpecialAwardText, SPECIAL_AWARD_CATEGORIES, SPECIAL_AWARDS_TOURNAMENT_KEY, type SpecialAwardCategory } from '@/lib/special-awards'
+import { buildSpecialAwardPreviews } from '@/lib/special-awards-preview'
 import { TEAM_NAMES, getTeam } from '@/lib/teams'
 import { SpecialAwardsAdmin, type SpecialAwardsAdminData } from './SpecialAwardsAdmin'
 
@@ -55,6 +56,13 @@ type ProfileRow = {
   id: string
   name: string | null
   email: string | null
+}
+
+type AuthorizedEmailRow = {
+  email: string
+  active: boolean | null
+  status: 'trial' | 'confirmed' | 'disabled' | null
+  deleted_at: string | null
 }
 
 type ResultRow = {
@@ -121,12 +129,30 @@ function buildData(input: {
   normalizations: NormalizationRow[]
   specialBets: SpecialBetRow[]
   profiles: ProfileRow[]
+  authorizedEmails: AuthorizedEmailRow[]
   results: ResultRow[]
   winners: WinnerRow[]
   setupErrors: string[]
 }): SpecialAwardsAdminData {
   const playersById = new Map(input.players.map((player) => [player.id, player]))
   const profilesById = new Map(input.profiles.map((profile) => [profile.id, profile]))
+  const enabledEmails = new Set(
+    input.authorizedEmails
+      .filter((row) => row.active === true && row.status === 'confirmed' && !row.deleted_at)
+      .map((row) => row.email.trim().toLowerCase())
+      .filter(Boolean)
+  )
+  const enabledParticipants = input.profiles
+    .filter((profile) => {
+      const email = profile.email?.trim().toLowerCase()
+      return Boolean(email && enabledEmails.has(email))
+    })
+    .map((profile) => ({
+      userId: profile.id,
+      name: profile.name?.trim() || profile.email?.trim() || 'Participante sin nombre',
+      email: profile.email ?? null,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'es') || a.userId.localeCompare(b.userId))
   const goalsType = input.statTypes.find((type) => type.key === 'goals')
   const goalRows = goalsType
     ? input.statValues.filter((row) => row.stat_type_id === goalsType.id)
@@ -388,6 +414,42 @@ function buildData(input: {
     })
   ) as SpecialAwardsAdminData['awardResults']
 
+  const awardPreviews = buildSpecialAwardPreviews({
+    participants: enabledParticipants,
+    bets: input.specialBets.map((bet) => ({
+      userId: bet.user_id,
+      balon: bet.balon,
+      bota: bet.bota,
+      guante: bet.guante,
+    })),
+    normalizations: input.normalizations.map((row) => ({
+      category: row.category,
+      rawNormalized: row.raw_normalized,
+      playerId: row.player_id,
+      status: row.status,
+    })),
+    players: input.players.map((player) => ({
+      id: player.id,
+      displayName: player.display_name,
+      countryName: player.country_name ?? '',
+      countryCode: player.country_code ?? '',
+    })),
+    results: Object.fromEntries(
+      SPECIAL_AWARD_CATEGORIES.map((category) => [
+        category,
+        {
+          status: awardResults[category].status,
+          winners: awardResults[category].winners.map((winner) => ({
+            playerId: winner.playerId,
+            displayName: winner.displayName,
+            countryName: winner.countryName,
+            countryCode: winner.countryCode,
+          })),
+        },
+      ])
+    ) as Parameters<typeof buildSpecialAwardPreviews>[0]['results'],
+  })
+
   return {
     setupErrors: input.setupErrors,
     teamOptions: TEAM_NAMES.map((name) => ({ name, code: getTeam(name).code, flag: getTeam(name).flag })),
@@ -407,6 +469,7 @@ function buildData(input: {
     canonicalChoices,
     candidateSummaries,
     awardResults,
+    awardPreviews,
   }
 }
 
@@ -426,6 +489,7 @@ export default async function SpecialAwardsAdminPage() {
     normalizations,
     specialBets,
     profiles,
+    authorizedEmails,
     results,
   ] = await Promise.all([
     asRows<PlayerRow>(supabase.from('players').select('id, display_name, normalized_name, country_code, country_name')),
@@ -435,6 +499,7 @@ export default async function SpecialAwardsAdminPage() {
     asRows<NormalizationRow>(supabase.from('special_bet_normalizations').select('id, category, raw_value, raw_normalized, player_id, status, reviewed_at').eq('tournament_key', SPECIAL_AWARDS_TOURNAMENT_KEY)),
     asRows<SpecialBetRow>(supabase.from('special_bets').select('user_id, balon, bota, guante')),
     asRows<ProfileRow>(supabase.from('profiles').select('id, name, email')),
+    asRows<AuthorizedEmailRow>(supabase.from('authorized_emails').select('email, active, status, deleted_at')),
     asRows<ResultRow>(supabase.from('special_bet_results').select('id, category, status, confirmed_at').eq('tournament_key', SPECIAL_AWARDS_TOURNAMENT_KEY)),
   ])
   const resultIds = results.data.map((row) => row.id)
@@ -458,6 +523,7 @@ export default async function SpecialAwardsAdminPage() {
     normalizations.error,
     specialBets.error,
     profiles.error,
+    authorizedEmails.error,
     results.error,
     winners.error,
   ].filter((message): message is string => Boolean(message))
@@ -470,6 +536,7 @@ export default async function SpecialAwardsAdminPage() {
     normalizations: normalizations.data,
     specialBets: specialBets.data,
     profiles: profiles.data,
+    authorizedEmails: authorizedEmails.data,
     results: results.data,
     winners: winners.data,
     setupErrors,

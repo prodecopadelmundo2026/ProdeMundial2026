@@ -4,6 +4,7 @@ import { useMemo, useState, useActionState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { flagUrl, getTeam, getTeamByCode } from '@/lib/teams'
 import { SPECIAL_AWARD_CATEGORIES, SPECIAL_AWARD_LABELS, type SpecialAwardCategory } from '@/lib/special-awards'
+import type { SpecialAwardPreview, SpecialAwardPreviewRow } from '@/lib/special-awards-preview'
 import {
   addOfficialWinner,
   confirmOfficialResult,
@@ -139,6 +140,7 @@ export type SpecialAwardsAdminData = {
     noMatchCount: number
   }>
   awardResults: Record<SpecialAwardCategory, AwardResult>
+  awardPreviews: Record<SpecialAwardCategory, SpecialAwardPreview>
 }
 
 function SubmitButton({ idle, pending, disabled = false }: { idle: string; pending: string; disabled?: boolean }) {
@@ -1053,6 +1055,151 @@ function UnchosenWinnerForm({ category, players, teams, writesDisabled }: { cate
   )
 }
 
+function PreviewSection({ data }: { data: SpecialAwardsAdminData }) {
+  return (
+    <section id="vista-previa" className="grid gap-4 rounded-[16px] p-4" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-orange">Vista previa auditable</p>
+          <h2 className="mt-1 text-[20px] font-extrabold text-white">Proyección de premios especiales</h2>
+          <p className="mt-1 max-w-[720px] text-[12px] text-muted">
+            Compara la respuesta literal normalizada contra los ganadores oficiales por player_id.
+          </p>
+        </div>
+        <span className="rounded-full px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: 'rgba(255,224,64,0.1)', border: '1px solid rgba(255,224,64,0.28)', color: '#FFE040' }}>
+          No modifica puntos ni ranking
+        </span>
+      </div>
+
+      <div className="grid gap-4">
+        {SPECIAL_AWARD_CATEGORIES.map((category) => (
+          <AwardPreviewCard key={category} preview={data.awardPreviews[category]} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function AwardPreviewCard({ preview }: { preview: SpecialAwardPreview }) {
+  const winnerLabel = preview.winners.length > 0
+    ? preview.winners.map((winner) => winner.displayName).join(', ')
+    : 'Sin ganador seleccionado'
+  const consistencyTone = preview.isConsistent ? '#A8F0D8' : '#FF6B6B'
+  const projectedTotalLabel = preview.evaluationReady ? `+${preview.projectedTotalPoints}` : '-'
+  const projectedDetailLabel = preview.evaluationReady
+    ? `${preview.hitCount} x ${preview.pointsPerHit} pts`
+    : 'Seleccioná un ganador'
+
+  return (
+    <article className="grid gap-4 rounded-[14px] p-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="grid gap-2 lg:grid-cols-[1fr_auto] lg:items-start">
+        <div className="min-w-0">
+          <h3 className="text-[17px] font-extrabold text-white">{preview.label}</h3>
+          <p className="mt-1 text-[12px] font-bold text-muted">Ganador oficial: <span className="text-white">{winnerLabel}</span></p>
+          <p className="mt-1 text-[12px] font-bold text-muted">Estado: <span className="text-orange">{preview.resultStatus}</span></p>
+        </div>
+        <div className="rounded-[12px] px-3 py-2 text-left lg:text-right" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">Total proyectado</p>
+          <p className="font-display text-[28px] leading-none text-white">{projectedTotalLabel}</p>
+          <p className="text-[11px] font-bold text-muted">{projectedDetailLabel}</p>
+        </div>
+      </div>
+
+      {!preview.evaluationReady && (
+        <p className="rounded-[12px] p-3 text-[12px] font-bold" style={{ background: 'rgba(255,224,64,0.09)', border: '1px solid rgba(255,224,64,0.28)', color: '#FFE040' }}>
+          Seleccioná al menos un ganador oficial para calcular la proyección.
+        </p>
+      )}
+
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <PreviewMetric label="Habilitados" value={preview.participantsTotal} />
+        <PreviewMetric label="Con respuesta" value={preview.withAnswer} />
+        <PreviewMetric label="Sin respuesta" value={preview.withoutAnswer} />
+        <PreviewMetric label="Pendientes" value={preview.pendingCount} />
+        <PreviewMetric label="Listas para evaluar" value={preview.notEvaluatedCount} />
+        <PreviewMetric label="Acertaron" value={preview.evaluationReady ? preview.hitCount : '-'} />
+        <PreviewMetric label="No acertaron" value={preview.evaluationReady ? preview.missCount : '-'} />
+        <PreviewMetric label="Puntos por acierto" value={`+${preview.pointsPerHit}`} />
+        <PreviewMetric label="Consistencia" value={`${preview.consistencyTotal}/${preview.participantsTotal}`} color={consistencyTone} />
+      </div>
+
+      <p className="rounded-[12px] p-3 text-[12px] font-bold" style={{ background: '#0A0A0A', border: `1px solid ${preview.isConsistent ? 'rgba(168,240,216,0.22)' : 'rgba(255,107,107,0.26)'}`, color: consistencyTone }}>
+        {preview.evaluationReady
+          ? `acertaron + no acertaron + pendientes + sin respuesta = ${preview.consistencyTotal}`
+          : `listas para evaluar + pendientes + sin respuesta = ${preview.consistencyTotal}`}
+      </p>
+
+      <div className="grid gap-3">
+        {preview.evaluationReady ? (
+          <>
+            <PreviewRowsBlock title="Acertantes" rows={preview.hits} empty="Nadie acertaría con los ganadores seleccionados." />
+            <PreviewRowsBlock title="No acertantes" rows={preview.misses} empty="No hay participantes en este bloque." />
+          </>
+        ) : (
+          <PreviewRowsBlock title="Respuestas listas para evaluar" rows={preview.notEvaluated} empty="No hay respuestas listas para evaluar." />
+        )}
+        <PreviewRowsBlock title="Pendientes de normalización" rows={preview.pending} empty="No hay respuestas pendientes." />
+        <PreviewRowsBlock title="Sin respuesta" rows={preview.noAnswer} empty="No hay participantes sin respuesta." />
+      </div>
+    </article>
+  )
+}
+
+function PreviewMetric({ label, value, color = '#fff' }: { label: string; value: string | number; color?: string }) {
+  return (
+    <div className="rounded-[12px] p-3" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <p className="font-mono text-[9px] font-extrabold uppercase tracking-[0.1em] text-muted">{label}</p>
+      <p className="mt-1 font-display text-[24px] leading-none tabular-nums" style={{ color }}>{value}</p>
+    </div>
+  )
+}
+
+function PreviewRowsBlock({ title, rows, empty }: { title: string; rows: SpecialAwardPreviewRow[]; empty: string }) {
+  return (
+    <details className="rounded-[12px] p-3" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <summary className="cursor-pointer text-[12px] font-extrabold uppercase text-white">{title} ({rows.length})</summary>
+      {rows.length === 0 ? (
+        <p className="mt-3 text-[12px] font-bold text-muted">{empty}</p>
+      ) : (
+        <div className="mt-3 grid gap-2">
+          {rows.map((row) => (
+            <PreviewParticipantRow key={`${row.userId}-${row.result}-${row.originalAnswer ?? 'empty'}`} row={row} />
+          ))}
+        </div>
+      )}
+    </details>
+  )
+}
+
+function PreviewParticipantRow({ row }: { row: SpecialAwardPreviewRow }) {
+  const resultLabel: Record<SpecialAwardPreviewRow['result'], string> = {
+    hit: 'Acertó',
+    miss: 'No acertó',
+    pending: 'Pendiente',
+    no_answer: 'Sin respuesta',
+    not_evaluated: 'Sin ganador seleccionado',
+  }
+
+  return (
+    <div className="grid gap-2 rounded-[10px] p-3 text-[12px]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.07)' }}>
+      <div className="min-w-0">
+        <p className="font-extrabold text-white">{row.name}</p>
+        <p className="break-all font-mono text-[10px] text-muted">{row.email ?? row.userId}</p>
+      </div>
+      <div className="grid gap-1 text-muted sm:grid-cols-2">
+        <p>Tu respuesta: <span className="font-bold text-white">{row.originalAnswer ?? '-'}</span></p>
+        <p>Texto normalizado: <span className="font-bold text-white">{row.rawNormalized ?? '-'}</span></p>
+        <p>Se refiere a: <span className="font-bold text-white">{row.canonicalPlayerName ?? '-'}</span></p>
+        <p>Ganador oficial: <span className="font-bold text-white">{row.winnerName ?? '-'}</span></p>
+        <p>Estado normalización: <span className="font-bold text-white">{row.normalizationStatus ?? '-'}</span></p>
+        <p>Resultado: <span className="font-bold text-white">{resultLabel[row.result]}</span></p>
+      </div>
+      {row.reason && <p className="text-[11px] font-bold text-[#FFB15C]">{row.reason}</p>}
+      <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.1em] text-muted">Puntos proyectados: <span className="text-white">+{row.projectedPoints}</span></p>
+    </div>
+  )
+}
+
 export function SpecialAwardsAdmin({ data }: { data: SpecialAwardsAdminData }) {
   const setupErrors = useMemo(() => [...new Set(data.setupErrors)], [data.setupErrors])
   const writesDisabled = setupErrors.length > 0
@@ -1064,6 +1211,7 @@ export function SpecialAwardsAdmin({ data }: { data: SpecialAwardsAdminData }) {
           ['#tabla-goleadores', 'Tabla de goleadores'],
           ['#normalizacion', 'Elecciones y normalización'],
           ['#resultados-oficiales', 'Resultados oficiales'],
+          ['#vista-previa', 'Vista previa'],
         ].map(([href, label]) => (
           <a key={href} href={href} className="rounded-full px-4 py-2 text-[12px] font-extrabold uppercase text-white" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.1)' }}>{label}</a>
         ))}
@@ -1082,6 +1230,7 @@ export function SpecialAwardsAdmin({ data }: { data: SpecialAwardsAdminData }) {
       <GoalsAdminSection data={data} writesDisabled={writesDisabled} />
       <NormalizationSection data={data} writesDisabled={writesDisabled} />
       <ResultsSection data={data} writesDisabled={writesDisabled} />
+      <PreviewSection data={data} />
     </div>
   )
 }
