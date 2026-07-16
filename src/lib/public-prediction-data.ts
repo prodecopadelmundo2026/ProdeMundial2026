@@ -150,6 +150,7 @@ function bonusRoundLabel(round: KnockoutBonusRound) {
   if (round === 'quarterfinal') return 'Cuartos'
   if (round === 'semifinal') return 'Semis'
   if (round === 'final') return 'Final'
+  if (round === 'third_place') return 'Tercer puesto'
   return 'Campeón'
 }
 
@@ -245,7 +246,7 @@ export async function getVirtualMatchTrajectoryInsights(
   matchId: string
 ): Promise<VirtualMatchTrajectoryInsights | null> {
   const official = matches.find((match) => match.id === matchId)
-  if (!official || official.stage === 'group' || official.stage === 'third_place') return null
+  if (!official || official.stage === 'group') return null
 
   const rows = await loadTrajectoryRows()
   const nameById = new Map(rows.profiles.map((profile) => [profile.id, profile.name]))

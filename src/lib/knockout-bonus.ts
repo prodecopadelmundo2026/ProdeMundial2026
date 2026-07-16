@@ -22,6 +22,7 @@ export type KnockoutBonusRound =
   | 'quarterfinal'
   | 'semifinal'
   | 'final'
+  | 'third_place'
   | 'champion'
 
 export type KnockoutBonusLedgerItem = {
@@ -43,6 +44,7 @@ export const KNOCKOUT_BONUS_POINTS: Record<KnockoutBonusRound, number> = {
   quarterfinal: 3,
   semifinal: 4,
   final: 5,
+  third_place: 5,
   champion: 10,
 }
 
@@ -61,7 +63,18 @@ export function getTrajectoryTeamPointsForStage(stage: Match['stage']) {
   if (stage === 'quarter') return KNOCKOUT_BONUS_POINTS.quarterfinal
   if (stage === 'semi') return KNOCKOUT_BONUS_POINTS.semifinal
   if (stage === 'final') return KNOCKOUT_BONUS_POINTS.final
+  if (stage === 'third_place') return KNOCKOUT_BONUS_POINTS.third_place
   return 0
+}
+
+export function getDisplayedTrajectoryRoundForStage(stage: Match['stage']): KnockoutBonusRound | null {
+  if (stage === 'round_of_32') return 'round_of_32'
+  if (stage === 'round_of_16') return 'round_of_16'
+  if (stage === 'quarter') return 'quarterfinal'
+  if (stage === 'semi') return 'semifinal'
+  if (stage === 'final') return 'final'
+  if (stage === 'third_place') return 'third_place'
+  return null
 }
 
 export function getKnockoutStageLabel(stage: Match['stage']) {
@@ -70,6 +83,7 @@ export function getKnockoutStageLabel(stage: Match['stage']) {
   if (stage === 'quarter') return 'cuartos'
   if (stage === 'semi') return 'semis'
   if (stage === 'final') return 'final'
+  if (stage === 'third_place') return 'tercer puesto'
   return ''
 }
 
@@ -170,6 +184,7 @@ function bonusRoundLabel(round: KnockoutBonusRound) {
   if (round === 'quarterfinal') return 'Cuartos'
   if (round === 'semifinal') return 'Semis'
   if (round === 'final') return 'Final'
+  if (round === 'third_place') return 'Tercer puesto'
   return 'Campeón'
 }
 
@@ -199,12 +214,34 @@ function getPredictedWinnerForVirtualMatch({
   return null
 }
 
+function getPredictedLoserForVirtualMatch(input: {
+  virtualMatchId: string
+  predictedHome: string
+  predictedAway: string
+  predictionMap: ScoreMap
+  historicalTiebreakers: TiebreakerMap
+}) {
+  const winner = getPredictedWinnerForVirtualMatch(input)
+  if (!winner) return null
+  if (teamKey(winner) === teamKey(input.predictedHome)) return input.predictedAway
+  if (teamKey(winner) === teamKey(input.predictedAway)) return input.predictedHome
+  return null
+}
+
 function getActualQualifiedTeam(match: Match) {
   if (match.status !== 'finished') return null
   if (match.qualified_team) return match.qualified_team
   if (match.home_score == null || match.away_score == null) return null
   if (match.home_score > match.away_score) return match.home_team
   if (match.away_score > match.home_score) return match.away_team
+  return null
+}
+
+function getActualLosingTeam(match: Match) {
+  const winner = getActualQualifiedTeam(match)
+  if (!winner) return null
+  if (teamKey(winner) === teamKey(match.home_team)) return match.away_team
+  if (teamKey(winner) === teamKey(match.away_team)) return match.home_team
   return null
 }
 
@@ -305,6 +342,43 @@ export function buildRoundOf32BonusLedger({
     addTeamToRoundMap(predictedQualifiedByRound, bonusRound, predictedWinner)
   }
 
+  for (const pNum of [101, 102]) {
+    const fixture = KNOCKOUT_FIXTURES[pNum as keyof typeof KNOCKOUT_FIXTURES]
+    const projectedMatch = predictionOnlyKnockoutMatches.find((match) => knockoutPNum(match) === pNum)
+    if (!fixture || !projectedMatch) continue
+
+    const virtualMatchId = `virtual-p${pNum}`
+    const predictedHome = resolveTeamFull(
+      fixture[0],
+      predictedStandings,
+      knockoutMap,
+      predictionMap,
+      historicalTiebreakers,
+      0,
+      predictedThirdGroups,
+      predictedThirdSlots
+    )
+    const predictedAway = resolveTeamFull(
+      fixture[1],
+      predictedStandings,
+      knockoutMap,
+      predictionMap,
+      historicalTiebreakers,
+      0,
+      predictedThirdGroups,
+      predictedThirdSlots
+    )
+    const predictedLoser = getPredictedLoserForVirtualMatch({
+      virtualMatchId,
+      predictedHome,
+      predictedAway,
+      predictionMap,
+      historicalTiebreakers,
+    })
+
+    addTeamToRoundMap(predictedQualifiedByRound, 'third_place', predictedLoser)
+  }
+
   for (const match of getTournamentVisibleMatches(matches)) {
     if (match.stage === 'group' || match.stage === 'third_place') continue
     if (match.status !== 'finished') continue
@@ -337,6 +411,31 @@ export function buildRoundOf32BonusLedger({
         : `No pronosticó que ${actualQualifiedTeam} llegaba a ${bonusRoundLabel(bonusRound)}.`,
       sourceMatchPNum: pNum,
     })
+  }
+
+  const thirdPlaceTeams = getTournamentVisibleMatches(matches)
+    .filter((match) => match.stage === 'semi')
+    .map((match) => getActualLosingTeam(match))
+    .filter((team): team is string => Boolean(team))
+
+  if (thirdPlaceTeams.length === 2) {
+    for (const team of thirdPlaceTeams) {
+      const awarded = hasTeamInRoundMap(predictedQualifiedByRound, 'third_place', team)
+      ledger.push({
+        userId,
+        team,
+        round: 'third_place',
+        roundLabel: bonusRoundLabel('third_place'),
+        points: awarded ? KNOCKOUT_BONUS_POINTS.third_place : 0,
+        predicted: awarded,
+        actual: true,
+        awarded,
+        reason: awarded
+          ? `Pronosticó que ${team} jugaría el tercer puesto y el equipo llegó a esa instancia.`
+          : `No pronosticó que ${team} jugaría el tercer puesto.`,
+        sourceMatchPNum: 103,
+      })
+    }
   }
 
   return ledger

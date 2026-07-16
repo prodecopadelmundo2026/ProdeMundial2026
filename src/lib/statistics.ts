@@ -220,6 +220,11 @@ export function buildStatisticsData({
       tiebreakersByUser.get(participant.user_id) ?? {}
     ),
   ]))
+  const officialRankingByUser = new Map(
+    officialRanking
+      .filter((entry) => entry.user_id)
+      .map((entry) => [entry.user_id!, entry])
+  )
   const auditRowByUserAndMatch = new Map<string, ReturnType<typeof buildMatchAuditRows>[number]>()
   const cumulativeByUserAndDay = new Map<string, Map<string, { group: PhaseMetrics; knockout: PhaseMetrics }>>()
 
@@ -330,6 +335,12 @@ export function buildStatisticsData({
     })
     const raw = userPredictions.filter((prediction) =>
       matchIds.has(prediction.match_id) || prediction.match_id.startsWith('virtual-p'))
+    const official = officialRankingByUser.get(participant.user_id)
+    const computedGroupPoints = groupRows.reduce((sum, row) => sum + (row.points ?? 0), 0)
+    const computedKnockoutPoints = knockoutRows.reduce((sum, row) => sum + (row.points ?? 0), 0)
+    const computedBonus = knockoutRows.reduce((sum, row) => sum + row.qualifiedPoints, 0)
+    const officialBonus = Number(official?.trajectory_bonus ?? computedBonus)
+    const officialKnockoutResultPoints = Number(official?.knockout_points ?? Math.max(0, computedKnockoutPoints - computedBonus))
     return {
       ...participant,
       exact: rows.filter((row) => row.status === 'exact').length,
@@ -337,9 +348,9 @@ export function buildStatisticsData({
       drawsHit: rows.filter((row) => row.match.home_score === row.match.away_score && row.prediction!.home_score === row.prediction!.away_score).length,
       winnersHit: rows.filter((row) => row.match.home_score !== row.match.away_score &&
         Math.sign(Number(row.match.home_score) - Number(row.match.away_score)) === Math.sign(row.prediction!.home_score - row.prediction!.away_score)).length,
-      groupPoints: groupRows.reduce((sum, row) => sum + (row.points ?? 0), 0),
-      knockoutPoints: knockoutRows.reduce((sum, row) => sum + (row.points ?? 0), 0),
-      bonus: knockoutRows.reduce((sum, row) => sum + row.qualifiedPoints, 0),
+      groupPoints: Number(official?.group_points ?? computedGroupPoints),
+      knockoutPoints: officialKnockoutResultPoints + officialBonus,
+      bonus: officialBonus,
       crosses: crossingAudit.filter((row) => row.correct).length,
       goals: raw.reduce((sum, prediction) => sum + prediction.home_score + prediction.away_score, 0),
       draws: raw.filter((prediction) => prediction.home_score === prediction.away_score).length,

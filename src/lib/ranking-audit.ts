@@ -9,7 +9,7 @@ import {
   knockoutPNum,
   resolveTeamFull,
 } from '@/lib/bracket'
-import { buildRoundOf32BonusLedger, getQualifiedTeamPointsForStage } from '@/lib/knockout-bonus'
+import { buildRoundOf32BonusLedger, getDisplayedTrajectoryRoundForStage, getQualifiedTeamPointsForStage } from '@/lib/knockout-bonus'
 
 type ScoreMap = Record<string, { home_score: number; away_score: number }>
 type TiebreakerMap = Record<string, string>
@@ -286,16 +286,23 @@ export function buildMatchAuditRows(
         ? getQualifiedTeamPointsForStage(match.stage)
         : 0
 
-    const pNum = knockoutPNum(match)
-    const trajectoryAwards = match.stage === 'group' || pNum == null
+    const displayedTrajectoryRound = getDisplayedTrajectoryRoundForStage(match.stage)
+    const displayedTrajectoryTeams = [officialTeams.home, officialTeams.away]
+    const trajectoryAwards = match.stage === 'group' || !displayedTrajectoryRound || !hasOfficialTeams
       ? []
-      : trajectoryLedger.filter((item) => item.sourceMatchPNum === pNum && item.awarded)
+      : trajectoryLedger.filter((item) =>
+          item.awarded &&
+          item.round === displayedTrajectoryRound &&
+          displayedTrajectoryTeams.some((team) => sameTeam(team, item.team))
+        )
     const trajectoryTeams = [...new Set(trajectoryAwards.map((item) => item.team))]
     const trajectoryPoints = trajectoryAwards.reduce((total, item) => total + item.points, 0)
     // El ledger es la fuente real del bonus: premia al equipo pronosticado para
     // esta ronda aunque haya sido ubicado en otro slot.
     const qualifiedPoints = trajectoryPoints
-    const points = resultPoints == null ? null : resultPoints + qualifiedPoints
+    const points = resultPoints == null
+      ? qualifiedPoints > 0 ? qualifiedPoints : null
+      : resultPoints + qualifiedPoints
     const predictedRoundTeams = predictedTeamsByStage.get(match.stage) ?? new Set<string>()
     const officialRoundTeamHits = [officialTeams.home, officialTeams.away]
       .filter((team) => predictedRoundTeams.has(team))

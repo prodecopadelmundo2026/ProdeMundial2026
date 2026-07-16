@@ -33,7 +33,7 @@ export default async function PronosticosPage() {
   const insightsByMatch = await getPredictionInsightsByMatch()
   const trajectoryEntries = await Promise.all(
     matches
-      .filter((match) => match.id.startsWith('virtual-p') && match.stage !== 'third_place')
+      .filter((match) => match.id.startsWith('virtual-p'))
       .map(async (match) => [match.id, await getVirtualMatchTrajectoryInsights(matches, match.id)] as const)
   )
   const trajectoryByMatch = Object.fromEntries(trajectoryEntries)

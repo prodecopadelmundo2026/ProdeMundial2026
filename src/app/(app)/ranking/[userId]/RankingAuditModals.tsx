@@ -25,7 +25,7 @@ const STAGE_LABELS: Record<MatchAuditRow['stage'], string> = {
   third_place: 'Tercer puesto',
   final: 'Final',
 }
-const BONUS_ORDER: KnockoutBonusRound[] = ['round_of_32', 'round_of_16', 'quarterfinal', 'semifinal', 'final', 'champion']
+const BONUS_ORDER: KnockoutBonusRound[] = ['round_of_32', 'round_of_16', 'quarterfinal', 'semifinal', 'final', 'third_place', 'champion']
 const BONUS_LABELS: Record<KnockoutBonusRound, string> = {
   round_of_32: '16avos',
   round_of_16: 'Octavos',
@@ -33,6 +33,7 @@ const BONUS_LABELS: Record<KnockoutBonusRound, string> = {
   semifinal: 'Semis',
   final: 'Final',
   champion: 'Campeón',
+  third_place: 'Tercer puesto',
 }
 
 function tileClass() {
@@ -61,9 +62,13 @@ function StaticTile({ label, value, color }: { label: string; value: string | nu
   )
 }
 
+function displayedResultPoints(row: MatchAuditRow) {
+  return row.stage === 'group' ? (row.points ?? 0) : (row.resultPoints ?? 0)
+}
+
 function MatchAuditItem({ row }: { row: MatchAuditRow }) {
   const resultColor = row.status === 'exact' ? '#A8F0D8' : row.status === 'partial' ? '#FFB15C' : row.status === 'incorrect' ? '#FF6B6B' : '#8A8A8A'
-  const displayedPoints = row.stage === 'group' ? (row.points ?? 0) : (row.resultPoints ?? 0)
+  const displayedPoints = displayedResultPoints(row)
   const statusLabel: Record<AuditStatus, string> = {
     exact: 'Exacto',
     partial: 'Parcial',
@@ -215,7 +220,7 @@ export function RankingAuditModals({
                     const stageRows = filteredRows.filter((row) => row.stage === stage)
                     if (stageRows.length === 0) return null
                     const stagePoints = stageRows.reduce(
-                      (total, row) => total + (row.stage === 'group' ? (row.points ?? 0) : (row.resultPoints ?? 0)),
+                      (total, row) => total + displayedResultPoints(row),
                       0
                     )
                     return (

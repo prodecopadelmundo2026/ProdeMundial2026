@@ -12,7 +12,7 @@ import { generateRandomKnockoutPredictions } from '@/app/(app)/fixture/actions'
 import { deleteRealPredictionsByMatchIds, deleteVirtualKnockoutPredictionsByMatchIds, saveRealPredictions, saveVirtualKnockoutPredictions } from './actions'
 import { computeAllStandings, buildKnockoutMap, resolveTeamFull, computeBestThirdsGroups, assignBestThirdsToSlots, getPendingGroupTiebreakers, isVirtualKnockoutMatch, KNOCKOUT_FIXTURES, knockoutPNum } from '@/lib/bracket'
 import { normalizeScoreInput, parseScoreInput } from '@/lib/score-input'
-import type { KnockoutBonusLedgerItem, KnockoutBonusRound } from '@/lib/knockout-bonus'
+import { getDisplayedTrajectoryRoundForStage, type KnockoutBonusLedgerItem } from '@/lib/knockout-bonus'
 import type { MatchAuditRow } from '@/lib/ranking-audit'
 
 type PredMap = Record<string, { home_score: number; away_score: number }>
@@ -900,13 +900,7 @@ export function BracketView({
   }
 
   function trajectoryPointsForMatch(match: Match) {
-    const round: KnockoutBonusRound | null =
-      match.stage === 'round_of_32' ? 'round_of_32' :
-      match.stage === 'round_of_16' ? 'round_of_16' :
-      match.stage === 'quarter' ? 'quarterfinal' :
-      match.stage === 'semi' ? 'semifinal' :
-      match.stage === 'final' ? 'final' :
-      null
+    const round = getDisplayedTrajectoryRoundForStage(match.stage)
     if (!round) return 0
     const teams = Object.values(getResolvedTeams(match))
     return trajectoryAwards

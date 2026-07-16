@@ -13,7 +13,7 @@ import {
   resolveTeamFull,
 } from '@/lib/bracket'
 import { computeFifaAllStandings, computeFifaGroupStandings, computeFifaBestThirds } from '@/lib/fifa-standings'
-import type { KnockoutBonusLedgerItem, KnockoutBonusRound } from '@/lib/knockout-bonus'
+import { getDisplayedTrajectoryRoundForStage, type KnockoutBonusLedgerItem } from '@/lib/knockout-bonus'
 import type { MatchAuditRow } from '@/lib/ranking-audit'
 
 const TROPHY_ICON = String.fromCodePoint(0x1F3C6)
@@ -946,8 +946,14 @@ export function TournamentBracket({
 
   const finalData = getMatchData(FINAL_P)
   const champion  = finalData.winner && !isPlaceholderName(finalData.winner) ? finalData.winner : null
+  const finalMatch = pMap[FINAL_P]
+  const finalAuditRow = finalMatch ? auditRows.find((row) => row.match.id === finalMatch.id) : undefined
+  const finalExactCrossing = finalData.exactCrossing || finalAuditRow?.crossMatches === true
 
   const thirdData = getMatchData(THIRD_P)
+  const thirdMatch = pMap[THIRD_P]
+  const thirdAuditRow = thirdMatch ? auditRows.find((row) => row.match.id === thirdMatch.id) : undefined
+  const thirdExactCrossing = thirdData.exactCrossing || thirdAuditRow?.crossMatches === true
 
   // Round header labels
   const headers = [
@@ -968,6 +974,31 @@ export function TournamentBracket({
     setOpenCandidateInfo(candidates)
   }
 
+  const bonusesFor = (
+    pNum: number,
+    team: string,
+    auditRow: MatchAuditRow | undefined,
+    data: ReturnType<typeof getMatchData>,
+    exactCrossing: boolean
+  ) => {
+    const match = pMap[pNum]
+    const displayedRound = match ? getDisplayedTrajectoryRoundForStage(match.stage) : null
+    const trajectoryPoints = trajectoryAwards
+      .filter((item) => item.awarded && sameTeam(item.team, team) && item.round === displayedRound)
+      .reduce((total, item) => total + item.points, 0)
+    let total = trajectoryPoints
+    const showBonus = mode !== 'official' && pNum <= 88 && roundOf32AwardedTeams != null
+    if (
+      total === 0 &&
+      showBonus &&
+      !isPlaceholderName(team) &&
+      [...roundOf32AwardedTeams!].some((awardedTeam) => sameTeam(awardedTeam, team))
+    ) total = 1
+    const resultPoints = auditRow?.resultPoints ?? data.resultPoints
+    if (exactCrossing && sameTeam(team, data.winner)) total += resultPoints
+    return total > 0 ? [total] : []
+  }
+
   function renderCard(pNum: number, top: number, left: number, side: BracketSide) {
     const d = getMatchData(pNum)
     const match = pMap[pNum]
@@ -976,30 +1007,6 @@ export function TournamentBracket({
       d.exactCrossing ||
       auditRow?.crossMatches === true ||
       (pNum >= 73 && pNum <= 88 && roundOf32ExactCrossings?.has(pNum))
-    const showBonus = mode !== 'official' && pNum <= 88 && roundOf32AwardedTeams != null
-    // La UI sólo ubica premios que el ledger ya otorgó. No vuelve a comparar
-    // cruce, rival, partido ni slot.
-    const displayedRound: KnockoutBonusRound | null =
-      pNum >= 73 && pNum <= 88 ? 'round_of_32' :
-      pNum >= 89 && pNum <= 96 ? 'round_of_16' :
-      pNum >= 97 && pNum <= 100 ? 'quarterfinal' :
-      pNum >= 101 && pNum <= 102 ? 'semifinal' :
-      pNum === 104 ? 'final' : null
-    const bonusesFor = (team: string) => {
-      const trajectoryPoints = trajectoryAwards
-        .filter((item) => item.awarded && sameTeam(item.team, team) && item.round === displayedRound)
-        .reduce((total, item) => total + item.points, 0)
-      let total = trajectoryPoints
-      if (
-        total === 0 &&
-        showBonus &&
-        !isPlaceholderName(team) &&
-        [...roundOf32AwardedTeams!].some((awardedTeam) => sameTeam(awardedTeam, team))
-      ) total = 1
-      const resultPoints = auditRow?.resultPoints ?? d.resultPoints
-      if (exactCrossing && sameTeam(team, d.winner)) total += resultPoints
-      return total > 0 ? [total] : []
-    }
     return (
       <div key={pNum} style={{ position: 'absolute', top, left }}>
         <BracketCard
@@ -1011,8 +1018,8 @@ export function TournamentBracket({
           auditStatus={exactCrossing ? 'exact-crossing' : d.auditStatus}
           homeStatus={d.homeStatus}
           awayStatus={d.awayStatus}
-          homeBonuses={bonusesFor(d.homeTeam)}
-          awayBonuses={bonusesFor(d.awayTeam)}
+          homeBonuses={bonusesFor(pNum, d.homeTeam, auditRow, d, Boolean(exactCrossing))}
+          awayBonuses={bonusesFor(pNum, d.awayTeam, auditRow, d, Boolean(exactCrossing))}
           onCandidateClick={openCandidateDetail}
           width={cardWidth}
           compact={compact}
@@ -1195,6 +1202,8 @@ export function TournamentBracket({
                 auditStatus={finalData.auditStatus}
                 homeStatus={finalData.homeStatus}
                 awayStatus={finalData.awayStatus}
+                homeBonuses={bonusesFor(FINAL_P, finalData.homeTeam, finalAuditRow, finalData, finalExactCrossing)}
+                awayBonuses={bonusesFor(FINAL_P, finalData.awayTeam, finalAuditRow, finalData, finalExactCrossing)}
                 onCandidateClick={openCandidateDetail}
                 width={cardWidth}
                 compact={compact}
@@ -1231,6 +1240,8 @@ export function TournamentBracket({
                 auditStatus={thirdData.auditStatus}
                 homeStatus={thirdData.homeStatus}
                 awayStatus={thirdData.awayStatus}
+                homeBonuses={bonusesFor(THIRD_P, thirdData.homeTeam, thirdAuditRow, thirdData, thirdExactCrossing)}
+                awayBonuses={bonusesFor(THIRD_P, thirdData.awayTeam, thirdAuditRow, thirdData, thirdExactCrossing)}
                 onCandidateClick={openCandidateDetail}
                 width={cardWidth}
                 compact={compact}
