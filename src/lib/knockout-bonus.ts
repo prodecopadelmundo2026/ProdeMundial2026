@@ -136,6 +136,51 @@ function hasTeamInRoundMap(
   return map.get(round)?.has(teamKey(team)) ?? false
 }
 
+function addResolvedMatchTeamsToRoundMap({
+  map,
+  round,
+  fixture,
+  predictedStandings,
+  knockoutMap,
+  predictionMap,
+  historicalTiebreakers,
+  predictedThirdGroups,
+  predictedThirdSlots,
+}: {
+  map: Map<KnockoutBonusRound, Set<string>>
+  round: KnockoutBonusRound
+  fixture: [string, string]
+  predictedStandings: Record<string, string[]>
+  knockoutMap: Record<number, Match>
+  predictionMap: ScoreMap
+  historicalTiebreakers: TiebreakerMap
+  predictedThirdGroups: Set<string>
+  predictedThirdSlots: Record<string, string>
+}) {
+  const predictedHome = resolveTeamFull(
+    fixture[0],
+    predictedStandings,
+    knockoutMap,
+    predictionMap,
+    historicalTiebreakers,
+    0,
+    predictedThirdGroups,
+    predictedThirdSlots
+  )
+  const predictedAway = resolveTeamFull(
+    fixture[1],
+    predictedStandings,
+    knockoutMap,
+    predictionMap,
+    historicalTiebreakers,
+    0,
+    predictedThirdGroups,
+    predictedThirdSlots
+  )
+  addTeamToRoundMap(map, round, predictedHome)
+  addTeamToRoundMap(map, round, predictedAway)
+}
+
 export function getHistoricalPredictedRoundOf32Teams(
   groupMatches: Match[],
   predictionMap: ScoreMap,
@@ -304,7 +349,24 @@ export function buildRoundOf32BonusLedger({
   for (const [pNumString, fixture] of Object.entries(KNOCKOUT_FIXTURES)) {
     const pNum = Number(pNumString)
     const projectedMatch = predictionOnlyKnockoutMatches.find((match) => knockoutPNum(match) === pNum)
-    if (!projectedMatch || projectedMatch.stage === 'third_place') continue
+    if (!projectedMatch) continue
+
+    const displayedRound = getDisplayedTrajectoryRoundForStage(projectedMatch.stage)
+    if (displayedRound) {
+      addResolvedMatchTeamsToRoundMap({
+        map: predictedQualifiedByRound,
+        round: displayedRound,
+        fixture,
+        predictedStandings,
+        knockoutMap,
+        predictionMap,
+        historicalTiebreakers,
+        predictedThirdGroups,
+        predictedThirdSlots,
+      })
+    }
+
+    if (projectedMatch.stage === 'third_place') continue
 
     const bonusRound = bonusRoundForQualifiedStage(projectedMatch.stage)
     if (!bonusRound) continue

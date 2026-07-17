@@ -116,6 +116,7 @@ export function VirtualTrajectoryInsights({
           <p><strong className="text-orange">Ambos, en otro cruce:</strong> {compactNames(data.bothTeamsOtherCrossing)}</p>
           <p><strong className="text-mint"><TeamFlag team={homeTeam} /> Solo {homeTeam}:</strong> {compactNames(data.homeTeamOnly)}</p>
           <p><strong className="text-mint"><TeamFlag team={awayTeam} /> Solo {awayTeam}:</strong> {compactNames(data.awayTeamOnly)}</p>
+          <p><strong className="text-muted">Ninguno de los dos:</strong> {compactNames(data.noTeamMatch)}</p>
         </div>
         {data.nextRoundLabel && data.advancePoints > 0 && (
           <div className="grid gap-1.5 text-[11px] font-semibold leading-relaxed text-muted">
@@ -160,7 +161,7 @@ export function VirtualTrajectoryInsights({
         <p className="mb-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.15em] text-mint">
           Aciertos de trayectoria en esta instancia
         </p>
-        <div className="grid gap-3 lg:grid-cols-3">
+        <div className="grid gap-3 lg:grid-cols-4">
           <section className="rounded-[15px] bg-[#101010] p-4" style={{ border: '1px solid rgba(255,107,0,0.18)' }}>
             <p className="text-[12px] font-extrabold text-white">Ambos equipos en {data.instanceLabel}, pero no este cruce exacto</p>
             <p className="mb-3 mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-orange">+{data.trajectoryPoints * 2} trayectoria</p>
@@ -175,6 +176,11 @@ export function VirtualTrajectoryInsights({
             <p className="text-[12px] font-extrabold text-white"><TeamFlag team={awayTeam} /> Tenían solo a {awayTeam} en {data.instanceLabel}</p>
             <p className="mb-3 mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-mint">+{data.trajectoryPoints} trayectoria</p>
             <ParticipantChips items={data.awayTeamOnly} />
+          </section>
+          <section className="rounded-[15px] bg-[#101010] p-4" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+            <p className="text-[12px] font-extrabold text-white">No tenían a {homeTeam} ni a {awayTeam} en {data.instanceLabel}</p>
+            <p className="mb-3 mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-muted">0 trayectoria</p>
+            <ParticipantChips items={data.noTeamMatch} />
           </section>
         </div>
       </div>

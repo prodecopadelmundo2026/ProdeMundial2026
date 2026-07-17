@@ -100,6 +100,21 @@ function isUnresolvedTeam(team: string) {
   )
 }
 
+function virtualMatchIdFor(match: Match) {
+  const pNum = knockoutPNum(match)
+  return pNum == null ? null : `virtual-p${pNum}`
+}
+
+function predictionForMatch(match: Match, predictionByMatch: Map<string, Prediction>) {
+  const virtualMatchId = virtualMatchIdFor(match)
+  return predictionByMatch.get(match.id) ?? (virtualMatchId ? predictionByMatch.get(virtualMatchId) : undefined)
+}
+
+function tiebreakerForMatch(match: Match, tiebreakerMap: TiebreakerMap, prediction?: Prediction) {
+  const virtualMatchId = virtualMatchIdFor(match)
+  return tiebreakerMap[match.id] ?? (virtualMatchId ? tiebreakerMap[virtualMatchId] : undefined) ?? prediction?.tiebreaker_team ?? null
+}
+
 function buildResolvedTeams(
   match: Match,
   allMatches: Match[],
@@ -222,7 +237,7 @@ export function buildMatchAuditRows(
   )
   const predictedTeamsByStage = new Map<Match['stage'], Set<string>>()
   for (const match of matches) {
-    if (!predictionByMatch.has(match.id)) continue
+    if (!predictionForMatch(match, predictionByMatch)) continue
     const resolved = predictedResolvedByMatch.get(match.id)
     if (!resolved) continue
     const teams = predictedTeamsByStage.get(match.stage) ?? new Set<string>()
@@ -232,7 +247,7 @@ export function buildMatchAuditRows(
   }
 
   return matches.map((match) => {
-    const prediction = predictionByMatch.get(match.id)
+    const prediction = predictionForMatch(match, predictionByMatch)
     const officialTeams = buildResolvedTeams(match, matches, officialScoreMap, {}, 'official')
     const predictedTeams = prediction
       ? predictedResolvedByMatch.get(match.id)!
@@ -260,7 +275,7 @@ export function buildMatchAuditRows(
         ? predictedTeams.home
         : prediction.away_score > prediction.home_score
         ? predictedTeams.away
-        : tiebreakerMap[match.id] ?? prediction.tiebreaker_team ?? null
+        : tiebreakerForMatch(match, tiebreakerMap, prediction)
       : null
 
     const requiresCorrectQualifier =
@@ -315,36 +330,43 @@ export function buildMatchAuditRows(
       : officialRoundTeamHits.length === 1
       ? 'one_team_other_crossing'
       : 'different_crossing'
+    const trajectoryExplanation = qualifiedPoints > 0
+      ? `Sumó +${qualifiedPoints} de trayectoria porque ${trajectoryTeams.join(' y ')} ${trajectoryTeams.length > 1 ? 'llegaron' : 'llegó'} a ${getDisplayedTrajectoryRoundForStage(match.stage) === 'third_place' ? 'tercer puesto' : getDisplayedTrajectoryRoundForStage(match.stage) === 'final' ? 'la final' : 'esta instancia'}.`
+      : slotQualifiedPoints > 0
+      ? 'Acertó el clasificado en este slot, pero la trayectoria real no otorgó puntos para este partido.'
+      : 'Sin puntos por clasificado o trayectoria en esta ronda.'
     const explanation = !prediction
-      ? 'Sin pronóstico cargado para este slot.'
-      : !hasOfficialResult
-      ? 'El resultado oficial todavía está pendiente.'
+      ? qualifiedPoints > 0
+        ? `No había un marcador directo cargado para este slot, pero la llave pronosticada ubicaba a ${trajectoryTeams.join(' y ')} en ${getDisplayedTrajectoryRoundForStage(match.stage) === 'third_place' ? 'tercer puesto' : getDisplayedTrajectoryRoundForStage(match.stage) === 'final' ? 'la final' : 'esta instancia'}. ${trajectoryExplanation}`
+        : 'Sin pronóstico cargado para este slot.'
       : match.stage === 'group'
-      ? resultPoints === 3 ? '+3 resultado exacto.' : resultPoints === 1 ? '+1 por acertar ganador/empate sin marcador exacto.' : '0 puntos: no acertó el resultado.'
+      ? !hasOfficialResult
+        ? 'El resultado oficial todavía está pendiente.'
+        : resultPoints === 3 ? '+3 resultado exacto.' : resultPoints === 1 ? '+1 por acertar ganador/empate sin marcador exacto.' : '0 puntos: no acertó el resultado.'
       : [
-          crossingKind === 'exact'
+          !hasOfficialResult
+            ? 'El resultado oficial todavía está pendiente.'
+            : crossingKind === 'exact'
             ? 'Acertó el cruce exacto.'
             : crossingKind === 'both_teams_other_crossing'
             ? 'Pronosticó ambos equipos en esta ronda, pero en otro cruce.'
             : crossingKind === 'one_team_other_crossing'
             ? `Pronosticó a ${officialRoundTeamHits[0]} en esta ronda, pero no acertó el cruce.`
             : 'No acertó el cruce oficial.',
-          requiresCorrectQualifier && !qualifierMatches
+          !hasOfficialResult
+            ? '0 por marcador hasta que se cargue el resultado.'
+            : requiresCorrectQualifier && !qualifierMatches
             ? '0 por marcador: en un empate también debía acertar el clasificado.'
             : resultPoints === 3
             ? '+3 resultado exacto.'
             : resultPoints === 1
             ? '+1 por acertar ganador/empate sin marcador exacto.'
             : '0 por marcador.',
-          qualifiedPoints > 0
-            ? `Sumó +${qualifiedPoints} de trayectoria porque ${trajectoryTeams.join(' y ')} ${trajectoryTeams.length > 1 ? 'avanzaron' : 'avanzó'}.`
-            : slotQualifiedPoints > 0
-            ? 'Acertó el clasificado en este slot, pero la trayectoria real no otorgó puntos para este partido.'
-            : 'Sin puntos por clasificado o trayectoria en esta ronda.',
+          trajectoryExplanation,
         ].join(' ')
 
     const status: AuditStatus = !prediction
-      ? 'missing'
+      ? qualifiedPoints > 0 ? 'pending' : 'missing'
       : !hasOfficialResult
       ? 'pending'
       : resultPoints === 3

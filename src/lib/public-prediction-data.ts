@@ -17,6 +17,7 @@ import {
 import { buildMatchAuditRows } from '@/lib/ranking-audit'
 import { getTournamentVisibleMatches } from '@/lib/tournament-state'
 import type { Prediction } from '@/types'
+import { knockoutPNum } from '@/lib/bracket'
 
 type ScoreRow = {
   user_id?: string
@@ -53,10 +54,12 @@ export type VirtualMatchTrajectoryInsights = {
   nextRoundLabel: string
   trajectoryPoints: number
   advancePoints: number
+  totalEvaluated: number
   exactCrossing: VirtualTrajectoryParticipant[]
   bothTeamsOtherCrossing: VirtualTrajectoryParticipant[]
   homeTeamOnly: VirtualTrajectoryParticipant[]
   awayTeamOnly: VirtualTrajectoryParticipant[]
+  noTeamMatch: VirtualTrajectoryParticipant[]
   homeTeamAdvancing: VirtualTrajectoryParticipant[]
   awayTeamAdvancing: VirtualTrajectoryParticipant[]
 }
@@ -133,6 +136,94 @@ function getActualQualifiedTeam(match: Match) {
   if (match.home_score > match.away_score) return match.home_team
   if (match.away_score > match.home_score) return match.away_team
   return null
+}
+
+function isUnresolvedTeam(team: string | null | undefined) {
+  const key = teamKey(team)
+  return (
+    !key ||
+    /\bgrupo\s+[a-l]/.test(key) ||
+    key.startsWith('ganador ') ||
+    key.startsWith('perdedor ') ||
+    key.includes('mejor 3')
+  )
+}
+
+function pNumFromMatchId(matchId: string) {
+  const match = matchId.match(/^virtual-p(\d+)$/)
+  return match ? Number(match[1]) : null
+}
+
+function virtualMatchIdFor(match: Match) {
+  const pNum = knockoutPNum(match)
+  return pNum == null ? match.id : `virtual-p${pNum}`
+}
+
+function sameLogicalMatch(match: Match, matchId: string) {
+  const requestedPNum = pNumFromMatchId(matchId)
+  const matchPNum = knockoutPNum(match)
+  return (
+    match.id === matchId ||
+    match.database_id === matchId ||
+    (requestedPNum != null && matchPNum === requestedPNum)
+  )
+}
+
+function predictedWinnerFromAuditRow(
+  row: ReturnType<typeof buildMatchAuditRows>[number],
+  tiebreakerMap: Record<string, string>
+) {
+  if (!row.prediction || isUnresolvedTeam(row.predictedHome) || isUnresolvedTeam(row.predictedAway)) return null
+  if (row.prediction.home_score > row.prediction.away_score) return row.predictedHome
+  if (row.prediction.away_score > row.prediction.home_score) return row.predictedAway
+  const rowVirtualMatchId = virtualMatchIdFor(row.match)
+  const tiebreaker = tiebreakerMap[row.match.id] ?? tiebreakerMap[rowVirtualMatchId] ?? row.prediction.tiebreaker_team
+  if (teamKey(tiebreaker) === teamKey(row.predictedHome)) return row.predictedHome
+  if (teamKey(tiebreaker) === teamKey(row.predictedAway)) return row.predictedAway
+  return null
+}
+
+function predictedLoserFromAuditRow(
+  row: ReturnType<typeof buildMatchAuditRows>[number],
+  tiebreakerMap: Record<string, string>
+) {
+  const winner = predictedWinnerFromAuditRow(row, tiebreakerMap)
+  if (!winner) return null
+  if (teamKey(winner) === teamKey(row.predictedHome)) return row.predictedAway
+  if (teamKey(winner) === teamKey(row.predictedAway)) return row.predictedHome
+  return null
+}
+
+function personalTeamsForTargetSlot(
+  official: Match,
+  crossing: ReturnType<typeof buildMatchAuditRows>[number],
+  auditRows: ReturnType<typeof buildMatchAuditRows>,
+  tiebreakerMap: Record<string, string>
+) {
+  if (
+    crossing.prediction &&
+    !isUnresolvedTeam(crossing.predictedHome) &&
+    !isUnresolvedTeam(crossing.predictedAway)
+  ) {
+    return { home: crossing.predictedHome, away: crossing.predictedAway }
+  }
+
+  const pNum = knockoutPNum(official)
+  if (pNum !== 103 && pNum !== 104) return null
+
+  const p101 = auditRows.find((row) => knockoutPNum(row.match) === 101)
+  const p102 = auditRows.find((row) => knockoutPNum(row.match) === 102)
+  if (!p101?.prediction || !p102?.prediction) return null
+
+  const home = pNum === 103
+    ? predictedLoserFromAuditRow(p101, tiebreakerMap)
+    : predictedWinnerFromAuditRow(p101, tiebreakerMap)
+  const away = pNum === 103
+    ? predictedLoserFromAuditRow(p102, tiebreakerMap)
+    : predictedWinnerFromAuditRow(p102, tiebreakerMap)
+
+  if (!home || !away || isUnresolvedTeam(home) || isUnresolvedTeam(away)) return null
+  return { home, away }
 }
 
 function bonusRoundForQualifiedStage(stage: Match['stage']): KnockoutBonusRound | null {
@@ -245,8 +336,9 @@ export async function getVirtualMatchTrajectoryInsights(
   matches: Match[],
   matchId: string
 ): Promise<VirtualMatchTrajectoryInsights | null> {
-  const official = matches.find((match) => match.id === matchId)
+  const official = matches.find((match) => sameLogicalMatch(match, matchId))
   if (!official || official.stage === 'group') return null
+  const virtualMatchId = virtualMatchIdFor(official)
 
   const rows = await loadTrajectoryRows()
   const nameById = new Map(rows.profiles.map((profile) => [profile.id, profile.name]))
@@ -265,13 +357,14 @@ export async function getVirtualMatchTrajectoryInsights(
 
   const virtualPredictionByUser = new Map(
     rows.virtualPredictions
-      .filter((prediction) => prediction.virtual_match_id === matchId)
+      .filter((prediction) => prediction.virtual_match_id === virtualMatchId)
       .map((prediction) => [prediction.user_id, prediction])
   )
   const exactCrossing: VirtualTrajectoryParticipant[] = []
   const bothTeamsOtherCrossing: VirtualTrajectoryParticipant[] = []
   const homeTeamOnly: VirtualTrajectoryParticipant[] = []
   const awayTeamOnly: VirtualTrajectoryParticipant[] = []
+  const noTeamMatch: VirtualTrajectoryParticipant[] = []
   const homeTeamAdvancing: VirtualTrajectoryParticipant[] = []
   const awayTeamAdvancing: VirtualTrajectoryParticipant[] = []
   const userIds = new Set([
@@ -317,26 +410,40 @@ export async function getVirtualMatchTrajectoryInsights(
       })),
     ]
     const auditRows = buildMatchAuditRows(matches, auditPredictions, tiebreakerMap)
-    const crossing = auditRows.find((row) => row.match.id === matchId)
+    const crossing = auditRows.find(
+      (row) => row.match.id === official.id || row.match.id === virtualMatchId || row.match.database_id === matchId || sameLogicalMatch(row.match, virtualMatchId)
+    )
     if (!crossing) continue
+    const targetTeams = personalTeamsForTargetSlot(official, crossing, auditRows, tiebreakerMap)
+    if (!targetTeams) continue
 
     const stageRows = auditRows.filter(
-      (row) => row.stage === official.stage && row.prediction
+      (row) =>
+        row.stage === official.stage &&
+        row.prediction &&
+        !isUnresolvedTeam(row.predictedHome) &&
+        !isUnresolvedTeam(row.predictedAway)
     )
     const predictedStageTeams = new Set(
       stageRows.flatMap((row) => [teamKey(row.predictedHome), teamKey(row.predictedAway)])
     )
+    predictedStageTeams.add(teamKey(targetTeams.home))
+    predictedStageTeams.add(teamKey(targetTeams.away))
     const predictedAdvancingTeams = new Set(
       stageRows.flatMap((row) => {
         if (!row.prediction) return []
         if (row.prediction.home_score > row.prediction.away_score) return [teamKey(row.predictedHome)]
         if (row.prediction.away_score > row.prediction.home_score) return [teamKey(row.predictedAway)]
-        const tiebreaker = tiebreakerMap[row.match.id] ?? row.prediction.tiebreaker_team
+        const rowVirtualMatchId = virtualMatchIdFor(row.match)
+        const tiebreaker = tiebreakerMap[row.match.id] ?? tiebreakerMap[rowVirtualMatchId] ?? row.prediction.tiebreaker_team
         return tiebreaker ? [teamKey(tiebreaker)] : []
       })
     )
     const homeHit = predictedStageTeams.has(teamKey(official.home_team))
     const awayHit = predictedStageTeams.has(teamKey(official.away_team))
+    const exactCrossingHit =
+      teamKey(targetTeams.home) === teamKey(official.home_team) &&
+      teamKey(targetTeams.away) === teamKey(official.away_team)
     const userName = nameById.get(userId) ?? 'Participante'
     const savedPrediction = virtualPredictionByUser.get(userId)
     const classifiedTeam = savedPrediction
@@ -358,10 +465,11 @@ export async function getVirtualMatchTrajectoryInsights(
           }
         : null,
     }
-    if (crossing.crossMatches === true) exactCrossing.push(participant)
+    if (exactCrossingHit) exactCrossing.push(participant)
     else if (homeHit && awayHit) bothTeamsOtherCrossing.push(participant)
     else if (homeHit) homeTeamOnly.push(participant)
     else if (awayHit) awayTeamOnly.push(participant)
+    else noTeamMatch.push(participant)
 
     if (predictedAdvancingTeams.has(teamKey(official.home_team))) homeTeamAdvancing.push(participant)
     if (predictedAdvancingTeams.has(teamKey(official.away_team))) awayTeamAdvancing.push(participant)
@@ -369,6 +477,12 @@ export async function getVirtualMatchTrajectoryInsights(
 
   const sort = (items: VirtualTrajectoryParticipant[]) =>
     items.sort((a, b) => a.name.localeCompare(b.name, 'es'))
+  const totalEvaluated =
+    exactCrossing.length +
+    bothTeamsOtherCrossing.length +
+    homeTeamOnly.length +
+    awayTeamOnly.length +
+    noTeamMatch.length
   return {
     status: official.status,
     qualifiedTeam: official.qualified_team ?? null,
@@ -376,10 +490,12 @@ export async function getVirtualMatchTrajectoryInsights(
     nextRoundLabel: getQualifiedTeamRoundLabelForStage(official.stage),
     trajectoryPoints: getTrajectoryTeamPointsForStage(official.stage),
     advancePoints: getQualifiedTeamPointsForStage(official.stage),
+    totalEvaluated,
     exactCrossing: sort(exactCrossing),
     bothTeamsOtherCrossing: sort(bothTeamsOtherCrossing),
     homeTeamOnly: sort(homeTeamOnly),
     awayTeamOnly: sort(awayTeamOnly),
+    noTeamMatch: sort(noTeamMatch),
     homeTeamAdvancing: sort(homeTeamAdvancing),
     awayTeamAdvancing: sort(awayTeamAdvancing),
   }

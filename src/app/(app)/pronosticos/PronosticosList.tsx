@@ -93,7 +93,6 @@ function MiniBar({ label, value, total, color }: { label: string; value: number;
 
 function MatchPredictionCard({ match }: { match: PredictionMatchCardData }) {
   const isScored = match.status === 'live' || match.status === 'finished'
-  const exactCrossingCount = match.trajectory?.exactCrossing.length ?? 0
   const hasTrajectoryInsights = hasVirtualTrajectoryInsights(match.trajectory)
   const statusTone =
     match.status === 'live'
@@ -135,11 +134,11 @@ function MatchPredictionCard({ match }: { match: PredictionMatchCardData }) {
         >
           <div className="min-w-0">
             <p className="font-display text-[30px] leading-none tabular-nums">
-              {match.trajectory ? exactCrossingCount : match.insights.total_count}
+              {match.trajectory ? match.trajectory.totalEvaluated : match.insights.total_count}
             </p>
             <p className="mt-1 font-mono text-[9px] font-extrabold uppercase leading-tight tracking-[0.12em] text-muted">
               {match.trajectory
-                ? exactCrossingCount === 1 ? 'Cruce exacto' : 'Cruces exactos'
+                ? 'Evaluados'
                 : 'Cargados'}
             </p>
           </div>

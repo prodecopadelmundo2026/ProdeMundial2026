@@ -584,8 +584,14 @@ function MatchAuditCard({
     : row.resultPoints === 1
     ? '1 resultado parcial'
     : '0 por marcador'
+  const trajectoryVerb =
+    row.stage === 'final'
+      ? row.trajectoryTeams.length > 1 ? 'llegaron a la final' : 'llegó a la final'
+      : row.stage === 'third_place'
+      ? row.trajectoryTeams.length > 1 ? 'llegaron al tercer puesto' : 'llegó al tercer puesto'
+      : row.trajectoryTeams.length > 1 ? 'avanzaron' : 'avanzó'
   const trajectoryPointsLabel = row.qualifiedPoints > 0
-    ? `${row.qualifiedPoints} porque ${row.trajectoryTeams.join(' y ')} ${row.trajectoryTeams.length > 1 ? 'avanzaron' : 'avanzó'}`
+    ? `${row.qualifiedPoints} porque ${row.trajectoryTeams.join(' y ')} ${trajectoryVerb}`
     : '0 por trayectoria'
 
   if (variant === 'upcoming') {

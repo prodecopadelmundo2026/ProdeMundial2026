@@ -43,11 +43,13 @@ export function hasVirtualTrajectoryInsights(
   trajectory: import('@/lib/public-prediction-data').VirtualMatchTrajectoryInsights | null | undefined
 ) {
   if (!trajectory) return false
+  if (trajectory.totalEvaluated > 0) return true
   return [
     trajectory.exactCrossing,
     trajectory.bothTeamsOtherCrossing,
     trajectory.homeTeamOnly,
     trajectory.awayTeamOnly,
+    trajectory.noTeamMatch,
     trajectory.homeTeamAdvancing,
     trajectory.awayTeamAdvancing,
   ].some((participants) => participants.length > 0)
