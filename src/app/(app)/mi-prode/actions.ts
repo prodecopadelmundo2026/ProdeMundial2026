@@ -200,6 +200,14 @@ export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockou
 
     const existingByMatch = new Map(existingRows.map((row) => [row.virtual_match_id, row]))
     let savedCount = 0
+    async function assertVirtualPredictionOpen(virtualMatchId: string) {
+      const { data: virtualIsOpen, error: virtualIsOpenError } = await supabase.rpc(
+        'virtual_knockout_prediction_is_open',
+        { p_virtual_match_id: virtualMatchId },
+      )
+      if (virtualIsOpenError) throw new Error(virtualIsOpenError.message)
+      if (!virtualIsOpen) throw new Error(CLOSED_COMPLETION_MESSAGE)
+    }
 
     for (const prediction of payload) {
       const existing = existingByMatch.get(prediction.virtual_match_id)
@@ -209,12 +217,7 @@ export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockou
       }
 
       if (!existing) {
-        const { data: virtualIsOpen, error: virtualIsOpenError } = await supabase.rpc(
-          'virtual_knockout_prediction_is_open',
-          { p_virtual_match_id: prediction.virtual_match_id },
-        )
-        if (virtualIsOpenError) throw new Error(virtualIsOpenError.message)
-        if (!virtualIsOpen) throw new Error(CLOSED_COMPLETION_MESSAGE)
+        await assertVirtualPredictionOpen(prediction.virtual_match_id)
 
         const { count, error } = await supabase
           .from('virtual_knockout_predictions')
@@ -242,6 +245,7 @@ export async function saveVirtualKnockoutPredictions(predictions: VirtualKnockou
       }
       if (!nextTiebreaker) continue
       if (existing.home_score !== existing.away_score) throw new Error(CLOSED_COMPLETION_MESSAGE)
+      await assertVirtualPredictionOpen(existing.virtual_match_id)
 
       const { count, error } = await supabase
         .from('virtual_knockout_predictions')

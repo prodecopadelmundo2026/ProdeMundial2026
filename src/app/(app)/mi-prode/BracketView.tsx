@@ -201,6 +201,8 @@ function BracketMatchCard({
   const now = new Date()
   const scheduledAt = new Date(match.scheduled_at)
   const hasStartedOrFinished = match.status !== 'upcoming' || now >= scheduledAt
+  const predictionClosesAt = new Date(match.locked_at || match.scheduled_at)
+  const predictionSlotOpen = match.status === 'upcoming' && now < predictionClosesAt
   const isEditableOpen = !hasStartedOrFinished && !disabled
   const isLive = match.status === 'live'
   const isFinished = match.status === 'finished'
@@ -286,6 +288,7 @@ function BracketMatchCard({
     hasPrediction &&
     isDrawPred &&
     !tiebreaker &&
+    predictionSlotOpen &&
     !homePH &&
     !awayPH
   )
