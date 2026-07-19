@@ -7,7 +7,7 @@ import { buildGroupTableRows, buildOfficialGroupScoreMap } from '@/lib/group-sta
 import { GroupStandingsTables, type GroupTableSection } from '@/components/GroupStandingsTables'
 import { TournamentBracket } from '@/components/TournamentBracket'
 import { flagUrl, getTeam, getTeamByCode } from '@/lib/teams'
-import { getOfficialRoundOf32State } from '@/lib/tournament-state'
+import { getOfficialRoundOf32State, getTournamentVisibleMatches } from '@/lib/tournament-state'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -356,6 +356,7 @@ export default async function MundialEnVivoPage() {
     .filter((row) => row.goals > 0)
     .sort((a, b) => b.goals - a.goals || a.player_name.localeCompare(b.player_name, 'es'))
   const roundOf32State = getOfficialRoundOf32State(matches)
+  const visibleMatches = getTournamentVisibleMatches(matches)
   const groupMatches = matches.filter((match) => match.stage === 'group' && match.group)
   const knockoutMatches = buildProjectedKnockoutMatches(matches.filter((match) => match.stage !== 'group'))
   const scoreMap = buildOfficialGroupScoreMap(groupMatches)
@@ -376,7 +377,7 @@ export default async function MundialEnVivoPage() {
   const liveCounted = matches.filter((match) => match.status === 'live').length
   const finishedCounted = matches.filter((match) => match.status === 'finished').length
   const pendingCount = matches.filter((match) => match.status !== 'finished' && match.status !== 'live').length
-  const nextMatch = [...knockoutMatches, ...groupMatches]
+  const nextMatch = visibleMatches
     .filter((match) => match.status !== 'finished' && match.status !== 'live')
     .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0]
   const hasAnyGroupResult = countedMatches.length > 0
