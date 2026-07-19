@@ -50,6 +50,13 @@ export type RankingEntry = {
   group_points?: number
   knockout_points?: number
   trajectory_bonus?: number
+  special_awards_bonus?: number
+  special_awards_breakdown?: {
+    balon: number
+    bota: number
+    guante: number
+    total: number
+  }
   exact_predictions: number
   correct_result_predictions: number
   incorrect_predictions?: number

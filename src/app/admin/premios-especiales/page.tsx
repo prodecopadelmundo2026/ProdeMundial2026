@@ -552,7 +552,7 @@ export default async function SpecialAwardsAdminPage() {
               Tabla de goleadores y premios especiales
             </h1>
             <p className="mt-3 max-w-[680px] rounded-[14px] px-4 py-3 text-[12px] font-bold leading-relaxed text-muted" style={{ background: 'rgba(255,107,0,0.08)', border: '1px solid rgba(255,107,0,0.24)' }}>
-              La carga es manual e informativa. Confirmar premios no modifica puntajes ni ranking.
+              La carga es manual y auditable. Los premios confirmados o bloqueados impactan en el ranking de forma derivada.
             </p>
           </div>
           <Link

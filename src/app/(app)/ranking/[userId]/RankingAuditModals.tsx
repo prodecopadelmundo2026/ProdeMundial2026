@@ -3,13 +3,16 @@
 import { useEffect, useState } from 'react'
 import type { MatchAuditRow, AuditStatus } from '@/lib/ranking-audit'
 import type { KnockoutBonusLedgerItem, KnockoutBonusRound } from '@/lib/knockout-bonus'
+import { SPECIAL_AWARD_LABELS, type SpecialAwardCategory } from '@/lib/special-awards'
+import type { SpecialAwardsBreakdown } from '@/lib/public-prediction-data'
 
-type AuditView = 'groups' | 'knockout' | 'trajectory' | 'exact' | 'partial' | 'incorrect'
+type AuditView = 'groups' | 'knockout' | 'trajectory' | 'special_awards' | 'exact' | 'partial' | 'incorrect'
 
 const VIEW_META: Record<AuditView, { label: string; color: string }> = {
   groups: { label: 'Fase de grupos', color: '#A8F0D8' },
   knockout: { label: 'Eliminatorias', color: '#FFB15C' },
   trajectory: { label: 'Bonus eliminatorias', color: '#A8F0D8' },
+  special_awards: { label: 'Premios especiales', color: '#A8F0D8' },
   exact: { label: 'Marcador exacto', color: '#A8F0D8' },
   partial: { label: 'Ganador/empate sin marcador exacto', color: '#FFB15C' },
   incorrect: { label: 'Incorrectas', color: '#FF6B6B' },
@@ -35,6 +38,7 @@ const BONUS_LABELS: Record<KnockoutBonusRound, string> = {
   champion: 'Campeón',
   third_place: 'Tercer puesto',
 }
+const SPECIAL_AWARD_ORDER: SpecialAwardCategory[] = ['balon', 'bota', 'guante']
 
 function tileClass() {
   return 'group rounded-[14px] bg-[#141414] p-3 text-left transition-all hover:-translate-y-0.5 hover:bg-[#191919] focus:outline-none focus-visible:ring-2 focus-visible:ring-orange sm:rounded-[16px] sm:p-4'
@@ -146,9 +150,28 @@ function TrajectoryDetails({ awards }: { awards: KnockoutBonusLedgerItem[] }) {
   )
 }
 
+function SpecialAwardsDetails({ breakdown }: { breakdown: SpecialAwardsBreakdown }) {
+  return (
+    <div className="grid gap-3">
+      <p className="rounded-[14px] bg-white/[0.025] p-3 text-[13px] font-bold text-muted" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+        Premios especiales +{breakdown.total}
+      </p>
+      <div className="grid gap-2">
+        {SPECIAL_AWARD_ORDER.map((category) => (
+          <div key={category} className="flex items-center justify-between gap-3 rounded-[12px] bg-white/[0.025] px-3 py-2 text-[12px] font-bold" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+            <span className="text-white">{SPECIAL_AWARD_LABELS[category]}</span>
+            <span className={breakdown[category] > 0 ? 'text-mint' : 'text-muted'}>+{breakdown[category]}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function RankingAuditModals({
   rows,
   trajectoryAwards,
+  specialAwards,
   groupPoints,
   knockoutPoints,
   trajectoryPoints,
@@ -158,6 +181,7 @@ export function RankingAuditModals({
 }: {
   rows: MatchAuditRow[]
   trajectoryAwards: KnockoutBonusLedgerItem[]
+  specialAwards: SpecialAwardsBreakdown
   groupPoints: number
   knockoutPoints: number
   trajectoryPoints: number
@@ -196,6 +220,7 @@ export function RankingAuditModals({
       <AuditTile view="groups" value={groupPoints} onOpen={setActiveView} />
       <AuditTile view="knockout" value={knockoutPoints} onOpen={setActiveView} />
       <AuditTile view="trajectory" value={`+${trajectoryPoints}`} onOpen={setActiveView} />
+      <AuditTile view="special_awards" value={`+${specialAwards.total}`} onOpen={setActiveView} />
       <StaticTile label="Total" value={totalPoints} />
       <AuditTile view="exact" value={rows.filter((row) => row.status === 'exact').length} onOpen={setActiveView} />
       <AuditTile view="partial" value={rows.filter((row) => row.status === 'partial').length} onOpen={setActiveView} />
@@ -214,6 +239,8 @@ export function RankingAuditModals({
             <div className="overflow-y-auto p-3 sm:p-5">
               {activeView === 'trajectory' ? (
                 <TrajectoryDetails awards={trajectoryAwards} />
+              ) : activeView === 'special_awards' ? (
+                <SpecialAwardsDetails breakdown={specialAwards} />
               ) : filteredRows.length > 0 ? (
                 <div className="grid gap-3">
                   {STAGE_ORDER.map((stage) => {
