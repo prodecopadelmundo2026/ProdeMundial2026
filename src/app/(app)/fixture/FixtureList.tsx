@@ -162,7 +162,7 @@ const STAGE_LABELS: Record<string, string> = {
   round_of_16: 'Octavos',
   quarter: 'Cuartos',
   semi: 'Semis',
-  third_place: '3? Puesto',
+  third_place: 'TERCER PUESTO',
   final: 'Final',
 }
 

@@ -395,6 +395,16 @@ async function setResultDraft(supabase: SupabaseServerClient, resultId: string, 
   if (!data?.id) throw new Error('No se pudo volver el resultado a borrador.')
 }
 
+async function getWinnerCount(supabase: SupabaseServerClient, resultId: string) {
+  const { count, error } = await supabase
+    .from('special_bet_result_winners')
+    .select('id', { count: 'exact', head: true })
+    .eq('special_bet_result_id', resultId)
+
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
+
 async function canDeletePlayer(supabase: SupabaseServerClient, playerId: string) {
   const checks = await Promise.all([
     supabase.from('player_tournament_stat_values').select('id', { count: 'exact', head: true }).eq('player_id', playerId),
@@ -644,6 +654,10 @@ export async function addOfficialWinner(
     }
 
     const resultId = await ensureResultRow(supabase, category, user.id)
+    if (category === 'bota' && (await getWinnerCount(supabase, resultId)) > 0) {
+      throw new Error('Bota de Oro solo puede tener un ganador oficial.')
+    }
+
     const { data: winner, error } = await supabase
       .from('special_bet_result_winners')
       .insert({
@@ -778,7 +792,7 @@ export async function confirmOfficialResult(
     const category = readCategory(formData)
 
     if (await getPendingNormalizationCount(supabase, category)) {
-      throw new Error('No se puede confirmar: todavía hay elecciones pendientes de normalizar.')
+      throw new Error('No se puede confirmar: todavía hay pronósticos pendientes de normalizar.')
     }
 
     const { data: awardResult, error: resultError } = await supabase
@@ -794,13 +808,11 @@ export async function confirmOfficialResult(
 
     if ((awardResult.status as ResultStatus) === 'confirmed') throw new Error('El resultado ya está confirmado.')
 
-    const { count, error: countError } = await supabase
-      .from('special_bet_result_winners')
-      .select('id', { count: 'exact', head: true })
-      .eq('special_bet_result_id', awardResult.id)
-
-    if (countError) throw new Error(countError.message)
+    const count = await getWinnerCount(supabase, awardResult.id)
     if (!count) throw new Error('Cargá al menos un ganador antes de confirmar.')
+    if (category === 'bota' && count !== 1) {
+      throw new Error('Bota de Oro debe tener exactamente un ganador oficial.')
+    }
 
     const { data, error } = await supabase
       .from('special_bet_results')

@@ -350,9 +350,6 @@ function GoalsAdminSection({ data, writesDisabled }: { data: SpecialAwardsAdminD
         `${player.displayName} ${player.countryName} ${player.countryCode}`.toLowerCase().includes(normalizedQuery)
       ))
     : []
-  const rankedScorers = sharedPositions(data.scorers)
-  const botaVotesByPlayerId = new Map(data.canonicalChoices.bota.map((choice) => [choice.playerId, choice.count]))
-
   return (
     <section id="tabla-goleadores" className="grid gap-4 rounded-[16px] p-4" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)' }}>
       <div>
@@ -426,14 +423,28 @@ function GoalsAdminSection({ data, writesDisabled }: { data: SpecialAwardsAdminD
         )}
       </div>
 
+    </section>
+  )
+}
+
+function SecondaryScorersTable({ data }: { data: SpecialAwardsAdminData }) {
+  const rankedScorers = sharedPositions(data.scorers)
+  const botaVotesByPlayerId = new Map(data.canonicalChoices.bota.map((choice) => [choice.playerId, choice.count]))
+
+  return (
+    <section id="tabla-secundaria-goleadores" className="grid gap-4 rounded-[16px] p-4" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div>
+        <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-orange">Tabla secundaria</p>
+        <h2 className="mt-1 text-[20px] font-extrabold text-white">Tabla administrativa de goleadores</h2>
+        <p className="mt-1 text-[12px] text-muted">Vista informativa. La edición de goles se hace desde el catálogo principal.</p>
+      </div>
       <div className="grid gap-2">
-        <h3 className="text-[16px] font-extrabold text-white">Tabla administrativa de goleadores</h3>
         {rankedScorers.length === 0 ? (
           <p className="rounded-[14px] p-4 text-[13px] text-muted" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
             Todavía no hay goleadores cargados con goles mayores a 0.
           </p>
         ) : rankedScorers.map((scorer) => (
-          <div key={scorer.id} className="grid gap-3 rounded-[14px] p-3 md:grid-cols-[48px_1fr_90px_90px_120px]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div key={scorer.id} className="grid gap-3 rounded-[14px] p-3 md:grid-cols-[48px_1fr_90px_120px_120px]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
             <span className="font-mono text-[18px] font-extrabold text-orange">#{scorer.position}</span>
             <div className="min-w-0">
               <p className="truncate text-[14px] font-extrabold text-white">{scorer.displayName}</p>
@@ -444,7 +455,7 @@ function GoalsAdminSection({ data, writesDisabled }: { data: SpecialAwardsAdminD
               <p className="font-mono text-[22px] font-extrabold text-white">{scorer.goals}</p>
             </div>
             <div>
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Votos</p>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Pronósticos Bota</p>
               <p className="font-mono text-[22px] font-extrabold text-white">{botaVotesByPlayerId.get(scorer.playerId) ?? 0}</p>
             </div>
             <p className="text-[12px] font-bold text-muted">Editar desde el catálogo</p>
@@ -887,6 +898,48 @@ function NormalizationCard({ group, players, writesDisabled }: { group: PendingN
   )
 }
 
+function GoldenBootSummary({ scorers }: { scorers: ScorerRow[] }) {
+  const topGoals = Math.max(0, ...scorers.map((scorer) => scorer.goals))
+  const leaders = topGoals > 0 ? scorers.filter((scorer) => scorer.goals === topGoals) : []
+
+  if (leaders.length === 0) {
+    return (
+      <div className="rounded-[12px] p-3 text-[12px] font-bold text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
+        Carga goles en la tabla para ver candidatos a Bota de Oro.
+      </div>
+    )
+  }
+
+  if (leaders.length === 1) {
+    const leader = leaders[0]
+    return (
+      <div className="grid gap-2 rounded-[12px] p-3" style={{ background: '#0A0A0A', border: '1px solid rgba(168,240,216,0.22)' }}>
+        <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Máximo goleador según tabla actual</p>
+        <div className="min-w-0">
+          <p className="truncate text-[14px] font-extrabold text-white">{leader.displayName} - {leader.goals} goles</p>
+          <p className="mt-1 text-[12px] text-muted"><PlayerFlag countryName={leader.countryName} countryCode={leader.countryCode} /></p>
+        </div>
+        <p className="text-[12px] font-bold text-[#A8F0D8]">Candidato sugerido. Juan debe confirmar igualmente el ganador oficial.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid gap-2 rounded-[12px] p-3" style={{ background: '#0A0A0A', border: '1px solid rgba(255,177,92,0.28)' }}>
+      <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#FFB15C]">EMPATE EN GOLES</p>
+      <div className="grid gap-2">
+        {leaders.map((leader) => (
+          <div key={leader.playerId} className="min-w-0">
+            <p className="truncate text-[14px] font-extrabold text-white">{leader.displayName} - {leader.goals} goles</p>
+            <p className="mt-1 text-[12px] text-muted"><PlayerFlag countryName={leader.countryName} countryCode={leader.countryCode} /></p>
+          </div>
+        ))}
+      </div>
+      <p className="text-[12px] font-bold text-[#FFB15C]">La tabla local no puede determinar automáticamente al ganador oficial. Seleccioná al ganador confirmado oficialmente.</p>
+    </div>
+  )
+}
+
 function ResultsSection({ data, writesDisabled }: { data: SpecialAwardsAdminData; writesDisabled: boolean }) {
   return (
     <section id="resultados-oficiales" className="grid gap-4 rounded-[16px] p-4" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -906,6 +959,7 @@ function ResultsSection({ data, writesDisabled }: { data: SpecialAwardsAdminData
 
 function AwardResultCard({ category, data, writesDisabled }: { category: SpecialAwardCategory; data: SpecialAwardsAdminData; writesDisabled: boolean }) {
   const awardResult = data.awardResults[category]
+  const isGoldenBoot = category === 'bota'
   const winnerIds = new Set(awardResult.winners.map((winner) => winner.playerId))
   const candidateSummary = data.candidateSummaries[category]
   const pendingCount = candidateSummary.pendingCount
@@ -919,14 +973,16 @@ function AwardResultCard({ category, data, writesDisabled }: { category: Special
   const [confirmState, confirmAction] = useActionState(confirmOfficialResult, null)
   const [draftState, draftAction] = useActionState(returnOfficialResultToDraft, null)
   const locked = awardResult.status === 'locked'
+  const canAddWinner = !isGoldenBoot || awardResult.winners.length === 0
+  const hasInvalidGoldenBootWinners = isGoldenBoot && awardResult.winners.length > 1
 
   const winnersWithChoices = awardResult.winners.filter((winner) => winner.choices > 0).length
   const derivedMessage = awardResult.winners.length === 0
-    ? 'Sin ganadores cargados.'
+    ? 'Sin ganadores oficiales cargados.'
     : winnersWithChoices === 0
-    ? `Nadie acertó. ${awardResult.winners.length === 1 ? 'El ganador oficial es' : 'Los ganadores oficiales son'} ${awardResult.winners.map((winner) => winner.displayName).join(', ')}.`
+    ? `Nadie lo pronosticó. ${awardResult.winners.length === 1 ? 'El ganador oficial es' : 'Los ganadores oficiales son'} ${awardResult.winners.map((winner) => winner.displayName).join(', ')}.`
     : winnersWithChoices === awardResult.winners.length
-    ? 'Todos los ganadores oficiales tuvieron al menos una elección.'
+    ? 'Todos los ganadores oficiales tuvieron al menos un pronóstico asociado.'
     : 'Hubo acertantes para algunos de los ganadores oficiales.'
 
   return (
@@ -937,9 +993,11 @@ function AwardResultCard({ category, data, writesDisabled }: { category: Special
         {awardResult.confirmedAt && <p className="mt-1 text-[11px] text-muted">Confirmado: {new Date(awardResult.confirmedAt).toLocaleString('es-AR')}</p>}
       </div>
 
+      {isGoldenBoot && <GoldenBootSummary scorers={data.scorers} />}
+
       <div className="grid gap-2">
         {awardResult.winners.length === 0 ? (
-          <p className="rounded-[12px] p-3 text-[12px] text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>Sin ganadores cargados.</p>
+          <p className="rounded-[12px] p-3 text-[12px] text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>Sin ganadores oficiales cargados.</p>
         ) : awardResult.winners.map((winner) => (
           <WinnerRow key={winner.id} winner={winner} resultId={awardResult.id} locked={locked} writesDisabled={writesDisabled} />
         ))}
@@ -949,30 +1007,35 @@ function AwardResultCard({ category, data, writesDisabled }: { category: Special
 
       {!locked && (
         <form action={addAction} className="grid gap-2">
-          <fieldset disabled={writesDisabled || candidates.length === 0} className="contents">
+          <fieldset disabled={writesDisabled || candidates.length === 0 || !canAddWinner} className="contents">
           <input type="hidden" name="category" value={category} />
           <input type="hidden" name="winner_mode" value="candidate" />
+          {!canAddWinner && (
+            <p className="rounded-[12px] p-3 text-[12px] font-bold text-[#FFB15C]" style={{ background: '#0A0A0A', border: '1px solid rgba(255,177,92,0.24)' }}>
+              Bota de Oro ya tiene un ganador oficial cargado. Quita el actual para seleccionar otro.
+            </p>
+          )}
           {candidates.length === 0 && (
             <p className="rounded-[12px] p-3 text-[12px] font-bold text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
               No hay candidatos disponibles para agregar.
             </p>
           )}
           <select name="player_id" className="w-full rounded-[12px] bg-[#0A0A0A] px-3 py-2 text-[13px] font-bold text-white outline-none" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
-            <option value="">Ganador elegido por participantes</option>
+            <option value="">Seleccionar jugador</option>
             {candidates.map((candidate) => (
-              <option key={candidate.playerId} value={candidate.playerId}>{candidate.displayName} - {candidate.count} elecciones</option>
+              <option key={candidate.playerId} value={candidate.playerId}>{candidate.displayName} - {candidate.count} pronósticos</option>
             ))}
           </select>
-          <SubmitButton idle="Agregar ganador elegido" pending="Agregando..." disabled={writesDisabled || candidates.length === 0} />
+          <SubmitButton idle="Agregar ganador oficial" pending="Agregando..." disabled={writesDisabled || candidates.length === 0 || !canAddWinner} />
           <ActionMessage state={addState} />
           </fieldset>
         </form>
       )}
 
-      {!locked && (
+      {!locked && canAddWinner && (
         <div className="grid gap-2 rounded-[12px] p-2" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
           <button type="button" onClick={() => setShowUnchosen((value) => !value)} className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase text-white" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.1)' }}>
-            Agregar ganador oficial no elegido
+            Agregar ganador no pronosticado
           </button>
           {showUnchosen && <UnchosenWinnerForm category={category} players={nonCandidatePlayers} teams={data.teamOptions} writesDisabled={writesDisabled} />}
         </div>
@@ -981,7 +1044,7 @@ function AwardResultCard({ category, data, writesDisabled }: { category: Special
       {!locked && awardResult.status !== 'confirmed' && hasPendingNormalizations && (
         <div className="grid gap-2">
           <p className="rounded-[12px] p-3 text-[12px] font-bold text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,177,92,0.24)' }}>
-            Todavía hay elecciones pendientes de normalizar.
+            Todavía hay pronósticos pendientes de normalizar.
           </p>
           <button type="button" disabled className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase text-bg opacity-50" style={{ background: '#FF6B00' }}>
             Confirmar resultado oficial
@@ -989,7 +1052,13 @@ function AwardResultCard({ category, data, writesDisabled }: { category: Special
         </div>
       )}
 
-      {!locked && awardResult.status !== 'confirmed' && !hasPendingNormalizations && (
+      {!locked && awardResult.status !== 'confirmed' && hasInvalidGoldenBootWinners && (
+        <p className="rounded-[12px] p-3 text-[12px] font-bold text-[#FFB15C]" style={{ background: '#0A0A0A', border: '1px solid rgba(255,177,92,0.24)' }}>
+          Bota de Oro debe tener exactamente un ganador oficial. Quita los ganadores extra antes de confirmar.
+        </p>
+      )}
+
+      {!locked && awardResult.status !== 'confirmed' && !hasPendingNormalizations && !hasInvalidGoldenBootWinners && (
         <div className="grid gap-2">
           <button type="button" onClick={() => setConfirmOpen((value) => !value)} className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase text-bg" style={{ background: '#FF6B00' }}>
             Confirmar resultado oficial
@@ -1029,7 +1098,7 @@ function WinnerRow({ winner, resultId, locked, writesDisabled }: { winner: Award
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-[13px] font-extrabold text-white">{winner.displayName}</p>
-          <p className="text-[12px] text-muted"><PlayerFlag countryName={winner.countryName} countryCode={winner.countryCode} /> · {winner.choices > 0 ? `${winner.choices} elecciones` : 'no elegido por participantes'}</p>
+          <p className="text-[12px] text-muted"><PlayerFlag countryName={winner.countryName} countryCode={winner.countryCode} /> · {winner.choices > 0 ? `${winner.choices} pronósticos` : 'sin pronósticos asociados'}</p>
         </div>
         {!locked && resultId && (
           <button type="button" onClick={() => setConfirmOpen((value) => !value)} className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase text-white" style={{ background: 'rgba(255,107,107,0.1)', border: '1px solid rgba(255,107,107,0.24)' }}>
@@ -1078,7 +1147,7 @@ function UnchosenWinnerForm({ category, players, teams, writesDisabled }: { cate
           <TeamSelect teams={teams} name="new_country_name" codeName="new_country_code" />
         </div>
       )}
-      <SubmitButton idle="Agregar no elegido" pending="Agregando..." disabled={writesDisabled} />
+      <SubmitButton idle="Agregar ganador oficial" pending="Agregando..." disabled={writesDisabled} />
       <ActionMessage state={state} />
       </fieldset>
     </form>
@@ -1231,6 +1300,39 @@ function PreviewParticipantRow({ row }: { row: SpecialAwardPreviewRow }) {
   )
 }
 
+function AdvancedToolsSection({ data, writesDisabled }: { data: SpecialAwardsAdminData; writesDisabled: boolean }) {
+  return (
+    <section id="herramientas-avanzadas" className="grid gap-4">
+      <div className="rounded-[16px] p-4" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-orange">Herramientas avanzadas</p>
+        <h2 className="mt-1 text-[20px] font-extrabold text-white">Auditoría y normalización</h2>
+        <p className="mt-1 text-[12px] text-muted">Secciones secundarias para revisar pronósticos, normalizaciones y proyecciones sin modificar ranking.</p>
+      </div>
+
+      <details className="rounded-[16px] p-4" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <summary className="cursor-pointer text-[13px] font-extrabold uppercase text-orange">Elecciones y normalización</summary>
+        <div className="mt-4">
+          <NormalizationSection data={data} writesDisabled={writesDisabled} />
+        </div>
+      </details>
+
+      <details className="rounded-[16px] p-4" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <summary className="cursor-pointer text-[13px] font-extrabold uppercase text-orange">Vista previa auditable</summary>
+        <div className="mt-4">
+          <PreviewSection data={data} />
+        </div>
+      </details>
+
+      <details className="rounded-[16px] p-4" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <summary className="cursor-pointer text-[13px] font-extrabold uppercase text-orange">Tabla administrativa secundaria</summary>
+        <div className="mt-4">
+          <SecondaryScorersTable data={data} />
+        </div>
+      </details>
+    </section>
+  )
+}
+
 export function SpecialAwardsAdmin({ data }: { data: SpecialAwardsAdminData }) {
   const setupErrors = useMemo(() => [...new Set(data.setupErrors)], [data.setupErrors])
   const writesDisabled = setupErrors.length > 0
@@ -1240,9 +1342,8 @@ export function SpecialAwardsAdmin({ data }: { data: SpecialAwardsAdminData }) {
       <nav className="flex flex-wrap gap-2">
         {[
           ['#tabla-goleadores', 'Tabla de goleadores'],
-          ['#normalizacion', 'Elecciones y normalización'],
           ['#resultados-oficiales', 'Resultados oficiales'],
-          ['#vista-previa', 'Vista previa'],
+          ['#herramientas-avanzadas', 'Herramientas avanzadas'],
         ].map(([href, label]) => (
           <a key={href} href={href} className="rounded-full px-4 py-2 text-[12px] font-extrabold uppercase text-white" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.1)' }}>{label}</a>
         ))}
@@ -1259,9 +1360,8 @@ export function SpecialAwardsAdmin({ data }: { data: SpecialAwardsAdminData }) {
       )}
 
       <GoalsAdminSection data={data} writesDisabled={writesDisabled} />
-      <NormalizationSection data={data} writesDisabled={writesDisabled} />
       <ResultsSection data={data} writesDisabled={writesDisabled} />
-      <PreviewSection data={data} />
+      <AdvancedToolsSection data={data} writesDisabled={writesDisabled} />
     </div>
   )
 }

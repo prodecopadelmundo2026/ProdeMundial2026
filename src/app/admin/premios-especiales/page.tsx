@@ -499,7 +499,7 @@ export default async function SpecialAwardsAdminPage() {
     asRows<NormalizationRow>(supabase.from('special_bet_normalizations').select('id, category, raw_value, raw_normalized, player_id, status, reviewed_at').eq('tournament_key', SPECIAL_AWARDS_TOURNAMENT_KEY)),
     asRows<SpecialBetRow>(supabase.from('special_bets').select('user_id, balon, bota, guante')),
     asRows<ProfileRow>(supabase.from('profiles').select('id, name, email')),
-    asRows<AuthorizedEmailRow>(supabase.from('authorized_emails').select('email, active, status, deleted_at')),
+    asRows<AuthorizedEmailRow>(supabase.rpc('admin_list_authorized_emails', { p_query: '' })),
     asRows<ResultRow>(supabase.from('special_bet_results').select('id, category, status, confirmed_at').eq('tournament_key', SPECIAL_AWARDS_TOURNAMENT_KEY)),
   ])
   const resultIds = results.data.map((row) => row.id)
