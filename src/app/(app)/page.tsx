@@ -473,14 +473,6 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
             <p className="mt-4 max-w-[520px] text-[17px] font-medium leading-relaxed" style={{ color: '#d6d6d6' }}>
               Llegó el último partido. Vamos con todo.
             </p>
-            <div className="mt-7 max-w-[520px] rounded-[22px] bg-panel p-4 min-[520px]:p-5" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
-              <p className="mb-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted">Faltan para la final</p>
-              <CountdownTimer
-                targetAt={WORLD_CUP_FINAL_AT}
-                doneMessage="LA FINAL ESTÁ EN JUEGO"
-                showDays={false}
-              />
-            </div>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link href="/mi-prode" className="group inline-flex items-center gap-[10px] rounded-full bg-orange px-[26px] py-[18px] text-[15px] font-extrabold text-bg shadow-[0_10px_28px_-10px_rgba(255,107,0,.6)] transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-10px_rgba(255,107,0,.8)]">
                 Ver mi prode
