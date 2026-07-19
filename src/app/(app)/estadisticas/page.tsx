@@ -39,9 +39,7 @@ export default async function StatisticsPage() {
 
   const matches = (matchesData ?? []) as Match[]
   const baseRanking = (rankingData ?? []) as RankingEntry[]
-  const ranking = user
-    ? await addConfirmedTrajectoryToRanking(baseRanking, matches)
-    : baseRanking
+  const ranking = await addConfirmedTrajectoryToRanking(baseRanking, matches)
   const seedUserId = ranking.find((entry) => entry.user_id)?.user_id
   let detail: PublicDetail = {}
   if (seedUserId) {

@@ -179,13 +179,7 @@ export default async function RankingPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const [rankingResult, { data: metricsData, error: metricsError }, nextMatchResult] = await Promise.all([
-    user
-      ? supabase.rpc('get_public_ranking')
-      : supabase
-          .from('ranking_entries')
-          .select('user_id, name, avatar_url, total_points, exact_predictions, correct_result_predictions, rank')
-          .order('rank', { ascending: true })
-          .order('name', { ascending: true }),
+    supabase.rpc('get_public_ranking'),
     supabase.rpc('get_public_home_metrics'),
     supabase
       .from('matches')
@@ -201,15 +195,10 @@ export default async function RankingPage() {
     participant_status: entry.participant_status ?? 'confirmed',
     prode_status: entry.prode_status ?? 'not_started',
   }))
-  // Anonymous visitors stay entirely on the public ranking view. Enriching the
-  // signed-in experience uses private prediction data and must not be required
-  // for the public, read-only page.
-  const entries = user
-    ? await addConfirmedTrajectoryToRanking(
-        baseEntries,
-        (nextMatchResult.data ?? []) as Match[]
-      )
-    : baseEntries
+  const entries = await addConfirmedTrajectoryToRanking(
+    baseEntries,
+    (nextMatchResult.data ?? []) as Match[]
+  )
   const metricsRows = metricsData as PublicHomeMetrics[] | null
   const metrics = Array.isArray(metricsRows) ? metricsRows[0] : metricsRows
   const rankingMode = metrics?.ranking_mode ?? getRankingMode(metrics?.finished_matches_count)
