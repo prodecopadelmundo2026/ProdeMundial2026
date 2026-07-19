@@ -953,7 +953,7 @@ function ResultsSection({ data, writesDisabled }: { data: SpecialAwardsAdminData
       <div>
         <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-orange">Resultados oficiales</p>
         <h2 className="mt-1 text-[20px] font-extrabold text-white">Ganadores por premio</h2>
-        <p className="mt-1 text-[12px] text-muted">Los premios confirmados o bloqueados impactan en el ranking de forma derivada.</p>
+        <p className="mt-1 text-[12px] text-muted">Confirmar un premio no suma puntos, no bloquea y no toca ranking.</p>
       </div>
       <div className="grid gap-3 lg:grid-cols-3">
         {SPECIAL_AWARD_CATEGORIES.map((category) => (
@@ -1077,7 +1077,7 @@ function AwardResultCard({ category, data, writesDisabled }: { category: Special
             <form action={confirmAction} className="grid gap-2 rounded-[12px] p-3" style={{ background: '#0A0A0A', border: '1px solid rgba(255,107,0,0.24)' }}>
               <fieldset disabled={writesDisabled} className="contents">
               <input type="hidden" name="category" value={category} />
-              <p className="text-[12px] font-bold text-muted">Al confirmar, este impacto se aplica al ranking de forma derivada.</p>
+              <p className="text-[12px] font-bold text-muted">Confirmar no modifica puntajes ni ranking.</p>
               <SubmitButton idle="Sí, confirmar" pending="Confirmando..." disabled={writesDisabled} />
               <ActionMessage state={confirmState} />
               </fieldset>
@@ -1104,16 +1104,14 @@ function ProjectedImpactBlock({ preview }: { preview: SpecialAwardPreview }) {
 
   if (!preview.hasSelectedWinners) return null
 
-  const applied = preview.resultStatus === 'confirmed' || preview.resultStatus === 'locked'
-  const impactLabel = applied ? 'Impacto aplicado' : 'Impacto proyectado'
   const hitLabel = preview.hitCount === 1
-    ? `1 participante ${applied ? 'suma' : 'sumaría'} +${preview.pointsPerHit} puntos`
-    : `${preview.hitCount} participantes ${applied ? 'suman' : 'sumarían'} +${preview.pointsPerHit} puntos cada uno`
+    ? `1 participante sumaría +${preview.pointsPerHit} puntos`
+    : `${preview.hitCount} participantes sumarían +${preview.pointsPerHit} puntos cada uno`
 
   return (
     <div className="grid gap-2 rounded-[12px] p-3" style={{ background: 'rgba(168,240,216,0.06)', border: '1px solid rgba(168,240,216,0.18)' }}>
       <div>
-        <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.16em] text-mint">{impactLabel}</p>
+        <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.16em] text-mint">Impacto proyectado</p>
         <p className="mt-1 text-[13px] font-extrabold text-white">{hitLabel}</p>
         {preview.pendingCount > 0 && (
           <p className="mt-1 text-[12px] font-bold text-[#FFB15C]">
@@ -1124,7 +1122,7 @@ function ProjectedImpactBlock({ preview }: { preview: SpecialAwardPreview }) {
 
       {preview.hits.length === 0 ? (
         <p className="rounded-[10px] p-3 text-[12px] font-bold text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
-          Ningún participante {applied ? 'suma' : 'sumaría'} puntos con este resultado oficial.
+          Ningún participante sumaría puntos con este resultado oficial.
         </p>
       ) : (
         <button
@@ -1138,24 +1136,23 @@ function ProjectedImpactBlock({ preview }: { preview: SpecialAwardPreview }) {
       )}
 
       {detailOpen && (
-        <ProjectedImpactModal preview={preview} applied={applied} onClose={() => setDetailOpen(false)} />
+        <ProjectedImpactModal preview={preview} onClose={() => setDetailOpen(false)} />
       )}
     </div>
   )
 }
 
-function ProjectedImpactModal({ preview, applied, onClose }: { preview: SpecialAwardPreview; applied: boolean; onClose: () => void }) {
-  const impactLabel = applied ? 'Impacto aplicado' : 'Impacto proyectado'
+function ProjectedImpactModal({ preview, onClose }: { preview: SpecialAwardPreview; onClose: () => void }) {
   const hitLabel = preview.hitCount === 1
-    ? `1 participante ${applied ? 'suma' : 'sumaría'} +${preview.pointsPerHit} puntos`
-    : `${preview.hitCount} participantes ${applied ? 'suman' : 'sumarían'} +${preview.pointsPerHit} puntos cada uno`
+    ? `1 participante sumaría +${preview.pointsPerHit} puntos`
+    : `${preview.hitCount} participantes sumarían +${preview.pointsPerHit} puntos cada uno`
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={`${impactLabel} - ${preview.label}`}
+      aria-label={`Impacto proyectado - ${preview.label}`}
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
@@ -1163,8 +1160,8 @@ function ProjectedImpactModal({ preview, applied, onClose }: { preview: SpecialA
       <div className="flex max-h-[80vh] w-full max-w-[720px] min-w-0 flex-col overflow-hidden rounded-[16px]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.16)' }}>
         <div className="flex flex-wrap items-start justify-between gap-3 p-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           <div className="min-w-0">
-            <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.16em] text-mint">{impactLabel}</p>
-            <h3 className="mt-1 text-[18px] font-extrabold text-white">{impactLabel} — {preview.label}</h3>
+            <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.16em] text-mint">Impacto proyectado</p>
+            <h3 className="mt-1 text-[18px] font-extrabold text-white">Impacto proyectado — {preview.label}</h3>
             <p className="mt-1 text-[13px] font-extrabold text-white">{hitLabel}</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase text-white" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.12)' }}>
@@ -1272,7 +1269,7 @@ function PreviewSection({ data }: { data: SpecialAwardsAdminData }) {
           </p>
         </div>
         <span className="rounded-full px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em]" style={{ background: 'rgba(255,224,64,0.1)', border: '1px solid rgba(255,224,64,0.28)', color: '#FFE040' }}>
-          No guarda puntos manuales
+          No modifica puntos ni ranking
         </span>
       </div>
 
@@ -1411,7 +1408,7 @@ function AdvancedToolsSection({ data, writesDisabled }: { data: SpecialAwardsAdm
       <div className="rounded-[16px] p-4" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)' }}>
         <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-orange">Herramientas avanzadas</p>
         <h2 className="mt-1 text-[20px] font-extrabold text-white">Auditoría y normalización</h2>
-        <p className="mt-1 text-[12px] text-muted">Secciones secundarias para revisar pronósticos, normalizaciones y proyecciones antes de confirmar.</p>
+        <p className="mt-1 text-[12px] text-muted">Secciones secundarias para revisar pronósticos, normalizaciones y proyecciones sin modificar ranking.</p>
       </div>
 
       <details className="rounded-[16px] p-4" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)' }}>

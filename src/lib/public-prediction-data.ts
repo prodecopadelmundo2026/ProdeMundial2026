@@ -18,8 +18,6 @@ import { buildMatchAuditRows } from '@/lib/ranking-audit'
 import { getTournamentVisibleMatches } from '@/lib/tournament-state'
 import type { Prediction } from '@/types'
 import { knockoutPNum } from '@/lib/bracket'
-import { SPECIAL_AWARD_CATEGORIES, SPECIAL_AWARDS_TOURNAMENT_KEY, type SpecialAwardCategory } from '@/lib/special-awards'
-import { buildSpecialAwardPreviews, type SpecialAwardPreviewWinner } from '@/lib/special-awards-preview'
 
 type ScoreRow = {
   user_id?: string
@@ -36,38 +34,6 @@ type VirtualPredictionRow = {
   home_score: number
   away_score: number
   tiebreaker_team: string | null
-}
-type SpecialBetRow = { user_id: string; balon: string | null; bota: string | null; guante: string | null }
-type SpecialAwardNormalizationRow = {
-  category: SpecialAwardCategory
-  raw_normalized: string
-  player_id: string | null
-  status: 'matched' | 'no_match' | 'review'
-}
-type SpecialAwardPlayerRow = {
-  id: string
-  display_name: string
-  country_name: string | null
-  country_code: string | null
-}
-type SpecialAwardResultRow = {
-  id: string
-  category: SpecialAwardCategory
-  status: 'draft' | 'confirmed' | 'locked'
-}
-type SpecialAwardWinnerRow = {
-  special_bet_result_id: string
-  player_id: string
-}
-type AuthorizedEmailRow = {
-  email: string
-  active: boolean | null
-  status: 'trial' | 'confirmed' | 'disabled' | null
-  deleted_at: string | null
-}
-type ProfileEmailRow = {
-  id: string
-  email: string | null
 }
 
 export type VirtualTrajectoryParticipant = {
@@ -123,7 +89,6 @@ export type OfficialMatchTrajectoryBonusInsights = {
 export type RankingWithTrajectoryEntry = {
   user_id: string | null
   participant_status?: string
-  name?: string
   total_points: number
   exact_predictions: number
   correct_result_predictions: number
@@ -133,14 +98,6 @@ export type RankingWithTrajectoryEntry = {
   group_points?: number
   knockout_points?: number
   trajectory_bonus?: number
-  special_awards_bonus?: number
-  special_awards_breakdown?: SpecialAwardsBreakdown
-}
-
-export type SpecialAwardsBreakdown = Record<SpecialAwardCategory, number> & { total: number }
-
-function emptySpecialAwardsBreakdown(): SpecialAwardsBreakdown {
-  return { balon: 0, bota: 0, guante: 0, total: 0 }
 }
 
 const loadPhysicalPredictionRows = unstable_cache(
@@ -722,7 +679,7 @@ export async function addConfirmedTrajectoryToRanking<T extends RankingWithTraje
     tiebreakersByUser.set(tiebreaker.user_id, bucket)
   }
 
-  const enrichedWithTrajectory = entries.map((entry) => {
+  const enriched = entries.map((entry) => {
     const currentBasePoints = Number(entry.base_points ?? entry.total_points ?? 0)
     if (!entry.user_id) {
       return {
@@ -804,159 +761,14 @@ export async function addConfirmedTrajectoryToRanking<T extends RankingWithTraje
     }
   })
 
-  const enriched = await addConfirmedSpecialAwardsToRanking(enrichedWithTrajectory)
-  return rankRankingEntries(enriched)
-}
-
-export async function addConfirmedSpecialAwardsToRanking<T extends RankingWithTrajectoryEntry>(entries: T[]): Promise<T[]> {
-  if (entries.length === 0) return []
-
-  const admin = createAdminClient()
-  const [
-    { data: specialBets, error: specialBetsError },
-    { data: normalizations, error: normalizationsError },
-    { data: players, error: playersError },
-    { data: results, error: resultsError },
-    { data: authorizedEmails, error: authorizedEmailsError },
-    { data: profiles, error: profilesError },
-  ] = await Promise.all([
-    admin.from('special_bets').select('user_id, balon, bota, guante'),
-    admin
-      .from('special_bet_normalizations')
-      .select('category, raw_normalized, player_id, status')
-      .eq('tournament_key', SPECIAL_AWARDS_TOURNAMENT_KEY),
-    admin.from('players').select('id, display_name, country_name, country_code'),
-    admin
-      .from('special_bet_results')
-      .select('id, category, status')
-      .eq('tournament_key', SPECIAL_AWARDS_TOURNAMENT_KEY)
-      .in('status', ['confirmed', 'locked']),
-    admin
-      .from('authorized_emails')
-      .select('email, active, status, deleted_at')
-      .eq('active', true)
-      .eq('status', 'confirmed')
-      .is('deleted_at', null),
-    admin.from('profiles').select('id, email'),
-  ])
-
-  if (specialBetsError) throw specialBetsError
-  if (normalizationsError) throw normalizationsError
-  if (playersError) throw playersError
-  if (resultsError) throw resultsError
-  if (authorizedEmailsError) throw authorizedEmailsError
-  if (profilesError) throw profilesError
-
-  const confirmedResults = (results ?? []) as SpecialAwardResultRow[]
-  const resultIds = confirmedResults.map((result) => result.id)
-  const { data: winners, error: winnersError } = resultIds.length > 0
-    ? await admin
-        .from('special_bet_result_winners')
-        .select('special_bet_result_id, player_id')
-        .in('special_bet_result_id', resultIds)
-    : { data: [], error: null }
-
-  if (winnersError) throw winnersError
-
-  const playersById = new Map(((players ?? []) as SpecialAwardPlayerRow[]).map((player) => [player.id, player]))
-  const winnersByResultId = new Map<string, SpecialAwardPreviewWinner[]>()
-  for (const winner of (winners ?? []) as SpecialAwardWinnerRow[]) {
-    const player = playersById.get(winner.player_id)
-    if (!player) continue
-    const bucket = winnersByResultId.get(winner.special_bet_result_id) ?? []
-    bucket.push({
-      playerId: player.id,
-      displayName: player.display_name,
-      countryName: player.country_name ?? '',
-      countryCode: player.country_code ?? '',
-    })
-    winnersByResultId.set(winner.special_bet_result_id, bucket)
-  }
-
-  const resultInput = Object.fromEntries(
-    SPECIAL_AWARD_CATEGORIES.map((category) => {
-      const result = confirmedResults.find((item) => item.category === category) ?? null
-      return [category, {
-        status: result?.status ?? 'pending',
-        winners: result ? (winnersByResultId.get(result.id) ?? []) : [],
-      }]
-    })
-  ) as Parameters<typeof buildSpecialAwardPreviews>[0]['results']
-  const eligibleEmails = new Set(
-    ((authorizedEmails ?? []) as AuthorizedEmailRow[])
-      .filter((row) => row.active === true && row.status === 'confirmed' && !row.deleted_at)
-      .map((row) => row.email.trim().toLowerCase())
-      .filter(Boolean)
-  )
-  const eligibleUserIds = new Set(
-    ((profiles ?? []) as ProfileEmailRow[])
-      .filter((profile) => {
-        const email = profile.email?.trim().toLowerCase()
-        return Boolean(email && eligibleEmails.has(email))
-      })
-      .map((profile) => profile.id)
-  )
-
-  const previews = buildSpecialAwardPreviews({
-    participants: entries
-      .filter((entry) => entry.user_id && eligibleUserIds.has(entry.user_id))
-      .map((entry) => ({
-        userId: entry.user_id!,
-        name: entry.name ?? 'Participante',
-        email: null,
-      })),
-    bets: ((specialBets ?? []) as SpecialBetRow[]).map((bet) => ({
-      userId: bet.user_id,
-      balon: bet.balon,
-      bota: bet.bota,
-      guante: bet.guante,
-    })),
-    normalizations: ((normalizations ?? []) as SpecialAwardNormalizationRow[]).map((normalization) => ({
-      category: normalization.category,
-      rawNormalized: normalization.raw_normalized,
-      playerId: normalization.player_id,
-      status: normalization.status,
-    })),
-    players: ((players ?? []) as SpecialAwardPlayerRow[]).map((player) => ({
-      id: player.id,
-      displayName: player.display_name,
-      countryName: player.country_name ?? '',
-      countryCode: player.country_code ?? '',
-    })),
-    results: resultInput,
-  })
-
-  const breakdownByUser = new Map<string, SpecialAwardsBreakdown>()
-  for (const category of SPECIAL_AWARD_CATEGORIES) {
-    for (const hit of previews[category].hits) {
-      const breakdown = breakdownByUser.get(hit.userId) ?? emptySpecialAwardsBreakdown()
-      breakdown[category] = previews[category].pointsPerHit
-      breakdown.total = breakdown.balon + breakdown.bota + breakdown.guante
-      breakdownByUser.set(hit.userId, breakdown)
-    }
-  }
-
-  return entries.map((entry) => {
-    const breakdown = entry.user_id ? (breakdownByUser.get(entry.user_id) ?? emptySpecialAwardsBreakdown()) : emptySpecialAwardsBreakdown()
-    const baseTotal = Number(entry.total_points ?? 0) - Number(entry.special_awards_bonus ?? 0)
-    return {
-      ...entry,
-      special_awards_bonus: breakdown.total,
-      special_awards_breakdown: breakdown,
-      total_points: baseTotal + breakdown.total,
-    }
-  })
-}
-
-function rankRankingEntries<T extends RankingWithTrajectoryEntry>(entries: T[]): T[] {
-  const byStatus = new Map<string, T[]>()
-  for (const entry of entries) {
+  const byStatus = new Map<string, typeof enriched>()
+  for (const entry of enriched) {
     const status = entry.participant_status ?? 'confirmed'
     const bucket = byStatus.get(status) ?? []
     bucket.push(entry)
     byStatus.set(status, bucket)
   }
-  const ranked: T[] = []
+  const ranked: typeof enriched = []
   for (const bucket of byStatus.values()) {
     bucket.sort((a, b) =>
       b.total_points - a.total_points ||
@@ -978,5 +790,5 @@ function rankRankingEntries<T extends RankingWithTrajectoryEntry>(entries: T[]):
   return ranked.sort((a, b) =>
     String(a.participant_status ?? '').localeCompare(String(b.participant_status ?? '')) ||
     a.rank - b.rank
-  )
+  ) as T[]
 }

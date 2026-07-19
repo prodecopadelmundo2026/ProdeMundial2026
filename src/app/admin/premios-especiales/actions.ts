@@ -41,12 +41,8 @@ function actionError(error: unknown) {
 }
 
 function revalidateAdminSpecialAwards() {
-  revalidatePath('/')
   revalidatePath('/admin')
   revalidatePath('/admin/premios-especiales')
-  revalidatePath('/ranking')
-  revalidatePath('/ranking/[userId]', 'page')
-  revalidatePath('/estadisticas')
   revalidatePath('/mundial-en-vivo')
 }
 
@@ -835,7 +831,7 @@ export async function confirmOfficialResult(
     if (!data?.id) throw new Error('El resultado ya no está disponible para confirmar.')
 
     revalidateAdminSpecialAwards()
-    return result(true, 'Resultado oficial confirmado. El ranking usa este resultado de forma derivada.')
+    return result(true, 'Resultado oficial confirmado. No se modificaron puntos ni ranking.')
   } catch (error) {
     return actionError(error)
   }
