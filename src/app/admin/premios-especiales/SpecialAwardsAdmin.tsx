@@ -269,6 +269,13 @@ function statusLabel(status: RawGroup['status'] | 'matched') {
   return 'Pendiente'
 }
 
+function resultStatusLabel(status: AwardResult['status'] | SpecialAwardPreview['resultStatus']) {
+  if (status === 'draft') return 'Borrador'
+  if (status === 'confirmed') return 'Confirmado'
+  if (status === 'locked') return 'Bloqueado'
+  return 'Pendiente'
+}
+
 function mergeVariants(groups: RawGroup[]) {
   const variants = new Map<string, number>()
   for (const group of groups) {
@@ -990,7 +997,7 @@ function AwardResultCard({ category, data, writesDisabled }: { category: Special
     <article className="grid gap-3 rounded-[14px] p-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
       <div>
         <h3 className="text-[16px] font-extrabold text-white">{SPECIAL_AWARD_LABELS[category]}</h3>
-        <p className="mt-1 text-[12px] text-muted">Estado: <span className="font-extrabold text-orange">{awardResult.status}</span></p>
+        <p className="mt-1 text-[12px] text-muted">Estado: <span className="font-extrabold text-orange">{resultStatusLabel(awardResult.status)}</span></p>
         {awardResult.confirmedAt && <p className="mt-1 text-[11px] text-muted">Confirmado: {new Date(awardResult.confirmedAt).toLocaleString('es-AR')}</p>}
       </div>
 
@@ -1093,6 +1100,8 @@ function AwardResultCard({ category, data, writesDisabled }: { category: Special
 }
 
 function ProjectedImpactBlock({ preview }: { preview: SpecialAwardPreview }) {
+  const [detailOpen, setDetailOpen] = useState(false)
+
   if (!preview.hasSelectedWinners) return null
 
   const hitLabel = preview.hitCount === 1
@@ -1116,12 +1125,56 @@ function ProjectedImpactBlock({ preview }: { preview: SpecialAwardPreview }) {
           Ningún participante sumaría puntos con este resultado oficial.
         </p>
       ) : (
-        <div className="grid gap-2">
+        <button
+          type="button"
+          onClick={() => setDetailOpen(true)}
+          className="justify-self-start rounded-full px-3 py-2 text-[11px] font-extrabold uppercase text-bg"
+          style={{ background: '#A8F0D8', border: '1px solid #A8F0D8' }}
+        >
+          Ver detalle
+        </button>
+      )}
+
+      {detailOpen && (
+        <ProjectedImpactModal preview={preview} onClose={() => setDetailOpen(false)} />
+      )}
+    </div>
+  )
+}
+
+function ProjectedImpactModal({ preview, onClose }: { preview: SpecialAwardPreview; onClose: () => void }) {
+  const hitLabel = preview.hitCount === 1
+    ? `1 participante sumaría +${preview.pointsPerHit} puntos`
+    : `${preview.hitCount} participantes sumarían +${preview.pointsPerHit} puntos cada uno`
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Impacto proyectado - ${preview.label}`}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <div className="flex max-h-[80vh] w-full max-w-[720px] min-w-0 flex-col overflow-hidden rounded-[16px]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.16)' }}>
+        <div className="flex flex-wrap items-start justify-between gap-3 p-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="min-w-0">
+            <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.16em] text-mint">Impacto proyectado</p>
+            <h3 className="mt-1 text-[18px] font-extrabold text-white">Impacto proyectado — {preview.label}</h3>
+            <p className="mt-1 text-[13px] font-extrabold text-white">{hitLabel}</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-full px-3 py-2 text-[11px] font-extrabold uppercase text-white" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.12)' }}>
+            Cerrar
+          </button>
+        </div>
+
+        <div className="grid gap-2 overflow-y-auto p-4">
           {preview.hits.map((row) => (
             <ProjectedImpactParticipant key={row.userId} row={row} />
           ))}
         </div>
-      )}
+      </div>
     </div>
   )
 }
@@ -1245,7 +1298,7 @@ function AwardPreviewCard({ preview }: { preview: SpecialAwardPreview }) {
         <div className="min-w-0">
           <h3 className="text-[17px] font-extrabold text-white">{preview.label}</h3>
           <p className="mt-1 text-[12px] font-bold text-muted">Ganador oficial: <span className="text-white">{winnerLabel}</span></p>
-          <p className="mt-1 text-[12px] font-bold text-muted">Estado: <span className="text-orange">{preview.resultStatus}</span></p>
+          <p className="mt-1 text-[12px] font-bold text-muted">Estado: <span className="text-orange">{resultStatusLabel(preview.resultStatus)}</span></p>
         </div>
         <div className="rounded-[12px] px-3 py-2 text-left lg:text-right" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
           <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">Total proyectado</p>
