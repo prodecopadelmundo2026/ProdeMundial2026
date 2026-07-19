@@ -17,11 +17,17 @@ import {
   normalizePredictionInsights,
 } from '@/lib/prediction-insights'
 import { computeFifaAllStandings, computeFifaBestThirds } from '@/lib/fifa-standings'
-import { getOfficialRoundOf32State, getTournamentVisibleMatches } from '@/lib/tournament-state'
+import { getTournamentVisibleMatches } from '@/lib/tournament-state'
 import { addConfirmedTrajectoryToRanking, getVirtualMatchTrajectoryInsights } from '@/lib/public-prediction-data'
 import { VirtualTrajectoryInsights } from '@/components/VirtualTrajectoryInsights'
+import { CountdownTimer } from '@/components/CountdownTimer'
+import { getTeam, flagUrl } from '@/lib/teams'
 
 export const dynamic = 'force-dynamic'
+
+const WORLD_CUP_FINAL_AT = '2026-07-19T16:00:00-03:00'
+const FINAL_HOME_TEAM = 'Argentina'
+const FINAL_AWAY_TEAM = 'España'
 
 function SectionLink({ href, label }: { href: string; label: string }) {
   return (
@@ -126,6 +132,27 @@ function PrizeValue({ amount }: { amount: number }) {
     <span className="inline-flex min-w-0 items-baseline gap-x-2 whitespace-nowrap">
       <span className="shrink-0 text-[0.82em]">$</span>
       <span className="min-w-0">{amount.toLocaleString('es-AR')}</span>
+    </span>
+  )
+}
+
+function FinalTeamFlag({ teamName }: { teamName: string }) {
+  const team = getTeam(teamName)
+
+  return (
+    <span
+      className="grid h-[58px] w-[58px] shrink-0 place-items-center overflow-hidden rounded-full bg-[#0A0A0A] min-[640px]:h-[72px] min-[640px]:w-[72px]"
+      style={{ border: '1px solid rgba(255,255,255,0.16)' }}
+    >
+      {team.iso2 ? (
+        <img
+          src={flagUrl(team.iso2)}
+          alt={teamName}
+          className="h-[34px] w-[46px] object-contain min-[640px]:h-[42px] min-[640px]:w-[58px]"
+        />
+      ) : (
+        <span className="text-[32px] min-[640px]:text-[40px]">{team.flag}</span>
+      )}
     </span>
   )
 }
@@ -407,8 +434,6 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
   const liveRankColors: Record<number, string> = { 1: '#FFE040', 2: '#D7DADF', 3: '#E8A87C' }
   const liveRankingMode = metrics.ranking_mode ?? getRankingMode(metrics.finished_matches_count)
   const liveRankingStarted = isLiveRankingMode(liveRankingMode)
-  const roundOf32State = getOfficialRoundOf32State(allTournamentMatches)
-
   return (
     <>
       {bonusPoll?.poll.isOpen && <BonusPollHomeCard poll={bonusPoll} />}
@@ -429,19 +454,33 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
 
         <div className="relative z-10 max-w-[1280px] mx-auto w-full grid grid-cols-1 min-[980px]:grid-cols-[1.15fr_0.85fr] gap-12 items-center">
           <div>
-            <div className="mb-6 inline-flex items-center gap-[10px] rounded-full px-[14px] py-2 text-[12px] font-extrabold uppercase tracking-[0.16em]" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)' }}>
+            <div className="mb-6 inline-flex max-w-full items-center gap-[10px] rounded-full px-[14px] py-2 text-[11px] font-extrabold uppercase tracking-[0.14em] min-[420px]:text-[12px] min-[420px]:tracking-[0.16em]" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)' }}>
               <span className="w-2 h-2 rounded-full bg-mint" style={{ animation: 'pulse-dot 1.6s infinite' }} />
-              {roundOf32State.officialBracketReady ? 'Fase de grupos finalizada' : 'Mundial 2026 en marcha'}
+              Ya se termina el Mundial
             </div>
-            <h1 className="font-display uppercase leading-[0.86] tracking-[-0.04em]" style={{ fontSize: 'clamp(54px, 12vw, 146px)' }}>
-              <span className="block text-white">{roundOf32State.officialBracketReady ? 'Terminó la' : 'El torneo'}</span>
-              <span className="block text-orange italic">{roundOf32State.officialBracketReady ? 'fase de grupos' : 'ya empezó'}</span>
+            <div className="mb-5 flex max-w-full items-center gap-3 min-[640px]:gap-5">
+              <FinalTeamFlag teamName={FINAL_HOME_TEAM} />
+              <span className="font-display text-[28px] uppercase leading-none text-orange min-[640px]:text-[42px]">VS</span>
+              <FinalTeamFlag teamName={FINAL_AWAY_TEAM} />
+            </div>
+            <h1 className="max-w-full break-words font-display uppercase leading-[0.86] tracking-[-0.04em]" style={{ fontSize: 'clamp(46px, 14vw, 128px)' }}>
+              <span className="block text-white">Argentina</span>
+              <span className="block text-orange italic">vs España</span>
             </h1>
-            <p className="mt-6 max-w-[520px] text-[17px] font-medium leading-relaxed" style={{ color: '#d6d6d6' }}>
-              {roundOf32State.officialBracketReady
-                ? 'Ya está armada la llave oficial de 16avos. Revisá el Mundial en Vivo, compará tu Prode contra la realidad y seguí el ranking actualizado. También se aplicó el bonus de trayectoria de 16avos aprobado por votación.'
-                : 'Seguí el ranking, revisá el fixture y compará los pronósticos del próximo partido.'}
+            <p className="mt-5 max-w-[560px] font-mono text-[12px] font-extrabold uppercase tracking-[0.14em] text-mint">
+              Final de la Copa del Mundo 2026
             </p>
+            <p className="mt-4 max-w-[520px] text-[17px] font-medium leading-relaxed" style={{ color: '#d6d6d6' }}>
+              Llegó el último partido. Vamos con todo.
+            </p>
+            <div className="mt-7 max-w-[520px] rounded-[22px] bg-panel p-4 min-[520px]:p-5" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+              <p className="mb-3 font-mono text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted">Faltan para la final</p>
+              <CountdownTimer
+                targetAt={WORLD_CUP_FINAL_AT}
+                doneMessage="LA FINAL ESTÁ EN JUEGO"
+                showDays={false}
+              />
+            </div>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link href="/mi-prode" className="group inline-flex items-center gap-[10px] rounded-full bg-orange px-[26px] py-[18px] text-[15px] font-extrabold text-bg shadow-[0_10px_28px_-10px_rgba(255,107,0,.6)] transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-10px_rgba(255,107,0,.8)]">
                 Ver mi prode
@@ -455,11 +494,9 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
               <Link href="/fixture" className="inline-flex items-center gap-[10px] rounded-full px-[26px] py-[18px] text-[15px] font-extrabold text-white transition-colors duration-150 hover:bg-white/10" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.16)' }}>
                 Ver fixture
               </Link>
-              {roundOf32State.officialBracketReady && (
-                <Link href="/mundial-en-vivo" className="inline-flex items-center gap-[10px] rounded-full px-[26px] py-[18px] text-[15px] font-extrabold text-white transition-colors duration-150 hover:bg-white/10" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.16)' }}>
-                  Ver Mundial en Vivo
-                </Link>
-              )}
+              <Link href="/mundial-en-vivo" className="inline-flex items-center gap-[10px] rounded-full px-[26px] py-[18px] text-[15px] font-extrabold text-white transition-colors duration-150 hover:bg-white/10" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.16)' }}>
+                Ver Mundial en Vivo
+              </Link>
               <Link href="/pronosticos" className="inline-flex items-center gap-[10px] rounded-full px-[26px] py-[18px] text-[15px] font-extrabold text-white transition-colors duration-150 hover:bg-white/10" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.16)' }}>
                 Ver pronósticos
               </Link>
@@ -467,12 +504,23 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
           </div>
 
           <aside className="hidden min-[980px]:flex flex-col gap-[22px]">
-            <div className="relative grid aspect-square place-items-center overflow-hidden rounded-[28px]" style={{ background: '#A8F0D8', boxShadow: 'var(--shadow-tile)' }}>
-              <div className="absolute" style={{ left: '-12%', top: '-12%', width: '60%', height: '60%', background: '#FF6B00', borderRadius: '0 0 100% 0' }} />
-              <div className="absolute" style={{ right: '-10%', bottom: '-10%', width: '55%', height: '55%', background: '#5B2D8E', borderRadius: '100% 0 0 0' }} />
-              <div className="relative z-10 text-center" style={{ color: '#0A0A0A' }}>
-                <div className="font-display leading-[0.82] tracking-[-0.07em]" style={{ fontSize: 'clamp(120px, 14vw, 200px)' }}>26&apos;</div>
-                <div className="mt-2 font-sans text-[clamp(13px,1.6vw,22px)] font-black tracking-[0.42em]">PRODE</div>
+            <div className="relative grid aspect-square place-items-center overflow-hidden rounded-[28px] bg-[#0A0A0A] p-8" style={{ border: '1px solid rgba(255,255,255,0.12)', boxShadow: 'var(--shadow-tile)' }}>
+              <div className="absolute inset-x-0 top-0 h-2 bg-orange" />
+              <div className="relative z-10 w-full text-center">
+                <div className="mb-7 flex items-center justify-center gap-5">
+                  <FinalTeamFlag teamName={FINAL_HOME_TEAM} />
+                  <span className="font-display text-[36px] uppercase leading-none text-orange">VS</span>
+                  <FinalTeamFlag teamName={FINAL_AWAY_TEAM} />
+                </div>
+                <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.2em] text-muted">19 jul 2026 - 16:00 ART</p>
+                <p className="mt-3 font-display text-[clamp(34px,4vw,54px)] uppercase leading-none text-white">La final</p>
+                <div className="mt-6">
+                  <CountdownTimer
+                    targetAt={WORLD_CUP_FINAL_AT}
+                    doneMessage="LA FINAL ESTÁ EN JUEGO"
+                    showDays={false}
+                  />
+                </div>
               </div>
             </div>
             <div className="rounded-[24px] bg-panel" style={{ border: '1px solid rgba(255,255,255,0.08)', padding: '22px 22px 20px' }}>
