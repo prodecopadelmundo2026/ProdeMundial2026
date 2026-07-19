@@ -959,6 +959,7 @@ function ResultsSection({ data, writesDisabled }: { data: SpecialAwardsAdminData
 
 function AwardResultCard({ category, data, writesDisabled }: { category: SpecialAwardCategory; data: SpecialAwardsAdminData; writesDisabled: boolean }) {
   const awardResult = data.awardResults[category]
+  const preview = data.awardPreviews[category]
   const isGoldenBoot = category === 'bota'
   const winnerIds = new Set(awardResult.winners.map((winner) => winner.playerId))
   const candidateSummary = data.candidateSummaries[category]
@@ -1004,6 +1005,8 @@ function AwardResultCard({ category, data, writesDisabled }: { category: Special
       </div>
 
       <p className="rounded-[12px] p-3 text-[12px] font-bold text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>{derivedMessage}</p>
+
+      <ProjectedImpactBlock preview={preview} />
 
       {!locked && (
         <form action={addAction} className="grid gap-2">
@@ -1086,6 +1089,52 @@ function AwardResultCard({ category, data, writesDisabled }: { category: Special
         </form>
       )}
     </article>
+  )
+}
+
+function ProjectedImpactBlock({ preview }: { preview: SpecialAwardPreview }) {
+  if (!preview.hasSelectedWinners) return null
+
+  const hitLabel = preview.hitCount === 1
+    ? `1 participante sumaría +${preview.pointsPerHit} puntos`
+    : `${preview.hitCount} participantes sumarían +${preview.pointsPerHit} puntos cada uno`
+
+  return (
+    <div className="grid gap-2 rounded-[12px] p-3" style={{ background: 'rgba(168,240,216,0.06)', border: '1px solid rgba(168,240,216,0.18)' }}>
+      <div>
+        <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.16em] text-mint">Impacto proyectado</p>
+        <p className="mt-1 text-[13px] font-extrabold text-white">{hitLabel}</p>
+        {preview.pendingCount > 0 && (
+          <p className="mt-1 text-[12px] font-bold text-[#FFB15C]">
+            Puede haber impacto pendiente de definir por normalizaciones aún no revisadas.
+          </p>
+        )}
+      </div>
+
+      {preview.hits.length === 0 ? (
+        <p className="rounded-[10px] p-3 text-[12px] font-bold text-muted" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
+          Ningún participante sumaría puntos con este resultado oficial.
+        </p>
+      ) : (
+        <div className="grid gap-2">
+          {preview.hits.map((row) => (
+            <ProjectedImpactParticipant key={row.userId} row={row} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ProjectedImpactParticipant({ row }: { row: SpecialAwardPreviewRow }) {
+  return (
+    <div className="rounded-[10px] p-3 text-[12px]" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <p className="font-extrabold text-white">{row.name}</p>
+      <p className="mt-1 font-bold text-muted">Pronóstico original: <span className="whitespace-pre-wrap break-words text-white">&quot;{row.originalAnswer ?? ''}&quot;</span></p>
+      {row.winnerName && (
+        <p className="mt-1 text-[11px] font-bold text-muted">Ganador oficial: <span className="text-white">{row.winnerName}</span></p>
+      )}
+    </div>
   )
 }
 

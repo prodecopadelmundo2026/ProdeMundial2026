@@ -107,7 +107,9 @@ export function buildSpecialAwardPreviews(input: {
       const hasSelectedWinners = result.winners.length > 0
       const pointsPerHit = SPECIAL_AWARD_POINTS[category]
       const rows = input.participants.map((participant) => {
-        const raw = String(betsByUserId.get(participant.userId)?.[category] ?? '').trim()
+        const storedAnswer = betsByUserId.get(participant.userId)?.[category]
+        const originalAnswer = storedAnswer == null ? '' : String(storedAnswer)
+        const raw = originalAnswer.trim()
         if (!raw) {
           return makePreviewRow(participant, {
             originalAnswer: null,
@@ -122,7 +124,7 @@ export function buildSpecialAwardPreviews(input: {
         const normalization = normalizationsByKey.get(`${category}:${rawNormalized}`) ?? null
         if (!normalization) {
           return makePreviewRow(participant, {
-            originalAnswer: raw,
+            originalAnswer,
             rawNormalized,
             normalizationStatus: 'missing',
             result: 'pending',
@@ -132,7 +134,7 @@ export function buildSpecialAwardPreviews(input: {
 
         if (normalization.status !== 'matched' || !normalization.playerId) {
           return makePreviewRow(participant, {
-            originalAnswer: raw,
+            originalAnswer,
             rawNormalized,
             normalizationStatus: normalization.status,
             playerId: normalization.playerId,
@@ -146,7 +148,7 @@ export function buildSpecialAwardPreviews(input: {
         const player = playersById.get(normalization.playerId)
         if (!player) {
           return makePreviewRow(participant, {
-            originalAnswer: raw,
+            originalAnswer,
             rawNormalized,
             normalizationStatus: normalization.status,
             playerId: normalization.playerId,
@@ -157,7 +159,7 @@ export function buildSpecialAwardPreviews(input: {
 
         if (!hasSelectedWinners) {
           return makePreviewRow(participant, {
-            originalAnswer: raw,
+            originalAnswer,
             rawNormalized,
             normalizationStatus: normalization.status,
             playerId: normalization.playerId,
@@ -171,7 +173,7 @@ export function buildSpecialAwardPreviews(input: {
         const matchedWinner = result.winners.find((winner) => winner.playerId === normalization.playerId) ?? null
         const isHit = winnerIds.has(normalization.playerId)
         return makePreviewRow(participant, {
-          originalAnswer: raw,
+          originalAnswer,
           rawNormalized,
           normalizationStatus: normalization.status,
           playerId: normalization.playerId,
