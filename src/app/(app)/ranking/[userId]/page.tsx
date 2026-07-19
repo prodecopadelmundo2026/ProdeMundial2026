@@ -1543,6 +1543,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
             <RankingAuditModals
               rows={auditRows}
               trajectoryAwards={trajectoryLedger}
+              specialAwards={entry.special_awards_breakdown ?? { balon: 0, bota: 0, guante: 0, total: 0 }}
               groupPoints={entry.group_points ?? entry.base_points ?? 0}
               knockoutPoints={entry.knockout_points ?? 0}
               trajectoryPoints={trajectoryBonus.points}

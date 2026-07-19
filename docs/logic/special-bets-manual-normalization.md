@@ -10,9 +10,9 @@ El diseño actualizado del modelo compartido de jugadores, aliases, mapeos manua
 
 - Las respuestas viven en `public.special_bets` con columnas `balon`, `bota` y `guante`.
 - La UI de Mi Prode permite cargar/consultar esos tres campos.
-- El ranking público actual no suma puntos de especiales automáticamente.
+- El ranking público suma premios especiales de forma derivada cuando el resultado está `confirmed` o `locked`.
 - La pantalla admin ya menciona revisión manual, pero no existe una herramienta completa de equivalencias.
-- `special_bets.points` existe, pero no debe usarse hasta que el scoring especial sea aprobado.
+- `special_bets.points` existe, pero no se usa: los puntos especiales se derivan en ranking desde resultados `confirmed` o `locked`.
 
 ## Principio de auditoría
 
@@ -25,7 +25,7 @@ La interpretación canónica se guarda en tablas separadas y puede verse como:
 - jugador interpretado, si existe;
 - estado de revisión: `matched`, `no_match` o `review`.
 
-Una exclusión puntual por participante no debe borrar ni modificar la apuesta original. Debe resolverse por `user_id` estable, no por nombre visible, y afectar solo conteos elegibles o scoring futuro.
+Una exclusión puntual por participante no debe borrar ni modificar la apuesta original. Debe resolverse por `user_id` estable, no por nombre visible, y afectar solo conteos elegibles o scoring derivado.
 
 ## Arquitectura propuesta
 
@@ -125,7 +125,7 @@ Goles, asistencias, amarillas, rojas, barridas ganadas y cualquier otra estadís
 
 Estas estadísticas no tienen relación con scoring, ranking, `predictions.points`, `special_bets.points` ni RPCs actuales. La tabla de goleadores sirve como referencia visual para seguir la apuesta de Bota de Oro, pero no activa scoring automáticamente.
 
-La Etapa 3 solo confirma resultados oficiales de forma informativa. `locked` queda reservado para una etapa futura. No se debe activar scoring hasta diseñar, aprobar y probar ese proceso idempotente y auditado.
+Los resultados en `pending` o `draft` no puntúan. Los resultados `confirmed` o `locked` generan scoring derivado e idempotente en ranking, sin persistir puntos manuales.
 
 ## Flujo admin
 
@@ -135,16 +135,16 @@ La Etapa 3 solo confirma resultados oficiales de forma informativa. `locked` que
 4. Mantener estadísticas visuales de jugadores, empezando por goles.
 5. Cargar fuente o nota opcional para auditar una estadística.
 6. Al cierre, seleccionar uno o más ganadores oficiales por categoría.
-7. Confirmar el resultado oficial, sin modificar puntos ni ranking.
-8. En una etapa futura, definir el bloqueo y ejecutar scoring idempotente y auditado.
+7. Confirmar el resultado oficial para que el ranking derive los puntos especiales desde el estado actual.
+8. Mantener el scoring derivado e idempotente: `draft`/`pending` suman 0, `confirmed`/`locked` puntúan desde el estado actual.
 
 ## Reglas de seguridad
 
 - Solo admins pueden crear jugadores, asignar aliases, publicar ganadores y cargar estadísticas.
 - No se modifica `special_bets`: se preserva la respuesta original del usuario.
 - El recalculo futuro debe ser idempotente: correrlo dos veces no duplica puntos.
-- No activar scoring automático con la confirmación de Etapa 3; el bloqueo queda reservado para una etapa futura con pruebas y aprobación explícita.
-- Bota de Oro puede usar tabla manual de goleadores como contexto, pero no debe puntuar hasta diseñar y aprobar el scoring futuro.
+- No persistir puntos manuales ni usar `special_bets.points`; el ranking deriva premios especiales desde resultados `confirmed` o `locked`.
+- Bota de Oro puede usar tabla manual de goleadores como contexto, pero solo puntúa cuando el resultado oficial está `confirmed` o `locked`.
 - En Etapa 2, RLS debe permitir lectura y escritura solo a administradores mediante `public.current_user_is_admin()`.
 - En Etapa 2, se permite borrado admin de jugadores y valores estadísticos para corregir errores de carga, pero no de tipos de estadística iniciales.
 - La lectura pública de goleadores queda para Etapa 4, idealmente mediante una vista o grants limitados a columnas públicas.
