@@ -497,28 +497,30 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
           </div>
 
           <aside className="hidden min-[980px]:flex flex-col gap-[22px]">
-            <div className="relative grid aspect-square place-items-center overflow-hidden rounded-[28px] bg-[#0A0A0A] p-8" style={{ border: '1px solid rgba(255,255,255,0.12)', boxShadow: 'var(--shadow-tile)' }}>
-              <div className="absolute inset-x-0 top-0 h-2 bg-orange" />
-              <div className="relative z-10 w-full text-center">
-                {championName && <div className="mb-7 flex justify-center"><FinalTeamFlag teamName={championName} /></div>}
-                <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.2em] text-muted">Ganadores del Prode</p>
-                <p className="mt-3 font-display text-[clamp(34px,4vw,54px)] uppercase leading-none text-white">Ranking final</p>
-                <div className="mt-6 grid gap-2 text-left">
-                  {prodeWinners.map((entry) => (
-                    <PublicRankingRowLink
-                      key={entry.user_id}
-                      userId={entry.user_id}
-                      className="grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-2 rounded-[12px] bg-white/[0.04] px-3 py-2"
-                      style={{ border: '1px solid rgba(255,255,255,0.08)' }}
-                    >
-                      <span className="font-display text-[24px] leading-none" style={{ color: liveRankColors[entry.rank] ?? '#A8F0D8' }}>{formatRank(entry, typedPublicRanking)}</span>
-                      <span className="truncate text-[13px] font-extrabold text-white">{entry.name}</span>
-                      <span className="font-display text-[20px] leading-none text-mint">{entry.total_points}</span>
-                    </PublicRankingRowLink>
-                  ))}
+            {tournamentFinished && (
+              <div className="relative overflow-hidden rounded-[28px] bg-[#0A0A0A] p-6 min-[1200px]:p-8" style={{ border: '1px solid rgba(255,255,255,0.12)', boxShadow: 'var(--shadow-tile)' }}>
+                <div className="absolute inset-x-0 top-0 h-2 bg-orange" />
+                <div className="relative z-10 w-full text-center">
+                  {championName && <div className="mb-6 flex justify-center"><FinalTeamFlag teamName={championName} /></div>}
+                  <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.2em] text-muted">Ganadores del Prode</p>
+                  <p className="mt-3 font-display text-[clamp(34px,4vw,54px)] uppercase leading-none text-white">Ranking final</p>
+                  <div className="mt-6 grid gap-2 text-left">
+                    {prodeWinners.map((entry) => (
+                      <PublicRankingRowLink
+                        key={entry.user_id}
+                        userId={entry.user_id}
+                        className="grid grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-2 rounded-[12px] bg-white/[0.04] px-3 py-2.5"
+                        style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+                      >
+                        <span className="font-display text-[24px] leading-none" style={{ color: liveRankColors[entry.rank] ?? '#A8F0D8' }}>{formatRank(entry, typedPublicRanking)}</span>
+                        <span className="min-w-0 truncate text-[13px] font-extrabold text-white">{entry.name}</span>
+                        <span className="font-display text-[20px] leading-none text-mint">{entry.total_points}</span>
+                      </PublicRankingRowLink>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
             <div className="rounded-[24px] bg-panel" style={{ border: '1px solid rgba(255,255,255,0.08)', padding: '22px 22px 20px' }}>
               <div className="mb-[18px] flex items-center justify-between">
                 <span className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-muted">Estado del torneo</span>
@@ -546,9 +548,9 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
         <div className="mx-auto grid max-w-[1280px] gap-5 min-[980px]:grid-cols-[1.08fr_0.92fr]">
           <div>
             <SectionHead
-              title="Top"
-              orange="10"
-              sub={tournamentFinished ? 'Ranking final del Prode 26. Tocá cualquier participante para auditar de dónde salió cada punto.' : 'Los competidores que la están rompiendo. Tocá cualquier Prode para ver pronósticos, aciertos, errores y puntos partido por partido.'}
+              title={tournamentFinished ? 'Ranking' : 'Top'}
+              orange={tournamentFinished ? 'final' : '10'}
+              sub={tournamentFinished ? 'Ranking final del Prode 2026. Tocá cualquier participante para auditar de dónde salió cada punto.' : 'Los competidores que la están rompiendo. Tocá cualquier Prode para ver pronósticos, aciertos, errores y puntos partido por partido.'}
               link={{ href: '/ranking', label: tournamentFinished ? 'Ver ranking final' : 'Ver ranking completo' }}
             />
             {typedTopRanking.length > 0 && (
@@ -597,6 +599,22 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
           </div>
 
           <div className="grid content-start gap-5">
+            {tournamentFinished ? (
+              <article className="rounded-[24px] bg-panel p-5 min-[760px]:p-7" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+                <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange">Cierre del Prode</p>
+                <h2 className="mt-3 font-display text-[clamp(30px,5vw,52px)] uppercase leading-[0.9] tracking-[-0.02em] text-white">
+                  Gracias por jugar con nosotros
+                </h2>
+                <div className="mt-5 grid gap-3 text-[15px] font-semibold leading-relaxed text-[#d6d6d6]">
+                  <p>Los organizadores se van a contactar con quienes obtuvieron premio para coordinar la entrega. Felicitaciones a los ganadores y gracias a todos por acompañarnos durante todo el Mundial.</p>
+                  <p>Ojalá esta sea la primera de muchas. Esperamos volver a encontrarnos acá para disfrutar juntos de nuevos eventos. ¡Los queremos! 🧡</p>
+                </div>
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <SectionLink href="/premios" label="Ver premios" />
+                  <SectionLink href="/ranking" label="Auditar ranking" />
+                </div>
+              </article>
+            ) : (
             <article className="rounded-[24px] bg-panel p-5 min-[760px]:p-6" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
               <div className="mb-5 flex flex-col gap-4 min-[620px]:flex-row min-[620px]:items-start min-[620px]:justify-between">
                 <div>
@@ -693,21 +711,10 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
                 )}
               </div>
             </article>
+            )}
           </div>
         </div>
       </section>
-
-      {tournamentFinished && (
-        <section className="bg-[#0A0A0A]" style={{ padding: 'clamp(30px, 6vw, 54px) 20px' }}>
-          <div className="mx-auto max-w-[880px] rounded-[24px] bg-panel p-6 min-[760px]:p-8" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-            <p className="font-display text-[clamp(28px,4vw,44px)] uppercase leading-none text-orange">Gracias por jugar con nosotros</p>
-            <div className="mt-5 grid gap-3 text-[15px] font-semibold leading-relaxed text-[#d6d6d6]">
-              <p>Los organizadores se van a contactar con quienes obtuvieron premio para coordinar la entrega. Felicitaciones a los ganadores y gracias a todos por acompañarnos durante todo el Mundial.</p>
-              <p>Ojalá esta sea la primera de muchas. Esperamos volver a encontrarnos acá para disfrutar juntos de nuevos eventos. Los queremos.</p>
-            </div>
-          </div>
-        </section>
-      )}
 
       {bonusPoll && !bonusPoll.poll.isOpen && <BonusPollHomeCard poll={bonusPoll} />}
 
