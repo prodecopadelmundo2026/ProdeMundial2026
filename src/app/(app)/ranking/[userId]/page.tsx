@@ -12,7 +12,7 @@ import { buildProjectedKnockoutMatches, computeBestThirdsTable, KNOCKOUT_FIXTURE
 import { TournamentBracket } from '@/components/TournamentBracket'
 import { GroupStandingsTables, type GroupTableSection } from '@/components/GroupStandingsTables'
 import { flagUrl, getTeam } from '@/lib/teams'
-import { addConfirmedTrajectoryToRanking } from '@/lib/public-prediction-data'
+import { addConfirmedTrajectoryToRanking, type SpecialAwardAuditDetail, type SpecialAwardsBreakdown } from '@/lib/public-prediction-data'
 import { buildGroupTableRows, buildOfficialGroupScoreMap } from '@/lib/group-standings'
 import { formatMatchDateTimeArgentina, formatMatchDayKeyArgentina } from '@/lib/match-datetime'
 import { buildRoundOf32BonusLedger, buildRoundOf32CrossingAudit, getHistoricalPredictedRoundOf32Teams, summarizeKnockoutBonus } from '@/lib/knockout-bonus'
@@ -20,6 +20,7 @@ import { getOfficialRoundOf32State, buildFinishedGroupScoreMap } from '@/lib/tou
 import { computeFifaBestThirds } from '@/lib/fifa-standings'
 import { BestThirdsComparison, type BestThirdRow } from '@/components/BestThirdsComparison'
 import { RankingAuditModals } from './RankingAuditModals'
+import { SPECIAL_AWARD_LABELS, SPECIAL_AWARD_POINTS, type SpecialAwardCategory } from '@/lib/special-awards'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,10 +35,10 @@ type Props = {
 const GROUP_KEYS = Array.from({ length: 12 }, (_, index) => String.fromCharCode(65 + index))
 const KNOCKOUT_STAGE_ORDER: Exclude<Match['stage'], 'group'>[] = ['round_of_32', 'round_of_16', 'quarter', 'semi', 'third_place', 'final']
 
-const SPECIAL_AUDIT_ROWS: Array<{ key: keyof SpecialBetsRow; label: string; prompt: string; points: number }> = [
-  { key: 'balon', label: 'Balon de Oro', prompt: 'Mejor jugador del torneo', points: 20 },
-  { key: 'bota', label: 'Botin de Oro', prompt: 'Maximo goleador del torneo', points: 15 },
-  { key: 'guante', label: 'Guante de Oro', prompt: 'Mejor arquero del torneo', points: 15 },
+const SPECIAL_AUDIT_ROWS: Array<{ key: SpecialAwardCategory; prompt: string }> = [
+  { key: 'balon', prompt: 'Mejor jugador del torneo' },
+  { key: 'bota', prompt: 'Maximo goleador del torneo' },
+  { key: 'guante', prompt: 'Mejor arquero del torneo' },
 ]
 
 const STAGE_LABELS: Record<Match['stage'], string> = {
@@ -889,32 +890,68 @@ function MatchAuditCard({
   )
 }
 
-function SpecialAuditCard({ row, value, showScoring }: { row: typeof SPECIAL_AUDIT_ROWS[number]; value: string | null; showScoring: boolean }) {
+function SpecialAuditCard({
+  row,
+  value,
+  detail,
+  showScoring,
+}: {
+  row: typeof SPECIAL_AUDIT_ROWS[number]
+  value: string | null
+  detail: SpecialAwardAuditDetail | null
+  showScoring: boolean
+}) {
+  const officialWinners = detail?.officialWinners.map((winner) => winner.displayName).join(', ') || 'Pendiente de resultado'
+  const points = showScoring ? (detail?.points ?? 0) : 0
+  const status = detail?.status === 'no_answer' && value ? 'not_evaluated' : detail?.status ?? (!value ? 'no_answer' : 'not_evaluated')
+  const statusConfig = {
+    hit: { label: 'ACERTÓ', color: '#A8F0D8' },
+    miss: { label: 'NO ACERTÓ', color: '#FF6B6B' },
+    no_answer: { label: 'SIN RESPUESTA', color: '#8A8A8A' },
+    pending: { label: 'PENDIENTE', color: '#FFB15C' },
+    not_evaluated: { label: 'NO EVALUADO', color: '#FFB15C' },
+  }[status]
+
   return (
     <div
       className="grid gap-3 px-5 py-4 md:grid-cols-[1fr_1fr_1fr_auto] md:items-center"
       style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
     >
       <div>
-        <p className="font-bold text-[13px] text-white">{row.label}</p>
-        <p className="font-mono text-[10px] text-muted mt-1">{row.prompt} - hasta {row.points} pts</p>
+        <p className="font-bold text-[13px] text-white">{SPECIAL_AWARD_LABELS[row.key]}</p>
+        <p className="font-mono text-[10px] text-muted mt-1">{row.prompt} - hasta {SPECIAL_AWARD_POINTS[row.key]} pts</p>
       </div>
-      <AuditMetric label="Respuesta del usuario" value={value || 'Sin cargar'} />
-      <AuditMetric label="Resultado oficial" value="Pendiente de resultado" />
+      <AuditMetric label="Pronóstico" value={detail?.originalAnswer || value || 'Sin respuesta'} />
+      <AuditMetric label="Ganador oficial" value={officialWinners} />
       <div className="flex flex-wrap items-center gap-3 md:justify-end">
-        <ResultBadge status="pending" />
+        <span className="rounded-full px-2.5 py-1.5 font-mono text-[9px] font-extrabold uppercase tracking-[0.12em]" style={{ color: statusConfig.color, border: `1px solid ${statusConfig.color}44` }}>
+          {statusConfig.label}
+        </span>
         {showScoring ? (
           <p className="font-display text-[22px] leading-none tabular-nums">
-            0
+            {points}
             <span className="font-mono text-[10px] font-bold tracking-[0.14em] uppercase ml-1 text-muted">pts</span>
           </p>
         ) : (
           <span className="font-mono text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">Previa</span>
         )}
       </div>
-      {!value && (
+      {detail?.normalizedPlayerName && (
         <p className="md:col-span-4 text-[11px] font-bold text-muted">
-          El usuario todavia no cargo esta apuesta especial.
+          Respuesta normalizada: {detail.normalizedPlayerName}{detail.normalizedCountryName ? ` (${detail.normalizedCountryName})` : ''}.
+        </p>
+      )}
+      {detail?.reason && (
+        <p className="md:col-span-4 text-[11px] font-bold text-muted">{detail.reason}</p>
+      )}
+      {status === 'not_evaluated' && (
+        <p className="md:col-span-4 text-[11px] font-bold text-muted">
+          La respuesta está cargada, pero este participante no es elegible para sumar premios.
+        </p>
+      )}
+      {!value && !detail?.originalAnswer && (
+        <p className="md:col-span-4 text-[11px] font-bold text-muted">
+          El usuario todavía no cargó esta apuesta especial.
         </p>
       )}
     </div>
@@ -1147,7 +1184,7 @@ function ProdeOverview({
       <section className="rounded-[18px] bg-[#0d0d0d] p-4" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
         <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
           <div>
-            <p className="font-extrabold text-white">Proximos pronosticos</p>
+            <p className="font-extrabold text-white">Próximos pronósticos</p>
             <p className="mt-1 text-[12px] font-semibold leading-relaxed text-muted">
               En vivo primero, despues el proximo partido y futuros por fecha.
             </p>
@@ -1510,6 +1547,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
         },
       ]
     : []
+  const specialAwardsBreakdown: SpecialAwardsBreakdown = entry.special_awards_breakdown ?? { balon: 0, bota: 0, guante: 0, total: 0 }
 
   return (
     <div style={{ padding: 'clamp(32px,7vw,56px) 20px clamp(60px,12vw,100px)' }}>
@@ -1532,7 +1570,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <ParticipationBadge status="trial" />
               <p className="text-[13px] font-semibold leading-relaxed text-muted">
-                Puede probar el sistema y cargar pronosticos, pero no participa oficialmente por premios.
+                Puede probar el sistema y cargar pronósticos, pero no participa oficialmente por premios.
               </p>
             </div>
           )}
@@ -1543,7 +1581,8 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
             <RankingAuditModals
               rows={auditRows}
               trajectoryAwards={trajectoryLedger}
-              specialAwards={entry.special_awards_breakdown ?? { balon: 0, bota: 0, guante: 0, total: 0 }}
+              specialAwards={specialAwardsBreakdown}
+              specialAwardAnswers={specialBets ?? undefined}
               groupPoints={entry.group_points ?? entry.base_points ?? 0}
               knockoutPoints={entry.knockout_points ?? 0}
               trajectoryPoints={trajectoryBonus.points}
@@ -1563,7 +1602,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
 
         {userTypedPredictions.length === 0 && userTiebreakers.length === 0 && !hasSpecialBets && (
           <div className="mb-4 rounded-[16px] px-4 py-4 text-[13px] font-semibold leading-relaxed text-muted" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
-            Este Prode todavia no tiene pronosticos cargados.
+            Este Prode todavía no tiene pronósticos cargados.
           </div>
         )}
 
@@ -1736,7 +1775,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                   </>
                 ) : !officialRoundOf32State.officialBracketReady ? (
                   <p className="text-[13px] font-semibold leading-relaxed text-muted">
-                    La llave oficial de 16avos todavia no esta definida ({ROUND_OF_32_PENDING_REASON_TEXT[officialRoundOf32State.pendingReason ?? ''] ?? 'pendiente de resolucion'}). Cuando se complete, vas a ver aca, equipo por equipo, cuales acerto y cuantos puntos suma.
+                    La llave oficial de 16avos todavía no está definida ({ROUND_OF_32_PENDING_REASON_TEXT[officialRoundOf32State.pendingReason ?? ''] ?? 'pendiente de resolución'}). Cuando se complete, vas a ver acá, equipo por equipo, cuáles acertó y cuántos puntos suma.
                   </p>
                 ) : predictedRoundOf32Count < 32 ? (
                   <p className="text-[13px] font-semibold leading-relaxed text-muted">
@@ -1829,6 +1868,7 @@ export default async function ParticipantRankingPage({ params, searchParams }: P
                   key={row.key}
                   row={row}
                   value={specialBets?.[row.key] ?? null}
+                  detail={specialAwardsBreakdown.details?.[row.key] ?? null}
                   showScoring={rankingStarted}
                 />
               ))

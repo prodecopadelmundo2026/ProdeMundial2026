@@ -1,3 +1,6 @@
+import { KNOCKOUT_BONUS_POINTS } from '@/lib/knockout-bonus'
+import { SPECIAL_AWARD_POINTS } from '@/lib/special-awards'
+
 const MATCH_RULES = [
   {
     type: 'exact',
@@ -28,21 +31,21 @@ const MATCH_RULES = [
 const SPECIAL_RULES = [
   {
     meta: 'Mejor jugador',
-    pts: '+20',
+    pts: `+${SPECIAL_AWARD_POINTS.balon}`,
     name: 'Balón de Oro',
     desc: 'El mejor jugador del torneo.',
     color: '#5B2D8E',
   },
   {
     meta: 'Máximo goleador',
-    pts: '+15',
+    pts: `+${SPECIAL_AWARD_POINTS.bota}`,
     name: 'Bota de Oro',
     desc: 'El jugador con más goles al final del Mundial. El goleador del torneo.',
     color: '#FF6B00',
   },
   {
     meta: 'Mejor arquero',
-    pts: '+15',
+    pts: `+${SPECIAL_AWARD_POINTS.guante}`,
     name: 'Guante de Oro',
     desc: 'El mejor arquero del torneo.',
     color: '#1565C0',
@@ -332,8 +335,15 @@ export default function ReglasPage() {
               Desde 16avos se suman puntos extra por acertar que una selección llega a una instancia, aunque el cruce exacto no coincida. El bonus de 16avos incluye primeros, segundos y mejores terceros.
             </p>
             <p className="mt-4 text-[13px] font-extrabold text-mint">
-              16avos +1 · 8avos +2 · Cuartos +3 · Semis +4 · Final +5 · Campeón +10
+              16avos +{KNOCKOUT_BONUS_POINTS.round_of_32} · 8avos +{KNOCKOUT_BONUS_POINTS.round_of_16} · Cuartos +{KNOCKOUT_BONUS_POINTS.quarterfinal} · Semis +{KNOCKOUT_BONUS_POINTS.semifinal} · Final +{KNOCKOUT_BONUS_POINTS.final} · Tercer puesto +{KNOCKOUT_BONUS_POINTS.third_place} · Campeón +{KNOCKOUT_BONUS_POINTS.champion}
             </p>
+            <div className="mt-5 grid gap-3 text-[13px] font-semibold leading-relaxed text-muted">
+              <p>El bonus de trayectoria premia haber pronosticado que una selección alcanzaría una instancia, aunque esté ubicada en otro cruce.</p>
+              <p>El bonus de tercer puesto premia haber pronosticado correctamente que una selección jugaría ese partido.</p>
+              <p>Los puntos de marcador en eliminatorias solo se obtienen cuando el cruce oficial coincide exactamente con el slot y orden pronosticado.</p>
+              <p>En partidos empatados que definen clasificado, también debe coincidir el equipo elegido para avanzar para obtener los puntos del marcador.</p>
+              <p>Los premios especiales solamente impactan cuando el resultado está confirmado o bloqueado.</p>
+            </div>
           </div>
         </section>
 

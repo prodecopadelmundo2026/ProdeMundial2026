@@ -19,7 +19,7 @@ import { getTournamentVisibleMatches } from '@/lib/tournament-state'
 import type { Prediction } from '@/types'
 import { knockoutPNum } from '@/lib/bracket'
 import { SPECIAL_AWARD_CATEGORIES, SPECIAL_AWARDS_TOURNAMENT_KEY, type SpecialAwardCategory } from '@/lib/special-awards'
-import { buildSpecialAwardPreviews, type SpecialAwardPreviewWinner } from '@/lib/special-awards-preview'
+import { buildSpecialAwardPreviews, type SpecialAwardPreview, type SpecialAwardPreviewWinner } from '@/lib/special-awards-preview'
 
 type ScoreRow = {
   user_id?: string
@@ -137,7 +137,25 @@ export type RankingWithTrajectoryEntry = {
   special_awards_breakdown?: SpecialAwardsBreakdown
 }
 
-export type SpecialAwardsBreakdown = Record<SpecialAwardCategory, number> & { total: number }
+export type SpecialAwardAuditDetail = {
+  category: SpecialAwardCategory
+  label: string
+  resultStatus: SpecialAwardPreview['resultStatus']
+  officialWinners: SpecialAwardPreviewWinner[]
+  pointsPerHit: number
+  hitCount: number
+  originalAnswer: string | null
+  normalizedPlayerName: string | null
+  normalizedCountryName: string | null
+  status: 'hit' | 'miss' | 'pending' | 'no_answer' | 'not_evaluated'
+  reason: string | null
+  points: number
+}
+
+export type SpecialAwardsBreakdown = Record<SpecialAwardCategory, number> & {
+  total: number
+  details?: Record<SpecialAwardCategory, SpecialAwardAuditDetail>
+}
 
 function emptySpecialAwardsBreakdown(): SpecialAwardsBreakdown {
   return { balon: 0, bota: 0, guante: 0, total: 0 }
@@ -808,8 +826,20 @@ export async function addConfirmedTrajectoryToRanking<T extends RankingWithTraje
   return rankRankingEntries(enriched)
 }
 
-export async function addConfirmedSpecialAwardsToRanking<T extends RankingWithTrajectoryEntry>(entries: T[]): Promise<T[]> {
-  if (entries.length === 0) return []
+export async function getSpecialAwardPreviewsForRankingEntries<T extends RankingWithTrajectoryEntry>(entries: T[]) {
+  if (entries.length === 0) {
+    return buildSpecialAwardPreviews({
+      participants: [],
+      bets: [],
+      normalizations: [],
+      players: [],
+      results: {
+        balon: { status: 'pending', winners: [] },
+        bota: { status: 'pending', winners: [] },
+        guante: { status: 'pending', winners: [] },
+      },
+    })
+  }
 
   const admin = createAdminClient()
   const [
@@ -897,7 +927,7 @@ export async function addConfirmedSpecialAwardsToRanking<T extends RankingWithTr
       .map((profile) => profile.id)
   )
 
-  const previews = buildSpecialAwardPreviews({
+  return buildSpecialAwardPreviews({
     participants: entries
       .filter((entry) => entry.user_id && eligibleUserIds.has(entry.user_id))
       .map((entry) => ({
@@ -925,6 +955,45 @@ export async function addConfirmedSpecialAwardsToRanking<T extends RankingWithTr
     })),
     results: resultInput,
   })
+}
+
+function buildSpecialAwardAuditDetails(
+  previews: Record<SpecialAwardCategory, SpecialAwardPreview>,
+  userId: string
+) {
+  return Object.fromEntries(
+    SPECIAL_AWARD_CATEGORIES.map((category) => {
+      const preview = previews[category]
+      const row =
+        preview.hits.find((item) => item.userId === userId) ??
+        preview.misses.find((item) => item.userId === userId) ??
+        preview.pending.find((item) => item.userId === userId) ??
+        preview.noAnswer.find((item) => item.userId === userId) ??
+        preview.notEvaluated.find((item) => item.userId === userId) ??
+        null
+
+      return [category, {
+        category,
+        label: preview.label,
+        resultStatus: preview.resultStatus,
+        officialWinners: preview.winners,
+        pointsPerHit: preview.pointsPerHit,
+        hitCount: preview.hitCount,
+        originalAnswer: row?.originalAnswer ?? null,
+        normalizedPlayerName: row?.canonicalPlayerName ?? null,
+        normalizedCountryName: row?.canonicalCountryName ?? null,
+        status: row?.result ?? 'no_answer',
+        reason: row?.reason ?? null,
+        points: row?.projectedPoints ?? 0,
+      }]
+    })
+  ) as Record<SpecialAwardCategory, SpecialAwardAuditDetail>
+}
+
+export async function addConfirmedSpecialAwardsToRanking<T extends RankingWithTrajectoryEntry>(entries: T[]): Promise<T[]> {
+  if (entries.length === 0) return []
+
+  const previews = await getSpecialAwardPreviewsForRankingEntries(entries)
 
   const breakdownByUser = new Map<string, SpecialAwardsBreakdown>()
   for (const category of SPECIAL_AWARD_CATEGORIES) {
@@ -938,6 +1007,9 @@ export async function addConfirmedSpecialAwardsToRanking<T extends RankingWithTr
 
   return entries.map((entry) => {
     const breakdown = entry.user_id ? (breakdownByUser.get(entry.user_id) ?? emptySpecialAwardsBreakdown()) : emptySpecialAwardsBreakdown()
+    if (entry.user_id) {
+      breakdown.details = buildSpecialAwardAuditDetails(previews, entry.user_id)
+    }
     const baseTotal = Number(entry.total_points ?? 0) - Number(entry.special_awards_bonus ?? 0)
     return {
       ...entry,

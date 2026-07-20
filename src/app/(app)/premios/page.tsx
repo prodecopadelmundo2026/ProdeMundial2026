@@ -1,5 +1,12 @@
 ﻿import type { CSSProperties } from 'react'
 
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
+import { addConfirmedTrajectoryToRanking, getSpecialAwardPreviewsForRankingEntries } from '@/lib/public-prediction-data'
+import { SPECIAL_AWARD_CATEGORIES } from '@/lib/special-awards'
+import { formatRank } from '@/lib/ranking-display'
+import type { Match, RankingEntry } from '@/types'
+
 function formatPrizeNumber(amount: number) {
   return new Intl.NumberFormat('es-AR', {
     maximumFractionDigits: 0,
@@ -110,7 +117,22 @@ function PrizeCard({
   )
 }
 
-export default function PremiosPage() {
+export default async function PremiosPage() {
+  const supabase = await createClient()
+  const [{ data: rankingData, error: rankingError }, { data: matchesData, error: matchesError }] = await Promise.all([
+    supabase.rpc('get_public_ranking'),
+    supabase.from('matches').select('*'),
+  ])
+
+  if (rankingError) throw rankingError
+  if (matchesError) throw matchesError
+
+  const ranking = await addConfirmedTrajectoryToRanking((rankingData ?? []) as RankingEntry[], (matchesData ?? []) as Match[])
+  const prodeWinners = ranking
+    .filter((entry) => entry.participant_status !== 'trial' && entry.user_id && entry.rank >= 1 && entry.rank <= 3)
+    .sort((a, b) => a.rank - b.rank || b.total_points - a.total_points || a.name.localeCompare(b.name, 'es'))
+  const specialPreviews = await getSpecialAwardPreviewsForRankingEntries(ranking)
+
   return (
     <div style={{ padding: '48px 20px 100px' }}>
       <div className="max-w-[1280px] mx-auto">
@@ -179,6 +201,40 @@ export default function PremiosPage() {
             decorBefore={{ left: '-20%', bottom: '-20%', width: '65%', height: '65%', borderRadius: '0 50% 50% 50%', background: 'rgba(0,0,0,.07)' }}
           />
         </div>
+
+        <section className="mb-[60px] rounded-[24px] bg-[#141414] px-5 py-6 min-[760px]:px-7" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+          <p className="font-display text-[clamp(24px,3vw,34px)] uppercase leading-none text-white">Ganadores del Prode 2026</p>
+          <div className="mt-5 grid gap-3">
+            {prodeWinners.map((entry) => (
+              <Link key={entry.user_id} href={`/ranking/${entry.user_id}`} className="grid grid-cols-[70px_minmax(0,1fr)_auto] items-center gap-3 rounded-[14px] bg-white/[0.035] px-4 py-3 transition-colors hover:bg-white/[0.06]" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+                <span className="font-display text-[28px] leading-none text-orange">{formatRank(entry, ranking)}</span>
+                <span className="truncate text-[14px] font-extrabold text-white">{entry.name}</span>
+                <span className="font-display text-[26px] leading-none text-mint">{entry.total_points}<em className="ml-1 font-mono text-[10px] not-italic text-muted">pts</em></span>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-[60px] rounded-[24px] bg-[#141414] px-5 py-6 min-[760px]:px-7" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+          <p className="font-display text-[clamp(24px,3vw,34px)] uppercase leading-none text-white">Premios especiales del Mundial</p>
+          <div className="mt-5 grid gap-3 min-[760px]:grid-cols-3">
+            {SPECIAL_AWARD_CATEGORIES.map((category) => {
+              const preview = specialPreviews[category]
+              const winners = preview.winners.map((winner) => winner.displayName).join(', ') || 'Pendiente'
+              const countries = preview.winners.map((winner) => winner.countryName).filter(Boolean).join(', ')
+              const resultReady = preview.resultStatus === 'confirmed' || preview.resultStatus === 'locked'
+              return (
+                <article key={category} className="rounded-[18px] bg-white/[0.035] p-4" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.16em] text-orange">{preview.label}</p>
+                  <p className="mt-3 text-[18px] font-extrabold leading-tight text-white">{winners}</p>
+                  {countries && <p className="mt-1 text-[12px] font-bold text-muted">{countries}</p>}
+                  <p className="mt-4 text-[12px] font-bold text-mint">{resultReady && preview.winners.length > 0 ? `${preview.hitCount} participantes acertaron` : 'Resultado pendiente'}</p>
+                  <p className="mt-1 text-[12px] font-bold text-muted">Otorgaba {preview.pointsPerHit} puntos.</p>
+                </article>
+              )
+            })}
+          </div>
+        </section>
 
         <aside
           className="rounded-[24px] px-6 py-6 min-[760px]:px-8 min-[760px]:py-7"

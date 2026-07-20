@@ -150,19 +150,55 @@ function TrajectoryDetails({ awards }: { awards: KnockoutBonusLedgerItem[] }) {
   )
 }
 
-function SpecialAwardsDetails({ breakdown }: { breakdown: SpecialAwardsBreakdown }) {
+function SpecialAwardsDetails({
+  breakdown,
+  answers,
+}: {
+  breakdown: SpecialAwardsBreakdown
+  answers?: Partial<Record<SpecialAwardCategory, string | null>>
+}) {
+  const statusMeta = {
+    hit: { label: 'ACERTÓ', color: '#A8F0D8' },
+    miss: { label: 'NO ACERTÓ', color: '#FF6B6B' },
+    no_answer: { label: 'SIN RESPUESTA', color: '#8A8A8A' },
+    pending: { label: 'PENDIENTE', color: '#FFB15C' },
+    not_evaluated: { label: 'NO EVALUADO', color: '#FFB15C' },
+  } as const
+
   return (
     <div className="grid gap-3">
       <p className="rounded-[14px] bg-white/[0.025] p-3 text-[13px] font-bold text-muted" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
         Premios especiales +{breakdown.total}
       </p>
       <div className="grid gap-2">
-        {SPECIAL_AWARD_ORDER.map((category) => (
-          <div key={category} className="flex items-center justify-between gap-3 rounded-[12px] bg-white/[0.025] px-3 py-2 text-[12px] font-bold" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-            <span className="text-white">{SPECIAL_AWARD_LABELS[category]}</span>
-            <span className={breakdown[category] > 0 ? 'text-mint' : 'text-muted'}>+{breakdown[category]}</span>
-          </div>
-        ))}
+        {SPECIAL_AWARD_ORDER.map((category) => {
+          const detail = breakdown.details?.[category] ?? null
+          const fallbackAnswer = answers?.[category]?.trim() || ''
+          const status = detail?.status === 'no_answer' && fallbackAnswer ? 'not_evaluated' : detail?.status ?? (fallbackAnswer ? 'not_evaluated' : 'no_answer')
+          const meta = statusMeta[status]
+          const official = detail?.officialWinners.map((winner) => winner.displayName).join(', ') || 'Pendiente de resultado'
+          return (
+            <div key={category} className="rounded-[12px] bg-white/[0.025] px-3 py-3 text-[12px] font-bold" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-white">{SPECIAL_AWARD_LABELS[category]}</span>
+                <span className={breakdown[category] > 0 ? 'text-mint' : 'text-muted'}>+{breakdown[category]}</span>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <p className="rounded-[10px] bg-black/20 p-2 text-muted">Pronóstico: <span className="text-white">{detail?.originalAnswer || fallbackAnswer || 'Sin respuesta'}</span></p>
+                <p className="rounded-[10px] bg-black/20 p-2 text-muted">Ganador oficial: <span className="text-white">{official}</span></p>
+              </div>
+              {detail?.normalizedPlayerName && (
+                <p className="mt-2 text-[11px] text-muted">Normalizado como {detail.normalizedPlayerName}{detail.normalizedCountryName ? ` (${detail.normalizedCountryName})` : ''}.</p>
+              )}
+              <span className="mt-3 inline-flex rounded-full px-2 py-1 font-mono text-[9px] font-extrabold uppercase tracking-[0.12em]" style={{ color: meta.color, border: `1px solid ${meta.color}44` }}>
+                {meta.label}
+              </span>
+              {status === 'not_evaluated' && (
+                <p className="mt-2 text-[11px] font-bold text-muted">La respuesta está cargada, pero este participante no es elegible para sumar premios.</p>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -172,6 +208,7 @@ export function RankingAuditModals({
   rows,
   trajectoryAwards,
   specialAwards,
+  specialAwardAnswers,
   groupPoints,
   knockoutPoints,
   trajectoryPoints,
@@ -182,6 +219,7 @@ export function RankingAuditModals({
   rows: MatchAuditRow[]
   trajectoryAwards: KnockoutBonusLedgerItem[]
   specialAwards: SpecialAwardsBreakdown
+  specialAwardAnswers?: Partial<Record<SpecialAwardCategory, string | null>>
   groupPoints: number
   knockoutPoints: number
   trajectoryPoints: number
@@ -240,7 +278,7 @@ export function RankingAuditModals({
               {activeView === 'trajectory' ? (
                 <TrajectoryDetails awards={trajectoryAwards} />
               ) : activeView === 'special_awards' ? (
-                <SpecialAwardsDetails breakdown={specialAwards} />
+                <SpecialAwardsDetails breakdown={specialAwards} answers={specialAwardAnswers} />
               ) : filteredRows.length > 0 ? (
                 <div className="grid gap-3">
                   {STAGE_ORDER.map((stage) => {

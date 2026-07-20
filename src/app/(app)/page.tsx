@@ -20,14 +20,9 @@ import { computeFifaAllStandings, computeFifaBestThirds } from '@/lib/fifa-stand
 import { getTournamentVisibleMatches } from '@/lib/tournament-state'
 import { addConfirmedTrajectoryToRanking, getVirtualMatchTrajectoryInsights } from '@/lib/public-prediction-data'
 import { VirtualTrajectoryInsights } from '@/components/VirtualTrajectoryInsights'
-import { CountdownTimer } from '@/components/CountdownTimer'
 import { getTeam, flagUrl } from '@/lib/teams'
 
 export const dynamic = 'force-dynamic'
-
-const WORLD_CUP_FINAL_AT = '2026-07-19T16:00:00-03:00'
-const FINAL_HOME_TEAM = 'Argentina'
-const FINAL_AWAY_TEAM = 'España'
 
 function SectionLink({ href, label }: { href: string; label: string }) {
   return (
@@ -238,7 +233,7 @@ type PublicHomeMetrics = {
   alive_teams_count: number
 }
 
-type MatchSummary = Pick<Match, 'home_team' | 'away_team' | 'home_score' | 'away_score' | 'stage' | 'status'>
+type MatchSummary = Pick<Match, 'home_team' | 'away_team' | 'home_score' | 'away_score' | 'stage' | 'status' | 'qualified_team'>
 
 const PLACEHOLDER_TEAM_PATTERN = /^(ganador|perdedor|winner|loser|\d+\s*(?:[°º]|°)?\s*(grupo|group)|[123][a-l]$)/i
 
@@ -248,6 +243,8 @@ function isRealTeamName(team: string) {
 }
 
 function matchWinner(match: MatchSummary) {
+  if (match.status === 'finished' && match.qualified_team) return match.qualified_team
+
   if (
     match.status !== 'finished' ||
     match.home_score === null ||
@@ -412,6 +409,12 @@ export default async function HomePage() {
 
   const allUpcoming = (upcoming ?? []) as Match[]
   const visibleTournamentMatches = getTournamentVisibleMatches(allTournamentMatches)
+  const tournamentFinished = metrics.finished_matches_count >= TOURNAMENT_TOTAL_MATCHES
+  const finalMatch = visibleTournamentMatches.find((match) => match.stage === 'final' && match.status === 'finished') ?? null
+  const championName = finalMatch ? matchWinner(finalMatch) : null
+  const prodeWinners = typedPublicRanking
+    .filter((entry) => entry.participant_status !== 'trial' && entry.user_id && entry.rank >= 1 && entry.rank <= 3)
+    .sort((a, b) => a.rank - b.rank || b.total_points - a.total_points || a.name.localeCompare(b.name, 'es'))
   const nextMatch =
     visibleTournamentMatches
       .filter((match) => match.status !== 'finished')
@@ -456,22 +459,20 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
           <div>
             <div className="mb-6 inline-flex max-w-full items-center gap-[10px] rounded-full px-[14px] py-2 text-[11px] font-extrabold uppercase tracking-[0.14em] min-[420px]:text-[12px] min-[420px]:tracking-[0.16em]" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)' }}>
               <span className="w-2 h-2 rounded-full bg-mint" style={{ animation: 'pulse-dot 1.6s infinite' }} />
-              Ya se termina el Mundial
+              {tournamentFinished ? 'Mundial terminado' : 'Mundial 2026'}
             </div>
-            <div className="mb-5 flex max-w-full items-center gap-3 min-[640px]:gap-5">
-              <FinalTeamFlag teamName={FINAL_HOME_TEAM} />
-              <span className="font-display text-[28px] uppercase leading-none text-orange min-[640px]:text-[42px]">VS</span>
-              <FinalTeamFlag teamName={FINAL_AWAY_TEAM} />
-            </div>
+            {championName && <div className="mb-5"><FinalTeamFlag teamName={championName} /></div>}
             <h1 className="max-w-full break-words font-display uppercase leading-[0.86] tracking-[-0.04em]" style={{ fontSize: 'clamp(46px, 14vw, 128px)' }}>
-              <span className="block text-white">Argentina</span>
-              <span className="block text-orange italic">vs España</span>
+              <span className="block text-white">{championName ?? 'Mundial 2026'}</span>
+              <span className="block text-orange italic">{tournamentFinished ? 'campeona del mundo' : 'Prode 26'}</span>
             </h1>
             <p className="mt-5 max-w-[560px] font-mono text-[12px] font-extrabold uppercase tracking-[0.14em] text-mint">
-              Final de la Copa del Mundo 2026
+              Mundial 2026
             </p>
             <p className="mt-4 max-w-[520px] text-[17px] font-medium leading-relaxed" style={{ color: '#d6d6d6' }}>
-              Llegó el último partido. Vamos con todo.
+              {tournamentFinished
+                ? "Terminó un Mundial inolvidable y también llegó el cierre de nuestro Prode 2026. Felicitaciones a los ganadores y gracias a todos los que fueron parte."
+                : 'Seguí el Mundial, los pronósticos y el ranking del Prode 26.'}
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link href="/mi-prode" className="group inline-flex items-center gap-[10px] rounded-full bg-orange px-[26px] py-[18px] text-[15px] font-extrabold text-bg shadow-[0_10px_28px_-10px_rgba(255,107,0,.6)] transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-10px_rgba(255,107,0,.8)]">
@@ -499,19 +500,22 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
             <div className="relative grid aspect-square place-items-center overflow-hidden rounded-[28px] bg-[#0A0A0A] p-8" style={{ border: '1px solid rgba(255,255,255,0.12)', boxShadow: 'var(--shadow-tile)' }}>
               <div className="absolute inset-x-0 top-0 h-2 bg-orange" />
               <div className="relative z-10 w-full text-center">
-                <div className="mb-7 flex items-center justify-center gap-5">
-                  <FinalTeamFlag teamName={FINAL_HOME_TEAM} />
-                  <span className="font-display text-[36px] uppercase leading-none text-orange">VS</span>
-                  <FinalTeamFlag teamName={FINAL_AWAY_TEAM} />
-                </div>
-                <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.2em] text-muted">19 jul 2026 - 16:00 ART</p>
-                <p className="mt-3 font-display text-[clamp(34px,4vw,54px)] uppercase leading-none text-white">La final</p>
-                <div className="mt-6">
-                  <CountdownTimer
-                    targetAt={WORLD_CUP_FINAL_AT}
-                    doneMessage="LA FINAL ESTÁ EN JUEGO"
-                    showDays={false}
-                  />
+                {championName && <div className="mb-7 flex justify-center"><FinalTeamFlag teamName={championName} /></div>}
+                <p className="font-mono text-[11px] font-extrabold uppercase tracking-[0.2em] text-muted">Ganadores del Prode</p>
+                <p className="mt-3 font-display text-[clamp(34px,4vw,54px)] uppercase leading-none text-white">Ranking final</p>
+                <div className="mt-6 grid gap-2 text-left">
+                  {prodeWinners.map((entry) => (
+                    <PublicRankingRowLink
+                      key={entry.user_id}
+                      userId={entry.user_id}
+                      className="grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-2 rounded-[12px] bg-white/[0.04] px-3 py-2"
+                      style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+                    >
+                      <span className="font-display text-[24px] leading-none" style={{ color: liveRankColors[entry.rank] ?? '#A8F0D8' }}>{formatRank(entry, typedPublicRanking)}</span>
+                      <span className="truncate text-[13px] font-extrabold text-white">{entry.name}</span>
+                      <span className="font-display text-[20px] leading-none text-mint">{entry.total_points}</span>
+                    </PublicRankingRowLink>
+                  ))}
                 </div>
               </div>
             </div>
@@ -520,7 +524,7 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
                 <span className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-muted">Estado del torneo</span>
                 <span className="font-mono text-[12px] font-bold text-orange">{metrics.finished_matches_count} / {TOURNAMENT_TOTAL_MATCHES}</span>
               </div>
-              <p className="font-display text-[clamp(24px,3vw,32px)] leading-none text-white">{liveRankingStarted ? 'Ranking en vivo' : 'Previa activa'}</p>
+              <p className="font-display text-[clamp(24px,3vw,32px)] leading-none text-white">{tournamentFinished ? 'Ranking final' : liveRankingStarted ? 'Ranking en vivo' : 'Previa activa'}</p>
             </div>
           </aside>
         </div>
@@ -530,7 +534,7 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
         <div className="mx-auto max-w-[1280px] px-5 py-6">
           <div className="grid grid-cols-1 gap-3 min-[680px]:grid-cols-2 min-[1100px]:grid-cols-5">
             <HomeMetricCard value={metrics.competitors_count} label="Participantes" detail="Confirmados activos." live />
-            <HomeMetricCard value={`${metrics.finished_matches_count} / ${TOURNAMENT_TOTAL_MATCHES}`} label="Partidos jugados" detail={`${metrics.alive_teams_count} selecciones disponibles.`} compact />
+            <HomeMetricCard value={`${metrics.finished_matches_count} / ${TOURNAMENT_TOTAL_MATCHES}`} label={tournamentFinished ? 'Mundial terminado' : 'Partidos jugados'} detail={tournamentFinished ? 'Fixture completo.' : `${metrics.alive_teams_count} selecciones disponibles.`} compact />
             <HomeMetricCard value={<PrizeValue amount={OFFICIAL_PRIZES.first} />} label="1er premio" detail="Oro." compact />
             <HomeMetricCard value={<PrizeValue amount={OFFICIAL_PRIZES.second} />} label="2do premio" detail="Plata." compact />
             <HomeMetricCard value={<PrizeValue amount={OFFICIAL_PRIZES.third} />} label="3er premio" detail="Bronce." compact />
@@ -544,8 +548,8 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
             <SectionHead
               title="Top"
               orange="10"
-              sub="Los competidores que la están rompiendo. Tocá cualquier Prode para ver pronósticos, aciertos, errores y puntos partido por partido."
-              link={{ href: '/ranking', label: 'Ver ranking completo' }}
+              sub={tournamentFinished ? 'Ranking final del Prode 26. Tocá cualquier participante para auditar de dónde salió cada punto.' : 'Los competidores que la están rompiendo. Tocá cualquier Prode para ver pronósticos, aciertos, errores y puntos partido por partido.'}
+              link={{ href: '/ranking', label: tournamentFinished ? 'Ver ranking final' : 'Ver ranking completo' }}
             />
             {typedTopRanking.length > 0 && (
               <div className="flex flex-col gap-[4px] rounded-[24px]" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', padding: '8px' }}>
@@ -693,6 +697,18 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
         </div>
       </section>
 
+      {tournamentFinished && (
+        <section className="bg-[#0A0A0A]" style={{ padding: 'clamp(30px, 6vw, 54px) 20px' }}>
+          <div className="mx-auto max-w-[880px] rounded-[24px] bg-panel p-6 min-[760px]:p-8" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+            <p className="font-display text-[clamp(28px,4vw,44px)] uppercase leading-none text-orange">Gracias por jugar con nosotros</p>
+            <div className="mt-5 grid gap-3 text-[15px] font-semibold leading-relaxed text-[#d6d6d6]">
+              <p>Los organizadores se van a contactar con quienes obtuvieron premio para coordinar la entrega. Felicitaciones a los ganadores y gracias a todos por acompañarnos durante todo el Mundial.</p>
+              <p>Ojalá esta sea la primera de muchas. Esperamos volver a encontrarnos acá para disfrutar juntos de nuevos eventos. Los queremos.</p>
+            </div>
+          </div>
+        </section>
+      )}
+
       {bonusPoll && !bonusPoll.poll.isOpen && <BonusPollHomeCard poll={bonusPoll} />}
 
       <footer className="bg-[#070707]" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: 'clamp(32px, 6vw, 50px) 20px clamp(24px, 5vw, 40px)' }}>
@@ -706,7 +722,7 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
             <ul className="flex flex-col gap-[10px]">
               {[
                 { href: '/mi-prode', label: 'Mi Prode' },
-                { href: '/ranking', label: 'Ranking en vivo' },
+                { href: '/ranking', label: tournamentFinished ? 'Ranking final' : 'Ranking en vivo' },
                 { href: '/premios', label: 'Premios' },
               ].map(({ href, label }) => (
                 <li key={label}><Link href={href} className="text-[14px] font-semibold text-[#cfcfcf] transition-colors hover:text-orange">{label}</Link></li>

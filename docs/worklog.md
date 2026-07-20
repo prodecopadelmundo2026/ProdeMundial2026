@@ -1,5 +1,25 @@
 # Worklog
 
+## 2026-07-19 - Cierre visual post Mundial y auditoría pública
+
+### Objetivo
+
+Pasar pantallas públicas a estado final del Mundial terminado sin tocar scoring, ranking, Supabase remoto, migraciones ni puntos.
+
+### Cambios
+
+- El detalle de ranking reutiliza el preview central de premios especiales para mostrar respuesta original, normalización, ganador oficial, estado y puntos.
+- Home deriva la campeona desde la final y muestra ranking final, ganadores del Prode y mensaje de cierre.
+- `/premios` mantiene premios económicos y agrega ganadores del Prode y premios especiales oficiales desde datos cargados.
+- `/ranking` ajusta textos de estado final sin cambiar orden ni criterios.
+- `/reglas` toma puntos de trayectoria y premios desde constantes compartidas y agrega aclaraciones auditables.
+
+### Validación
+
+- `npx tsc --noEmit --pretty false`: OK.
+- `git diff --check`: OK, con warnings CRLF de Windows.
+- Pendiente: auditoría matemática independiente completa de `group_points + knockout_points + trajectory_bonus + special_awards_bonus = total_points` para los 43 participantes.
+
 ## 2026-07-14 - Premios especiales admin y métricas Home
 
 ### Objetivo

@@ -12,6 +12,7 @@ import { buildProjectedKnockoutMatches, knockoutPNum } from '@/lib/bracket'
 import { buildMatchAuditRows } from '@/lib/ranking-audit'
 import { getMatchPredictionHref } from '@/lib/match-links'
 import { getTournamentVisibleMatches } from '@/lib/tournament-state'
+import { TOURNAMENT_TOTAL_MATCHES } from '@/lib/tournament-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -203,6 +204,7 @@ export default async function RankingPage() {
   const metrics = Array.isArray(metricsRows) ? metricsRows[0] : metricsRows
   const rankingMode = metrics?.ranking_mode ?? getRankingMode(metrics?.finished_matches_count)
   const rankingStarted = isLiveRankingMode(rankingMode)
+  const tournamentFinished = (metrics?.finished_matches_count ?? 0) >= TOURNAMENT_TOTAL_MATCHES
   if (nextMatchResult.error) {
     console.warn('[ranking] No se pudo cargar el próximo partido para Pronóstico del podio', nextMatchResult.error)
   }
@@ -237,7 +239,7 @@ export default async function RankingPage() {
             className="inline-block font-sans text-[12px] font-extrabold tracking-[0.22em] uppercase text-muted"
             style={{ marginBottom: '18px' }}
           >
-            Tabla en vivo
+            {tournamentFinished ? 'Tabla final' : 'Tabla en vivo'}
           </span>
           <h1
             className="font-display uppercase leading-[.9] tracking-[-0.04em]"
@@ -249,7 +251,9 @@ export default async function RankingPage() {
             Mundial 2026 · Estados Unidos · Canadá · México
           </p>
           <p className="mt-4 max-w-[620px] text-[13px] font-medium leading-relaxed text-muted">
-            Tocá cualquier Prode para ver pronósticos, aciertos, errores y puntos partido por partido.
+            {tournamentFinished
+              ? 'Ranking final: todos los puntos son auditables desde el detalle de cada participante.'
+              : 'Tocá cualquier Prode para ver pronósticos, aciertos, errores y puntos partido por partido.'}
           </p>
           <p className="mt-3 max-w-[620px] text-[13px] font-medium leading-relaxed text-[#cfcfcf]">
             Esta tabla muestra competidores e invitados con Prodes cargados. Los invitados aparecen identificados y no participan oficialmente por premios.
@@ -270,7 +274,9 @@ export default async function RankingPage() {
           />
           <span>
             {rankingStarted
-              ? 'Ranking actualizado con los resultados oficiales cargados.'
+              ? tournamentFinished
+                ? 'Ranking final con grupos, eliminatorias, bonus de trayectoria y premios especiales confirmados.'
+                : 'Ranking actualizado con los resultados oficiales cargados.'
               : 'El conteo de puntos empieza cuando se carguen los primeros resultados oficiales. Hasta entonces podes revisar los Prodes cargados por competidores e invitados.'}
           </span>
         </aside>
