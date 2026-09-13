@@ -1,5 +1,23 @@
 # Worklog
 
+## 2026-09-13 - P006 fixtures sinteticos y contrato deportivo
+
+### Objetivo
+
+Crear un arnes determinista para validar proveedores futuros sin datos reales, UI, Supabase ni cambios de scoring.
+
+### Cambios
+
+- Se creo un contrato neutral con identidad externa, timestamps, hashes, estados, resultados por deporte y reemplazos.
+- Se agregaron fixtures sinteticos de futbol, copa, tenis, boxeo, excepciones y actualizaciones.
+- Se agrego un verificador local sin dependencias que ejecuto 108 controles.
+- Se reforzo la deteccion de revisiones duplicadas con hash incompatible.
+
+### Validacion
+
+- Typecheck, ESLint dirigido, build y `git diff --check`: correctos.
+- Verificador TypeScript/Node: 108 controles correctos, sin framework ni dependencia nueva.
+
 ## 2026-09-13 - P005 validacion contractual de proveedores
 
 ### Objetivo

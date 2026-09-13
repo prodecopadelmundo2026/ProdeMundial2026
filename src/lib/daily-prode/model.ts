@@ -15,9 +15,25 @@ export type FootballResult = {
   qualifier?: Side
   resolution?: FootballPick['resolution']
 }
-export type TennisResult = { sport: 'tennis'; winner: Side; loserSets: number }
-export type BoxingResult = { sport: 'boxing'; outcome: Side | 'draw' | 'no-contest'; method?: 'ko' | 'decision'; round?: number }
+export type TennisSet = { home: number; away: number; tiebreak?: ScorePair }
+export type TennisResult = { sport: 'tennis'; winner: Side; loserSets: number; sets?: TennisSet[]; tiebreaks?: Array<{ set: number; score: ScorePair }> }
+export type BoxingResult = { sport: 'boxing'; outcome: Side | 'draw' | 'no-contest'; method?: 'ko' | 'decision'; round?: number; methodRaw?: string; methodDetail?: 'ko' | 'tko' | 'decision' }
 export type Result = FootballResult | TennisResult | BoxingResult
+
+export type ProviderSource = {
+  provider: string
+  externalId: string
+  updatedAt: string
+  syncedAt: string
+  revision: number
+  externalCompetitionId?: string
+  externalSeasonId?: string
+  externalSeriesId?: string
+  externalParticipantIds?: { home: string; away: string }
+  providerStatus?: string
+  payloadHash?: string
+  replacementEventId?: string
+}
 
 type EventBase = {
   id: string
@@ -30,10 +46,10 @@ type EventBase = {
   previousScheduledStart?: string
   status: EventStatus
   resultState: 'missing' | 'partial' | 'confirmed' | 'review'
-  source: { provider: string; externalId: string; updatedAt: string; syncedAt: string; revision: number }
+  source: ProviderSource
 }
 export type DailyEvent = EventBase & (
-  | { sport: 'football'; format: { knockout: boolean; leg?: 'single' | 'return'; requiresResolution?: boolean }; result?: FootballResult }
+  | { sport: 'football'; format: { knockout: boolean; leg?: 'single' | 'return'; legNumber?: number; requiresResolution?: boolean; aggregateScore?: ScorePair }; result?: FootballResult }
   | { sport: 'tennis'; format: { bestOf: 3 | 5 }; result?: TennisResult }
   | { sport: 'boxing'; format: { rounds: number }; result?: BoxingResult }
 )

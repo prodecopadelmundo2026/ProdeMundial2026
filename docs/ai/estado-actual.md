@@ -29,6 +29,7 @@ Fecha: 2026-09-13
 - Analisis de proveedores documentado; Goalserve queda como candidato para prueba de datos, sin eleccion ni integracion.
 - P004 dejo un checkpoint local de P001-P003 en `41bc388` y evaluo Goalserve solo con documentacion y muestras publicas: futbol/tenis son utilizables para prototipo, pero copa y boxeo no estan verificados para puntajes definitivos.
 - P005 confirmo la documentacion P004 en `cff4b01`, preparo la solicitud contractual sin enviarla y mantiene la maqueta con datos manuales hasta recibir evidencia real autorizada.
+- P006 confirmo P005 en `70a0a35`, agrego fixtures sinteticos y un contrato neutral validable; siguen aislados de proveedores, UI y Supabase.
 
 ## No implementado
 
@@ -37,6 +38,7 @@ Fecha: 2026-09-13
 - No se eligio proveedor, ni se creo schema, tabla o migracion para V2.
 - No se implemento Goalserve: no habia credencial local con nombre Goalserve y no se hicieron requests autenticados.
 - No hay proveedor definitivo, muestras contractuales ni licencia publica confirmada; por eso tampoco hay adaptador Goalserve.
+- Los fixtures P006 son sinteticos y no son evidencia de Goalserve ni habilitan resultados o puntajes reales.
 - No se hicieron pagos, premios reales, deploy, push ni cambios de dominio.
 
 ## Bloqueos o advertencias
@@ -80,3 +82,7 @@ Solicitar trial o muestras contractuales de Goalserve para copa, tenis a cinco s
 ## Siguiente paso P006
 
 Preparar, sin proveedor ni Supabase, un arnes de pruebas con fixtures explicitamente sinteticos para definir errores, campos obligatorios y normalizacion segura del adaptador futuro. La evidencia contractual pendiente sigue siendo bloqueante para integrar o liquidar puntajes.
+
+## Siguiente paso P007
+
+Mantener el arnes como regresion de contrato y decidir si se incorpora como comando de proyecto. La integracion de cualquier proveedor sigue condicionada a las muestras contractuales, la politica de correcciones y la licencia de exhibicion solicitadas en P005.

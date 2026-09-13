@@ -14,11 +14,15 @@ export type EventRecord = { event: DailyEvent; manualLock: boolean; pending?: Da
 
 export function reconcileEvent(current: EventRecord | undefined, incoming: DailyEvent, at: string): EventRecord {
   const source = incoming.source
-  if (!Number.isInteger(source.revision) || source.revision < 0 || !Number.isFinite(Date.parse(at))) throw new Error('Actualizacion invalida.')
+  if (!Number.isInteger(source.revision) || source.revision < 0 || !Number.isFinite(Date.parse(at)) || (source.payloadHash !== undefined && !source.payloadHash.trim())) throw new Error('Actualizacion invalida.')
   if (current) {
     if (current.event.id !== incoming.id || current.event.source.provider !== source.provider || current.event.source.externalId !== source.externalId || current.event.sport !== incoming.sport) throw new Error('La fuente requiere un mapeo de identidad verificado.')
     const revision = Math.max(current.event.source.revision, current.pending?.source.revision ?? -1)
-    if (source.revision <= revision) return current
+    if (source.revision <= revision) {
+      const sameRevision = [current.event, current.pending].find(event => event?.source.revision === source.revision)
+      if (sameRevision?.source.payloadHash && source.payloadHash && sameRevision.source.payloadHash !== source.payloadHash) throw new Error('La revision duplicada tiene un payloadHash incompatible.')
+      return current
+    }
   }
   const next = { ...incoming, source: { ...source, syncedAt: at } } as DailyEvent
   const conflict = current?.manualLock === true
