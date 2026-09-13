@@ -9,12 +9,12 @@ export function money(value: number) {
   return decimal === '00' ? '$' + grouped : '$' + grouped + ',' + decimal
 }
 export function time(value: string) {
-  const match = value.match(/T(\\d{2}:\\d{2})/)
-  return match?.[1] ?? '--:--'
+  const match = value.match(/T(\d{2}:\d{2})/)
+  return match?.[1] ?? 'Hora por confirmar'
 }
 export function dateLabel(value: string) {
-  const match = value.match(/(\\d{4})-(\\d{2})-(\\d{2})/)
-  if (!match) return 'Fecha pendiente'
+  const match = value.match(/(\d{4})-(\d{2})-(\d{2})/)
+  if (!match) return 'Fecha por confirmar'
   const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
   return match[3] + ' ' + months[Number(match[2]) - 1]
 }

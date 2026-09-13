@@ -49,6 +49,9 @@ Indice operativo para retomar el trabajo de Prode diario V2 sin depender de memo
 - `docs/ai/prompts/P010-hito-integral-v2-main-deploy.md`: alcance integral, ramas y publicacion solicitados.
 - `docs/ai/decisiones/P010-hito-integral-v2.md`: limites de la entrega publica y criterios de reemplazo futuro.
 - `docs/ai/ejecuciones/P010-hito-integral-v2.md`: registro de validacion, push y deploy de P010.
+- `docs/ai/prompts/P011-adaptacion-ux-ui-prode-diario.md`: adaptacion visual completa de la experiencia diaria.
+- `docs/ai/decisiones/P011-adaptacion-ux-ui.md`: criterios de reutilizacion visual, datos demo y preservacion historica.
+- `docs/ai/ejecuciones/P011-adaptacion-ux-ui.md`: implementacion y validaciones de P011.
 - `docs/ai/infrastructure/dev-environment-plan.md`: plan seguro para rama, base y credenciales de desarrollo futuras.
 - `docs/ai/prompts/P001-inicio-v2-prode-diario.md`: prompt original recibido para iniciar V2.
 - `docs/ai/ejecuciones/P001-2026-09-13.md`: registro de inspeccion, cambios y validacion de P001.

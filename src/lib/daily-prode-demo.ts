@@ -25,7 +25,7 @@ export const dailyEvents: DailyEvent[] = [
   { ...base('tennis5', '17:00', 'Dario Lagos', 'Teo Cardenas'), sport: 'tennis', format: { bestOf: 5 } },
   { ...base('boxing', '21:00', 'Alex del Rio', 'Nico Serra'), sport: 'boxing', format: { rounds: 12 } },
   { ...base('boxing-decision', '22:00', 'Mara Luna', 'Sol Ferrer'), sport: 'boxing', format: { rounds: 10 } },
-  { ...base('live', '11:00', 'Lucia Brisa', 'Eva Campo'), sport: 'tennis', format: { bestOf: 3 }, status: 'live', resultState: 'partial', actualStart: '2026-09-13T11:07:00-03:00' },
+  { ...base('live', '11:00', 'Lucia Brisa', 'Eva Campo'), sport: 'tennis', format: { bestOf: 3 }, status: 'live', resultState: 'partial', actualStart: '2026-09-13T11:07:00-03:00', result: { sport: 'tennis', winner: 'home', loserSets: 0, sets: [{ home: 6, away: 3 }, { home: 2, away: 4 }] } },
   { ...base('exact', '09:00', 'Deportivo Sur', 'Atletico Norte'), sport: 'football', format: { knockout: false }, status: 'finished', resultState: 'confirmed', result: { sport: 'football', scoreAt90: { home: 2, away: 1 } } },
   { ...base('sets', '09:10', 'Luz Pereira', 'Nora Fuentes'), sport: 'tennis', format: { bestOf: 3 }, status: 'finished', resultState: 'confirmed', result: { sport: 'tennis', winner: 'home', loserSets: 1, sets: [{ home: 6, away: 4 }, { home: 3, away: 6 }, { home: 6, away: 2 }] } },
   { ...base('ko', '09:20', 'Ivan Prado', 'Bruno Valle'), sport: 'boxing', format: { rounds: 12 }, status: 'finished', resultState: 'confirmed', result: { sport: 'boxing', outcome: 'home', method: 'ko', round: 7 } },

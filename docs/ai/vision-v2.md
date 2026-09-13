@@ -13,6 +13,7 @@ La experiencia principal debe permitir:
 - Revisar jornadas anteriores.
 - Filtrar agenda por deporte, estado y participacion sin perder la jornada elegida.
 - Operar un laboratorio manual protegido y auditable mientras no exista un proveedor aprobado.
+- Conservar el lenguaje editorial del producto: navegacion oscura, acento naranja, franja de contexto, hero de jornada y ranking diario por sala.
 
 ## Reglas confirmadas
 
@@ -29,6 +30,7 @@ La experiencia principal debe permitir:
 - No se deben borrar datos, reiniciar tablas ni recalcular el Mundial con reglas nuevas.
 - La documentacion de desarrollo no reemplaza la auditoria operativa de resultados, pronosticos y correcciones.
 - La fuente manual de desarrollo no es una integracion deportiva, no persiste al recargar y debe identificarse visiblemente como demo.
+- La portada diaria debe diferenciar por completo sus datos de los registros historicos: metricas, ranking, pozo y eventos se derivan de la jornada y sala seleccionadas.
 
 ## Pendiente de definicion
 

@@ -34,6 +34,10 @@ Fecha: 2026-09-13
 - P008 confirma P007 en `aebf194`, define el protocolo de muestras autorizadas y mantiene la operacion como fuente manual explicita hasta contar con evidencia y licencia suficientes. No incorpora muestras reales ni adaptadores.
 - P009 confirma P008 en `b38006a`, implementa el laboratorio local `sourceType: manual` protegido en `/admin/diario`. Sus cambios viven en memoria del navegador y no escriben en Supabase.
 - P010 amplia la experiencia con filtros por deporte, estado y participacion, tarjetas con contexto de fuente y configuracion manual de competencia, deporte y formato.
+- P011 restaura el lenguaje visual del producto para la experiencia diaria: navbar compartido, franja naranja con cinco metricas de sala, fondo geometrico con movimiento reducido, hero de evento destacado, ranking diario top 5 y agenda editorial responsiva.
+- Las cinco metricas P011 se calculan desde la sala y jornada activas: participantes, eventos finalizados/total, pozo demo, puntaje propio y lider. No reutilizan participantes, premios ni puntajes historicos.
+- El ranking diario se calcula con `roomRanking`, queda marcado como provisional mientras haya eventos sin resolver y enlaza a la clasificacion completa de la misma sala dentro de la portada.
+- El modo manual continua en memoria. P011 no crea persistencia, tablas, migraciones, RPCs ni cambios de Supabase.
 
 ## No implementado
 
@@ -111,3 +115,11 @@ Validar el flujo manual con usuarios administradores autorizados y decidir la in
 ## Siguiente paso P011
 
 Recorrer el laboratorio con una sesion admin autorizada y decidir el repositorio persistente de desarrollo. Adaptador y migraciones V2 solo pueden empezar tras cumplir P008 en una base aislada con RLS revisado.
+
+## Validacion P011
+
+- Contrato diario: 122/122 en modo legible y JSON.
+- TypeScript, ESLint dirigido y build de produccion: correctos.
+- Servidor local: `/`, `/diario`, `/historial`, `/historial/mundial`, `/ranking`, `/admin/diario` y `/login` respondieron.
+- No habia `agent-browser` ni Playwright local para capturas automatizadas. La revision de pixeles en 320, 390, 768, 1024, 1366 y 1440 queda pendiente de un entorno con navegador.
+- El servidor local mantiene el requisito heredado de `SUPABASE_SERVICE_ROLE_KEY` para enriquecer paginas historicas; no se modificaron variables ni Supabase.
