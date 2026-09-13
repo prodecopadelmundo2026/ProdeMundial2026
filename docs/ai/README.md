@@ -62,6 +62,9 @@ Indice operativo para retomar el trabajo de Prode diario V2 sin depender de memo
 - `docs/ai/decisiones/P014-home-calendario-y-mobile.md`: decisiones de navegación y cierre.
 - `docs/ai/prompts/P015-publicar-main-y-api.md`: publicación de P014, sincronización y evaluación de API.
 - `docs/ai/decisiones/P015-publicacion-main-y-api.md`: regla de integración y bloqueo de credencial.
+- `docs/ai/prompts/P016-calendario-propio-y-api.md`: calendario visual propio e integración deportiva condicionada.
+- `docs/ai/decisiones/P016-calendario-y-ufc.md`: alcance del calendario, fuente pública y UFC.
+- `docs/ai/ejecuciones/P016-calendario-y-ufc.md`: ejecución y validación de P016.
 - `docs/ai/competition-catalog.md`: competencias admitidas y exclusiones de la agenda publica.
 - `docs/ai/infrastructure/dev-environment-plan.md`: plan seguro para rama, base y credenciales de desarrollo futuras.
 - `docs/ai/prompts/P001-inicio-v2-prode-diario.md`: prompt original recibido para iniciar V2.

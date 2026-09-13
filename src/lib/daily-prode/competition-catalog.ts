@@ -54,6 +54,7 @@ export function isEligibleDailyEvent(event: DailyEvent): DailyEventEligibility {
 export function isPublicDailyEvent(event: DailyEvent): DailyEventEligibility {
   const eligibility = isEligibleDailyEvent(event)
   if (!eligibility.eligible) return eligibility
+  if (event.sport === 'boxing') return { eligible: false, reason: 'Boxeo no está habilitado en la agenda pública diaria.' }
   if (event.source.sourceType !== 'provider') return { eligible: false, reason: 'La fuente manual no se publica.' }
   if (event.source.verificationStatus !== 'verified') return { eligible: false, reason: 'El evento todavía no está verificado.' }
   if (!event.source.sourceReference?.trim() || !Number.isFinite(Date.parse(event.source.consultedAt ?? ''))) return { eligible: false, reason: 'Falta referencia o fecha de consulta de la fuente.' }

@@ -1,5 +1,12 @@
 # Worklog
 
+## 2026-09-13 - P016 calendario propio y bloqueo de API
+
+- Se reemplaza el selector `input type="date"` por un calendario visual propio reutilizado en `/`, `/mi-prode` y `/ranking`.
+- El calendario usa la zona `America/Argentina/Buenos_Aires`, permite mes, día anterior/siguiente, Hoy, teclado, Escape y cierre al click afuera; los instantes continúan en UTC.
+- La agenda pública no ofrece Boxeo, MMA ni UFC sin una fuente autorizada y campos completos. No se encontró una credencial deportiva local ni acceso al scope productivo de Vercel.
+- El contador detiene su intervalo al inicio del evento y el arnés cubre futuro, inminente, iniciado, sin horario, reprogramado, cierre y zona horaria argentina.
+
 ## 2026-09-13 - P014 agenda única, calendario y preparación móvil
 
 - Inicio concentra la agenda pública; `/diario` redirige permanentemente.
