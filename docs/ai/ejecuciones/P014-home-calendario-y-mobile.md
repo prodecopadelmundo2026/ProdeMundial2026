@@ -9,4 +9,5 @@
 - Smoke local: `/`, `/mi-prode`, `/ranking`, `/reglas`, `/historial` y `/historial/mundial` responden; las rutas diarias no incluyen Mundial ni fixtures, y `/admin/diario` conserva el redirect de acceso sin sesión.
 - Limitación: no hay navegador automatizado instalado para certificar visualmente 320, 375, 390, 768, 1024, 1280 y 1440 px. Los grids, controles y carriles de filtros se definieron responsive sin scroll horizontal de página.
 - SHA de implementación: `bd19901 feat: unify daily home with calendar and journey lock`.
-- Pendiente: push y Preview.
+- Rama publicada y Preview Vercel correcto: `https://vercel.com/prodecopadelmundo2026s-projects/prode-mundial2026/GMjFj7eSYwvXibY6vAPy8k822bfb`.
+- No se hizo merge a `main`.
