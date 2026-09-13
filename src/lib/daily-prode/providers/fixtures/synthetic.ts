@@ -40,6 +40,11 @@ export const footballKnockoutFixtures: FootballContractEvent[] = [
   },
 ]
 
+export const footballExceptionalFixtures: FootballContractEvent[] = [
+  { ...base('football-cancelled', 'cancelled'), sport: 'football', format: { knockout: false } },
+  { ...base('football-rescheduled', 'rescheduled'), sport: 'football', format: { knockout: false } },
+]
+
 export const tennisFixtures: TennisContractEvent[] = [
   {
     ...base('tennis-best-of-three-2-0', 'finished'), sport: 'tennis', format: { bestOf: 3 },
@@ -87,5 +92,5 @@ export const boxingExceptionalFixtures: BoxingContractEvent[] = [
 ]
 
 export const syntheticProviderFixtures: ProviderContractEvent[] = [
-  ...footballFixtures, ...footballKnockoutFixtures, ...tennisFixtures, ...tennisExceptionalFixtures, ...boxingFixtures, ...boxingExceptionalFixtures,
+  ...footballFixtures, ...footballKnockoutFixtures, ...footballExceptionalFixtures, ...tennisFixtures, ...tennisExceptionalFixtures, ...boxingFixtures, ...boxingExceptionalFixtures,
 ]

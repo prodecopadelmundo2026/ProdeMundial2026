@@ -1,5 +1,22 @@
 # Worklog
 
+## 2026-09-13 - P007 comando estable y regresiones del contrato
+
+### Objetivo
+
+Convertir el verificador sintetico en un comando reproducible sin agregar dependencias ni acceder a servicios externos.
+
+### Cambios
+
+- Se agrego `npm run daily-prode:verify-contract` con salida legible y JSON.
+- El comando compila en temporal, no usa rutas locales absolutas y limpia sus artefactos.
+- Se agregaron regresiones de excepciones, correcciones y auditoria; el total es 122 controles.
+
+### Validacion
+
+- Comando normal: 122 controles correctos; JSON y fallo sintetico con codigo 1 verificados.
+- Typecheck, ESLint dirigido, build y `git diff --check`: correctos.
+
 ## 2026-09-13 - P006 fixtures sinteticos y contrato deportivo
 
 ### Objetivo

@@ -147,9 +147,11 @@ function errorsForBoxing(event: BoxingContractEvent) {
   if (!result) return errors
   if (SIDES.has(result.outcome as Side)) {
     if (!result.method) errors.push({ field: 'method', message: 'Una victoria requiere metodo estructurado.' })
+    if (result.method !== undefined && !['ko', 'tko', 'decision'].includes(result.method)) errors.push({ field: 'method', message: 'El metodo de boxeo es desconocido.' })
     if ((result.method === 'ko' || result.method === 'tko') && (!Number.isInteger(result.round) || result.round! < 1 || result.round! > event.format.rounds)) errors.push({ field: 'round', message: 'KO/TKO requiere un round valido.' })
     if (result.method === 'decision' && result.round !== undefined) errors.push({ field: 'round', message: 'Una decision no puede inventar un round de finalizacion.' })
   } else if (['draw', 'no-contest', 'pending', 'void', 'suspended', 'rescheduled'].includes(result.outcome)) {
+    if (event.providerStatus === 'finished' && result.outcome === 'pending') errors.push({ field: 'outcome', message: 'Un evento finalizado requiere ganador u outcome excepcional explicito.' })
     if (result.method || result.round !== undefined) errors.push({ field: 'result', message: 'Un resultado excepcional no puede declarar metodo ni round puntuable.' })
   } else errors.push({ field: 'outcome', message: 'El resultado de boxeo es desconocido.' })
   return errors

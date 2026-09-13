@@ -30,6 +30,7 @@ Fecha: 2026-09-13
 - P004 dejo un checkpoint local de P001-P003 en `41bc388` y evaluo Goalserve solo con documentacion y muestras publicas: futbol/tenis son utilizables para prototipo, pero copa y boxeo no estan verificados para puntajes definitivos.
 - P005 confirmo la documentacion P004 en `cff4b01`, preparo la solicitud contractual sin enviarla y mantiene la maqueta con datos manuales hasta recibir evidencia real autorizada.
 - P006 confirmo P005 en `70a0a35`, agrego fixtures sinteticos y un contrato neutral validable; siguen aislados de proveedores, UI y Supabase.
+- P007 confirmo P006 en `04a6395`, agrego un comando repetible de contrato y elevo las regresiones sinteticas a 122 controles.
 
 ## No implementado
 
@@ -39,6 +40,7 @@ Fecha: 2026-09-13
 - No se implemento Goalserve: no habia credencial local con nombre Goalserve y no se hicieron requests autenticados.
 - No hay proveedor definitivo, muestras contractuales ni licencia publica confirmada; por eso tampoco hay adaptador Goalserve.
 - Los fixtures P006 son sinteticos y no son evidencia de Goalserve ni habilitan resultados o puntajes reales.
+- El comando P007 no accede a red, proveedores, Supabase ni archivos del proyecto fuera de temporales propios del sistema.
 - No se hicieron pagos, premios reales, deploy, push ni cambios de dominio.
 
 ## Bloqueos o advertencias
@@ -86,3 +88,7 @@ Preparar, sin proveedor ni Supabase, un arnes de pruebas con fixtures explicitam
 ## Siguiente paso P007
 
 Mantener el arnes como regresion de contrato y decidir si se incorpora como comando de proyecto. La integracion de cualquier proveedor sigue condicionada a las muestras contractuales, la politica de correcciones y la licencia de exhibicion solicitadas en P005.
+
+## Siguiente paso P008
+
+Definir un protocolo de fixtures contractuales reales autorizados o confirmar que la maqueta continuara con datos manuales. No crear tablas ni migraciones hasta que esa decision exista y la evidencia de proveedor sea suficiente.

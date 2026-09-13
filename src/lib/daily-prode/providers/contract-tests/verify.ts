@@ -1,7 +1,7 @@
-import { correctEvent, reconcileEvent } from '../../provider'
+import { confirmEvent, correctEvent, reconcileEvent } from '../../provider'
 import { scorePrediction } from '../../scoring'
 import { normalizeProviderContract, ProviderContractError, SYNTHETIC_FIXTURE_ORIGIN, validateProviderContract } from '../contract'
-import { boxingExceptionalFixtures, boxingFixtures, footballFixtures, footballKnockoutFixtures, syntheticProviderFixtures, tennisExceptionalFixtures, tennisFixtures } from '../fixtures/synthetic'
+import { boxingExceptionalFixtures, boxingFixtures, footballExceptionalFixtures, footballFixtures, footballKnockoutFixtures, syntheticProviderFixtures, tennisExceptionalFixtures, tennisFixtures } from '../fixtures/synthetic'
 
 type Check = { group: string; name: string }
 const checks: Check[] = []
@@ -45,6 +45,10 @@ export function runContractVerifier() {
   assert(returnLeg.sport === 'football' && returnLeg.format.leg === 'return' && returnLeg.format.legNumber === 2 && returnLeg.result?.sport === 'football' && returnLeg.result.qualifier === 'away', 'futbol copa', 'vuelta conserva leg y clasificado explicito independiente del ganador')
   const knockoutScore = scorePrediction(penalty, { sport: 'football', scoreAt90: { home: 1, away: 1 }, qualifier: 'home', resolution: 'penalties' })
   assert(knockoutScore.points === 3 && knockoutScore.pendingCriteria?.includes('qualifier'), 'scoring', 'copa puntua solo 90 minutos y conserva clasificado pendiente')
+  for (const fixture of footballExceptionalFixtures) {
+    const normalized = normalizeProviderContract(fixture, (provider, externalId) => provider + ':' + externalId)
+    assert(scorePrediction(normalized, { sport: 'football', scoreAt90: { home: 0, away: 0 } }).points === null, 'futbol', fixture.externalEventId + ' no asigna puntos')
+  }
 
   const tennisTwoZero = normalizeProviderContract(tennisFixtures[0], (provider, externalId) => provider + ':' + externalId)
   const tennisTwoOne = normalizeProviderContract(tennisFixtures[1], (provider, externalId) => provider + ':' + externalId)
@@ -58,6 +62,9 @@ export function runContractVerifier() {
     const normalized = normalizeProviderContract(fixture, (provider, externalId) => provider + ':' + externalId)
     assert(normalized.result === undefined && normalized.resultState !== 'confirmed', 'tenis', fixture.externalEventId + ' no se convierte en victoria normal')
   }
+  const tennisFirst = reconcileEvent(undefined, tennisTwoZero, '2026-09-13T15:10:00.000Z')
+  const tennisCorrected = normalizeProviderContract({ ...tennisFixtures[0], revision: 2, payloadHash: 'sha256:tennis-corrected-r2', result: { outcome: 'completed', winner: 'home', sets: [{ home: 6, away: 4 }, { home: 3, away: 6 }, { home: 6, away: 2 }] } }, (provider, externalId) => provider + ':' + externalId)
+  assert(reconcileEvent(tennisFirst, tennisCorrected, '2026-09-13T15:11:00.000Z').event.source.revision === 2, 'tenis', 'resultado corregido crea revision nueva')
 
   const ko = normalizeProviderContract(boxingFixtures[0], (provider, externalId) => provider + ':' + externalId)
   const tko = normalizeProviderContract(boxingFixtures[1], (provider, externalId) => provider + ':' + externalId)
@@ -83,6 +90,8 @@ export function runContractVerifier() {
   invalid(unknownStatus, 'providerStatus', 'estado desconocido')
   const inferredQualifier = { ...footballKnockoutFixtures[0], result: { ...footballKnockoutFixtures[0].result!, qualifier: { side: 'home' as const, evidence: 'inferred' as const } } }
   invalid(inferredQualifier, 'qualifier', 'clasificado inferido')
+  const missingQualifier = { ...footballKnockoutFixtures[0], result: { ...footballKnockoutFixtures[0].result!, qualifier: undefined } }
+  invalid(missingQualifier, 'qualifier', 'clasificado ausente en eliminatoria')
   const mixedPenalties = { ...footballKnockoutFixtures[0], result: { ...footballKnockoutFixtures[0].result!, extraTimeScore: { home: 2, away: 1 } } }
   invalid(mixedPenalties, 'penaltyScore', 'penales con alargue ya decidido')
   const impossibleSets = { ...tennisFixtures[0], result: { ...tennisFixtures[0].result!, winner: 'home' as const, sets: [{ home: 6, away: 0 }, { home: 6, away: 0 }, { home: 6, away: 0 }] } }
@@ -91,6 +100,10 @@ export function runContractVerifier() {
   invalid(koWithoutRound, 'round', 'KO sin round')
   const decisionWithRound = { ...boxingFixtures[2], result: { ...boxingFixtures[2].result!, round: 10 } }
   invalid(decisionWithRound, 'round', 'decision con round ficticio')
+  const boxingWinnerAbsent = { ...boxingFixtures[0], result: { ...boxingFixtures[0].result!, outcome: 'pending' as const } }
+  invalid(boxingWinnerAbsent, 'outcome', 'ganador ausente en resultado final')
+  const boxingUnknownMethod = { ...boxingFixtures[0], result: { ...boxingFixtures[0].result!, method: 'unknown' as unknown as 'ko' } }
+  invalid(boxingUnknownMethod, 'method', 'metodo de boxeo desconocido')
 
   const scheduled = normalizeProviderContract(footballFixtures[0], (provider, externalId) => provider + ':' + externalId)
   const first = reconcileEvent(undefined, scheduled, '2026-09-13T15:00:00.000Z')
@@ -114,8 +127,17 @@ export function runContractVerifier() {
   const protectedRecord = reconcileEvent(locked, automaticFinal, '2026-09-13T15:05:00.000Z')
   assert(protectedRecord.manualLock && protectedRecord.event.result?.sport === 'football' && protectedRecord.event.result.scoreAt90.home === 3 && protectedRecord.pending?.source.revision === 3, 'actualizaciones', 'bloqueo manual protege correccion automatica posterior')
   assert(protectedRecord.audit.at(-1)?.action === 'conflict', 'actualizaciones', 'conflicto queda auditado')
+  const administrativelyConfirmed = confirmEvent(reconcileEvent(undefined, normalHome, '2026-09-13T15:06:00.000Z'), 'admin-demo', 'Confirmacion administrativa sintetica.', '2026-09-13T15:07:00.000Z')
+  assert(administrativelyConfirmed.manualLock && administrativelyConfirmed.audit.at(-1)?.kind === 'administrative_confirmation' && administrativelyConfirmed.audit.at(-1)?.before !== null && administrativelyConfirmed.audit.at(-1)?.after !== undefined, 'auditoria', 'confirmacion administrativa conserva antes, despues, usuario, fecha, motivo y fuente')
   const replacement = normalizeProviderContract({ ...footballFixtures[2], externalEventId: 'football-home-win-replacement', replacementEventId: 'football-home-win', revision: 2, payloadHash: 'sha256:replacement' }, (provider, externalId) => provider + ':' + externalId)
   assert(replacement.source.replacementEventId === 'football-home-win', 'actualizaciones', 'reemplazo conserva trazabilidad')
 
-  return { total: checks.length, groups: [...new Set(checks.map(check => check.group))] }
+  const groups = Object.values(checks.reduce<Record<string, { group: string; total: number; passed: number; failed: number }>>((summary, check) => {
+    const current = summary[check.group] ?? { group: check.group, total: 0, passed: 0, failed: 0 }
+    current.total++
+    current.passed++
+    summary[check.group] = current
+    return summary
+  }, {}))
+  return { total: checks.length, groups }
 }
