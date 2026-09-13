@@ -8,6 +8,7 @@ export type ContractValidation = { valid: boolean; errors: ContractError[] }
 
 type ProviderBase = {
   fixtureOrigin?: typeof SYNTHETIC_FIXTURE_ORIGIN
+  sourceType?: 'manual' | 'provider'
   provider: string
   externalEventId: string
   externalCompetitionId?: string
@@ -84,6 +85,7 @@ function validScore(score: ScorePair | undefined) {
 function errorsForBase(event: ProviderContractEvent) {
   const errors: ContractError[] = []
   if (event.fixtureOrigin !== undefined && event.fixtureOrigin !== SYNTHETIC_FIXTURE_ORIGIN) errors.push({ field: 'fixtureOrigin', message: 'El fixture debe declarar el origen sintetico exacto.' })
+  if (event.sourceType !== undefined && event.sourceType !== 'manual' && event.sourceType !== 'provider') errors.push({ field: 'sourceType', message: 'El tipo de fuente es desconocido.' })
   if (!event.provider.trim()) errors.push({ field: 'provider', message: 'El proveedor es obligatorio.' })
   if (!event.externalEventId.trim()) errors.push({ field: 'externalEventId', message: 'El ID externo es obligatorio.' })
   if (!event.externalParticipantIds.home.trim() || !event.externalParticipantIds.away.trim()) errors.push({ field: 'externalParticipantIds', message: 'Cada participante debe conservar su ID externo.' })
@@ -189,6 +191,7 @@ export function normalizeProviderContract(event: ProviderContractEvent, resolveI
   if (!validation.valid) throw new ProviderContractError(validation.errors)
   const status = statusFromProvider(event.providerStatus)
   const source = {
+    sourceType: event.sourceType ?? 'provider' as const,
     provider: event.provider,
     externalId: event.externalEventId,
     updatedAt: event.providerUpdatedAt,

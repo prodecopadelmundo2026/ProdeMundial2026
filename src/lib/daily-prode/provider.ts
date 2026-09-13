@@ -30,7 +30,7 @@ export function reconcileEvent(current: EventRecord | undefined, incoming: Daily
   return { event: conflict ? current.event : next, manualLock: conflict, pending: conflict ? next : undefined, audit: [...(current?.audit ?? []), audit] }
 }
 export function correctEvent(current: EventRecord, next: DailyEvent, actor: string, reason: string, at: string): EventRecord {
-  if (!actor.trim() || !reason.trim() || !Number.isFinite(Date.parse(at)) || current.event.id !== next.id || current.event.sport !== next.sport || JSON.stringify(current.event.source) !== JSON.stringify(next.source)) throw new Error('La correccion requiere identidad, autor, motivo y fecha validos.')
+  if (!actor.trim() || !reason.trim() || !Number.isFinite(Date.parse(at)) || current.event.id !== next.id || current.event.sport !== next.sport || current.event.source.provider !== next.source.provider || current.event.source.externalId !== next.source.externalId || current.event.source.sourceType !== next.source.sourceType) throw new Error('La correccion requiere identidad, autor, motivo y fecha validos.')
   return { ...current, event: next, manualLock: true, audit: [...current.audit, { eventId: next.id, before: current.event, after: next, actor, reason, at, source: 'administration', kind: 'manual', action: 'applied' }] }
 }
 

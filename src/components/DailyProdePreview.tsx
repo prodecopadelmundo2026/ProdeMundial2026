@@ -36,10 +36,10 @@ export function DailyProdePreview({ initialDate }: { initialDate?: string }) {
     <div className={styles.page}>
       <header className={styles.header}>
         <div>
-          <span className={styles.tag}>DEMOSTRACION / DATOS FICTICIOS</span>
+          <span className={styles.tag}>DATOS DE DEMOSTRACION — FUENTE MANUAL</span>
           <h1 className={styles.title}>Prode diario</h1>
           <p className={styles.subtitle}>Futbol, tenis y boxeo / Buenos Aires (UTC-3)</p>
-          <p className={styles.subtitle}>Jornada de muestra: 13 sep 2026, 12:00. Cambios locales durante esta sesion.</p>
+          <p className={styles.subtitle}>Jornada de muestra: 13 sep 2026, 12:00. No son datos deportivos reales ni sincronizados.</p>
         </div>
         <Link href="/historial" className={styles.tags}><History size={18} /> Historial</Link>
       </header>
@@ -154,7 +154,7 @@ function EventCard({ event, prediction, canEdit, onSave }: { event: DailyEvent; 
         <h4>{event.participants.home.name} vs {event.participants.away.name}</h4>
         <p className={styles.muted}>{event.competition}</p>
         <p className={styles.result}>{resultLabel(event)}{event.resultState === 'partial' ? ' / Parcial' : ''}</p>
-        <p className={styles.muted}>Fuente: {event.source.provider} / Actualizado: {time(event.source.updatedAt)}</p>
+        <p className={styles.muted}>Fuente: {event.source.sourceType === 'manual' ? 'Manual / demo' : event.source.provider} / Actualizado: {time(event.source.updatedAt)} / {event.resultState === 'confirmed' ? 'Confirmado' : 'Pendiente de revision'}</p>
       </div>
     </div>
     <details className={styles.details}><summary>Horarios y fuente</summary><dl>

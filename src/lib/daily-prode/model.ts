@@ -21,6 +21,7 @@ export type BoxingResult = { sport: 'boxing'; outcome: Side | 'draw' | 'no-conte
 export type Result = FootballResult | TennisResult | BoxingResult
 
 export type ProviderSource = {
+  sourceType?: 'manual' | 'provider'
   provider: string
   externalId: string
   updatedAt: string
@@ -53,7 +54,7 @@ export type DailyEvent = EventBase & (
   | { sport: 'tennis'; format: { bestOf: 3 | 5 }; result?: TennisResult }
   | { sport: 'boxing'; format: { rounds: number }; result?: BoxingResult }
 )
-export type Journey = { id: string; date: string; status: 'open' | 'closed'; timezone: string }
+export type Journey = { id: string; date: string; status: 'open' | 'in-progress' | 'pending-results' | 'review' | 'closed' | 'void'; timezone: string }
 export type Room = { id: string; journeyId: string; entryFee: number; currency: 'ARS'; label: string; eventIds: string[] }
 export type Participation = { id: string; journeyId: string; roomId: string; userId: string; name: string }
 export type Prediction = { participationId: string; eventId: string; pick: Pick }

@@ -15,7 +15,7 @@ function base(id: string, hour: string, home: string, away: string) {
     participants: { home: { id: id + '-h', name: home }, away: { id: id + '-a', name: away } },
     scheduledStart: '2026-09-13T' + hour + ':00-03:00',
     status: 'upcoming' as const, resultState: 'missing' as const,
-    source: { provider: 'Fuente ficticia / ' + id, externalId: id, updatedAt: DEMO_NOW, syncedAt: DEMO_NOW, revision: 1 },
+    source: { sourceType: 'manual' as const, provider: 'manual-development', externalId: id, updatedAt: DEMO_NOW, syncedAt: DEMO_NOW, revision: 1, providerStatus: 'upcoming', payloadHash: 'sha256:manual-demo-' + id + '-r1' },
   }
 }
 export const dailyEvents: DailyEvent[] = [
@@ -27,7 +27,7 @@ export const dailyEvents: DailyEvent[] = [
   { ...base('boxing-decision', '22:00', 'Mara Luna', 'Sol Ferrer'), sport: 'boxing', format: { rounds: 10 } },
   { ...base('live', '11:00', 'Lucia Brisa', 'Eva Campo'), sport: 'tennis', format: { bestOf: 3 }, status: 'live', resultState: 'partial', actualStart: '2026-09-13T11:07:00-03:00' },
   { ...base('exact', '09:00', 'Deportivo Sur', 'Atletico Norte'), sport: 'football', format: { knockout: false }, status: 'finished', resultState: 'confirmed', result: { sport: 'football', scoreAt90: { home: 2, away: 1 } } },
-  { ...base('sets', '09:10', 'Luz Pereira', 'Nora Fuentes'), sport: 'tennis', format: { bestOf: 3 }, status: 'finished', resultState: 'confirmed', result: { sport: 'tennis', winner: 'home', loserSets: 1 } },
+  { ...base('sets', '09:10', 'Luz Pereira', 'Nora Fuentes'), sport: 'tennis', format: { bestOf: 3 }, status: 'finished', resultState: 'confirmed', result: { sport: 'tennis', winner: 'home', loserSets: 1, sets: [{ home: 6, away: 4 }, { home: 3, away: 6 }, { home: 6, away: 2 }] } },
   { ...base('ko', '09:20', 'Ivan Prado', 'Bruno Valle'), sport: 'boxing', format: { rounds: 12 }, status: 'finished', resultState: 'confirmed', result: { sport: 'boxing', outcome: 'home', method: 'ko', round: 7 } },
   { ...base('decision', '09:30', 'Mia Arena', 'Alma Rios'), sport: 'boxing', format: { rounds: 10 }, status: 'finished', resultState: 'confirmed', result: { sport: 'boxing', outcome: 'away', method: 'decision' } },
   { ...base('penalties', '09:40', 'Club Horizonte', 'Club Aurora'), sport: 'football', format: { knockout: true, leg: 'single', requiresResolution: true }, status: 'finished', resultState: 'confirmed', result: { sport: 'football', scoreAt90: { home: 1, away: 1 }, extraTimeScore: { home: 1, away: 1 }, qualifier: 'away', resolution: 'penalties', penaltyScore: { home: 3, away: 4 } } },

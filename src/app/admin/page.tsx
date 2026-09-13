@@ -325,6 +325,13 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
               >
                 Tabla de goleadores y premios especiales
               </Link>
+              <Link
+                href="/admin/diario"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-extrabold text-[12px] uppercase transition-all duration-150"
+                style={{ background: 'rgba(168,240,216,0.12)', border: '1px solid rgba(168,240,216,0.3)', color: '#A8F0D8' }}
+              >
+                Laboratorio diario manual
+              </Link>
               <details className="group relative">
                 <summary
                   className="inline-flex cursor-pointer list-none items-center gap-2 rounded-full px-4 py-2 text-[12px] font-extrabold uppercase transition-all duration-150 [&::-webkit-details-marker]:hidden"

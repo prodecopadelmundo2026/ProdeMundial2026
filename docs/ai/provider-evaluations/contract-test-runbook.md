@@ -30,6 +30,12 @@ El comando usa el TypeScript instalado en el proyecto, compila solo los modulos 
 
 No prueba cobertura, payloads, licencia, SLA, limites, correcciones ni resultados de ningun proveedor real. Tampoco prueba UI, Supabase, pagos, premios o reglas funcionales que no pertenezcan al contrato.
 
+## Modo manual P009
+
+El laboratorio protegido `/admin/diario` construye eventos con `sourceType: manual` y los normaliza mediante el mismo contrato neutral. Conserva IDs, fechas, estados, marcadores separados de futbol, sets de tenis, metodo/round de boxeo, revision y auditoria antes de confirmar. Un intento automatico simulado sobre un resultado bloqueado queda como conflicto auditado.
+
+Su repositorio es estado de memoria del navegador: se pierde al recargar y no usa `localStorage`, Supabase, endpoints ni un proveedor. El indicador publico `Datos de demostracion — fuente manual` debe permanecer visible. Al agregar persistencia se debe reemplazar solo el repositorio local; al agregar proveedor se debe reemplazar solo la entrada de fuente por un adaptador read-only aprobado, conservando contrato, bloqueos y auditoria.
+
 ## Interpretar un fallo
 
 El comando devuelve codigo distinto de cero ante error de compilacion o control fallido. La salida legible informa grupo, conteos y mensaje descriptivo; `--json` devuelve `status`, duracion, total y grupos para CI futura. El modo interno `--fail-synthetic` existe solo para comprobar el codigo de salida y no debe usarse como validacion normal.
