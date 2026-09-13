@@ -95,6 +95,22 @@ Confirmar resultados de futbol y boxeo, revisar la capacidad de los proveedores 
 
 ## 2026-09-13 - Reglas funcionales P002 de Prode diario
 
+## 2026-09-13 - Hito integral P010 de Prode diario
+
+### Cambios
+
+- Se agregan filtros de agenda por deporte, estado y participación, manteniendo jornada y sala.
+- El laboratorio manual protegido permite cambiar competencia, deporte y formato; reinicia el resultado al cambiar su estructura.
+- Se conserva fuente manual visible, auditoría local, separación del Mundial y ausencia de persistencia/Supabase.
+- Se documenta el plan de rama y entorno de desarrollo aislado sin crear infraestructura.
+
+### Validación
+
+- Contrato diario: 122/122; TypeScript, lint dirigido, build y smoke HTTP local correctos.
+- No hay navegador automatizado ni sesión admin local para el recorrido visual autenticado; pendiente explícito.
+
+## 2026-09-13 - Reglas funcionales P002 de Prode diario
+
 ### Objetivo
 
 Convertir la V2 en experiencia principal, formalizar reglas de salas y puntajes, y preparar modelos aislados para deportes y proveedores sin tocar datos del Mundial.

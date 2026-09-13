@@ -11,6 +11,8 @@ La experiencia principal debe permitir:
 - Seguir resultados y desempeno propio.
 - Consultar la clasificacion de la sala.
 - Revisar jornadas anteriores.
+- Filtrar agenda por deporte, estado y participacion sin perder la jornada elegida.
+- Operar un laboratorio manual protegido y auditable mientras no exista un proveedor aprobado.
 
 ## Reglas confirmadas
 
@@ -26,6 +28,7 @@ La experiencia principal debe permitir:
 - El Mundial debe dejar de dominar la experiencia principal, pero debe conservar acceso historico.
 - No se deben borrar datos, reiniciar tablas ni recalcular el Mundial con reglas nuevas.
 - La documentacion de desarrollo no reemplaza la auditoria operativa de resultados, pronosticos y correcciones.
+- La fuente manual de desarrollo no es una integracion deportiva, no persiste al recargar y debe identificarse visiblemente como demo.
 
 ## Pendiente de definicion
 

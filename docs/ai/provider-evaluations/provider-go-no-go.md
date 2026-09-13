@@ -31,6 +31,10 @@ Debe continuar el modo manual cuando no hay muestras autorizadas, no existe lice
 
 Goalserve permanece como candidato parcial de documentacion publica: no se lo clasifica como proveedor aprobado ni como fuente de resultados automáticos.
 
+## Estado posterior a P010
+
+La experiencia publica y el laboratorio manual estan listos para demostracion local, no para datos reales. Esta mejora de interfaz no cambia el No-Go de adaptador, tablas ni produccion: siguen faltando muestras autorizadas, licencia explicita, cobertura de casos criticos y politica de correcciones del proveedor.
+
 ## Evidencia para cambiar la decision
 
 La decision puede reabrirse con solicitudes autorizadas, muestras clasificadas `Aprobada` para los casos necesarios, derechos de uso y exhibicion documentados, IDs y revisiones verificables, y una evaluacion del contrato neutral que no dependa de inferencias peligrosas. Toda aprobacion debe declarar deporte, competencia, plan, limites, fecha de vencimiento y alcance; una aprobacion para prototipo no se extiende automaticamente a produccion.

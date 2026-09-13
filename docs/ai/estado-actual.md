@@ -33,6 +33,7 @@ Fecha: 2026-09-13
 - P007 confirmo P006 en `04a6395`, agrego un comando repetible de contrato y elevo las regresiones sinteticas a 122 controles.
 - P008 confirma P007 en `aebf194`, define el protocolo de muestras autorizadas y mantiene la operacion como fuente manual explicita hasta contar con evidencia y licencia suficientes. No incorpora muestras reales ni adaptadores.
 - P009 confirma P008 en `b38006a`, implementa el laboratorio local `sourceType: manual` protegido en `/admin/diario`. Sus cambios viven en memoria del navegador y no escriben en Supabase.
+- P010 amplia la experiencia con filtros por deporte, estado y participacion, tarjetas con contexto de fuente y configuracion manual de competencia, deporte y formato.
 
 ## No implementado
 
@@ -44,6 +45,7 @@ Fecha: 2026-09-13
 - No hay autorizacion para conservar payloads reales de un proveedor. Cualquier evidencia futura debe pasar por el protocolo, checklist y decision Go/No-Go de P008 antes de ingresar al repositorio.
 - La fuente `sourceType: manual` esta definida documentalmente para desarrollo y operacion temporal; todavia no esta conectada a Supabase, tablas ni UI administrativa.
 - El modo manual no es una fuente deportiva real: los eventos de `/` y `/diario` son datos demo, y el laboratorio administrativo se reinicia al recargar.
+- La infraestructura de desarrollo sigue pendiente de confirmar proyecto, costo, RLS y credenciales aisladas; P010 no creo ni modifico infraestructura.
 - Los fixtures P006 son sinteticos y no son evidencia de Goalserve ni habilitan resultados o puntajes reales.
 - El comando P007 no accede a red, proveedores, Supabase ni archivos del proyecto fuera de temporales propios del sistema.
 - No se hicieron pagos, premios reales, deploy, push ni cambios de dominio.
@@ -105,3 +107,7 @@ Conservar el modo manual mientras se reciben muestras y derechos de uso por los 
 ## Siguiente paso P010
 
 Validar el flujo manual con usuarios administradores autorizados y decidir la interfaz de persistencia futura. Antes de sustituirlo por una fuente real deben existir muestras autorizadas, licencia, adaptador read-only aprobado, estrategia de sincronizacion y migraciones no destructivas separadas.
+
+## Siguiente paso P011
+
+Recorrer el laboratorio con una sesion admin autorizada y decidir el repositorio persistente de desarrollo. Adaptador y migraciones V2 solo pueden empezar tras cumplir P008 en una base aislada con RLS revisado.

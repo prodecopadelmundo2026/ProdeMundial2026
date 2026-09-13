@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { CalendarDays, ChevronLeft, ChevronRight, History, Plus, RefreshCw, Trophy } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Filter, History, Plus, RefreshCw, Trophy } from 'lucide-react'
 import { createDemoParticipation, dailyEvents, demoJourneys, demoRooms, DEMO_NOW, DEMO_USER } from '@/lib/daily-prode-demo'
 import { agendaOrder, dateLabel, eventLabel, money, pickLabel, predictionLabel, resultLabel, sportLabel, time } from '@/lib/daily-prode/display'
 import { joinRoom, roomRanking, savePrediction } from '@/lib/daily-prode/rooms'
@@ -16,6 +16,9 @@ export function DailyProdePreview({ initialDate }: { initialDate?: string }) {
   const [fee, setFee] = useState(5000)
   const [data, setData] = useState(() => createDemoParticipation())
   const [scenario, setScenario] = useState('normal')
+  const [sportFilter, setSportFilter] = useState<'all' | DailyEvent['sport']>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'upcoming' | 'live' | 'finished'>('all')
+  const [mineOnly, setMineOnly] = useState(false)
   const journey = demoJourneys.find(j => j.id === journeyId)!
   const rooms = demoRooms.filter(r => r.journeyId === journeyId)
   const room = rooms.find(r => r.entryFee === fee)!
@@ -23,6 +26,11 @@ export function DailyProdePreview({ initialDate }: { initialDate?: string }) {
   const displayedEvents = scenario === 'many' ? [...events, ...events.filter(e => e.status === 'upcoming').flatMap(e => Array.from({ length: 4 }, (_, n) => ({ ...e, id: e.id + '-extra-' + n })))].sort(agendaOrder) : events
   const ranking = roomRanking(room, journey, data.entries, data.predictions, dailyEvents)
   const entry = data.entries.find(p => p.roomId === room.id && p.journeyId === journeyId && p.userId === DEMO_USER)
+  const filteredEvents = displayedEvents.filter(event => {
+    if (sportFilter !== 'all' && event.sport !== sportFilter) return false
+    if (statusFilter !== 'all' && event.status !== statusFilter) return false
+    return !mineOnly || Boolean(entry && data.predictions.some(prediction => prediction.participationId === entry.id && prediction.eventId === event.id))
+  })
   const me = ranking.standings.find(p => p.userId === DEMO_USER)
   const myRooms = data.entries.filter(p => p.journeyId === journeyId && p.userId === DEMO_USER).length
   const dateIndex = demoJourneys.findIndex(j => j.id === journeyId)
@@ -64,6 +72,13 @@ export function DailyProdePreview({ initialDate }: { initialDate?: string }) {
         </select></label>
       </div>
 
+      <fieldset className={styles.filters} aria-label="Filtros de agenda">
+        <legend className={styles.tags}><Filter size={16} /> Filtrar agenda</legend>
+        <label>Deporte<select value={sportFilter} onChange={event => setSportFilter(event.target.value as typeof sportFilter)}><option value="all">Todos los deportes</option><option value="football">Fútbol</option><option value="tennis">Tenis</option><option value="boxing">Boxeo</option></select></label>
+        <label>Estado<select value={statusFilter} onChange={event => setStatusFilter(event.target.value as typeof statusFilter)}><option value="all">Todos los estados</option><option value="upcoming">Próximos</option><option value="live">En curso</option><option value="finished">Finalizados</option></select></label>
+        <label className={styles.filterCheck}><input type="checkbox" checked={mineOnly} onChange={event => setMineOnly(event.target.checked)} /> Mi participación</label>
+      </fieldset>
+
       <section className={styles.section} aria-labelledby="agenda-title">
         <div className={styles.sectionHead}>
           <h2 id="agenda-title" className={styles.tags}><CalendarDays size={20} /> Agenda / {dateLabel(journey.date)}</h2>
@@ -72,13 +87,14 @@ export function DailyProdePreview({ initialDate }: { initialDate?: string }) {
         {scenario === 'loading' && <div role="status" aria-busy="true"><p>Cargando agenda...</p><div className={styles.loading} /><div className={styles.loading} /></div>}
         {scenario === 'error' && <div role="alert" className={styles.empty}><p className={styles.error}>No se pudo actualizar la agenda. No hay nuevos resultados confirmados.</p><button className={styles.primary} onClick={() => setScenario('normal')}><RefreshCw size={16} /> Reintentar</button></div>}
         {ready && events.length === 0 && <p className={styles.empty}>No hay eventos para esta jornada.</p>}
+        {ready && events.length > 0 && filteredEvents.length === 0 && <p className={styles.empty}>No hay eventos que coincidan con estos filtros.</p>}
         {ready && [
           { title: 'Proximos', statuses: ['upcoming'] },
           { title: 'En curso', statuses: ['live'] },
           { title: 'Finalizados', statuses: ['finished'] },
           { title: 'Suspendidos, reprogramados y cancelados', statuses: ['suspended', 'cancelled', 'rescheduled', 'void', 'review'] },
         ].map(group => {
-          const items = displayedEvents.filter(e => group.statuses.includes(e.status))
+          const items = filteredEvents.filter(e => group.statuses.includes(e.status))
           return items.length > 0 ? <div className={styles.group} key={group.title}><h3>{group.title}</h3>{items.map(event => {
             const prediction = entry ? data.predictions.find(p => p.participationId === entry.id && p.eventId === event.id) : undefined
             const canEdit = Boolean(entry && journey.status === 'open' && room.eventIds.includes(event.id) && event.status === 'upcoming' && Date.parse(event.scheduledStart) > Date.parse(DEMO_NOW))
@@ -147,9 +163,10 @@ function EventCard({ event, prediction, canEdit, onSave }: { event: DailyEvent; 
     <div className={styles.eventTop}>
       <div><p className={styles.time}>{time(event.scheduledStart)}</p><p className={styles.muted}>Inicio</p><p className={styles.muted}>{dateLabel(event.scheduledStart.slice(0, 10))}</p></div>
       <div>
-        <div className={styles.tags}><span className={styles.tag}>{sportLabel[event.sport]}</span><span className={styles.tag} data-state={event.status}>{eventLabel[event.status]}</span>
+        <div className={styles.tags}><span className={styles.tag}>{sportLabel[event.sport]}</span><span className={styles.tag} data-state={event.status}>{eventLabel[event.status]}</span><span className={styles.tag}>Manual / demo</span>
           {event.sport === 'tennis' && <span className={styles.tag}>Mejor de {event.format.bestOf}</span>}
-          {event.sport === 'football' && event.format.knockout && <span className={styles.tag}>Eliminacion / {event.format.leg === 'return' ? 'vuelta' : 'partido unico'}</span>}
+          {event.sport === 'football' && event.format.knockout && <span className={styles.tag}>Eliminacion / {event.format.leg === 'return' ? 'vuelta' : 'partido unico'}{event.format.requiresResolution ? ' / define clasificado' : ''}</span>}
+          {event.sport === 'boxing' && event.result?.sport === 'boxing' && event.result.methodDetail && <span className={styles.tag}>{event.result.methodDetail.toUpperCase()}{event.result.round ? ` / R${event.result.round}` : ' / decisión'}</span>}
         </div>
         <h4>{event.participants.home.name} vs {event.participants.away.name}</h4>
         <p className={styles.muted}>{event.competition}</p>
