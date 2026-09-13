@@ -3,7 +3,7 @@
 | Proveedor | Evidencia actual | Decisión |
 | --- | --- | --- |
 | Goalserve | Declara fútbol, tenis, boxeo y MMA/UFC, pero cobertura puntual, correcciones y licencia siguen sin evidencia contractual. | No-Go. |
-| Sportradar | Documenta ATP/Grand Slam, cobertura por niveles, resultados en vivo y UFC; falta cotización, licencia y confirmar fútbol argentino/copa/boxeo bajo el plan elegido. | Candidato para evaluación formal. |
+| Sportradar | Documenta ATP/Grand Slam, cobertura por niveles, resultados en vivo y UFC; falta trial/credencial autorizada, cotización, licencia y confirmar fútbol argentino/copa/boxeo bajo el plan elegido. | Primer candidato a prueba formal; No-Go hasta evidencia. |
 | API-Sports | Pendiente de prueba autorizada para Argentina, copa, tenis y combate. | No-Go. |
 | Sportmonks | Documentación pública de fútbol/livescores; no valida el catálogo multideporte requerido. | No-Go multideporte. |
 | SportsDataIO | Pendiente de evidencia de cobertura solicitada. | No-Go. |

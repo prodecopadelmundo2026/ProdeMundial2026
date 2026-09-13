@@ -2,6 +2,8 @@
 
 ## Contexto de trabajo
 
+Durante la etapa de desarrollo y testeo, `main` es la rama principal de integración y publicación. Todo cambio validado debe llegar a `main`. La rama `dev` debe permanecer sincronizada exactamente con `main`. Las ramas auxiliares son temporales y no reemplazan a `main`.
+
 Este repo contiene el Prode Mundial 2026 y la V2 en preparacion como Prode diario. Es una app Next.js con Supabase donde ranking, scoring, auditoria, eliminatorias y bonus son zonas sensibles.
 
 Antes de modificar un modulo, leer:
