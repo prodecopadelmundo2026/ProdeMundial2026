@@ -1,5 +1,23 @@
 # Worklog
 
+## 2026-09-13 - P005 validacion contractual de proveedores
+
+### Objetivo
+
+Preparar la evidencia que Goalserve debe aportar para decidir un uso futuro, sin enviar contactos ni contratar servicios.
+
+### Cambios
+
+- Se creo el commit documental separado de P004: `cff4b01`.
+- Se preparo una solicitud no enviada de muestras tecnicas y condiciones legales/comerciales.
+- Se documentaron matrices de normalizacion y de decision por deporte.
+- Se mantiene datos manuales para la maqueta; no se eligio proveedor de boxeo ni se implemento adaptador.
+
+### Validacion
+
+- Prompt P005 copiado integramente y verificado por hash.
+- Typecheck y `git diff --check`: correctos; sin cambios de codigo ni suite de tests configurada.
+
 ## 2026-09-13 - P004 prueba controlada de Goalserve
 
 ### Objetivo
