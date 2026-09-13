@@ -49,4 +49,5 @@ Las composiciones usan grids que colapsan a una columna, controles de altura min
 
 ## Publicacion
 
-Pendiente de push de la rama y Preview de Vercel. No se hara merge ni push a `main` sin autorizacion expresa.
+- SHA final de implementación: `cd7033b feat: audit daily experience and verified public events`.
+- Pendiente de push de la rama y Preview de Vercel. No se hara merge ni push a `main` sin autorizacion expresa.
