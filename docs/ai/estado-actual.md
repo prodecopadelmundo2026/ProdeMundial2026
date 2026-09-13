@@ -31,6 +31,7 @@ Fecha: 2026-09-13
 - P005 confirmo la documentacion P004 en `cff4b01`, preparo la solicitud contractual sin enviarla y mantiene la maqueta con datos manuales hasta recibir evidencia real autorizada.
 - P006 confirmo P005 en `70a0a35`, agrego fixtures sinteticos y un contrato neutral validable; siguen aislados de proveedores, UI y Supabase.
 - P007 confirmo P006 en `04a6395`, agrego un comando repetible de contrato y elevo las regresiones sinteticas a 122 controles.
+- P008 confirma P007 en `aebf194`, define el protocolo de muestras autorizadas y mantiene la operacion como fuente manual explicita hasta contar con evidencia y licencia suficientes. No incorpora muestras reales ni adaptadores.
 
 ## No implementado
 
@@ -39,6 +40,8 @@ Fecha: 2026-09-13
 - No se eligio proveedor, ni se creo schema, tabla o migracion para V2.
 - No se implemento Goalserve: no habia credencial local con nombre Goalserve y no se hicieron requests autenticados.
 - No hay proveedor definitivo, muestras contractuales ni licencia publica confirmada; por eso tampoco hay adaptador Goalserve.
+- No hay autorizacion para conservar payloads reales de un proveedor. Cualquier evidencia futura debe pasar por el protocolo, checklist y decision Go/No-Go de P008 antes de ingresar al repositorio.
+- La fuente `sourceType: manual` esta definida documentalmente para desarrollo y operacion temporal; todavia no esta conectada a Supabase, tablas ni UI administrativa.
 - Los fixtures P006 son sinteticos y no son evidencia de Goalserve ni habilitan resultados o puntajes reales.
 - El comando P007 no accede a red, proveedores, Supabase ni archivos del proyecto fuera de temporales propios del sistema.
 - No se hicieron pagos, premios reales, deploy, push ni cambios de dominio.
@@ -92,3 +95,7 @@ Mantener el arnes como regresion de contrato y decidir si se incorpora como coma
 ## Siguiente paso P008
 
 Definir un protocolo de fixtures contractuales reales autorizados o confirmar que la maqueta continuara con datos manuales. No crear tablas ni migraciones hasta que esa decision exista y la evidencia de proveedor sea suficiente.
+
+## Siguiente paso P009
+
+Conservar el modo manual mientras se reciben muestras y derechos de uso por los canales autorizados. Al llegar evidencia, clasificarla con P008 y solo entonces decidir un adaptador read-only o, si no hay aprobacion, preparar el flujo administrativo manual sobre el contrato neutral sin crear tablas todavia.

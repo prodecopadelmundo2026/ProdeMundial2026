@@ -36,6 +36,13 @@ Indice operativo para retomar el trabajo de Prode diario V2 sin depender de memo
 - `docs/ai/decisiones/P007-comando-de-contrato.md`: decision tecnica del comando portable.
 - `docs/ai/ejecuciones/P007-comando-y-regresiones-contrato.md`: implementacion y ejecucion inicial.
 - `docs/ai/provider-evaluations/contract-test-runbook.md`: uso, salida, limites y alta de regresiones.
+- `docs/ai/prompts/P008-muestras-autorizadas-y-modo-manual.md`: protocolo solicitado para evidencia real y operacion manual temporal.
+- `docs/ai/decisiones/P008-modo-manual-temporal.md`: limites, auditoria y reglas de la fuente manual.
+- `docs/ai/ejecuciones/P008-muestras-y-modo-manual.md`: registro documental y validacion de P008.
+- `docs/ai/provider-evaluations/sample-acceptance-protocol.md`: conservacion y separacion de muestras autorizadas.
+- `docs/ai/provider-evaluations/provider-sample-request-template.md`: plantilla no enviada para pedir evidencia y derechos de uso.
+- `docs/ai/provider-evaluations/sample-acceptance-checklist.md`: criterios y clasificaciones de aceptacion.
+- `docs/ai/provider-evaluations/provider-go-no-go.md`: puertas para adaptador, tablas y seleccion de proveedor.
 - `docs/ai/prompts/P001-inicio-v2-prode-diario.md`: prompt original recibido para iniciar V2.
 - `docs/ai/ejecuciones/P001-2026-09-13.md`: registro de inspeccion, cambios y validacion de P001.
 - `docs/ai/decisiones/2026-09-13-preview-v2-reversible.md`: decision de crear `/diario` antes de reemplazar portada.
