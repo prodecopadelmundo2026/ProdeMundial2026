@@ -1,6 +1,8 @@
 import type { DailyEvent, Journey, Participation, Pick, Prediction, Room } from './daily-prode/model'
 import { joinRoom } from './daily-prode/rooms'
 
+// This module is private development data. It must never be imported by public routes.
+export const SYNTHETIC_FIXTURE_NOTICE = 'Fixture sintético de demostración — no corresponde a un evento real'
 export const DEMO_TIMEZONE = 'America/Buenos_Aires'
 export const DEMO_NOW = '2026-09-13T12:00:00-03:00'
 export const DEMO_USER = 'demo-you'

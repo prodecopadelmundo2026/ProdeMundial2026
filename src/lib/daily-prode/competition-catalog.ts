@@ -49,3 +49,13 @@ export function isEligibleDailyEvent(event: DailyEvent): DailyEventEligibility {
   if (!competition?.publicEligible) return { eligible: false, reason: 'La competencia no pertenece al catálogo permitido.' }
   return { eligible: true }
 }
+
+/** Public listings need an authorized provider record, not a development fixture. */
+export function isPublicDailyEvent(event: DailyEvent): DailyEventEligibility {
+  const eligibility = isEligibleDailyEvent(event)
+  if (!eligibility.eligible) return eligibility
+  if (event.source.sourceType !== 'provider') return { eligible: false, reason: 'La fuente manual no se publica.' }
+  if (event.source.verificationStatus !== 'verified') return { eligible: false, reason: 'El evento todavía no está verificado.' }
+  if (!event.source.sourceReference?.trim() || !Number.isFinite(Date.parse(event.source.consultedAt ?? ''))) return { eligible: false, reason: 'Falta referencia o fecha de consulta de la fuente.' }
+  return { eligible: true }
+}

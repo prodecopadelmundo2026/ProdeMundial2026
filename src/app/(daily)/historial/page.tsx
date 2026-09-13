@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Archive, ArrowRight, BarChart3, ClipboardList, Settings, Trophy } from 'lucide-react'
+import { Archive, BarChart3, ClipboardList, Settings, Trophy } from 'lucide-react'
 
 const historyLinks = [
   { href: '/historial/mundial', label: 'Portada y cierre del Mundial 2026', icon: Archive },
@@ -27,7 +27,6 @@ export default function HistorialPage() {
     <section className="mt-8 border-t border-white/15 pt-6">
       <h2 className="text-xl font-extrabold">Jornadas diarias cerradas</h2>
       <p className="mt-3 text-sm text-muted">Todavia no hay jornadas reales archivadas.</p>
-      <Link href="/mi-prode" className="mt-4 inline-flex items-center gap-2 text-sm text-mint">12 sep 2026 / Jornada cerrada demo <ArrowRight size={16} /></Link>
     </section>
     <section className="mt-8 border-t border-white/15 pt-6"><h2 className="text-xl font-extrabold">Otras ediciones</h2><p className="mt-3 text-sm text-muted">No hay otras ediciones disponibles.</p></section>
   </div>

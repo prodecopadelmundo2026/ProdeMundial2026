@@ -55,6 +55,9 @@ Indice operativo para retomar el trabajo de Prode diario V2 sin depender de memo
 - `docs/ai/prompts/P012-separacion-diario-catalogo-y-filtros.md`: separacion funcional, catálogo y filtros solicitados.
 - `docs/ai/decisiones/P012-separacion-de-experiencias.md`: limites de rutas, eventos elegibles y ranking diario.
 - `docs/ai/ejecuciones/P012-separacion-diario-catalogo-y-filtros.md`: ejecucion y verificacion de P012.
+- `docs/ai/prompts/P013-auditoria-experiencia-diaria.md`: auditoria integral solicitada para experiencia diaria, eventos validos y responsive.
+- `docs/ai/decisiones/P013-auditoria-y-datos-validos.md`: frontera entre datos publicos verificados y fixtures de desarrollo.
+- `docs/ai/ejecuciones/P013-auditoria-y-datos-validos.md`: implementacion, validacion y limites de P013.
 - `docs/ai/competition-catalog.md`: competencias admitidas y exclusiones de la agenda publica.
 - `docs/ai/infrastructure/dev-environment-plan.md`: plan seguro para rama, base y credenciales de desarrollo futuras.
 - `docs/ai/prompts/P001-inicio-v2-prode-diario.md`: prompt original recibido para iniciar V2.

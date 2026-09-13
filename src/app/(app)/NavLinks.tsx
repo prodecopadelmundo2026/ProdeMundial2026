@@ -11,13 +11,12 @@ type NavLink = {
   label: string
   exact: boolean
   anchor: boolean
-  requiresAuth?: boolean
 }
 
 const NAV_LINKS: NavLink[] = [
   { href: '/', label: 'Inicio', exact: true, anchor: false },
   { href: '/diario', label: 'Prode diario', exact: false, anchor: false },
-  { href: '/mi-prode', label: 'Mi Prode', exact: false, anchor: false, requiresAuth: true },
+  { href: '/mi-prode', label: 'Mi Prode', exact: false, anchor: false },
   { href: '/ranking', label: 'Ranking', exact: false, anchor: false },
   { href: '/historial', label: 'Historial', exact: false, anchor: false },
   { href: '/reglas', label: 'Reglas', exact: false, anchor: false },
@@ -28,8 +27,9 @@ interface Props {
 }
 
 export function NavLinks({ isLoggedIn }: Props) {
+  void isLoggedIn
   const pathname = usePathname()
-  const links = NAV_LINKS.filter((link) => !link.requiresAuth || isLoggedIn)
+  const links = NAV_LINKS
   const [activeAnchor, setActiveAnchor] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
 

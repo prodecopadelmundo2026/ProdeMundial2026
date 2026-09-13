@@ -34,6 +34,9 @@ export type ProviderSource = {
   providerStatus?: string
   payloadHash?: string
   replacementEventId?: string
+  sourceReference?: string
+  consultedAt?: string
+  verificationStatus?: 'draft' | 'verified' | 'rejected'
 }
 
 type EventBase = {

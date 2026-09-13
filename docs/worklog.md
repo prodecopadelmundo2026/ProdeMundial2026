@@ -1,5 +1,17 @@
 # Worklog
 
+## 2026-09-13 - P013 auditoria de experiencia diaria y eventos validos
+
+### Cambios
+
+- Separamos los fixtures sinteticos de la fuente publica y dejamos estados vacios honestos mientras no haya proveedor autorizado.
+- Reforzamos la puerta de publicacion y los datos requeridos por la consola manual.
+
+### Validacion
+
+- Contrato 122/122, JSON, TypeScript, ESLint dirigido, build y smoke HTTP local correctos.
+- No hay automatizacion de navegador disponible; queda pendiente inspeccion visual de Preview en los anchos solicitados.
+
 ## 2026-09-13 - P012 separación diaria y catálogo deportivo
 
 ### Cambios

@@ -41,6 +41,8 @@ Fecha: 2026-09-13
 
 ## No implementado
 
+- P013 deja la agenda publica vacia hasta contar con fuente autorizada y eventos verificados; los fixtures permanecen solo en el laboratorio privado.
+
 - No se modifico schema, RLS, RPCs ni datos de Supabase.
 - No se implementaron puntajes de eliminacion definitivos ni operacion con dinero real.
 - No se eligio proveedor, ni se creo schema, tabla o migracion para V2.

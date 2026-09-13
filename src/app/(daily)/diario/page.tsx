@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import { DailyProdePreview } from '@/components/DailyProdePreview'
 
 export const metadata: Metadata = {
-  title: 'Prode diario | Operacion demo',
-  description: 'Agenda operativa diaria multideporte con datos sinteticos.',
+  title: 'Prode diario | Agenda',
+  description: 'Agenda diaria de eventos verificados y pronósticos multideporte.',
 }
 
 export default async function DiarioPage({ searchParams }: { searchParams: Promise<{ jornada?: string }> }) {
