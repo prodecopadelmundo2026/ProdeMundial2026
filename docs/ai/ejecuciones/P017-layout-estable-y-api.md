@@ -10,4 +10,4 @@
 - Responsive: capturas revisadas en 768, 1024, 1280 y 1440 px confirman el hero apilado antes de escritorio y dos columnas desde 1024 px, sin superposiciones. Se generaron capturas de 320, 360 y 390 px con escala móvil y se reforzaron `min-w-0`, ancho máximo y quiebre de textos; Chrome headless mantiene un viewport interno mínimo, por lo que la comprobación de píxeles exacta en esos tres anchos queda limitada por la herramienta local.
 - Publicación funcional: `22437bdb9bea403fd32def3ebbb14467333312d6` llegó a `main`. Vercel completó el deployment `2127zb4T4dRYQ8fNX36tN84RaFB2` en `https://prode-mundial2026-728rbfmjc-prodecopadelmundo2026s-projects.vercel.app`.
 - Smoke de producción: `/`, `/mi-prode`, `/ranking`, `/reglas`, `/historial` y `/historial/mundial` respondieron 200; `/diario` emitió `NEXT_REDIRECT;replace;/;308` hacia `/`.
-- Pendiente de cierre: registrar el cierre documental y alinear `dev` con el SHA final de `main`.
+- Cierre: el registro documental se integra en `main` y `dev` se alinea por avance rápido con el SHA final; se preserva `backup/dev-before-p014-20260913`.
