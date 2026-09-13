@@ -27,12 +27,14 @@ Fecha: 2026-09-13
 - Resultados de futbol separados en marcador a 90, alargue, penales y clasificado; los puntos del marcador se calculan sin incluir el criterio aun pendiente del clasificado.
 - Auditoria aislada preparada para sincronizacion automatica, correccion manual y confirmacion administrativa.
 - Analisis de proveedores documentado; Goalserve queda como candidato para prueba de datos, sin eleccion ni integracion.
+- P004 dejo un checkpoint local de P001-P003 en `41bc388` y evaluo Goalserve solo con documentacion y muestras publicas: futbol/tenis son utilizables para prototipo, pero copa y boxeo no estan verificados para puntajes definitivos.
 
 ## No implementado
 
 - No se modifico schema, RLS, RPCs ni datos de Supabase.
 - No se implementaron puntajes de eliminacion definitivos ni operacion con dinero real.
 - No se eligio proveedor, ni se creo schema, tabla o migracion para V2.
+- No se implemento Goalserve: no habia credencial local con nombre Goalserve y no se hicieron requests autenticados.
 - No se hicieron pagos, premios reales, deploy, push ni cambios de dominio.
 
 ## Bloqueos o advertencias
@@ -58,6 +60,17 @@ Fecha: 2026-09-13
 - Smoke test: marcador de copa a 90 minutos puntua independientemente del clasificado y la confirmacion administrativa queda auditada.
 - UI movil: resultados de 90 minutos, penales, clasificado y criterio pendiente visibles sin overflow ni errores de consola.
 
+## Validacion P004
+
+- Typecheck, ESLint dirigido y build: correctos.
+- No hay script ni archivos de test configurados en el proyecto.
+- Goalserve fue evaluado solo con documentacion y muestras publicas; no hubo consulta autenticada, integracion, cambios de Supabase ni payloads guardados.
+- La recomendacion vigente es `Apto para prototipo, pero no para puntajes definitivos` hasta verificar copa, boxeo, correcciones y licencia.
+
 ## Validacion P001`r`n`r`n- Typecheck: OK.`r`n- ESLint dirigido a archivos P001: OK.`r`n- Build: OK.`r`n- Lint global: bloqueado por deuda previa en archivos no tocados.`r`n- Capturas responsive: generadas con Playwright CLI.`r`n- Dev server: rutas nuevas respondieron 200; Turbopack registro panic sobre `/ranking` al cerrar, pendiente de investigar si se repite.`r`n`r`n## Proximo paso sugerido
 
 Revisar visualmente `/diario`, decidir si esta maqueta debe pasar a ser la portada y definir los primeros criterios de datos reales: proveedor, IDs estables, estados y flujo de confirmacion manual.
+
+## Siguiente paso P005
+
+Solicitar trial o muestras contractuales de Goalserve para copa, tenis a cinco sets y boxeo; validar correcciones, reemplazos, limites y derechos de exhibicion. Con esa evidencia se podra crear un adaptador read-only con fixtures de contrato, todavia fuera de Supabase y de la UI.

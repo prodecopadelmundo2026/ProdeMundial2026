@@ -1,5 +1,23 @@
 # Worklog
 
+## 2026-09-13 - P004 prueba controlada de Goalserve
+
+### Objetivo
+
+Comprobar si Goalserve puede alimentar el modelo aislado de Prode diario sin integrarlo ni modificar Supabase.
+
+### Cambios
+
+- Se inspecciono y consolido P001-P003 en el checkpoint local `41bc388`.
+- Se revisaron referencias y muestras oficiales publicas de Goalserve sin utilizar credenciales ni guardar payloads.
+- Se documento una matriz de futbol, copa, tenis, boxeo, correcciones, IDs y licencia.
+- Goalserve queda apto solo para prototipo: faltan pruebas de copa, boxeo, correcciones y derechos de exhibicion.
+
+### Validacion
+
+- Typecheck, ESLint dirigido, build y `git diff --check`: correctos.
+- No hay script de tests ni archivos de prueba configurados en el proyecto.
+
 ## 2026-09-13 - P003 reglas de resultados y proveedor
 
 ### Objetivo
