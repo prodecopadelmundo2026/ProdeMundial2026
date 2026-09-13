@@ -91,6 +91,13 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!user) {
+    if (request.nextUrl.pathname.startsWith('/admin/diario')) {
+      const loginUrl = request.nextUrl.clone()
+      loginUrl.pathname = '/login'
+      loginUrl.searchParams.set('next', request.nextUrl.pathname)
+      return NextResponse.redirect(loginUrl)
+    }
+
     const homeUrl = request.nextUrl.clone()
     homeUrl.pathname = '/'
     homeUrl.searchParams.set('desde', 'acceso')
