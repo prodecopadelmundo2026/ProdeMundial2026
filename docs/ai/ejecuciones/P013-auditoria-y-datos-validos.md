@@ -50,4 +50,7 @@ Las composiciones usan grids que colapsan a una columna, controles de altura min
 ## Publicacion
 
 - SHA final de implementación: `cd7033b feat: audit daily experience and verified public events`.
-- Pendiente de push de la rama y Preview de Vercel. No se hara merge ni push a `main` sin autorizacion expresa.
+- Rama publicada: `codex/p013-auditoria-experiencia-diaria`.
+- Preview de Vercel correcto: `https://prode-mundial2026-cyjxdgyzf-prodecopadelmundo2026s-projects.vercel.app`.
+- Smoke de Preview: las rutas diarias respondieron 200 sin Mundial ni fixtures públicos; Historial preservó el Mundial; `/admin/diario` redirigió sin sesión con HTTP 307 a `/login?next=%2Fadmin%2Fdiario`.
+- No se hizo merge ni push a `main`.

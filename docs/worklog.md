@@ -11,6 +11,7 @@
 
 - Contrato 122/122, JSON, TypeScript, ESLint dirigido, build y smoke HTTP local correctos.
 - No hay automatizacion de navegador disponible; queda pendiente inspeccion visual de Preview en los anchos solicitados.
+- Preview de la rama P013 publicado y smoke HTTP correcto; `main` no fue modificado.
 
 ## 2026-09-13 - P012 separación diaria y catálogo deportivo
 
