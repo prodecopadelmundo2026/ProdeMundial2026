@@ -1,6 +1,12 @@
 import Link from 'next/link'
+import type { Metadata } from 'next'
 import type { CSSProperties, ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
+
+export const metadata: Metadata = {
+  title: 'Prode Mundial 2026 | Historial',
+  description: 'Portada historica de Prode Mundial 2026.',
+}
 import type { Match } from '@/types'
 import { formatRank, rankMedal } from '@/lib/ranking-display'
 import { BonusPollHomeCard } from '@/components/BonusPoll'

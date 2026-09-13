@@ -1,0 +1,63 @@
+# Estado actual
+
+Fecha: 2026-09-13
+
+## Repo verificado
+
+- Ruta local real: `C:\Users\juana\Desktop\Proyectos\prode-mundial-2026`.
+- Ruta mencionada en P001 y registrada por Codex: `C:\Users\juana\Desktop\prode-mundial-2026`, no existe en disco durante esta ejecucion.
+- Remoto: `https://github.com/prodecopadelmundo2026/ProdeMundial2026`.
+- Rama de partida: `main`.
+- Commit de partida: `22bd94e`.
+- Estado inicial: sin cambios trackeados; `supabase/.temp/` estaba sin trackear y se dejo intacto.
+
+## Implementado en P001 y P002
+
+- Documentacion `docs/ai/` para reglas de trabajo, vision, estado, prompt y ejecucion.
+- Ruta local `/diario` con maqueta navegable de agenda diaria multideporte.
+- Datos de demostracion separados en `src/lib/daily-prode-demo.ts`.
+- Seleccion de fecha y sala en cliente sin escrituras remotas.
+- Vista de sala con participantes, pozo, clasificacion provisional y participacion del usuario demo.
+- Ruta `/historial` como acceso secundario a Mundial 2026.
+- Navegacion principal simplificada para mostrar `Prode diario` e `Historial`.
+- La portada `/` ahora muestra Prode diario; `/diario` se conserva como alias.
+- La portada anterior del Mundial queda disponible en `/historial/mundial` y las otras rutas del Mundial siguen intactas.
+- Modelo V2 aislado en `src/lib/daily-prode/`: puntajes, participaciones, ranking por sala y contrato de proveedor/auditoria.
+- Maqueta con futbol normal y de eliminacion, tenis mejor de 3 y 5, boxeo KO y decision, estados excepcionales, carga, error y datos de demostracion.
+- Resultados de futbol separados en marcador a 90, alargue, penales y clasificado; los puntos del marcador se calculan sin incluir el criterio aun pendiente del clasificado.
+- Auditoria aislada preparada para sincronizacion automatica, correccion manual y confirmacion administrativa.
+- Analisis de proveedores documentado; Goalserve queda como candidato para prueba de datos, sin eleccion ni integracion.
+
+## No implementado
+
+- No se modifico schema, RLS, RPCs ni datos de Supabase.
+- No se implementaron puntajes de eliminacion definitivos ni operacion con dinero real.
+- No se eligio proveedor, ni se creo schema, tabla o migracion para V2.
+- No se hicieron pagos, premios reales, deploy, push ni cambios de dominio.
+
+## Bloqueos o advertencias
+
+- La ruta local esperada en el prompt no coincide con la ruta real encontrada.
+- El sandbox de Codex tenia como raiz escribible la ruta inexistente; las escrituras en el repo real requirieron permiso elevado local.
+- No se confirmo Obsidian ni MCP de Supabase conectado. Se continuo con archivos locales.
+- La portada historica del Mundial requiere SUPABASE_SERVICE_ROLE_KEY en este entorno local para completar sus consultas existentes; no se modifico esa configuracion.
+
+## Validacion P002
+
+- Typecheck y build de produccion: correctos.
+- Lint dirigido: sin errores; hay un warning heredado en la portada historica del Mundial por img HTML.
+- Lint global: mantiene 20 errores preexistentes fuera del alcance de P002.
+- Smoke test: puntaje de futbol, tenis y boxeo; unicidad por sala y reparto de empate, correcto.
+- Rutas locales /, /diario y /historial respondieron 200. La portada historica conserva su codigo, pero necesita SUPABASE_SERVICE_ROLE_KEY local.
+- Capturas generadas en 320, 390, 768, 1024 y 1366 px. Se corrigio una hidratacion por formato de fecha/hora dependiente del locale.
+- Verificacion automatizada en esos cinco anchos: sin overflow horizontal, errores de consola ni overlay de Next en la experiencia diaria.
+
+## Validacion P003
+
+- Typecheck, lint dirigido y build: correctos.
+- Smoke test: marcador de copa a 90 minutos puntua independientemente del clasificado y la confirmacion administrativa queda auditada.
+- UI movil: resultados de 90 minutos, penales, clasificado y criterio pendiente visibles sin overflow ni errores de consola.
+
+## Validacion P001`r`n`r`n- Typecheck: OK.`r`n- ESLint dirigido a archivos P001: OK.`r`n- Build: OK.`r`n- Lint global: bloqueado por deuda previa en archivos no tocados.`r`n- Capturas responsive: generadas con Playwright CLI.`r`n- Dev server: rutas nuevas respondieron 200; Turbopack registro panic sobre `/ranking` al cerrar, pendiente de investigar si se repite.`r`n`r`n## Proximo paso sugerido
+
+Revisar visualmente `/diario`, decidir si esta maqueta debe pasar a ser la portada y definir los primeros criterios de datos reales: proveedor, IDs estables, estados y flujo de confirmacion manual.

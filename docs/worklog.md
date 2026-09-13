@@ -1,5 +1,70 @@
 # Worklog
 
+## 2026-09-13 - P003 reglas de resultados y proveedor
+
+### Objetivo
+
+Confirmar resultados de futbol y boxeo, revisar la capacidad de los proveedores y dejar listo el modelo sin integrar servicios externos.
+
+### Cambios
+
+- Se separan marcador a 90, alargue, penales y clasificado en el modelo de futbol V2.
+- Se mantiene pendiente el puntaje del clasificado y se confirma la matriz inicial de boxeo.
+- Se agrega la confirmacion administrativa al registro de auditoria aislado.
+- Se documenta la comparacion entre Goalserve, Sportradar, API-Sports y TheSportsDB, con recomendacion condicionada a prueba de datos.
+
+### Validacion
+
+- `npx tsc --noEmit --pretty false`: OK.
+- ESLint dirigido a P003: OK.
+- Smoke test de copa y auditoria: OK.
+- `npm run build`: OK.
+- UI movil de resultado de copa: OK; sin overflow ni errores de consola.
+- `git diff --check`: OK, con avisos CRLF de Windows.
+
+## 2026-09-13 - Reglas funcionales P002 de Prode diario
+
+### Objetivo
+
+Convertir la V2 en experiencia principal, formalizar reglas de salas y puntajes, y preparar modelos aislados para deportes y proveedores sin tocar datos del Mundial.
+
+### Cambios
+
+- Se crea la portada diaria `/` y se mantiene `/diario`.
+- Se conserva la portada del Mundial en `/historial/mundial` y se amplian sus accesos desde `/historial`.
+- Se centralizan scoring, ranking por sala y modelo V2 bajo `src/lib/daily-prode/`.
+- Se agrega una maqueta demo para futbol, tenis y boxeo con estados y casos excepcionales.
+- Se documentan reglas, propuestas y decisiones pendientes en `docs/ai/`.
+
+### Validacion
+
+- `npx tsc --noEmit --pretty false`: OK.
+- `npx eslint` dirigido a P002: sin errores; warning heredado en la portada historica del Mundial por `img` HTML.
+- Smoke test de scoring, participacion y empate: OK.
+- `npm run build`: OK.
+- `git diff --check`: OK, con avisos CRLF de Windows.
+- `/`, `/diario` y `/historial`: 200 localmente; capturas en 320, 390, 768, 1024 y 1366 px. `/historial/mundial` conserva la portada previa pero requiere SUPABASE_SERVICE_ROLE_KEY local para terminar sus consultas existentes.
+- Verificacion automatizada: los cinco anchos diarios no tuvieron overflow, errores de consola ni overlay; salas, estados y empate de la jornada cerrada demo respondieron correctamente.
+- `npm run lint` global: 20 errores preexistentes fuera del alcance de P002.
+
+## 2026-09-13 - Inicio V2 Prode diario
+
+### Objetivo
+
+Registrar reglas persistentes para la V2 y crear una primera maqueta local reversible de agenda diaria multideporte sin tocar datos reales, scoring, Supabase remoto ni deploy.
+
+### Cambios
+
+- Se agrega `docs/ai/` como documentacion canonica para V2, prompts, ejecuciones y decisiones.
+- Se conserva el prompt P001 original en `docs/ai/prompts/P001-inicio-v2-prode-diario.md`.
+- Se crea `/diario` con datos demo aislados para agenda, salas, participacion y clasificacion.
+- Se crea `/historial` como acceso secundario al Mundial 2026.
+- La navegacion principal agrega Prode diario e Historial.
+
+### Validacion
+
+- `npx tsc --noEmit --pretty false`: OK.`r`n- `npx eslint` dirigido a archivos modificados: OK.`r`n- `npm run build`: OK.`r`n- `git diff --check`: OK, con avisos CRLF de Windows.`r`n- `npm run lint` global falla por deuda preexistente fuera de P001.`r`n- Capturas responsive generadas con Playwright CLI.`r`n- Dev server respondio 200 en rutas nuevas, con panic de Turbopack sobre `/ranking` al cerrar.`r`n- No se hicieron migraciones, escrituras remotas, push ni deploy.
+
 ## 2026-07-19 - Cierre visual post Mundial y auditoría pública
 
 ### Objetivo

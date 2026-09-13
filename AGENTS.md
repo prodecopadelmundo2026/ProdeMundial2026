@@ -2,9 +2,12 @@
 
 ## Contexto de trabajo
 
-Este repo es el Prode Mundial 2026. Es una app Next.js con Supabase donde ranking, scoring, auditoria, eliminatorias y bonus son zonas sensibles.
+Este repo contiene el Prode Mundial 2026 y la V2 en preparacion como Prode diario. Es una app Next.js con Supabase donde ranking, scoring, auditoria, eliminatorias y bonus son zonas sensibles.
 
 Antes de modificar un modulo, leer:
+
+- `docs/ai/README.md` si la tarea toca la V2 o reglas de trabajo
+- `docs/ai/estado-actual.md` para estado vigente de V2
 
 - `docs/memory.md`
 - `docs/worklog.md`
@@ -13,6 +16,11 @@ Antes de modificar un modulo, leer:
 
 ## Reglas locales
 
+- Preservar el Mundial; separar reglas V2 en `src/lib/daily-prode/` y usar datos ficticios en demos.
+- En futbol V2 mantener separados marcador a 90, alargue, penales y clasificado; el proveedor se consume solo mediante adaptadores.
+- Conservar auditoria con antes/despues, autor, fecha, motivo y fuente.
+- No hacer cambios destructivos, deploy ni cambios externos sin autorizacion explicita.
+- Documentar cada tarea V2 y verificar tipos, lint dirigido, tests y responsive.
 - No hacer push sin autorizacion explicita.
 - No cambiar reglas de scoring, bonus, ranking, snapshots, Supabase, RPCs, auth o admin salvo que la tarea lo pida de forma directa.
 - Si aparece una inconsistencia de datos, documentarla antes de cambiar calculos.

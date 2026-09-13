@@ -1,0 +1,71 @@
+.page { max-width: 1200px; margin: 0 auto; padding: 28px 16px 110px; letter-spacing: 0; overflow-wrap: anywhere; }
+.page * { min-width: 0; }
+.header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 24px; }
+.title { font-size: 32px; font-weight: 900; line-height: 1.15; margin: 8px 0; }
+.subtitle, .muted { color: #b1b1b1; font-size: 12px; line-height: 1.6; }
+.tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 4px; background: #242424; color: #dddddd; }
+.tag[data-state="live"] { background: #342021; color: #ffaaaa; }
+.tag[data-state="exact"], .tag[data-state="final"] { background: #153b32; color: #a8f0d8; }
+.tag[data-state="partial"], .tag[data-state="upcoming"], .tag[data-state="pending"] { background: #343014; color: #ffe486; }
+.tag[data-state="review"], .tag[data-state="cancelled"], .tag[data-state="suspended"], .tag[data-state="void"] { background: #342328; color: #ffc0cf; }
+.toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; padding: 18px 0; border-top: 1px solid #303030; border-bottom: 1px solid #303030; }
+.dateNav { display: flex; align-items: end; gap: 8px; }
+.page label { display: grid; gap: 6px; color: #cfcfcf; font-size: 12px; font-weight: 700; }
+.page select, .page input { width: 100%; min-height: 40px; border: 1px solid #444; border-radius: 6px; padding: 8px; color: white; background: #171717; font: inherit; }
+.page button { cursor: pointer; }
+.page button:disabled { cursor: not-allowed; opacity: .45; }
+.page :focus-visible { outline: 2px solid #a8f0d8; outline-offset: 3px; }
+.iconButton { display: grid; place-items: center; height: 40px; width: 40px; flex: 0 0 40px; border: 1px solid #444; border-radius: 6px; background: #202020; }
+.rooms { display: flex; flex-wrap: wrap; gap: 8px; border: 0; padding: 0; margin: 0; }
+.rooms legend { color: #b1b1b1; font-size: 12px; margin-bottom: 6px; }
+.rooms label { display: flex; align-items: center; gap: 6px; border: 1px solid #444; border-radius: 6px; padding: 10px; cursor: pointer; }
+.rooms label:has(input:checked) { border-color: #ff8c38; background: #29221c; color: white; }
+.rooms input { width: 15px; min-height: 15px; accent-color: #ff8c38; }
+.section { padding: 24px 0; border-bottom: 1px solid #303030; }
+.sectionHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.section h2 { font-size: 21px; font-weight: 800; }
+.group { margin-top: 20px; }
+.group h3 { color: #c8c8c8; font-size: 12px; font-weight: 800; margin-bottom: 10px; }
+.event { background: #151515; border: 1px solid #303030; border-radius: 8px; padding: 16px; margin-bottom: 10px; }
+.eventTop { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 14px; }
+.time { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.event h4, .prediction h3 { font-size: 15px; line-height: 1.5; font-weight: 800; margin: 7px 0; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.result { font-size: 13px; color: #d3f2ea; margin-top: 6px; line-height: 1.5; }
+.details { margin-top: 12px; font-size: 12px; color: #bcbcbc; }
+.details summary, .editorDetails summary { cursor: pointer; padding: 6px 0; }
+.details dl { display: grid; gap: 6px; margin-top: 8px; }
+.details dl div { display: flex; justify-content: space-between; gap: 12px; }
+.details dd { text-align: right; }
+.editorDetails { border-top: 1px solid #333; margin-top: 12px; padding-top: 8px; color: #ffb478; font-size: 13px; font-weight: 700; }
+.editor { display: grid; gap: 12px; padding-top: 12px; color: white; font-weight: 500; }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; border: 0; border-radius: 6px; background: #ff8c38; color: #141414; font-size: 13px; font-weight: 800; padding: 10px 14px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 4px 0 22px; }
+.stats dt { color: #b1b1b1; font-size: 12px; margin-bottom: 5px; }
+.stats dd { font-size: 24px; font-weight: 800; line-height: 1.25; }
+.stats dd small { display: block; font-size: 11px; font-weight: 600; color: #cfcfcf; margin-top: 5px; }
+.participation { display: grid; gap: 24px; }
+.prediction { padding: 14px 0; border-top: 1px solid #303030; }
+.prediction dl { display: grid; gap: 10px; font-size: 12px; margin-top: 12px; }
+.prediction dt { color: #a8a8a8; margin-bottom: 3px; }
+.prediction dd { line-height: 1.5; }
+.points { font-weight: 800; color: #a8f0d8; }
+.rankList { list-style: none; padding: 0; }
+.rankRow { display: grid; grid-template-columns: 28px minmax(0, 1fr) 48px; align-items: start; gap: 10px; padding: 13px 8px; border-top: 1px solid #303030; font-size: 13px; }
+.rankRow[data-user="true"] { background: #1b302b; }
+.rankRow p { font-size: 11px; color: #a8f0d8; margin-top: 4px; }
+.empty { padding: 26px 0; color: #bcbcbc; font-size: 14px; line-height: 1.6; }
+.error { color: #ffc0cf; }
+.loading { height: 90px; background: #1c1c1c; margin: 12px 0; border-radius: 6px; }
+@media (min-width: 700px) {
+  .title { font-size: 40px; }
+  .page { padding: 32px 24px 110px; }
+  .eventTop { grid-template-columns: 84px minmax(0, 1fr); }
+  .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .prediction dl { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 80px; }
+  .editor { max-width: 600px; }
+}
+@media (min-width: 1024px) {
+  .participation { grid-template-columns: minmax(0, 1fr) 310px; gap: 32px; }
+}

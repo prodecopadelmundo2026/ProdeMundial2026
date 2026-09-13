@@ -22,9 +22,9 @@ const mono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Prode Mundial 2026',
-  applicationName: 'Prode Mundial 2026',
-  description: 'Prode Mundial 2026',
+  title: 'Prode diario',
+  applicationName: 'Prode diario',
+  description: 'Agenda diaria multideporte, salas y pronosticos.',
   manifest: '/manifest.json',
   icons: {
     icon: [
@@ -38,12 +38,12 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: 'Prode 26',
+    title: 'Prode diario',
     statusBarStyle: 'black-translucent',
   },
   openGraph: {
-    title: 'Prode Mundial 2026',
-    description: 'Prode Mundial 2026',
+    title: 'Prode diario',
+    description: 'Agenda diaria multideporte, salas y pronosticos.',
     locale: 'es_AR',
     type: 'website',
   },
