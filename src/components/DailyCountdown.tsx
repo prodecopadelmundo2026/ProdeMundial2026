@@ -18,6 +18,7 @@ export function DailyCountdown({ event }: { event?: DailyEvent }) {
     }, 1000)
     return () => window.clearInterval(id)
   }, [event])
+  if (!event || !Number.isFinite(Date.parse(event.scheduledStart))) return null
   const text = countdownText(event, now)
   return <p aria-live="polite" className="font-mono text-[11px] font-extrabold uppercase tracking-[.1em] text-mint">Próximo evento: {text}</p>
 }

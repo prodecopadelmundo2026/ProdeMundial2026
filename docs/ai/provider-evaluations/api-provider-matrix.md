@@ -1,4 +1,4 @@
-# Matriz de proveedores P016
+# Matriz de proveedores P017
 
 | Proveedor | Evidencia actual | Decisión |
 | --- | --- | --- |
@@ -11,8 +11,8 @@
 
 La elección exige muestras autorizadas, IDs estables, horarios, estados, sets/tiebreaks, KO/TKO/método/round, reprogramaciones, eliminaciones, webhooks o polling, límites, trial, precio, licencia de exhibición/redistribución y uso con premios. No se selecciona un proveedor por declararse multideporte.
 
-## Estado de credenciales P016
+## Estado de credenciales P017
 
 - Variables locales revisadas por nombre: no existe una clave de proveedor deportivo; solo hay variables públicas de Supabase y una clave no deportiva de Obsidian en el entorno.
-- Vercel CLI está autenticada únicamente en el equipo `juan-ascenzi-dev`; el scope del proyecto de producción no está disponible en esta sesión y sus variables no pudieron enumerarse. No se modificó ninguna variable ni se supuso una clave remota.
+- Vercel CLI está autenticada únicamente en el equipo `juanascenzi-dev`; su único equipo visible es `juan-ascenzi-dev` y el scope del proyecto de producción no existe en esta sesión. Sus variables no pudieron enumerarse. No se modificó ninguna variable ni se supuso una clave remota.
 - Sin credencial, trial autorizado, cobertura por competencia y licencia no se crea adaptador, request, polling, tabla, persistencia ni evento público.

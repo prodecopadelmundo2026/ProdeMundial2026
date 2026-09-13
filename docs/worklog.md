@@ -1,5 +1,11 @@
 # Worklog
 
+## 2026-09-13 - P017 estabilidad visual y bloqueo de API
+
+- El home diario reserva altura para títulos de hasta tres líneas, descripción, estado y tarjetas de eventos/resumen, evitando que la fecha o el estado cambien la estructura vertical.
+- En escritorio el hero separa información y controles; en mobile los apila sin ocultar texto. La fecha visible pasa a formato breve completo, mientras el label accesible conserva la fecha íntegra.
+- No hay credencial deportiva local ni acceso al scope Vercel de producción desde esta sesión; la agenda pública continúa vacía, sin Boxeo ni UFC, y no se creó adaptador ni se tocó Supabase.
+
 ## 2026-09-13 - P016 calendario propio y bloqueo de API
 
 - Se reemplaza el selector `input type="date"` por un calendario visual propio reutilizado en `/`, `/mi-prode` y `/ranking`.

@@ -65,6 +65,9 @@ Indice operativo para retomar el trabajo de Prode diario V2 sin depender de memo
 - `docs/ai/prompts/P016-calendario-propio-y-api.md`: calendario visual propio e integración deportiva condicionada.
 - `docs/ai/decisiones/P016-calendario-y-ufc.md`: alcance del calendario, fuente pública y UFC.
 - `docs/ai/ejecuciones/P016-calendario-y-ufc.md`: ejecución y validación de P016.
+- `docs/ai/prompts/P017-estabilidad-visual-y-api.md`: estabilidad visual del home y comienzo condicionado de integración deportiva.
+- `docs/ai/decisiones/P017-layout-estable-y-api.md`: alturas reservadas, responsive, PWA y bloqueo de proveedor.
+- `docs/ai/ejecuciones/P017-layout-estable-y-api.md`: ejecución y validación de P017.
 - `docs/ai/competition-catalog.md`: competencias admitidas y exclusiones de la agenda publica.
 - `docs/ai/infrastructure/dev-environment-plan.md`: plan seguro para rama, base y credenciales de desarrollo futuras.
 - `docs/ai/prompts/P001-inicio-v2-prode-diario.md`: prompt original recibido para iniciar V2.
