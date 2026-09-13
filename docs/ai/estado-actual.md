@@ -49,6 +49,9 @@ Fecha: 2026-09-13
 - No hay autorizacion para conservar payloads reales de un proveedor. Cualquier evidencia futura debe pasar por el protocolo, checklist y decision Go/No-Go de P008 antes de ingresar al repositorio.
 - La fuente `sourceType: manual` esta definida documentalmente para desarrollo y operacion temporal; todavia no esta conectada a Supabase, tablas ni UI administrativa.
 - El modo manual no es una fuente deportiva real: los eventos de `/` y `/diario` son datos demo, y el laboratorio administrativo se reinicia al recargar.
+- P012 separa `/` como resumen y `/diario` como operación. `/mi-prode`, `/ranking` y `/reglas` son rutas diarias en memoria; las pantallas históricas equivalentes pasan a `/historial/mundial/mi-prode`, `/historial/mundial/ranking` y `/historial/mundial/reglas`.
+- El catálogo `competition-catalog.ts` limita la agenda a fútbol argentino/CONMEBOL y ATP/Grand Slam. Boxeo requiere una cartelera identificada; MMA queda solo como categoría futura.
+- La portada y agenda usan participantes genéricos y competencias permitidas marcadas como demo. No hay partidos de exhibición ni peleas inventadas publicados.
 - La infraestructura de desarrollo sigue pendiente de confirmar proyecto, costo, RLS y credenciales aisladas; P010 no creo ni modifico infraestructura.
 - Los fixtures P006 son sinteticos y no son evidencia de Goalserve ni habilitan resultados o puntajes reales.
 - El comando P007 no accede a red, proveedores, Supabase ni archivos del proyecto fuera de temporales propios del sistema.

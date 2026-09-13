@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 }
 export default async function DailyPage({ searchParams }: { searchParams: Promise<{ jornada?: string }> }) {
   const { jornada } = await searchParams
-  return <DailyProdePreview initialDate={jornada} />
+  return <DailyProdePreview initialDate={jornada} mode="summary" />
 }

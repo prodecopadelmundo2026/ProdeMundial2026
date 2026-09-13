@@ -4,13 +4,13 @@ import { Archive, ArrowRight, BarChart3, ClipboardList, Settings, Trophy } from 
 const historyLinks = [
   { href: '/historial/mundial', label: 'Portada y cierre del Mundial 2026', icon: Archive },
   { href: '/fixture', label: 'Fixture y resultados', icon: Archive },
-  { href: '/ranking', label: 'Ranking auditado', icon: Trophy },
+  { href: '/historial/mundial/ranking', label: 'Ranking auditado', icon: Trophy },
   { href: '/pronosticos', label: 'Pronosticos publicos', icon: ClipboardList },
   { href: '/estadisticas', label: 'Estadisticas', icon: BarChart3 },
   { href: '/premios', label: 'Premios del Mundial', icon: Trophy },
-  { href: '/mi-prode', label: 'Mi Prode del Mundial', icon: ClipboardList },
+  { href: '/historial/mundial/mi-prode', label: 'Mi Prode del Mundial', icon: ClipboardList },
   { href: '/mundial-en-vivo', label: 'Seguimiento del Mundial', icon: Archive },
-  { href: '/reglas', label: 'Reglas del Mundial', icon: ClipboardList },
+  { href: '/historial/mundial/reglas', label: 'Reglas del Mundial', icon: ClipboardList },
   { href: '/admin', label: 'Administracion del Mundial', icon: Settings },
 ]
 export default function HistorialPage() {
@@ -27,7 +27,7 @@ export default function HistorialPage() {
     <section className="mt-8 border-t border-white/15 pt-6">
       <h2 className="text-xl font-extrabold">Jornadas diarias cerradas</h2>
       <p className="mt-3 text-sm text-muted">Todavia no hay jornadas reales archivadas.</p>
-      <Link href="/?jornada=2026-09-12" className="mt-4 inline-flex items-center gap-2 text-sm text-mint">12 sep 2026 / Jornada cerrada demo <ArrowRight size={16} /></Link>
+      <Link href="/mi-prode" className="mt-4 inline-flex items-center gap-2 text-sm text-mint">12 sep 2026 / Jornada cerrada demo <ArrowRight size={16} /></Link>
     </section>
     <section className="mt-8 border-t border-white/15 pt-6"><h2 className="text-xl font-extrabold">Otras ediciones</h2><p className="mt-3 text-sm text-muted">No hay otras ediciones disponibles.</p></section>
   </div>

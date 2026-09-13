@@ -11,7 +11,7 @@ export const demoJourneys: Journey[] = [
 ]
 function base(id: string, hour: string, home: string, away: string) {
   return {
-    id: 'demo-' + id, journeyId: demoJourneys[1].id, competition: 'Circuito de exhibicion',
+    id: 'demo-' + id, journeyId: demoJourneys[1].id, competition: 'ATP Masters 1000 (demo)',
     participants: { home: { id: id + '-h', name: home }, away: { id: id + '-a', name: away } },
     scheduledStart: '2026-09-13T' + hour + ':00-03:00',
     status: 'upcoming' as const, resultState: 'missing' as const,
@@ -19,23 +19,17 @@ function base(id: string, hour: string, home: string, away: string) {
   }
 }
 export const dailyEvents: DailyEvent[] = [
-  { ...base('football', '14:00', 'Club Deportivo Puerto del Horizonte', 'Union del Valle'), sport: 'football', format: { knockout: false }, competition: 'Liga de exhibicion', broadcastStart: '2026-09-13T13:30:00-03:00' },
-  { ...base('cup', '15:00', 'Deportivo Estacion Central', 'Atletico Costa Clara'), sport: 'football', format: { knockout: true, leg: 'return', requiresResolution: true }, competition: 'Copa de exhibicion / vuelta' },
-  { ...base('tennis3', '16:00', 'Lina Prado', 'Vera Montes'), sport: 'tennis', format: { bestOf: 3 } },
-  { ...base('tennis5', '17:00', 'Dario Lagos', 'Teo Cardenas'), sport: 'tennis', format: { bestOf: 5 } },
-  { ...base('boxing', '21:00', 'Alex del Rio', 'Nico Serra'), sport: 'boxing', format: { rounds: 12 } },
-  { ...base('boxing-decision', '22:00', 'Mara Luna', 'Sol Ferrer'), sport: 'boxing', format: { rounds: 10 } },
-  { ...base('live', '11:00', 'Lucia Brisa', 'Eva Campo'), sport: 'tennis', format: { bestOf: 3 }, status: 'live', resultState: 'partial', actualStart: '2026-09-13T11:07:00-03:00', result: { sport: 'tennis', winner: 'home', loserSets: 0, sets: [{ home: 6, away: 3 }, { home: 2, away: 4 }] } },
-  { ...base('exact', '09:00', 'Deportivo Sur', 'Atletico Norte'), sport: 'football', format: { knockout: false }, status: 'finished', resultState: 'confirmed', result: { sport: 'football', scoreAt90: { home: 2, away: 1 } } },
-  { ...base('sets', '09:10', 'Luz Pereira', 'Nora Fuentes'), sport: 'tennis', format: { bestOf: 3 }, status: 'finished', resultState: 'confirmed', result: { sport: 'tennis', winner: 'home', loserSets: 1, sets: [{ home: 6, away: 4 }, { home: 3, away: 6 }, { home: 6, away: 2 }] } },
-  { ...base('ko', '09:20', 'Ivan Prado', 'Bruno Valle'), sport: 'boxing', format: { rounds: 12 }, status: 'finished', resultState: 'confirmed', result: { sport: 'boxing', outcome: 'home', method: 'ko', round: 7 } },
-  { ...base('decision', '09:30', 'Mia Arena', 'Alma Rios'), sport: 'boxing', format: { rounds: 10 }, status: 'finished', resultState: 'confirmed', result: { sport: 'boxing', outcome: 'away', method: 'decision' } },
-  { ...base('penalties', '09:40', 'Club Horizonte', 'Club Aurora'), sport: 'football', format: { knockout: true, leg: 'single', requiresResolution: true }, status: 'finished', resultState: 'confirmed', result: { sport: 'football', scoreAt90: { home: 1, away: 1 }, extraTimeScore: { home: 1, away: 1 }, qualifier: 'away', resolution: 'penalties', penaltyScore: { home: 3, away: 4 } } },
-  { ...base('suspended', '18:00', 'Club de la Ribera', 'Club del Parque'), sport: 'football', format: { knockout: false }, status: 'suspended' },
-  { ...base('cancelled', '19:00', 'Elisa Sol', 'Ana Mar'), sport: 'tennis', format: { bestOf: 3 }, status: 'cancelled' },
-  { ...base('rescheduled', '20:00', 'Deportivo Central', 'Union Metropolitana'), sport: 'football', format: { knockout: false }, status: 'rescheduled', previousScheduledStart: '2026-09-13T18:00:00-03:00' },
-  { ...base('draw', '09:50', 'Rene Vidal', 'Leo Costa'), sport: 'boxing', format: { rounds: 12 }, status: 'finished', resultState: 'confirmed', result: { sport: 'boxing', outcome: 'draw' } },
-  { ...base('void', '10:00', 'Emi Farol', 'Cris Alba'), sport: 'boxing', format: { rounds: 10 }, status: 'void', resultState: 'review', result: { sport: 'boxing', outcome: 'no-contest' } },
+  { ...base('football', '14:00', 'Equipo local demo', 'Equipo visitante demo'), sport: 'football', format: { knockout: false }, competition: 'Liga Profesional de Fútbol (demo)', broadcastStart: '2026-09-13T13:30:00-03:00' },
+  { ...base('cup', '15:00', 'Equipo A demo', 'Equipo B demo'), sport: 'football', format: { knockout: true, leg: 'return', requiresResolution: true }, competition: 'Copa Argentina (demo)' },
+  { ...base('tennis3', '16:00', 'Jugador A demo', 'Jugador B demo'), sport: 'tennis', format: { bestOf: 3 } },
+  { ...base('tennis5', '17:00', 'Jugador C demo', 'Jugador D demo'), sport: 'tennis', format: { bestOf: 5 }, competition: 'ATP 500 (demo)' },
+  { ...base('live', '11:00', 'Jugador E demo', 'Jugador F demo'), sport: 'tennis', format: { bestOf: 3 }, status: 'live', resultState: 'partial', actualStart: '2026-09-13T11:07:00-03:00', result: { sport: 'tennis', winner: 'home', loserSets: 0, sets: [{ home: 6, away: 3 }, { home: 2, away: 4 }] } },
+  { ...base('exact', '09:00', 'Equipo C demo', 'Equipo D demo'), sport: 'football', format: { knockout: false }, competition: 'Liga Profesional de Fútbol (demo)', status: 'finished', resultState: 'confirmed', result: { sport: 'football', scoreAt90: { home: 2, away: 1 } } },
+  { ...base('sets', '09:10', 'Jugador G demo', 'Jugador H demo'), sport: 'tennis', format: { bestOf: 3 }, status: 'finished', resultState: 'confirmed', result: { sport: 'tennis', winner: 'home', loserSets: 1, sets: [{ home: 6, away: 4 }, { home: 3, away: 6 }, { home: 6, away: 2 }] } },
+  { ...base('penalties', '09:40', 'Equipo E demo', 'Equipo F demo'), sport: 'football', format: { knockout: true, leg: 'single', requiresResolution: true }, competition: 'Copa Argentina (demo)', status: 'finished', resultState: 'confirmed', result: { sport: 'football', scoreAt90: { home: 1, away: 1 }, extraTimeScore: { home: 1, away: 1 }, qualifier: 'away', resolution: 'penalties', penaltyScore: { home: 3, away: 4 } } },
+  { ...base('suspended', '18:00', 'Equipo G demo', 'Equipo H demo'), sport: 'football', format: { knockout: false }, competition: 'Liga Profesional de Fútbol (demo)', status: 'suspended' },
+  { ...base('cancelled', '19:00', 'Jugador I demo', 'Jugador J demo'), sport: 'tennis', format: { bestOf: 3 }, status: 'cancelled' },
+  { ...base('rescheduled', '20:00', 'Equipo I demo', 'Equipo J demo'), sport: 'football', format: { knockout: false }, competition: 'Liga Profesional de Fútbol (demo)', status: 'rescheduled', previousScheduledStart: '2026-09-13T18:00:00-03:00' },
 ]
 const closedEvents: DailyEvent[] = dailyEvents.filter(e => ['demo-exact', 'demo-sets'].includes(e.id)).map(e => ({
   ...e, id: e.id + '-closed', journeyId: demoJourneys[0].id,

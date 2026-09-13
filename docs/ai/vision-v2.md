@@ -31,6 +31,8 @@ La experiencia principal debe permitir:
 - La documentacion de desarrollo no reemplaza la auditoria operativa de resultados, pronosticos y correcciones.
 - La fuente manual de desarrollo no es una integracion deportiva, no persiste al recargar y debe identificarse visiblemente como demo.
 - La portada diaria debe diferenciar por completo sus datos de los registros historicos: metricas, ranking, pozo y eventos se derivan de la jornada y sala seleccionadas.
+- Inicio es un resumen editorial; `/diario` es el espacio operativo. Mi Prode, Ranking y Reglas diarios no cargan los componentes ni las consultas del Mundial.
+- La agenda publica solo muestra eventos aceptados por el catálogo central. Los fixtures sinteticos se identifican como demo y nunca se presentan como agenda real.
 
 ## Pendiente de definicion
 

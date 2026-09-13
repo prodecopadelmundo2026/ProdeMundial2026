@@ -1,5 +1,17 @@
 # Worklog
 
+## 2026-09-13 - P012 separación diaria y catálogo deportivo
+
+### Cambios
+
+- Separamos Inicio, Prode diario, Mi Prode, Ranking y Reglas de la experiencia histórica.
+- Se creó catálogo central y validación de elegibilidad pública.
+- Se reubicaron los accesos históricos equivalentes bajo Historial y se quitó el selector técnico de escenarios de la UI pública.
+
+### Validación
+
+- Contrato 122/122, TypeScript y build correctos.
+
 ## 2026-09-13 - P011 adaptacion UX/UI del Prode diario
 
 ### Objetivo

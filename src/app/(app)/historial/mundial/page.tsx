@@ -481,13 +481,13 @@ const nextMatchTrajectory = nextMatch?.id.startsWith('virtual-p')
                 : 'Seguí el Mundial, los pronósticos y el ranking del Prode 26.'}
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link href="/mi-prode" className="group inline-flex items-center gap-[10px] rounded-full bg-orange px-[26px] py-[18px] text-[15px] font-extrabold text-bg shadow-[0_10px_28px_-10px_rgba(255,107,0,.6)] transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-10px_rgba(255,107,0,.8)]">
+              <Link href="/historial/mundial/mi-prode" className="group inline-flex items-center gap-[10px] rounded-full bg-orange px-[26px] py-[18px] text-[15px] font-extrabold text-bg shadow-[0_10px_28px_-10px_rgba(255,107,0,.6)] transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-10px_rgba(255,107,0,.8)]">
                 Ver mi prode
                 <svg className="h-[18px] w-[18px] transition-transform duration-200 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M5 12h14M13 5l7 7-7 7" />
                 </svg>
               </Link>
-              <Link href="/ranking" className="inline-flex items-center gap-[10px] rounded-full px-[26px] py-[18px] text-[15px] font-extrabold text-white transition-colors duration-150 hover:bg-white/10" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.16)' }}>
+              <Link href="/historial/mundial/ranking" className="inline-flex items-center gap-[10px] rounded-full px-[26px] py-[18px] text-[15px] font-extrabold text-white transition-colors duration-150 hover:bg-white/10" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.16)' }}>
                 Ver ranking
               </Link>
               <Link href="/fixture" className="inline-flex items-center gap-[10px] rounded-full px-[26px] py-[18px] text-[15px] font-extrabold text-white transition-colors duration-150 hover:bg-white/10" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.16)' }}>
