@@ -1,5 +1,11 @@
 # Worklog
 
+## 2026-09-13 - P014 agenda única, calendario y preparación móvil
+
+- Inicio concentra la agenda pública; `/diario` redirige permanentemente.
+- Calendario, cierre MVP y contador quedan centralizados para datos públicos futuros; no hay eventos ficticios visibles.
+- `dev` se alineó por fast-forward con `main` y se preservó una rama de respaldo local.
+
 ## 2026-09-13 - P013 auditoria de experiencia diaria y eventos validos
 
 ### Cambios

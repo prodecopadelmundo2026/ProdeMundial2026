@@ -58,6 +58,8 @@ Indice operativo para retomar el trabajo de Prode diario V2 sin depender de memo
 - `docs/ai/prompts/P013-auditoria-experiencia-diaria.md`: auditoria integral solicitada para experiencia diaria, eventos validos y responsive.
 - `docs/ai/decisiones/P013-auditoria-y-datos-validos.md`: frontera entre datos publicos verificados y fixtures de desarrollo.
 - `docs/ai/ejecuciones/P013-auditoria-y-datos-validos.md`: implementacion, validacion y limites de P013.
+- `docs/ai/prompts/P014-home-calendario-mobile.md`: agenda única, calendario, cierre y preparación móvil.
+- `docs/ai/decisiones/P014-home-calendario-y-mobile.md`: decisiones de navegación y cierre.
 - `docs/ai/competition-catalog.md`: competencias admitidas y exclusiones de la agenda publica.
 - `docs/ai/infrastructure/dev-environment-plan.md`: plan seguro para rama, base y credenciales de desarrollo futuras.
 - `docs/ai/prompts/P001-inicio-v2-prode-diario.md`: prompt original recibido para iniciar V2.

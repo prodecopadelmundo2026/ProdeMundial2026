@@ -15,7 +15,6 @@ type NavLink = {
 
 const NAV_LINKS: NavLink[] = [
   { href: '/', label: 'Inicio', exact: true, anchor: false },
-  { href: '/diario', label: 'Prode diario', exact: false, anchor: false },
   { href: '/mi-prode', label: 'Mi Prode', exact: false, anchor: false },
   { href: '/ranking', label: 'Ranking', exact: false, anchor: false },
   { href: '/historial', label: 'Historial', exact: false, anchor: false },

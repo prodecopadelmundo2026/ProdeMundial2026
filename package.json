@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "daily-prode:verify-contract": "node scripts/verify-daily-prode-contract.mjs"
+    "daily-prode:verify-contract": "node scripts/verify-daily-prode-contract.mjs",
+    "daily-prode:verify-journey": "node scripts/verify-daily-journey.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

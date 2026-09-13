@@ -1,0 +1,8 @@
+'use client'
+import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { addJourneyDays, journeyDate } from '@/lib/daily-prode/journey'
+
+export function DailyJourneySelector({ value, onChange, hasEvents = false, locked = false }: { value: string; onChange: (value: string) => void; hasEvents?: boolean; locked?: boolean }) {
+  const today = journeyDate()
+  return <section className="grid min-w-0 gap-2" aria-label="Selector de jornada"><p className="font-mono text-[10px] font-extrabold uppercase tracking-[.1em] text-muted">Jornada</p><div className="grid grid-cols-[40px_minmax(0,1fr)_40px] gap-2"><button type="button" onClick={() => onChange(addJourneyDays(value, -1))} className="grid h-10 place-items-center rounded-md border border-white/15 bg-black/70" aria-label="Día anterior"><ChevronLeft size={17} /></button><label className="relative grid min-w-0"><span className="sr-only">Elegir fecha</span><CalendarDays className="pointer-events-none absolute left-3 top-3 text-orange" size={15} /><input type="date" value={value} onChange={(event) => onChange(event.target.value)} className="h-10 w-full rounded-md border border-white/15 bg-black/70 px-9 text-center text-sm font-extrabold text-white [color-scheme:dark]" /></label><button type="button" onClick={() => onChange(addJourneyDays(value, 1))} className="grid h-10 place-items-center rounded-md border border-white/15 bg-black/70" aria-label="Día siguiente"><ChevronRight size={17} /></button></div><p className="text-[10px] font-bold text-muted">{value === today ? 'Hoy' : locked ? 'Jornada cerrada' : hasEvents ? 'Eventos verificados' : 'Sin eventos verificados'}</p></section>
+}
